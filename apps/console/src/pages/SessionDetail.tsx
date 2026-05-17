@@ -653,19 +653,48 @@ export function SessionDetail() {
         }
       }
 
-      // Build content blocks: any text first, then a small "Attached"
-      // line listing the uploaded file_ids so the agent can read them
-      // via its file_read tool. Cleaner than embedding base64 in the
-      // event log (which would also blow past the model's context
-      // window for non-trivial attachments).
-      const composed = uploaded.length
-        ? `${text ? text + "\n\n" : ""}📎 Attached ${uploaded.length === 1 ? "file" : "files"}:\n${uploaded.map((u) => `- \`${u.filename}\` (file_id: ${u.id}, ${u.media_type})`).join("\n")}`
-        : text;
+      // Build user.message content per AMA spec
+      // (packages/api-types/src/types.ts:184-214): text first, then per
+      // uploaded file an ImageBlock (for image/*) or DocumentBlock (for
+      // pdf / text / source code). source.type="file" + file_id lets the
+      // model receive the file inline (vision for images, native PDF
+      // parsing for application/pdf, full-text for text/*). Anything we
+      // can't classify falls back to a DocumentBlock with the file_id
+      // anyway — the spec accepts it; the harness decides whether to
+      // dereference based on the agent's tools/skills.
+      const content: Array<
+        | { type: "text"; text: string }
+        | { type: "image"; source: { type: "file"; file_id: string; media_type: string } }
+        | { type: "document"; source: { type: "file"; file_id: string; media_type: string }; title?: string }
+      > = [];
+      if (text) content.push({ type: "text", text });
+      for (const u of uploaded) {
+        if (u.media_type.startsWith("image/")) {
+          content.push({
+            type: "image",
+            source: { type: "file", file_id: u.id, media_type: u.media_type },
+          });
+        } else {
+          content.push({
+            type: "document",
+            source: { type: "file", file_id: u.id, media_type: u.media_type },
+            title: u.filename,
+          });
+        }
+      }
+      // Guard the all-files / no-text case so the model still has SOME
+      // textual context about what the user wanted done with them.
+      if (!text && uploaded.length) {
+        content.unshift({
+          type: "text",
+          text: `📎 ${uploaded.length === 1 ? "Attached file" : "Attached files"}.`,
+        });
+      }
 
       await api(`/v1/sessions/${id}/events`, {
         method: "POST",
         body: JSON.stringify({
-          events: [{ type: "user.message", content: [{ type: "text", text: composed }] }],
+          events: [{ type: "user.message", content }],
         }),
       });
       // POST resolved → server already inserted the row + broadcast
