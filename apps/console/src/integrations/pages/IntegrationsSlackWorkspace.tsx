@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { IntegrationsApi } from "../api/client";
+import { Field } from "../../components/Field";
 import type { SlackInstallation, SlackPublication } from "../api/types";
 
 const api = new IntegrationsApi();
@@ -58,10 +59,10 @@ export function IntegrationsSlackWorkspace() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-[1100px] mx-auto px-8 lg:px-10 py-8 lg:py-10">
+      <div className="max-w-[1100px] mx-auto px-4 sm:px-8 lg:px-10 py-8 lg:py-10">
         <Link
           to="/integrations/slack"
-          className="inline-flex items-center gap-1 text-[13px] text-fg-muted hover:text-brand transition-colors"
+          className="inline-flex items-center gap-1 text-[13px] text-fg-muted hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
         >
           ← Slack integrations
         </Link>
@@ -78,7 +79,7 @@ export function IntegrationsSlackWorkspace() {
             </div>
             <Link
               to={`/integrations/slack/publish?workspace=${id}`}
-              className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand text-brand-fg rounded-md text-[13px] font-medium hover:bg-brand-hover transition-colors whitespace-nowrap"
+              className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand text-brand-fg rounded-md text-[13px] font-medium hover:bg-brand-hover transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] whitespace-nowrap"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
               Publish another
@@ -168,11 +169,11 @@ function PublicationCard({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between gap-4 px-5 py-4 hover:bg-bg-surface/40 transition-colors text-left"
+        className="w-full flex items-center justify-between gap-4 px-5 py-4 hover:bg-bg-surface/40 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] text-left"
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">
           {pub.persona.avatarUrl ? (
-            <img src={pub.persona.avatarUrl} alt="" className="w-7 h-7 rounded-full shrink-0" />
+            <img src={pub.persona.avatarUrl} alt="" loading="lazy" decoding="async" className="w-7 h-7 rounded-full shrink-0" />
           ) : (
             <div className="w-7 h-7 rounded-full bg-brand-subtle text-brand flex items-center justify-center text-[12px] font-medium shrink-0">
               {pub.persona.name.slice(0, 1).toUpperCase()}
@@ -257,7 +258,7 @@ function PublicationCard({
             <button
               onClick={save}
               disabled={working}
-              className="px-3.5 py-2 bg-brand text-brand-fg rounded-md text-[13px] font-medium hover:bg-brand-hover disabled:opacity-50 transition-colors"
+              className="px-3.5 py-2 bg-brand text-brand-fg rounded-md text-[13px] font-medium hover:bg-brand-hover disabled:opacity-50 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
             >
               {working ? "Saving…" : "Save changes"}
             </button>
@@ -276,13 +277,4 @@ function PublicationCard({
 }
 
 const inputCls =
-  "w-full border border-border rounded-md px-3 py-2 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors placeholder:text-fg-subtle";
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-[12px] font-medium text-fg-muted mb-1.5">{label}</label>
-      {children}
-    </div>
-  );
-}
+  "w-full border border-border rounded-md px-3 py-2 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle";

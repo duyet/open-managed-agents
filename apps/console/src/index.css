@@ -11,7 +11,10 @@
   --brand: oklch(0.68 0.19 25);        /* #FF6B50 in oklch */
   --brand-hover: oklch(0.62 0.19 25);  /* darker coral */
   --brand-subtle: oklch(0.96 0.03 25); /* barely-there coral tint */
-  --brand-fg: #fff;
+  /* Dark warm tone that pairs with brand for AA contrast (~5.4:1 on coral).
+     White on coral is only 2.96:1 — fails AA-normal at every UI text size,
+     so brand-fg is dark, not white. Visually keeps brand "warm" not "stark". */
+  --brand-fg: #3d2520;
 
   --bg: #fefefe;
   --bg-sidebar: #f8f8f7;
@@ -33,6 +36,29 @@
   --danger-subtle: oklch(0.96 0.04 25);
   --info: oklch(0.58 0.16 260);
   --info-subtle: oklch(0.96 0.03 260);
+  --accent-violet: oklch(0.55 0.2 300);
+  --accent-violet-subtle: oklch(0.96 0.03 300);
+
+  /* Surface elevation — single shadow token, theme-aware. Light mode
+     uses near-black at 10% opacity; dark mode bumps to 50% so drop
+     shadows actually read against the dark surface. */
+  --shadow-md: 0 4px 12px -4px rgb(0 0 0 / 0.12);
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 0.08);
+
+  /* Motion tokens. Default Tailwind transitions feel "computer-y" (linear
+     timing-function, 150ms blanket duration). These curves + scale give
+     interactions weight without being slow:
+     - soft: iOS-style spring out, perfect for modal/toast/menu reveal
+     - snap: tight ease-out for press states, hover state changes
+     - quart: gentle deceleration for layout-affecting changes
+     Pair with --dur-quick (button hover, focus), --dur-base (most state
+     changes), --dur-slow (overlays, page-level changes). */
+  --ease-soft: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-snap: cubic-bezier(0.5, 0, 0.1, 1);
+  --ease-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --dur-quick: 100ms;
+  --dur-base: 150ms;
+  --dur-slow: 220ms;
 
   --ring: var(--brand);
   color-scheme: light;
@@ -43,7 +69,9 @@
   --brand: oklch(0.7 0.18 25);         /* slightly brighter coral for dark bg */
   --brand-hover: oklch(0.76 0.16 25);
   --brand-subtle: oklch(0.25 0.06 25);
-  --brand-fg: #fff;
+  /* Same dark warm tone in dark mode — brand stays coral, fg stays dark.
+     #3d2520 on coral is ~5.4:1 (AA-pass); white would be ~2.96:1 (AA-fail). */
+  --brand-fg: #3d2520;
 
   --bg: #151515;
   --bg-sidebar: #1a1a1a;
@@ -65,6 +93,12 @@
   --danger-subtle: oklch(0.22 0.05 25);
   --info: oklch(0.72 0.14 260);
   --info-subtle: oklch(0.22 0.04 260);
+  --accent-violet: oklch(0.72 0.16 300);
+  --accent-violet-subtle: oklch(0.22 0.05 300);
+
+  /* Dark-mode shadow — needs more opacity to register against #151515. */
+  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.5);
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 0.4);
 
   --ring: var(--brand);
   color-scheme: dark;
@@ -103,8 +137,45 @@
   --color-danger-subtle: var(--danger-subtle);
   --color-info: var(--info);
   --color-info-subtle: var(--info-subtle);
+  --color-accent-violet: var(--accent-violet);
+  --color-accent-violet-subtle: var(--accent-violet-subtle);
 
   --color-ring: var(--ring);
+
+  /* shadcn-style primitive aliases. The ai-elements + components/ui
+     primitives are vanilla shadcn copy-paste and reach for tokens like
+     `--color-secondary`, `--color-muted-foreground`, etc. Without these
+     aliases Tailwind v4 emits no rule for `bg-secondary`, `text-muted-
+     foreground`, `bg-popover`, `border-input` (the lookup just silently
+     yields nothing) and the lifted shadcn surfaces render unstyled.
+     Mapping straight onto the existing OMA palette keeps the chat surface
+     visually consistent with the rest of the console — no second palette
+     to maintain. Both themes (light + dark) get correct values automatically
+     because the OMA tokens above are theme-aware. */
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-card: var(--bg);
+  --color-card-foreground: var(--fg);
+  --color-popover: var(--bg);
+  --color-popover-foreground: var(--fg);
+  --color-primary: var(--brand);
+  --color-primary-foreground: var(--brand-fg);
+  --color-secondary: var(--bg-surface);
+  --color-secondary-foreground: var(--fg);
+  --color-muted: var(--bg-surface);
+  --color-muted-foreground: var(--fg-muted);
+  --color-accent: var(--bg-surface);
+  --color-accent-foreground: var(--fg);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: #ffffff;
+  --color-input: var(--border);
+
+  /* shadcn primitives derive button + input rounding from --radius
+     via `rounded-[min(var(--radius-md),12px)]` and similar. OMA's
+     existing rounded utilities use the Tailwind defaults, so pin a
+     value that matches our existing chat bubble feel (rounded-lg). */
+  --radius: 0.5rem;
+  --radius-md: 0.5rem;
 }
 
 /* ---------- Base typography ---------- */
@@ -138,8 +209,357 @@ body {
   background: var(--fg-subtle);
 }
 
-/* Dark mode code highlights */
+/* Dark mode code highlights — github.css ships light-mode token colors
+   (greens, blues, purples) that look dim against --bg-surface in dark
+   mode. Override with github-dark token palette so syntax stays readable. */
 .dark pre code.hljs {
   background: var(--bg-surface);
   color: var(--fg);
+}
+.dark .hljs-comment,
+.dark .hljs-quote {
+  color: #8b949e;
+}
+.dark .hljs-keyword,
+.dark .hljs-selector-tag,
+.dark .hljs-section,
+.dark .hljs-link {
+  color: #ff7b72;
+}
+.dark .hljs-string,
+.dark .hljs-attr,
+.dark .hljs-meta-string {
+  color: #a5d6ff;
+}
+.dark .hljs-number,
+.dark .hljs-literal,
+.dark .hljs-symbol {
+  color: #79c0ff;
+}
+.dark .hljs-built_in,
+.dark .hljs-type,
+.dark .hljs-class .hljs-title {
+  color: #ffa657;
+}
+.dark .hljs-title,
+.dark .hljs-name,
+.dark .hljs-function .hljs-title {
+  color: #d2a8ff;
+}
+.dark .hljs-variable,
+.dark .hljs-template-variable,
+.dark .hljs-attribute {
+  color: #ffa657;
+}
+.dark .hljs-deletion {
+  color: #ffdcd7;
+  background-color: #67060c;
+}
+.dark .hljs-addition {
+  color: #aff5b4;
+  background-color: #033a16;
+}
+
+/* BrandLoader dot pulse — wave from left to right via staggered
+   animation-delay on each child. Smoother than animate-pulse
+   (Tailwind's default opacity 0.5↔1) because the dots dim further
+   (0.25) and back, giving a clearer "moving" feel. */
+@keyframes brand-loader-dot {
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50%      { opacity: 1;    transform: translateY(-1px); }
+}
+.brand-loader-dot {
+  display: inline-block;
+  animation: brand-loader-dot 1200ms var(--ease-soft) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-loader-dot { animation: none; opacity: 0.6; }
+}
+
+/* Modal (Radix Dialog) overlay + content animations.
+   Driven by data-state on Dialog.Overlay and Dialog.Content; Radix
+   waits for the closed-state animation to finish before unmounting
+   via its built-in Presence wrapper. Durations match the previous
+   hand-rolled Modal (overlay = --dur-base, content = --dur-slow). */
+@keyframes modal-overlay-in  { from { opacity: 0 } to { opacity: 1 } }
+@keyframes modal-overlay-out { from { opacity: 1 } to { opacity: 0 } }
+@keyframes modal-content-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1);    }
+}
+@keyframes modal-content-out {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1);    }
+  to   { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+}
+.modal-overlay[data-state="open"]    { animation: modal-overlay-in  var(--dur-base) var(--ease-soft); }
+.modal-overlay[data-state="closed"]  { animation: modal-overlay-out var(--dur-base) var(--ease-soft); }
+.modal-content[data-state="open"]    { animation: modal-content-in  var(--dur-slow) var(--ease-soft); }
+.modal-content[data-state="closed"]  { animation: modal-content-out var(--dur-slow) var(--ease-soft); }
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay[data-state="open"],
+  .modal-overlay[data-state="closed"],
+  .modal-content[data-state="open"],
+  .modal-content[data-state="closed"] {
+    animation-duration: 1ms;
+  }
+}
+
+/* Skeleton placeholder pulse — quieter than animate-pulse (Tailwind's
+   default goes opacity 0.5↔1, which reads as "flashing" in long lists).
+   This stays subtle: 0.4↔0.65 with the same soft easing as the rest. */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4;  }
+  50%      { opacity: 0.65; }
+}
+.skeleton-pulse { animation: skeleton-pulse 1500ms var(--ease-soft) infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-pulse { animation: none; opacity: 0.55; }
+}
+
+/* Radix Toast root animations. Driven by data-state (open/closed) and
+   data-swipe (start/move/cancel/end) that Radix sets on Toast.Root.
+
+   - Open: slide in from the right + fade. We use --dur-slow so the
+     reveal has the same weight as the modal reveal.
+   - Close (timeout or X / Escape): slide back out the right + fade.
+   - Swipe: during a drag, Radix exposes --radix-toast-swipe-move-x and
+     we follow the pointer. On cancel, snap back. On end (past the
+     swipeThreshold), fly off using --radix-toast-swipe-end-x as the
+     starting point so the motion is continuous with the gesture. */
+@keyframes toast-slide-in {
+  from { transform: translateX(calc(100% + 1rem)); opacity: 0; }
+  to   { transform: translateX(0);                 opacity: 1; }
+}
+@keyframes toast-slide-out {
+  from { transform: translateX(0);                 opacity: 1; }
+  to   { transform: translateX(calc(100% + 1rem)); opacity: 0; }
+}
+@keyframes toast-swipe-out {
+  from { transform: translateX(var(--radix-toast-swipe-end-x)); }
+  to   { transform: translateX(calc(100% + 1rem)); opacity: 0;  }
+}
+.toast-root[data-state="open"]    { animation: toast-slide-in  var(--dur-slow) var(--ease-soft); }
+.toast-root[data-state="closed"]  { animation: toast-slide-out var(--dur-base) var(--ease-soft); }
+.toast-root[data-swipe="move"]    { transform: translateX(var(--radix-toast-swipe-move-x)); }
+.toast-root[data-swipe="cancel"]  {
+  transform: translateX(0);
+  transition: transform var(--dur-base) var(--ease-soft);
+}
+.toast-root[data-swipe="end"]     { animation: toast-swipe-out var(--dur-base) var(--ease-soft); }
+@media (prefers-reduced-motion: reduce) {
+  .toast-root[data-state="open"],
+  .toast-root[data-state="closed"],
+  .toast-root[data-swipe="end"] {
+    animation-duration: 1ms;
+  }
+  .toast-root[data-swipe="cancel"] {
+    transition-duration: 1ms;
+  }
+}
+
+/* Radix Collapsible (Disclosure) panel slide. The library exposes
+   --radix-collapsible-content-height on the Content element so we can
+   animate height from 0 → measured (or vice versa). */
+@keyframes collapsible-down {
+  from { height: 0; }
+  to   { height: var(--radix-collapsible-content-height); }
+}
+@keyframes collapsible-up {
+  from { height: var(--radix-collapsible-content-height); }
+  to   { height: 0; }
+}
+.collapsible-content[data-state="open"]   { animation: collapsible-down var(--dur-base) var(--ease-soft); }
+.collapsible-content[data-state="closed"] { animation: collapsible-up   var(--dur-base) var(--ease-soft); }
+@media (prefers-reduced-motion: reduce) {
+  .collapsible-content[data-state="open"],
+  .collapsible-content[data-state="closed"] {
+    animation-duration: 1ms;
+  }
+}
+
+/* ---------- Reduced-motion fallback ----------
+   WCAG 2.3.3 (AAA) — honor the OS-level `prefers-reduced-motion: reduce`
+   signal across the whole console. Strategy:
+
+   1) Zero out the motion tokens. Every component that animates via
+      `duration-[var(--dur-quick|base|slow)]` (Tailwind arbitrary value)
+      or `transition: ... var(--dur-*) ...` inline picks this up for free.
+      This is the load-bearing line — adds reduced-motion coverage to
+      every existing + future user of the tokens with one rule.
+   2) Tailwind's `animate-*` utilities ship their own keyframes that
+      bypass our tokens, so override them explicitly. `animate-pulse` and
+      `animate-bounce` freeze (they're decorative). `animate-spin` slows
+      to 5s rather than stopping — a frozen spinner reads as "stuck",
+      and the spinner's semantic job (still working) needs *some* motion
+      to communicate. 5s is slow enough not to provoke motion sickness.
+   3) `.nav-progress-*` classes are added to NavigationProgress to give
+      its inline `transition` strings (which include hardcoded 200/400ms
+      values that don't go through the tokens) a hook to neutralize.
+
+   Tailwind utilities like `transition-transform` / `transition-colors`
+   used without a duration arbitrary value pick up Tailwind's default
+   150ms — short enough that we leave them as-is for reduced-motion
+   users (the task brief explicitly allows ≤300ms transitions to pass
+   through). The rules above target the long-duration / infinite
+   animations that actually trigger motion sickness. */
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  .dark {
+    --dur-quick: 1ms;
+    --dur-base: 1ms;
+    --dur-slow: 1ms;
+  }
+
+  .animate-pulse,
+  .animate-bounce {
+    animation: none !important;
+  }
+  .animate-spin {
+    animation-duration: 5s !important;
+  }
+
+  .nav-progress-root,
+  .nav-progress-bar {
+    transition-duration: 1ms !important;
+  }
+}
+
+/* ---------- Print stylesheet ----------
+   The console is web-app-first, but operators do print session timelines,
+   eval reports, and run summaries (PDF export via the OS print dialog is
+   the path of least resistance). The rules below:
+
+   1) Force a light palette regardless of `.dark` on <html>, so the page
+      isn't a wall of inverted ink.
+   2) Hide non-content chrome (sidebar, nav header, modal portals, action
+      buttons) — anything an operator wouldn't want on paper.
+   3) Strip animations so transitions don't leave half-rendered frames in
+      the snapshot.
+   4) Expand min-h-screen / h-screen containers to their natural height so
+      content past the first viewport isn't clipped.
+   5) Print external link URLs inline (in parens after the anchor text),
+      because a printed page loses click affordance. Internal nav (#hash
+      and relative paths) is excluded — those URLs are noise on paper.
+   6) Avoid breaking cards / table rows across page boundaries. */
+@media print {
+  :root,
+  .dark {
+    /* Force light tokens. We list both selectors because the app may have
+       `.dark` on <html> at print time, and we want the override to win
+       regardless of theme state. */
+    --bg: #ffffff;
+    --bg-sidebar: #ffffff;
+    --bg-surface: #f5f5f5;
+    --bg-overlay: transparent;
+    --fg: #1a1a1a;
+    --fg-muted: #555555;
+    --fg-subtle: #888888;
+    --border: #cccccc;
+    --border-strong: #999999;
+    --shadow-md: none;
+    --shadow-sm: none;
+    color-scheme: light;
+  }
+
+  @page {
+    margin: 1.5cm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+
+  /* Hide chrome that has no place on a printed page. The aria-label
+     selectors target buttons rendered in Layout / TopBar / CommandPalette
+     without coupling to Tailwind class strings. */
+  aside,
+  nav,
+  [role="dialog"],
+  [role="alertdialog"],
+  [data-radix-portal],
+  [data-radix-popper-content-wrapper],
+  .toast-root,
+  button[aria-label="Open menu"],
+  button[aria-label="Close menu"],
+  button[aria-label="Close panel"],
+  button[aria-label="Close"],
+  button[aria-label="Dismiss"],
+  button[aria-label="Sign out"],
+  button[aria-label="Switch workspace"],
+  button[aria-label*="theme" i],
+  button[aria-label*="command" i] {
+    display: none !important;
+  }
+
+  /* Print every external link's URL inline so the page is usable on
+     paper. Internal links (`/agents`, `#section`) are skipped to keep
+     the printed output readable. */
+  a[href^="http"]::after,
+  a[href^="mailto:"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    color: #555555;
+    word-break: break-all;
+  }
+
+  /* Strip all motion. Transitions / animations mid-print can leave a
+     half-faded toast or modal in the snapshot. */
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* Containers with screen-locked heights (h-screen, min-h-screen) clip
+     long content to ~one viewport when printed. Let them grow. */
+  main,
+  .h-screen,
+  .min-h-screen,
+  [class*="overflow-"] {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Keep logical content units together when possible. */
+  tr,
+  article,
+  section,
+  li,
+  pre,
+  blockquote,
+  figure,
+  .skeleton-pulse {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Code blocks: keep their background tint so syntax highlighting is
+     legible on paper. color-adjust: exact tells the browser not to
+     "ink-save" the swatch out of existence. */
+  pre,
+  code,
+  .hljs {
+    background: #f5f5f5 !important;
+    color: #1a1a1a !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Headings shouldn't dangle alone at page bottom. */
+  h1, h2, h3, h4 {
+    page-break-after: avoid;
+    break-after: avoid;
+    color: #000000 !important;
+  }
+
+  /* Skeleton placeholders are loading states — never useful on paper. */
+  .skeleton-pulse {
+    display: none !important;
+  }
 }

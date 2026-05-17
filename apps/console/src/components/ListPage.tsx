@@ -1,5 +1,9 @@
 import { type ReactNode } from "react";
 import { Button } from "./Button";
+import { EmptyState, type EmptyStateKind } from "./EmptyState";
+import { Page } from "./Page";
+import { Pagination } from "./Pagination";
+import { Skeleton } from "./Skeleton";
 
 interface Column<T> {
   key: string;
@@ -50,16 +54,38 @@ interface ListPageProps<T> {
   emptyTitle?: string;
   /** ReactNode so callers can include code snippets, links etc. */
   emptySubtitle?: ReactNode;
+  /** Action slot rendered inside the empty state — typically a Button
+   *  that opens the create dialog so the empty state isn't a dead end. */
+  emptyAction?: ReactNode;
+  /** Entity-specific illustration shown above the empty-state title.
+   *  Omit to fall back to the `[ ]` brand glyph. */
+  emptyKind?: EmptyStateKind;
+  /** Custom illustration override for the empty state. Wins over
+   *  `emptyKind` when both are set. */
+  emptyIcon?: ReactNode;
 
   onRowClick?: (item: T) => void;
   getRowKey: (item: T) => string;
 
   /** Cursor pagination (mirrors useCursorList). When `onLoadMore` is set
    *  and `hasMore` is true, a "Load more" footer is rendered below the
-   *  table; while `loadingMore` is true the button shows a loading state. */
+   *  table; while `loadingMore` is true the button shows a loading state.
+   *  Mutually exclusive with paginated mode (`onPageChange`). */
   hasMore?: boolean;
   onLoadMore?: () => void;
   loadingMore?: boolean;
+
+  /** Paginated mode (mirrors usePagedList). When `onPageChange` is set
+   *  the full Pagination component is rendered (numbered pages, page-size
+   *  selector, range info). Mutually exclusive with `hasMore` /
+   *  `onLoadMore`; if both are wired the load-more footer wins. */
+  pageIndex?: number;
+  pageSize?: number;
+  hasNext?: boolean;
+  knownPages?: number;
+  pageSizeOptions?: number[];
+  onPageChange?: (idx: number) => void;
+  onPageSizeChange?: (size: number) => void;
 
   /** Anything to render below the table — typically modals tied to the
    *  page (create dialog, detail dialog, etc.). */
@@ -93,11 +119,21 @@ export function ListPage<T>({
   loading,
   emptyTitle = "Nothing here yet",
   emptySubtitle,
+  emptyAction,
+  emptyKind,
+  emptyIcon,
   onRowClick,
   getRowKey,
   hasMore,
   onLoadMore,
   loadingMore,
+  pageIndex,
+  pageSize,
+  hasNext,
+  knownPages,
+  pageSizeOptions,
+  onPageChange,
+  onPageSizeChange,
   children,
 }: ListPageProps<T>) {
   const hasControlsRow =
@@ -105,7 +141,7 @@ export function ListPage<T>({
   const showCreate = !!onCreate && !!createLabel;
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4 md:p-8 lg:p-10">
+    <Page>
       {/* Header */}
       <div className="flex items-start justify-between mb-6 gap-3">
         <div className="min-w-0">
@@ -149,7 +185,7 @@ export function ListPage<T>({
                 value={searchValue ?? ""}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder={searchPlaceholder ?? "Search..."}
-                className="border border-border rounded-md pl-8 pr-3 py-1.5 text-sm bg-bg text-fg placeholder:text-fg-subtle focus:border-brand focus:outline-none transition-colors w-full sm:w-64"
+                className="border border-border rounded-md pl-8 pr-3 py-1.5 min-h-11 sm:min-h-0 text-sm bg-bg text-fg placeholder:text-fg-subtle focus:border-brand focus:outline-none transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] w-full sm:w-64"
                 autoComplete="off"
                 name="oma-list-search"
               />
@@ -159,12 +195,12 @@ export function ListPage<T>({
           {filters}
 
           {onShowArchivedChange && (
-            <label className="flex items-center gap-2 text-sm text-fg-muted cursor-pointer select-none">
+            <label className="flex items-center gap-2 min-h-11 sm:min-h-0 text-sm text-fg-muted cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={showArchived ?? false}
                 onChange={(e) => onShowArchivedChange(e.target.checked)}
-                className="rounded accent-brand"
+                className="w-4 h-4 rounded accent-brand"
               />
               Show archived
             </label>
@@ -174,35 +210,69 @@ export function ListPage<T>({
 
       {/* Table / loading / empty */}
       {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <svg
-            className="animate-spin h-5 w-5 text-fg-subtle"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-            />
-          </svg>
+        <div className="border border-border rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-bg-surface text-fg-subtle text-xs font-medium uppercase tracking-wider">
+                  {columns.map((col) => (
+                    <th
+                      key={col.key}
+                      className={`text-left px-4 py-2.5 ${col.className ?? ""}`}
+                    >
+                      {col.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {/* Skeleton rows — same row count as the active page size
+                    (clamped to 10 so empty workspaces don't stretch a
+                    half-page of empty bars), same per-column padding as
+                    the real table so the cell-grid alignment is identical
+                    on load. Skeleton bar widths vary per column index to
+                    fake content density (id columns shorter, name columns
+                    longer) so it doesn't read as a uniform stripe. */}
+                {Array.from({ length: Math.min(pageSize ?? 10, 10) }).map((_, rowIdx) => (
+                  <tr
+                    key={`sk-${rowIdx}`}
+                    className="border-t border-border"
+                  >
+                    {columns.map((col, colIdx) => {
+                      // Vary skeleton width per column position: first col
+                      // (often id) ~40-60%, middle cols 70-90%, last cols
+                      // (timestamps / actions) ~30-50%. Add tiny per-row
+                      // jitter via (rowIdx + colIdx) so each row reads as
+                      // distinct content.
+                      const widthClass = (() => {
+                        if (colIdx === 0) return rowIdx % 2 === 0 ? "w-[55%]" : "w-[42%]";
+                        if (colIdx === columns.length - 1) return rowIdx % 2 === 0 ? "w-[38%]" : "w-[48%]";
+                        return rowIdx % 3 === 0 ? "w-[85%]" : rowIdx % 3 === 1 ? "w-[72%]" : "w-[60%]";
+                      })();
+                      return (
+                        <td
+                          key={col.key}
+                          className={`px-4 py-3 ${col.className ?? ""}`}
+                        >
+                          <Skeleton className={`h-3.5 ${widthClass}`} rounded="sm" />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : data.length === 0 ? (
-        <div className="text-center py-16 text-fg-subtle">
-          <p className="text-lg mb-1">{emptyTitle}</p>
-          {emptySubtitle && (
-            <div className="text-sm">{emptySubtitle}</div>
-          )}
-        </div>
+        <EmptyState
+          title={emptyTitle}
+          body={emptySubtitle}
+          action={emptyAction}
+          kind={emptyKind}
+          icon={emptyIcon}
+          size="lg"
+        />
       ) : (
         <div className="border border-border rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
@@ -224,7 +294,7 @@ export function ListPage<T>({
                   <tr
                     key={getRowKey(item)}
                     onClick={onRowClick ? () => onRowClick(item) : undefined}
-                    className={`border-t border-border transition-colors ${
+                    className={`border-t border-border transition-[background-color] duration-[var(--dur-quick)] ease-[var(--ease-soft)] ${
                       onRowClick
                         ? "hover:bg-bg-surface cursor-pointer"
                         : "hover:bg-bg-surface"
@@ -247,21 +317,33 @@ export function ListPage<T>({
               </tbody>
             </table>
           </div>
-          {hasMore && onLoadMore && (
+          {hasMore && onLoadMore ? (
             <div className="flex justify-center border-t border-border bg-bg-surface py-3">
               <button
                 onClick={onLoadMore}
                 disabled={loadingMore}
-                className="text-sm text-fg-muted hover:text-fg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center justify-center px-3 min-h-11 sm:min-h-0 text-sm text-fg-muted hover:text-fg disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
               >
                 {loadingMore ? "Loading…" : "Load more"}
               </button>
             </div>
-          )}
+          ) : onPageChange && onPageSizeChange ? (
+            <Pagination
+              pageIndex={pageIndex ?? 0}
+              pageSize={pageSize ?? 20}
+              hasNext={hasNext ?? false}
+              knownPages={knownPages ?? 1}
+              itemCount={data.length}
+              pageSizeOptions={pageSizeOptions}
+              loading={loading}
+              onPageChange={onPageChange}
+              onPageSizeChange={onPageSizeChange}
+            />
+          ) : null}
         </div>
       )}
 
       {children}
-    </div>
+    </Page>
   );
 }

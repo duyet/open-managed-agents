@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useApi } from "../lib/api";
+import { useApiQuery } from "../lib/useApiQuery";
 import type { Trajectory } from "../lib/trajectory";
 import { rewardHeadline } from "../lib/trajectory";
 
@@ -74,9 +75,6 @@ export function EvalRunDetail() {
   const { id } = useParams<{ id: string }>();
   const { api } = useApi();
   const nav = useNavigate();
-  const [run, setRun] = useState<EvalRunDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   /** Cache of trajectory fetches keyed by session_id. Populated lazily when
    *  the user expands a task row — we don't pull every trial's trajectory
@@ -88,31 +86,26 @@ export function EvalRunDetail() {
     Map<string, Trajectory | "loading" | "error">
   >(new Map());
 
-  useEffect(() => {
-    if (!id) return;
-    let cancelled = false;
-    let timer: number | undefined;
-    async function load() {
-      try {
-        const r = await api<EvalRunDetail>(`/v1/evals/runs/${id}`);
-        if (cancelled) return;
-        setRun(r);
-        setLoading(false);
-        if (r.status === "pending" || r.status === "running") {
-          timer = window.setTimeout(load, 5_000);
-        }
-      } catch (err) {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : "load failed");
-        setLoading(false);
-      }
-    }
-    load();
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, [id, api]);
+  // Run detail with auto-poll while the run is unfinished. Using TQ's
+  // refetchInterval so we don't have to hand-roll the cleanup-on-unmount
+  // dance the previous useEffect did. Returning `false` stops the poll
+  // once the run reaches a terminal state.
+  const {
+    data: run,
+    isLoading: loading,
+    error: queryError,
+  } = useApiQuery<EvalRunDetail>(
+    id ? `/v1/evals/runs/${id}` : null,
+    undefined,
+    {
+      refetchInterval: (query) => {
+        const r = query.state.data as EvalRunDetail | undefined;
+        if (!r) return false;
+        return r.status === "pending" || r.status === "running" ? 5_000 : false;
+      },
+    },
+  );
+  const error = queryError instanceof Error ? queryError.message : queryError ? String(queryError) : null;
 
   function toggleExpand(taskId: string) {
     setExpanded(prev => {
@@ -182,7 +175,7 @@ export function EvalRunDetail() {
       <div>
         <button
           onClick={() => nav("/evals")}
-          className="text-sm text-fg-subtle hover:text-fg transition-colors"
+          className="inline-flex items-center min-h-11 sm:min-h-0 text-sm text-fg-subtle hover:text-fg transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
         >
           ← All runs
         </button>
@@ -249,7 +242,7 @@ export function EvalRunDetail() {
         </div>
       )}
 
-      <div className="border border-border rounded-lg overflow-hidden">
+      <div className="border border-border rounded-lg overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-bg-surface text-fg-subtle text-xs font-medium uppercase tracking-wider">
@@ -266,7 +259,7 @@ export function EvalRunDetail() {
               return [
                 <tr
                   key={t.id}
-                  className="border-t border-border hover:bg-bg-surface cursor-pointer transition-colors"
+                  className="border-t border-border hover:bg-bg-surface cursor-pointer transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
                   onClick={() => toggleExpand(t.id)}
                 >
                   <td className="text-fg-subtle px-2 py-3 text-center">{isOpen ? "▾" : "▸"}</td>
@@ -287,7 +280,8 @@ export function EvalRunDetail() {
                   <tr key={`${t.id}-trials`} className="border-t border-border bg-bg-surface">
                     <td />
                     <td colSpan={4} className="px-4 py-3 space-y-3">
-                      <table className="w-full text-xs">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
                         <thead>
                           <tr className="text-fg-subtle">
                             <th className="text-left py-1 pr-3 font-medium">#</th>
@@ -333,6 +327,7 @@ export function EvalRunDetail() {
                           ))}
                         </tbody>
                       </table>
+                      </div>
 
                       {t.trials.some(tr => tr.session_id && trajectories.get(tr.session_id) && trajectories.get(tr.session_id) !== "loading" && trajectories.get(tr.session_id) !== "error") && (
                         <details>
@@ -500,16 +495,18 @@ function RewardBreakdown({
       {entries.length === 0 ? (
         <div className="text-[11px] text-fg-subtle italic">no raw_rewards recorded</div>
       ) : (
-        <table className="w-full text-[11px]">
-          <tbody>
-            {entries.map(([k, v]) => (
-              <tr key={k} className="border-t border-border/40">
-                <td className="py-0.5 pr-2 font-mono text-fg-muted">{k}</td>
-                <td className="py-0.5 text-right text-fg">{Number.isFinite(v) ? v.toFixed(2) : String(v)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[11px]">
+            <tbody>
+              {entries.map(([k, v]) => (
+                <tr key={k} className="border-t border-border/40">
+                  <td className="py-0.5 pr-2 font-mono text-fg-muted">{k}</td>
+                  <td className="py-0.5 text-right text-fg">{Number.isFinite(v) ? v.toFixed(2) : String(v)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

@@ -1,9 +1,9 @@
 import { streamText, stepCountIs, wrapLanguageModel } from "ai";
 import type { ContentPart, ModelMessage, LanguageModel, SystemModelMessage } from "ai";
-import type { HarnessInterface, HarnessContext, HarnessRuntime } from "./interface";
+import type { HarnessInterface, HarnessContext, HarnessRuntime, FileResolver } from "./interface";
 import type { SessionEvent, ContentBlock, AgentToolUseEvent } from "@open-managed-agents/shared";
 import { generateEventId, classifyExternalError, ModelError } from "@open-managed-agents/shared";
-import { eventsToMessages } from "../runtime/history";
+import { eventsToMessagesAsync } from "../runtime/history";
 import { SummarizeCompactionStrategy, resolveCompactionStrategy } from "./compaction";
 import type { CompactionStrategy } from "./compaction";
 import { ALL_TOOLS } from "./tools";
@@ -297,12 +297,14 @@ export class DefaultHarness implements HarnessInterface {
       }
     }
 
-    // 2. Derive ModelMessage[] from events. Default = eventsToMessages
-    // (strict bijection inverse of write-side, with boundary handling).
-    // Custom harnesses can override for sliding-window / RAG / etc.
+    // 2. Derive ModelMessage[] from events. Default = eventsToMessagesAsync
+    // (strict bijection inverse of write-side, with boundary handling +
+    // async file_id → bytes resolution via ctx.fileFetcher). Custom harnesses
+    // can override for sliding-window / RAG / etc. — the await unwraps either
+    // sync or async overrides so existing implementations keep working.
     const messages = this.deriveModelContext
-      ? this.deriveModelContext(runtime.history.getEvents())
-      : runtime.history.getMessages();
+      ? await this.deriveModelContext(runtime.history.getEvents(), { fileFetcher: ctx.fileFetcher })
+      : await eventsToMessagesAsync(runtime.history.getEvents(), ctx.fileFetcher);
 
     // 3. Apply provider-specific cache strategy. Anthropic: tag system block
     // + last tool + last message + (optional) one mid-conversation breakpoint
@@ -808,12 +810,16 @@ export class DefaultHarness implements HarnessInterface {
   // and replacing the method, or by implementing HarnessInterface directly.
 
   /**
-   * Default: simple eventsToMessages (already byte-deterministic + handles
-   * agent.thread_context_compacted boundary). Override for sliding window /
-   * RAG / hierarchical strategies.
+   * Default: async eventsToMessagesAsync (byte-deterministic + handles
+   * agent.thread_context_compacted boundary + resolves file_id sources via
+   * the supplied fileFetcher). Override for sliding window / RAG /
+   * hierarchical strategies.
    */
-  deriveModelContext(events: SessionEvent[]) {
-    return eventsToMessages(events);
+  deriveModelContext(
+    events: SessionEvent[],
+    opts?: { fileFetcher?: FileResolver },
+  ): Promise<ModelMessage[]> {
+    return eventsToMessagesAsync(events, opts?.fileFetcher);
   }
 
   /**
@@ -883,27 +889,25 @@ export class DefaultHarness implements HarnessInterface {
   }
 
   /**
-   * Default: write each platformReminder as a `<system-reminder>` user.message
-   * event. Each reminder lands once at session-init time, becoming part of
-   * the cached prefix. The model treats them as user-side context (Claude
-   * recognizes <system-reminder> tags from training).
+   * No-op. Pre-2026-05-17 this wrote each `platformReminder` as a
+   * `<system-reminder>` user.message event so Claude would treat the
+   * skill body as user-side context. Operators objected: skill bodies
+   * leaked into the visible chat feed and polluted the event log even
+   * though the content is static per session.
    *
-   * SessionDO calls this exactly once per session, before the first turn.
-   * Custom harnesses can override to inject differently — or no-op to skip
-   * platform reminders entirely (e.g. RAG-based harness builds its own).
+   * Reminders now flow into the system prompt directly — see
+   * `composeSystemPrompt(rawSystemPrompt, platformReminders)` in
+   * `session-do.ts`. Each reminder is wrapped in
+   * `<source name="…">…</source>` inside the system prompt, so the
+   * model still has structural cues about which skill/memory each
+   * chunk came from.
+   *
+   * Custom harnesses that DO want the legacy behavior (e.g. a RAG
+   * loop that materializes skills only after retrieving them) can
+   * override this method and broadcast their own user.message events.
    */
-  async onSessionInit(ctx: HarnessContext, runtime: HarnessRuntime): Promise<void> {
-    for (const r of ctx.platformReminders ?? []) {
-      runtime.broadcast({
-        type: "user.message",
-        content: [
-          {
-            type: "text",
-            text: `<system-reminder source="${r.source}">\n${r.text}\n</system-reminder>`,
-          },
-        ],
-      });
-    }
+  async onSessionInit(_ctx: HarnessContext, _runtime: HarnessRuntime): Promise<void> {
+    // intentionally empty — see jsdoc
   }
 }
 

@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useApi } from "../lib/api";
+import { useApiQuery } from "../lib/useApiQuery";
 import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
+import { EmptyState } from "../components/EmptyState";
+import { Page } from "../components/Page";
 
 /* ---------- types ---------- */
 
@@ -60,9 +63,18 @@ function isZipFile(file: File): boolean {
 export function SkillsList() {
   const { api } = useApi();
 
-  /* list state */
-  const [skills, setSkills] = useState<Skill[]>([]);
-  const [loading, setLoading] = useState(true);
+  /* list state — TQ owns the fetch lifecycle. `load()` becomes
+   * `refetch`, which kicks off a background refetch that leaves
+   * the prior items on screen until the new payload lands. */
+  const {
+    data: skillsRes,
+    isLoading: loading,
+    refetch: refetchSkills,
+  } = useApiQuery<{ data: Skill[] }>("/v1/skills");
+  const skills = skillsRes?.data ?? [];
+  const load = () => {
+    void refetchSkills();
+  };
 
   /* create dialog */
   const [showCreate, setShowCreate] = useState(false);
@@ -96,18 +108,6 @@ export function SkillsList() {
   const [chError, setChError] = useState("");
 
   /* ---- loaders ---- */
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      setSkills((await api<{ data: Skill[] }>("/v1/skills")).data);
-    } catch {}
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
 
   /* ---- create ---- */
 
@@ -295,7 +295,7 @@ export function SkillsList() {
   /* ---- helpers ---- */
 
   const inputCls =
-    "w-full border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-border-strong transition-colors bg-bg text-fg";
+    "w-full border border-border rounded-lg px-3 py-2 min-h-11 sm:min-h-0 text-sm outline-none focus:border-border-strong transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] bg-bg text-fg";
 
   const anthropicSkills = skills.filter((s) => s.source === "anthropic");
   const customSkills = skills.filter((s) => s.source === "custom");
@@ -303,7 +303,7 @@ export function SkillsList() {
   /* ---- render ---- */
 
   return (
-    <div className="flex-1 overflow-y-auto p-8 lg:p-10">
+    <Page>
       {/* header */}
       <div className="flex items-start justify-between mb-6">
         <div>
@@ -329,12 +329,12 @@ export function SkillsList() {
           Loading...
         </div>
       ) : skills.length === 0 ? (
-        <div className="text-center py-16 text-fg-subtle border border-dashed border-border rounded-lg">
-          <p className="text-lg mb-1">No skills yet</p>
-          <p className="text-sm">
-            Create a skill to give your agents domain expertise.
-          </p>
-        </div>
+        <EmptyState
+          size="lg"
+          kind="skill"
+          title="No skills yet"
+          body="Create a skill to give your agents domain expertise."
+        />
       ) : (
         <>
           {/* Anthropic built-in skills */}
@@ -343,7 +343,7 @@ export function SkillsList() {
               <h3 className="text-sm font-medium text-fg mb-3">
                 Anthropic Pre-built Skills
               </h3>
-              <div className="border border-border rounded-lg overflow-hidden mb-6">
+              <div className="border border-border rounded-lg overflow-x-auto mb-6">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-bg-surface/60 text-fg-muted text-xs uppercase tracking-wider">
@@ -387,14 +387,13 @@ export function SkillsList() {
             Custom Skills
           </h3>
           {customSkills.length === 0 ? (
-            <div className="text-center py-12 text-fg-subtle border border-dashed border-border rounded-lg">
-              <p className="text-sm mb-1">No custom skills yet</p>
-              <p className="text-xs">
-                Upload a skill folder as a .zip with SKILL.md at the root.
-              </p>
-            </div>
+            <EmptyState
+              kind="skill"
+              title="No custom skills yet"
+              body="Upload a skill folder as a .zip with SKILL.md at the root."
+            />
           ) : (
-            <div className="border border-border rounded-lg overflow-hidden">
+            <div className="border border-border rounded-lg overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-bg-surface/60 text-fg-muted text-xs uppercase tracking-wider">
@@ -409,7 +408,7 @@ export function SkillsList() {
                     <tr
                       key={s.id}
                       onClick={() => openDetail(s)}
-                      className="border-t border-border hover:bg-bg-surface cursor-pointer transition-colors"
+                      className="border-t border-border hover:bg-bg-surface cursor-pointer transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
                     >
                       <td className="px-4 py-3">
                         <div className="font-medium">
@@ -597,7 +596,7 @@ export function SkillsList() {
                 </label>
                 <button
                   onClick={startNewVersion}
-                  className="text-xs text-fg-muted hover:text-fg transition-colors"
+                  className="inline-flex items-center min-h-11 sm:min-h-0 px-2 text-xs text-fg-muted hover:text-fg transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
                 >
                   + New version
                 </button>
@@ -693,7 +692,7 @@ export function SkillsList() {
                   No version history available.
                 </p>
               ) : (
-                <div className="border border-border rounded-lg overflow-hidden">
+                <div className="border border-border rounded-lg overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-bg-surface/60 text-fg-muted text-xs uppercase tracking-wider">
@@ -753,6 +752,7 @@ export function SkillsList() {
               value={chQuery}
               onChange={(e) => setChQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") searchClawHub(); }}
+              aria-label="Search ClawHub skills"
               className={inputCls + " flex-1"}
               placeholder="Search skills... e.g. git, docker, research"
               autoFocus
@@ -764,7 +764,7 @@ export function SkillsList() {
           {chResults.length > 0 && (
             <div className="border border-border rounded-lg overflow-hidden max-h-80 overflow-y-auto">
               {chResults.map((s) => (
-                <div key={s.slug} className="flex items-start justify-between gap-3 px-4 py-3 border-b border-border last:border-b-0 hover:bg-bg-surface transition-colors">
+                <div key={s.slug} className="flex items-start justify-between gap-3 px-4 py-3 border-b border-border last:border-b-0 hover:bg-bg-surface transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]">
                   <div className="min-w-0">
                     <div className="font-medium text-fg text-sm">{s.name || s.slug}</div>
                     <div className="text-xs text-fg-subtle font-mono">{s.slug}</div>
@@ -773,7 +773,7 @@ export function SkillsList() {
                   <button
                     onClick={() => installFromClawHub(s.slug)}
                     disabled={chInstalling === s.slug}
-                    className="shrink-0 px-3 py-1 text-xs font-medium rounded-md bg-brand text-brand-fg hover:bg-brand-hover disabled:opacity-50 transition-colors"
+                    className="shrink-0 inline-flex items-center justify-center px-3 py-1 min-h-11 sm:min-h-0 text-xs font-medium rounded-md bg-brand text-brand-fg hover:bg-brand-hover disabled:opacity-50 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
                   >
                     {chInstalling === s.slug ? "Installing..." : "Install"}
                   </button>
@@ -786,7 +786,7 @@ export function SkillsList() {
           )}
         </div>
       </Modal>
-    </div>
+    </Page>
   );
 }
 
@@ -831,7 +831,7 @@ function DropZone({
       }}
       onDrop={handleDrop}
       className={[
-        "border-2 border-dashed rounded-lg px-4 py-6 text-center transition-colors",
+        "border-2 border-dashed rounded-lg px-4 py-6 text-center transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]",
         dragOver
           ? "border-brand bg-brand/5"
           : "border-border bg-bg-surface/30",

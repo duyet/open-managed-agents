@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router";
 import { useApi } from "../lib/api";
+import { useToast } from "../components/Toast";
 import { Markdown } from "../components/Markdown";
 import { formatDuration, formatRelative, shortenId } from "../lib/format";
 import { Badge, StatusPill } from "../components/Badge";
@@ -11,6 +12,37 @@ import { TimelineView } from "../components/timeline/TimelineView";
 import type { Event } from "../lib/events";
 import type { Trajectory, TrajectoryOutcome } from "../lib/trajectory";
 import { rewardHeadline, outcomeToStatusTone } from "../lib/trajectory";
+// ai-elements primitives — used to render the chat surface (messages,
+// reasoning blocks, tool calls, prompt input). The components/ai-elements/
+// directory is shadcn-style copy-paste so we own + customize them locally.
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from "../components/ai-elements/conversation";
+import { Message, MessageContent } from "../components/ai-elements/message";
+import {
+  Reasoning,
+  ReasoningTrigger,
+  ReasoningContent,
+} from "../components/ai-elements/reasoning";
+import {
+  Tool,
+  ToolHeader,
+  ToolContent,
+  ToolInput,
+  ToolOutput,
+} from "../components/ai-elements/tool";
+import {
+  PromptInput,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputTools,
+  PromptInputSubmit,
+  PromptInputButton,
+  usePromptInputAttachments,
+} from "../components/ai-elements/prompt-input";
+import { CodeBlock } from "../components/ai-elements/code-block";
 
 type View = "chat" | "timeline";
 
@@ -30,6 +62,7 @@ interface PendingEntry {
 export function SessionDetail() {
   const { id } = useParams();
   const { api, streamEvents } = useApi();
+  const { toast } = useToast();
   const [events, setEvents] = useState<Event[]>([]);
   /** In-flight assistant streams keyed by message_id. Each entry holds
    *  the deltas accumulated so far. Wiped on the matching agent.message
@@ -46,6 +79,16 @@ export function SessionDetail() {
   const [view, setView] = useState<View>("chat");
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  // Optimistic outbox slot — what the user typed, between hitting Send
+  // and the server-side pending broadcast (system.user_message_pending)
+  // arriving over SSE. Without this, hitting Send clears the input
+  // field instantly and the user stares at a blank conversation for the
+  // 100-500ms POST → SSE roundtrip. With it, the message appears in the
+  // queued-state EventBubble immediately and is replaced by the server's
+  // pending row the moment SSE delivers it. Single slot is intentional
+  // (we never let two POSTs be in flight at once — Send is disabled
+  // while `sending`). Set to null when SSE confirms or POST settles.
+  const [localPending, setLocalPending] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [agentId, setAgentId] = useState("");
   const [sessionMeta, setSessionMeta] = useState<{
@@ -104,7 +147,6 @@ export function SessionDetail() {
    *  place in the events array via the regular SSE broadcast. */
   const [pendingByEventId, setPendingByEventId] = useState<Map<string, PendingEntry>>(new Map());
   const [showTrajectory, setShowTrajectory] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const seenKeys = useRef(new Set<string>());
   const abortRef = useRef<AbortController | null>(null);
 
@@ -160,7 +202,7 @@ export function SessionDetail() {
     // Thinking stream lifecycle. Same pattern as message stream:
     // start opens an entry, chunk appends, end is held, canonical
     // agent.thinking with same thinking_id closes it.
-    if (ev.type === "agent.thinking_stream_start" && ev.thinking_id) {
+    if (ev.type === "agent.thinking_stream_start" && typeof ev.thinking_id === "string") {
       const tid = ev.thinking_id;
       setThinkingStreams((prev) => {
         if (prev.has(tid)) return prev;
@@ -170,7 +212,7 @@ export function SessionDetail() {
       });
       return;
     }
-    if (ev.type === "agent.thinking_chunk" && ev.thinking_id && typeof ev.delta === "string") {
+    if (ev.type === "agent.thinking_chunk" && typeof ev.thinking_id === "string" && typeof ev.delta === "string") {
       const tid = ev.thinking_id;
       const delta = ev.delta;
       setThinkingStreams((prev) => {
@@ -227,7 +269,7 @@ export function SessionDetail() {
     // bail-clear all live thinking streams (multi-stream-per-step is
     // rare and safer to err on closing them all).
     if (ev.type === "agent.thinking") {
-      const tid = ev.thinking_id;
+      const tid = typeof ev.thinking_id === "string" ? ev.thinking_id : undefined;
       setThinkingStreams((prev) => {
         if (prev.size === 0) return prev;
         if (tid && !prev.has(tid)) return prev;
@@ -287,6 +329,14 @@ export function SessionDetail() {
         session_thread_id: string;
         event: Event;
       };
+      // Server claimed our optimistic outbox slot — drop the client-only
+      // mirror so we don't double-render the same user message (server
+      // entry has more metadata + a stable event_id; ours has neither).
+      const inner = p.event;
+      const innerText =
+        inner && (inner as { content?: Array<{ type?: string; text?: string }> }).content
+          ?.find((c) => c.type === "text")?.text;
+      if (innerText) setLocalPending((cur) => (cur === innerText ? null : cur));
       if (p.event_id) {
         setPendingByEventId((prev) => {
           const next = new Map(prev);
@@ -411,6 +461,7 @@ export function SessionDetail() {
     setThreads([]);
     setActiveThreadId("sthr_primary");
     setPendingByEventId(new Map());
+    setLocalPending(null);
 
     // Load session info
     api<{
@@ -570,24 +621,102 @@ export function SessionDetail() {
     return () => { abort.abort(); };
   }, [id]);
 
-  useEffect(() => {
-    if (view !== "chat") return;
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [events, streams, thinkingStreams, toolInputStreams, view]);
+  // Encode a File as base64 (no data: URL prefix) for inline content
+  // blocks. Used so OMA backend's userContentToParts can forward the
+  // bytes straight to the AI SDK (image vision / PDF parsing) without
+  // needing to async-resolve file_id sources.
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const r = reader.result as string;
+        const idx = r.indexOf(",");
+        resolve(idx >= 0 ? r.slice(idx + 1) : r);
+      };
+      reader.onerror = () => reject(reader.error ?? new Error("FileReader failed"));
+      reader.readAsDataURL(file);
+    });
 
-  const send = async () => {
-    if (!input.trim() || !id) return;
-    const text = input;
+  const send = async (overrideText?: string, files?: File[]) => {
+    const text = (overrideText ?? input).trim();
+    if (!text && !files?.length) return;
+    if (!id) return;
     setInput("");
+    setLocalPending(text || (files?.length ? (files.length === 1 ? "🖼️ Image" : `🖼️ ${files.length} images`) : ""));
     setSending(true);
     try {
+      // Upload attachments first so the user.message can reference them
+      // by file_id. Each file is scoped to this session via scope_id so
+      // it appears in the session's Files panel + the agent's mount.
+      // We mark them downloadable so the operator can re-download from
+      // the panel. Per-file failures don't block the others — the text
+      // still goes out and the user can retry the failed upload.
+      const uploaded: Array<{ id: string; filename: string; media_type: string }> = [];
+      if (files?.length) {
+        for (const file of files) {
+          try {
+            const fd = new FormData();
+            fd.append("file", file);
+            fd.append("scope_id", id);
+            fd.append("downloadable", "true");
+            const r = await api<{ id: string; filename: string; media_type: string }>(
+              `/v1/files`,
+              { method: "POST", body: fd },
+            );
+            uploaded.push({ id: r.id, filename: r.filename, media_type: r.media_type });
+          } catch (e) {
+            console.error("file upload failed", file.name, e);
+          }
+        }
+      }
+
+      // The + button is image-only — vision inputs go inline to the
+      // model. Non-vision file attachments belong on a separate path
+      // (env-mounted resources) and aren't reachable from this button,
+      // so this loop only emits `image` content blocks.
+      const content: Array<
+        | { type: "text"; text: string }
+        | { type: "image"; source: { type: "file"; file_id: string } }
+      > = [];
+      if (text) content.push({ type: "text", text });
+      for (const u of uploaded) {
+        if (u.media_type.startsWith("image/")) {
+          content.push({
+            type: "image",
+            source: { type: "file", file_id: u.id },
+          });
+        }
+        // non-images can't slip through the accept filter, but if one
+        // does (drag-drop on some browsers ignores accept) we drop it
+        // silently rather than fall back to a document block the model
+        // may not handle.
+      }
+      if (!text && uploaded.length) {
+        content.unshift({
+          type: "text",
+          text: uploaded.length === 1 ? "Attached image." : "Attached images.",
+        });
+      }
+
       await api(`/v1/sessions/${id}/events`, {
         method: "POST",
         body: JSON.stringify({
-          events: [{ type: "user.message", content: [{ type: "text", text }] }],
+          events: [{ type: "user.message", content }],
         }),
       });
-    } catch {}
+      // POST resolved → server already inserted the row + broadcast
+      // system.user_message_pending. The outbox map will pick it up
+      // (and likely already has by the time await unblocks here).
+      // Clear our local slot so we don't double-render with the server
+      // entry — but only if the server's pending hasn't already cleared
+      // it via the system.user_message_pending handler.
+      setLocalPending((cur) => (cur === text ? null : cur));
+    } catch {
+      // api() already toasted the error; clear the optimistic slot so
+      // the user doesn't keep seeing a "stuck" pending row that will
+      // never actually run.
+      setLocalPending(null);
+    }
     setSending(false);
   };
 
@@ -620,11 +749,11 @@ export function SessionDetail() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-8 py-3 border-b border-border flex flex-col gap-2 shrink-0">
+      <div className="px-4 sm:px-8 py-3 border-b border-border flex flex-col gap-2 shrink-0">
         <div className="flex items-center gap-3">
           <Link to="/sessions" className="text-fg-subtle hover:text-fg-muted text-sm">&larr; Sessions</Link>
           <span className="text-fg-subtle">/</span>
-          <h2 className="font-mono text-sm text-fg-muted truncate flex-1" title={id}>{title}</h2>
+          <h1 className="font-mono text-sm text-fg-muted truncate flex-1" title={id}>{title}</h1>
           {/* Stop / Interrupt — only while the session is actively running.
               Posts user.interrupt scoped to the active thread; server fires
               thread AbortController + flushes pending events + emits
@@ -635,7 +764,7 @@ export function SessionDetail() {
             <button
               onClick={() => void interrupt()}
               disabled={interrupting}
-              className="px-2.5 py-1 rounded-md text-xs font-medium border border-border bg-bg-surface text-fg-muted hover:text-fg hover:border-border-strong disabled:opacity-50 transition-colors"
+              className="inline-flex items-center justify-center px-2.5 py-1 min-h-11 sm:min-h-0 rounded-md text-xs font-medium border border-border bg-bg-surface text-fg-muted hover:text-fg hover:border-border-strong disabled:opacity-50 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
               title="Interrupt the active turn on this thread"
             >
               {interrupting ? "Stopping…" : "Stop"}
@@ -643,7 +772,7 @@ export function SessionDetail() {
           )}
           <button
             onClick={() => setShowFiles((v) => !v)}
-            className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
+            className={`inline-flex items-center justify-center px-2.5 py-1 min-h-11 sm:min-h-0 rounded-md text-xs font-medium border transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] ${
               showFiles
                 ? "bg-bg-surface text-fg border-border-strong"
                 : "bg-bg-surface text-fg-muted border-border hover:text-fg hover:border-border-strong"
@@ -715,7 +844,7 @@ export function SessionDetail() {
       )}
 
       {/* View tabs */}
-      <div className="px-8 border-b border-border flex items-center gap-1 shrink-0">
+      <div role="tablist" aria-label="Session view" className="px-4 sm:px-8 border-b border-border flex items-center gap-1 shrink-0">
         <ViewTab label="Conversation" active={view === "chat"} onClick={() => setView("chat")} />
         <ViewTab label="Timeline" active={view === "timeline"} onClick={() => setView("timeline")} />
         {view === "timeline" && (
@@ -728,7 +857,7 @@ export function SessionDetail() {
         <button
           onClick={() => setShowTrajectory(true)}
           disabled={trajectory === undefined || trajectory === "loading"}
-          className={`${view === "timeline" ? "ml-3" : "ml-auto"} text-xs text-fg-muted hover:text-fg disabled:opacity-40 disabled:cursor-not-allowed border border-border hover:border-border-strong rounded px-2 py-1 transition-colors my-1.5`}
+          className={`${view === "timeline" ? "ml-3" : "ml-auto"} inline-flex items-center min-h-11 sm:min-h-0 text-xs text-fg-muted hover:text-fg disabled:opacity-40 disabled:cursor-not-allowed border border-border hover:border-border-strong rounded px-2 py-1 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] my-1.5`}
           title={
             trajectory === "loading"
               ? "Loading trajectory…"
@@ -743,10 +872,10 @@ export function SessionDetail() {
 
       {/* Linear context (when triggered by a Linear webhook) */}
       {linear && (
-        <div className="px-8 py-2 border-b border-border bg-blue-50/50 text-xs flex items-center gap-2 text-blue-900">
+        <div className="px-4 sm:px-8 py-2 border-b border-border bg-info-subtle text-xs flex items-center gap-2 text-info">
           <span>🔗</span>
           <span className="font-medium">Linear</span>
-          <span className="text-blue-700">·</span>
+          <span className="opacity-60">·</span>
           <span>
             issue{" "}
             <span className="font-mono">{linear.issueIdentifier ?? linear.issueId}</span>
@@ -766,10 +895,10 @@ export function SessionDetail() {
 
       {/* Slack context (when triggered by a Slack event) */}
       {slack && (
-        <div className="px-8 py-2 border-b border-border bg-purple-50/50 text-xs flex items-center gap-2 text-purple-900">
+        <div className="px-4 sm:px-8 py-2 border-b border-border bg-accent-violet-subtle text-xs flex items-center gap-2 text-accent-violet">
           <span>💬</span>
           <span className="font-medium">Slack</span>
-          <span className="text-purple-700">·</span>
+          <span className="opacity-60">·</span>
           <span>
             {slack.channelId ? (
               <>
@@ -786,7 +915,7 @@ export function SessionDetail() {
             )}
           </span>
           {slack.eventKind && (
-            <span className="text-purple-700/60 font-mono uppercase tracking-wider text-[10px]">
+            <span className="opacity-60 font-mono uppercase tracking-wider text-[10px]">
               {slack.eventKind}
             </span>
           )}
@@ -801,151 +930,276 @@ export function SessionDetail() {
         <div className="flex-1 flex flex-col min-w-0">
       {view === "chat" ? (
         <>
-          {/* Events */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto px-8 py-6 space-y-4">
-            {(() => {
-              // Server-returned events are now in canonical drain order
-              // (events.seq = INSERT order = what the model saw). The
-              // pre-3a3e7ec client-side sort by processed_at_ms is
-              // retired; pending events live in a separate outbox below
-              // and never mix into this seq-ordered timeline.
-              const filtered = events.filter((e) => {
-                const tid = (e as { session_thread_id?: string }).session_thread_id ?? "sthr_primary";
-                return tid === activeThreadId;
-              });
-              // Pre-pair tool_use ↔ result events. Three flavors per the
-              // wire spec emitted in default-loop.ts:emitToolCallEvent /
-              // emitToolResultEvent:
-              //   • builtin tools  → agent.tool_use         + agent.tool_result        (key: tool_use_id)
-              //   • custom tools   → agent.custom_tool_use  + agent.tool_result        (key: tool_use_id) ← same result type
-              //   • MCP tools      → agent.mcp_tool_use     + agent.mcp_tool_result    (key: mcp_tool_use_id)
-              // The previous pairing only covered builtin → custom tools
-              // (e.g. general_subagent) showed their result as an "unpaired"
-              // orphan block because the use side was custom_tool_use.
-              const resultByToolUseId = new Map<string, typeof filtered[number]>();
-              for (const ev of filtered) {
-                if (ev.type === "agent.tool_result") {
-                  const id = (ev as { tool_use_id?: string }).tool_use_id;
-                  if (id) resultByToolUseId.set(id, ev);
-                } else if (ev.type === "agent.mcp_tool_result") {
-                  const id = (ev as { mcp_tool_use_id?: string }).mcp_tool_use_id;
-                  if (id) resultByToolUseId.set(id, ev);
-                }
-              }
-              const pairedResultIds = new Set<string>();
-              return filtered.map((e, i) => {
-                // Stable React key — `e.id` (sevt_*) lives on every event
-                // server-side via the stamp callback in session-do.ts, so
-                // SSE-arrived rows already have it. Fall back to seq for
-                // legacy events that pre-date the stamp, and to a synthetic
-                // marker (type + index) as last resort. Index alone broke
-                // because new events appended mid-list re-keyed every later
-                // bubble → React unmount/remount → the entire conversation
-                // appeared to flicker on every chunk delivery.
-                const stableKey =
-                  (e as { id?: string }).id
-                  ?? (e as { seq?: number }).seq
-                  ?? `idx-${e.type}-${i}`;
-                // Tool-result that's been folded into its use card —
-                // skip standalone render. Both wire shapes: agent.tool_result
-                // (covers builtin + custom) keys on tool_use_id;
-                // agent.mcp_tool_result keys on mcp_tool_use_id.
-                if (e.type === "agent.tool_result") {
-                  const tuid = (e as { tool_use_id?: string }).tool_use_id;
-                  if (tuid && pairedResultIds.has(tuid)) return null;
-                }
-                if (e.type === "agent.mcp_tool_result") {
-                  const tuid = (e as { mcp_tool_use_id?: string }).mcp_tool_use_id;
-                  if (tuid && pairedResultIds.has(tuid)) return null;
-                }
-                // Tool-use of any flavor: pair with its result if present,
-                // render as one card. All three use-types carry the
-                // call id on EventBase.id (overrides the inherited field
-                // per emitToolCallEvent), so the lookup is uniform.
-                let pairedResult: typeof filtered[number] | undefined;
-                if (
-                  e.type === "agent.tool_use"
-                  || e.type === "agent.custom_tool_use"
-                  || e.type === "agent.mcp_tool_use"
-                ) {
-                  const tuid = (e as { id?: string }).id;
-                  if (tuid && resultByToolUseId.has(tuid)) {
-                    pairedResult = resultByToolUseId.get(tuid);
-                    pairedResultIds.add(tuid);
+          {/* Conversation surface. ai-elements <Conversation> wraps
+              StickToBottom, which auto-pins to the latest message while
+              the user is at the bottom and surfaces a "jump to latest"
+              affordance via <ConversationScrollButton> the moment they
+              scroll up — replaces the hand-rolled scrollTo effect.
+
+              Render order intentionally mirrors the pre-migration layout:
+                1) canonical events (filtered to the active thread)
+                2) optimistic outbox slot (instant feedback on Send)
+                3) server-mirrored pending outbox (queued user.* events)
+                4) in-flight thinking streams
+                5) in-flight tool-input streams
+                6) in-flight assistant text streams
+                7) typing dots when only the agent is "thinking" with
+                   nothing else streaming yet */}
+          <Conversation className="flex-1 min-h-0">
+            <ConversationContent className="px-4 sm:px-8 py-6 gap-4">
+              {(() => {
+                // Server-returned events are now in canonical drain order
+                // (events.seq = INSERT order = what the model saw). The
+                // pre-3a3e7ec client-side sort by processed_at_ms is
+                // retired; pending events live in a separate outbox below
+                // and never mix into this seq-ordered timeline.
+                const filtered = events.filter((e) => {
+                  const tid = (e as { session_thread_id?: string }).session_thread_id ?? "sthr_primary";
+                  return tid === activeThreadId;
+                });
+                // Pre-pair tool_use ↔ result events. Three flavors per the
+                // wire spec emitted in default-loop.ts:emitToolCallEvent /
+                // emitToolResultEvent:
+                //   • builtin tools  → agent.tool_use         + agent.tool_result        (key: tool_use_id)
+                //   • custom tools   → agent.custom_tool_use  + agent.tool_result        (key: tool_use_id) ← same result type
+                //   • MCP tools      → agent.mcp_tool_use     + agent.mcp_tool_result    (key: mcp_tool_use_id)
+                // The previous pairing only covered builtin → custom tools
+                // (e.g. general_subagent) showed their result as an "unpaired"
+                // orphan block because the use side was custom_tool_use.
+                const resultByToolUseId = new Map<string, typeof filtered[number]>();
+                // session.error → upstream model_request_end error_message
+                // map. session.error's payload from SSE only carries the
+                // generic "No output generated. Check the stream for errors."
+                // — the actionable cause (e.g. "usage limit exceeded (2056)",
+                // "context length", "401 from upstream") is on the preceding
+                // span.model_request_end with is_error=true. Walk forward
+                // remembering the last failed model end and attach it to the
+                // next session.error we hit. Cleared by any model_request_end
+                // with finish_reason!=error (succeeded → previous failure is
+                // no longer the immediate cause). Keyed by stable event id
+                // so EventRender can look it up at render time.
+                const sessionErrorCause = new Map<string, { error: string; model?: string }>();
+                let pendingModelErr: { error: string; model?: string } | null = null;
+                for (const ev of filtered) {
+                  if (ev.type === "agent.tool_result") {
+                    const id = (ev as { tool_use_id?: string }).tool_use_id;
+                    if (id) resultByToolUseId.set(id, ev);
+                  } else if (ev.type === "agent.mcp_tool_result") {
+                    const id = (ev as { mcp_tool_use_id?: string }).mcp_tool_use_id;
+                    if (id) resultByToolUseId.set(id, ev);
+                  } else if (ev.type === "span.model_request_end") {
+                    const d = (ev as { data?: { finish_reason?: string; error_message?: string; model?: string }; finish_reason?: string; error_message?: string; model?: string });
+                    const finish = d.data?.finish_reason ?? d.finish_reason;
+                    const errMsg = d.data?.error_message ?? d.error_message;
+                    const model = d.data?.model ?? d.model;
+                    if (finish === "error" && errMsg) {
+                      pendingModelErr = { error: errMsg, model };
+                    } else if (finish && finish !== "error") {
+                      pendingModelErr = null;
+                    }
+                  } else if (ev.type === "session.error") {
+                    const id = (ev as { id?: string }).id;
+                    if (id && pendingModelErr) {
+                      sessionErrorCause.set(id, pendingModelErr);
+                      pendingModelErr = null;
+                    }
                   }
                 }
-                return (
-                  <EventBubble
-                    key={stableKey}
-                    event={e}
-                    livePending={false}
-                    pairedResult={pairedResult}
-                  />
-                );
-              });
-            })()}
-            {/* Pending outbox — server-mirrored queue rows that haven't
-                been drained yet. Keyed by event_id; rendered below the
-                timeline, never inline. The hourglass treatment is the
-                visual tell ("queued, not yet ingested by the agent").
-                Filtered to the active thread. */}
-            {(() => {
-              const outbox = Array.from(pendingByEventId.values())
-                .filter((p) => p.session_thread_id === activeThreadId)
-                .sort((a, b) => a.pending_seq - b.pending_seq);
-              return outbox.map((p) => (
-                <EventBubble
-                  key={`pending-${p.event_id}`}
-                  event={p.event}
+                const pairedResultIds = new Set<string>();
+                return filtered.map((e, i) => {
+                  // Stable React key — `e.id` (sevt_*) lives on every event
+                  // server-side via the stamp callback in session-do.ts, so
+                  // SSE-arrived rows already have it. Fall back to seq for
+                  // legacy events that pre-date the stamp, and to a synthetic
+                  // marker (type + index) as last resort. Index alone broke
+                  // because new events appended mid-list re-keyed every later
+                  // bubble → React unmount/remount → the entire conversation
+                  // appeared to flicker on every chunk delivery.
+                  const stableKey =
+                    (e as { id?: string }).id
+                    ?? (e as { seq?: number }).seq
+                    ?? `idx-${e.type}-${i}`;
+                  // Tool-result that's been folded into its use card —
+                  // skip standalone render. Both wire shapes: agent.tool_result
+                  // (covers builtin + custom) keys on tool_use_id;
+                  // agent.mcp_tool_result keys on mcp_tool_use_id.
+                  if (e.type === "agent.tool_result") {
+                    const tuid = (e as { tool_use_id?: string }).tool_use_id;
+                    if (tuid && pairedResultIds.has(tuid)) return null;
+                  }
+                  if (e.type === "agent.mcp_tool_result") {
+                    const tuid = (e as { mcp_tool_use_id?: string }).mcp_tool_use_id;
+                    if (tuid && pairedResultIds.has(tuid)) return null;
+                  }
+                  // Tool-use of any flavor: pair with its result if present,
+                  // render as one card. All three use-types carry the
+                  // call id on EventBase.id (overrides the inherited field
+                  // per emitToolCallEvent), so the lookup is uniform.
+                  let pairedResult: typeof filtered[number] | undefined;
+                  if (
+                    e.type === "agent.tool_use"
+                    || e.type === "agent.custom_tool_use"
+                    || e.type === "agent.mcp_tool_use"
+                  ) {
+                    const tuid = (e as { id?: string }).id;
+                    if (tuid && resultByToolUseId.has(tuid)) {
+                      pairedResult = resultByToolUseId.get(tuid);
+                      pairedResultIds.add(tuid);
+                    }
+                  }
+                  return (
+                    <EventRender
+                      key={stableKey}
+                      event={e}
+                      livePending={false}
+                      pairedResult={pairedResult}
+                      modelErrorCause={
+                        e.type === "session.error"
+                          ? sessionErrorCause.get((e as { id?: string }).id ?? "")
+                          : undefined
+                      }
+                    />
+                  );
+                });
+              })()}
+              {/* Optimistic outbox slot — what the user just typed before
+                  the server's system.user_message_pending broadcast lands.
+                  Rendered above the server-mirrored outbox so the typed
+                  text appears INSTANTLY (no 100-500ms void after Send).
+                  Cleared by the SSE handler the moment the server picks it
+                  up; rendered with the same hourglass treatment as the
+                  server-side rows so the UI is visually consistent. */}
+              {localPending && activeThreadId === "sthr_primary" && (
+                <EventRender
+                  key="local-pending"
+                  event={{ type: "user.message", content: [{ type: "text", text: localPending }] } as Event}
                   livePending={true}
                 />
-              ));
-            })()}
-            {/* In-flight thinking streams. Render before message/tool
-                streams so the visual order roughly matches what the
-                LLM produced (Anthropic emits reasoning before text/tool). */}
-            {Array.from(thinkingStreams.entries()).map(([tid, text]) => (
-              <ThinkingStreamingBubble key={`think-${tid}`} text={text} />
-            ))}
-            {/* In-flight tool inputs — partial JSON shown in a code box. */}
-            {Array.from(toolInputStreams.entries()).map(([tid, { name, partial }]) => (
-              <ToolInputStreamingBubble key={`tin-${tid}`} name={name} partial={partial} />
-            ))}
-            {/* In-flight assistant message text streams. */}
-            {Array.from(streams.entries()).map(([mid, text]) => (
-              <StreamingBubble key={`stream-${mid}`} text={text} />
-            ))}
-            {/* Typing dots only when the agent is running and nothing
-                else is streaming — avoids duplicate activity indicators. */}
-            {status === "running"
-              && streams.size === 0
-              && thinkingStreams.size === 0
-              && toolInputStreams.size === 0 && (
-              <div className="flex gap-1 py-2">
-                <span className="w-1.5 h-1.5 bg-fg-subtle rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="w-1.5 h-1.5 bg-fg-subtle rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="w-1.5 h-1.5 bg-fg-subtle rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-              </div>
-            )}
-          </div>
+              )}
+              {/* Pending outbox — server-mirrored queue rows that haven't
+                  been drained yet. Keyed by event_id; rendered below the
+                  timeline, never inline. The hourglass treatment is the
+                  visual tell ("queued, not yet ingested by the agent").
+                  Filtered to the active thread. */}
+              {(() => {
+                const outbox = Array.from(pendingByEventId.values())
+                  .filter((p) => p.session_thread_id === activeThreadId)
+                  .sort((a, b) => a.pending_seq - b.pending_seq);
+                return outbox.map((p) => (
+                  <EventRender
+                    key={`pending-${p.event_id}`}
+                    event={p.event}
+                    livePending={true}
+                  />
+                ));
+              })()}
+              {/* In-flight thinking streams. Render before message/tool
+                  streams so the visual order roughly matches what the
+                  LLM produced (Anthropic emits reasoning before text/tool).
+                  <Reasoning isStreaming> auto-opens, shows a shimmering
+                  "Thinking…" trigger, computes the duration when streaming
+                  ends, and auto-collapses on completion. */}
+              {Array.from(thinkingStreams.entries()).map(([tid, text]) => (
+                <Reasoning key={`think-${tid}`} isStreaming defaultOpen>
+                  <ReasoningTrigger />
+                  <ReasoningContent>{text}</ReasoningContent>
+                </Reasoning>
+              ))}
+              {/* In-flight tool inputs — partial JSON shown in a code box
+                  inside a Tool card with state="input-streaming" ("Pending"
+                  badge). Replaced by the canonical tool_use card the
+                  moment the matching agent.tool_use lands. */}
+              {Array.from(toolInputStreams.entries()).map(([tid, { name, partial }]) => (
+                <Tool key={`tin-${tid}`} defaultOpen>
+                  <ToolHeader
+                    type="dynamic-tool"
+                    toolName={name ?? "tool"}
+                    state="input-streaming"
+                  />
+                  <ToolContent>
+                    {partial && (
+                      <div className="space-y-2 overflow-hidden">
+                        <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+                          Streaming input
+                        </h4>
+                        <div className="rounded-md bg-muted/50">
+                          <CodeBlock code={partial} language="json" />
+                        </div>
+                      </div>
+                    )}
+                  </ToolContent>
+                </Tool>
+              ))}
+              {/* In-flight assistant message text streams — rendered as a
+                  regular assistant Message whose body grows as chunks
+                  arrive. Cursor block keeps the "still writing" cue from
+                  the old StreamingBubble. */}
+              {Array.from(streams.entries()).map(([mid, text]) => (
+                <Message key={`stream-${mid}`} from="assistant">
+                  <MessageContent>
+                    <Markdown>{text}</Markdown>
+                    <span className="inline-block w-1.5 h-3.5 bg-fg-subtle/50 align-middle ml-0.5 animate-pulse" />
+                  </MessageContent>
+                </Message>
+              ))}
+              {/* Typing dots only when the agent is running and nothing
+                  else is streaming — avoids duplicate activity indicators. */}
+              {status === "running"
+                && streams.size === 0
+                && thinkingStreams.size === 0
+                && toolInputStreams.size === 0 && (
+                <div className="flex gap-1 py-2">
+                  <span className="w-1.5 h-1.5 bg-fg-subtle rounded-full animate-pulse" style={{ animationDelay: "0ms" }} />
+                  <span className="w-1.5 h-1.5 bg-fg-subtle rounded-full animate-pulse" style={{ animationDelay: "150ms" }} />
+                  <span className="w-1.5 h-1.5 bg-fg-subtle rounded-full animate-pulse" style={{ animationDelay: "300ms" }} />
+                </div>
+              )}
+            </ConversationContent>
+            <ConversationScrollButton />
+          </Conversation>
 
-          {/* Input */}
-          <div className="px-8 py-4 border-t border-border flex gap-2 shrink-0">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
-              placeholder="Send a message..."
-              className="flex-1 border border-border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-border-strong transition-colors bg-bg text-fg"
-              disabled={sending}
-            />
-            <button
-              onClick={send}
-              disabled={sending || !input.trim()}
-              className="px-5 py-2.5 bg-brand text-brand-fg rounded-lg text-sm font-medium hover:bg-brand-hover disabled:opacity-40 transition-colors"
+          {/* Prompt input. ai-elements <PromptInput> wraps a <form> with
+              an InputGroup-based textarea + attachment lifecycle; we
+              hand it our own onSubmit so the existing send() (POST
+              /events) stays the source of truth. The + button only
+              accepts images — they go inline to the model as vision
+              inputs. Non-image attachments belong on the mount-based
+              session resources path, not this button. */}
+          <div className="px-4 sm:px-8 py-4 border-t border-border shrink-0">
+            <PromptInput
+              accept="image/*"
+              multiple
+              maxFiles={10}
+              maxFileSize={25 * 1024 * 1024}
+              onError={(err) => toast(err.message, "error")}
+              globalDrop
+              onSubmit={async ({ text, files }) => {
+                // PromptInput captured the textarea's value into `text`
+                // and the picked/dropped files into `files`, then
+                // form.reset() before this handler runs. send() owns
+                // clearing the mirrored `input` state, the optimistic
+                // outbox slot, and the file uploads.
+                const rawFiles = files
+                  .map((f) => (f as { file?: File }).file)
+                  .filter((f): f is File => f instanceof File);
+                await send(text, rawFiles);
+              }}
             >
-              Send
-            </button>
+              <PromptInputTextarea
+                placeholder="Send a message…  (drag an image in or click ＋)"
+                disabled={sending}
+                onChange={(e) => setInput(e.currentTarget.value)}
+              />
+              <PromptInputFooter>
+                <PromptInputTools>
+                  <AttachButton />
+                </PromptInputTools>
+                <PromptInputSubmit
+                  status={sending ? "submitted" : undefined}
+                  disabled={sending}
+                />
+              </PromptInputFooter>
+            </PromptInput>
           </div>
         </>
       ) : (
@@ -1095,7 +1349,10 @@ function ViewTab({ label, active, onClick }: { label: string; active: boolean; o
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-2.5 text-sm border-b-2 transition-colors ${
+      role="tab"
+      aria-selected={active}
+      tabIndex={active ? 0 : -1}
+      className={`inline-flex items-center justify-center px-3 py-2.5 min-h-11 sm:min-h-0 text-sm border-b-2 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] ${
         active
           ? "border-brand text-fg font-medium"
           : "border-transparent text-fg-subtle hover:text-fg-muted"
@@ -1123,7 +1380,10 @@ function ThreadTab({
   return (
     <button
       onClick={onClick}
-      className={`py-1.5 text-xs whitespace-nowrap border-b-2 transition-colors flex items-center gap-1 ${
+      role="tab"
+      aria-selected={active}
+      tabIndex={active ? 0 : -1}
+      className={`py-1.5 min-h-11 sm:min-h-0 text-xs whitespace-nowrap border-b-2 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] flex items-center gap-1 ${
         active
           ? "border-info text-fg font-medium"
           : "border-transparent text-fg-subtle hover:text-fg-muted"
@@ -1188,10 +1448,10 @@ function ThreadTree({
   // is actually readable.
   const isFlat = maxDepth <= 1;
   const containerClass = isFlat
-    ? "px-8 border-b border-border flex items-center gap-1 shrink-0 overflow-x-auto"
-    : "px-8 py-1 border-b border-border flex flex-col items-stretch gap-0 shrink-0 overflow-y-auto max-h-40";
+    ? "px-4 sm:px-8 border-b border-border flex items-center gap-1 shrink-0 overflow-x-auto"
+    : "px-4 sm:px-8 py-1 border-b border-border flex flex-col items-stretch gap-0 shrink-0 overflow-y-auto max-h-40";
   return (
-    <div className={containerClass}>
+    <div role="tablist" aria-label="Threads" className={containerClass}>
       {flat.map((n) => (
         <ThreadTab
           key={n.id}
@@ -1299,8 +1559,9 @@ function ResourcePanel({
         </div>
         <button
           onClick={onClose}
-          className="text-fg-subtle hover:text-fg-muted text-lg leading-none px-1"
+          className="text-fg-subtle hover:text-fg-muted text-lg leading-none inline-flex items-center justify-center min-w-11 min-h-11 sm:min-w-8 sm:min-h-8 rounded hover:bg-bg-surface transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
           title="Close"
+          aria-label="Close panel"
         >
           ×
         </button>
@@ -1371,8 +1632,9 @@ function FilesPanel({ sessionId, onClose }: { sessionId: string; onClose: () => 
         </div>
         <button
           onClick={onClose}
-          className="text-fg-subtle hover:text-fg-muted text-lg leading-none px-1"
+          className="text-fg-subtle hover:text-fg-muted text-lg leading-none inline-flex items-center justify-center min-w-11 min-h-11 sm:min-w-8 sm:min-h-8 rounded hover:bg-bg-surface transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
           title="Close"
+          aria-label="Close panel"
         >
           ×
         </button>
@@ -1414,73 +1676,55 @@ function FilesPanel({ sessionId, onClose }: { sessionId: string; onClose: () => 
   );
 }
 
-/** In-progress assistant message rendered from accumulated chunk
- *  deltas. Looks like a normal agent bubble but ends in a soft
- *  pulsing block cursor so it reads as live. Replaced by a real
- *  EventBubble once the canonical agent.message lands. */
-function StreamingBubble({ text }: { text: string }) {
+/**
+ * Renders a single canonical event using ai-elements primitives. Replaces
+ * the pre-migration EventBubble + StreamingBubble + ThinkingStreamingBubble
+ * + ToolInputStreamingBubble quartet — the in-flight streaming bubbles are
+ * now inlined where they're consumed (using Reasoning isStreaming, Tool
+ * input-streaming state, and an assistant Message with a cursor) so this
+ * function only needs to handle the canonical event shapes.
+ *
+ * Type mapping:
+ *   user.message              → <Message from="user|system">  (system for wakeups)
+ *   agent.message             → <Message from="assistant"> + <Markdown>
+ *   agent.thinking            → <Reasoning> + <ReasoningContent>
+ *   agent.{tool_use,custom_tool_use,mcp_tool_use} → <Tool> + <ToolHeader> + <ToolInput> + <ToolOutput>
+ *   agent.tool_result (orphan only, paired ones folded into use above)
+ *                             → <Tool state="output-available"> with only ToolOutput
+ *   session.error             → red alert div  (no ai-elements equivalent)
+ *   session.warning           → amber alert div  (same)
+ *   anything else             → null  (timeline-only events that shouldn't appear in chat)
+ */
+
+/**
+ * Plain "+" button that opens the PromptInput file picker for images.
+ * The stock `PromptInputActionAddAttachments` from ai-elements is a
+ * DropdownMenuItem — meant to live inside an action-menu — so dropping
+ * it directly into PromptInputTools threw "MenuItem must be used within
+ * Menu" at render. This button reads the attachments controller from
+ * context and calls `openFileDialog()` directly, no menu required.
+ */
+function AttachButton() {
+  const attachments = usePromptInputAttachments();
   return (
-    <div className="max-w-2xl">
-      <div className="text-xs text-fg-subtle mb-1">Agent</div>
-      <div className="bg-bg-surface rounded-2xl rounded-bl-sm px-4 py-3 text-sm leading-relaxed">
-        <Markdown>{text}</Markdown>
-        <span className="inline-block w-1.5 h-3.5 bg-fg-subtle/50 align-middle ml-0.5 animate-pulse" />
-      </div>
-    </div>
+    <PromptInputButton
+      type="button"
+      onClick={() => attachments.openFileDialog()}
+      aria-label="Add image"
+      title="Add image"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 5v14M5 12h14" />
+      </svg>
+    </PromptInputButton>
   );
 }
 
-/** In-progress reasoning block. Rendered as a faded, italicized
- *  bubble so it's visually distinct from canonical assistant
- *  messages. Replaced when the matching agent.thinking lands (or
- *  swept on first agent.thinking arrival when correlation is lost). */
-function ThinkingStreamingBubble({ text }: { text: string }) {
-  return (
-    <div className="max-w-2xl">
-      <div className="text-xs text-fg-subtle mb-1 flex items-center gap-1.5">
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m0 14v1m8-8h-1M5 12H4m13.66-5.66l-.7.7M6.34 17.66l-.7.7M17.66 17.66l-.7-.7M6.34 6.34l-.7-.7" />
-        </svg>
-        <span>Thinking…</span>
-      </div>
-      <div className="bg-bg-surface/60 rounded-2xl rounded-bl-sm px-4 py-3 text-xs leading-relaxed text-fg-subtle italic whitespace-pre-wrap">
-        {text}
-        <span className="inline-block w-1 h-3 bg-fg-subtle/50 align-middle ml-0.5 animate-pulse" />
-      </div>
-    </div>
-  );
-}
-
-/** In-progress tool-input bubble. The accumulated string is partial
- *  JSON streamed by the model — render as a code block (NOT Markdown).
- *  Disappears when the canonical agent.tool_use lands and the regular
- *  collapsible tool widget takes over. */
-function ToolInputStreamingBubble({ name, partial }: { name?: string; partial: string }) {
-  return (
-    <div className="max-w-2xl">
-      <div className="border border-border rounded-lg overflow-hidden">
-        <div className="flex items-center gap-2 px-3 py-2 bg-bg-surface">
-          <svg className="w-3.5 h-3.5 text-info shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
-          </svg>
-          <span className="text-sm font-medium">{name ?? "tool"}</span>
-          <span className="text-xs text-fg-subtle ml-auto">preparing…</span>
-          <span className="inline-block w-1 h-3 bg-fg-subtle/50 align-middle animate-pulse" />
-        </div>
-        {partial && (
-          <pre className="text-xs px-3 py-2 font-mono text-fg-subtle overflow-x-auto whitespace-pre-wrap break-all">
-            {partial}
-          </pre>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function EventBubble({
+function EventRender({
   event,
   livePending = false,
   pairedResult,
+  modelErrorCause,
 }: {
   event: Event;
   /**
@@ -1495,17 +1739,26 @@ function EventBubble({
    */
   livePending?: boolean;
   /**
-   * The matching `agent.tool_result` for an `agent.tool_use` event, when
-   * present in the same filtered list. Caller pre-pairs by tool_use_id
-   * and suppresses the orphan tool_result render. Lets the tool_use
-   * card show input + output in one collapsible block instead of two
-   * disconnected bubbles (the prior layout had a disconnected green
-   * "success-styled" result floating below the call card).
+   * The matching `agent.tool_result` (or `agent.mcp_tool_result`) for
+   * an `agent.tool_use` (or `custom_tool_use` / `mcp_tool_use`) event,
+   * when present in the same filtered list. Caller pre-pairs by id and
+   * suppresses the orphan tool_result render. Lets the Tool card show
+   * input + output in one collapsible block instead of two disconnected
+   * bubbles.
    */
   pairedResult?: Event;
+  /**
+   * Upstream model error context for `session.error` events. The
+   * SSE-delivered session.error payload only carries a generic
+   * "No output generated. Check the stream for errors." message; the
+   * actionable cause (rate limit, billing, model 4xx, etc.) lives on
+   * the preceding `span.model_request_end` with `is_error=true`. Caller
+   * walks the events array and pairs them, passing the looked-up cause
+   * here so operators see the real reason inline without diving into
+   * the timeline tab. Only meaningful when `event.type === "session.error"`.
+   */
+  modelErrorCause?: { error: string; model?: string };
 }) {
-  const [toolOpen, setToolOpen] = useState(false);
-
   // AMA pending lifecycle (set by event-log adapter from row.processed_at /
   // row.cancelled_at). Cancelled events stay in the log for audit but
   // the LLM never sees them (eventsToMessages skips); show them with
@@ -1530,15 +1783,17 @@ function EventBubble({
       // is the contract: see apps/agent/src/runtime/session-do.ts:onScheduledWakeup.
       const metadata = (event as { metadata?: { harness?: string; kind?: string; scheduled_at?: string } }).metadata;
       const isWakeup = metadata?.harness === "schedule" && metadata?.kind === "wakeup";
-      const text = Array.isArray(event.content) ? event.content[0]?.text : "";
+      const text = Array.isArray(event.content) ? event.content[0]?.text ?? "" : "";
 
       if (isWakeup) {
-        // System-origin: left-aligned (not "You"), info-toned bubble + clock
-        // glyph + "Scheduled wakeup" label. Title bar tooltips the schedule
-        // time from metadata for traceability.
+        // System-origin: left-aligned via from="system" (Message only
+        // applies its right-aligned brand bubble for from="user"; anything
+        // else lays out as plain assistant text). Layered on top is a
+        // small info chip identifying the wakeup + the scheduled time
+        // tooltip for traceability.
         const scheduledAt = metadata?.scheduled_at;
         return (
-          <div className="max-w-2xl">
+          <Message from="system">
             <div className="flex items-center gap-1.5 text-xs text-fg-subtle mb-1">
               <span
                 className="inline-flex items-center gap-1 rounded-full bg-info-subtle text-info px-2 py-0.5 font-medium text-[11px]"
@@ -1548,174 +1803,146 @@ function EventBubble({
                 Scheduled wakeup
               </span>
             </div>
-            <div className="bg-bg-surface border border-info/30 rounded-2xl rounded-bl-sm px-4 py-3 text-sm leading-relaxed">
+            <MessageContent className="border border-info/30 rounded-2xl rounded-bl-sm px-4 py-3 bg-bg-surface">
               {text}
-            </div>
-          </div>
+            </MessageContent>
+          </Message>
         );
       }
 
-      // Pending: drainEventQueue hasn't picked it up yet. Render with
-      // muted bg + hourglass label. Cancelled: render strikethrough +
-      // muted bg with a "retracted" label so the audit trail is visible
-      // without competing with live messages for attention.
-      const labelText = isCancelled ? "Retracted" : isPending ? "Pending…" : "You";
-      const bubbleClass = isCancelled
-        ? "bg-bg-muted text-fg-subtle rounded-2xl rounded-br-sm px-4 py-3 text-sm leading-relaxed line-through opacity-70"
-        : isPending
-        ? "bg-bg-surface border border-border-strong text-fg rounded-2xl rounded-br-sm px-4 py-3 text-sm leading-relaxed"
-        : "bg-brand text-brand-fg rounded-2xl rounded-br-sm px-4 py-3 text-sm leading-relaxed";
+      // Cancelled: render strikethrough + muted so the audit trail is
+      // visible without competing with live messages. Pending: dotted
+      // border + hourglass label since drainEventQueue hasn't picked it
+      // up yet. Live: default ai-elements user bubble (right-aligned,
+      // bg-secondary which we've aliased to OMA's bg-surface).
+      const cancelledOverride = "border border-border-strong line-through opacity-70";
+      const pendingOverride = "border border-border-strong";
       return (
-        <div className="flex justify-end">
-          <div className="max-w-lg">
-            <div className="text-xs text-fg-subtle text-right mb-1 flex items-center justify-end gap-1">
+        <Message from="user">
+          {(isPending || isCancelled) && (
+            <div className="text-xs text-fg-subtle text-right flex items-center justify-end gap-1">
               {isPending && <span aria-hidden>⏳</span>}
               {isCancelled && <span aria-hidden>✗</span>}
-              <span>{labelText}</span>
+              <span>{isCancelled ? "Retracted" : "Pending…"}</span>
             </div>
-            <div className={bubbleClass}>{text}</div>
-          </div>
-        </div>
+          )}
+          <MessageContent
+            className={isCancelled ? cancelledOverride : isPending ? pendingOverride : undefined}
+          >
+            {text}
+          </MessageContent>
+        </Message>
       );
     }
 
-    case "agent.message":
+    case "agent.message": {
+      const text = (Array.isArray(event.content) ? event.content : [])
+        .map((b) => b.text)
+        .join("");
       return (
-        <div className="max-w-2xl">
-          <div className="text-xs text-fg-subtle mb-1">Agent</div>
-          <div className="bg-bg-surface rounded-2xl rounded-bl-sm px-4 py-3 text-sm leading-relaxed">
-            <Markdown>{(Array.isArray(event.content) ? event.content : []).map((b) => b.text).join("")}</Markdown>
-          </div>
-        </div>
+        <Message from="assistant">
+          <MessageContent>
+            <Markdown>{text}</Markdown>
+          </MessageContent>
+        </Message>
       );
+    }
 
     case "agent.thinking": {
       // Canonical reasoning block — keep it visible after streaming
-      // finishes. Without a case here, ThinkingStreamingBubble disappears
-      // when the canonical event lands and EventBubble silently drops the
-      // canonical event, so the user sees thinking → vanish. Render as a
-      // collapsed-by-default disclosure since reasoning can be long.
+      // finishes. <Reasoning> defaults closed unless isStreaming; we
+      // pass defaultOpen={false} so committed thoughts don't push the
+      // active conversation off-screen but stay one click away.
       const text = (event as { text?: string }).text ?? "";
       if (!text) return null;
       return (
-        <details className="max-w-2xl">
-          <summary className="text-xs text-fg-subtle mb-1 cursor-pointer hover:text-fg-muted select-none">
-            Thinking
-          </summary>
-          <div className="border-l-2 border-border pl-3 text-xs text-fg-muted italic leading-relaxed whitespace-pre-wrap">
-            {text}
-          </div>
-        </details>
+        <Reasoning isStreaming={false} defaultOpen={false}>
+          <ReasoningTrigger />
+          <ReasoningContent>{text}</ReasoningContent>
+        </Reasoning>
       );
     }
 
     case "agent.tool_use":
     case "agent.custom_tool_use":
     case "agent.mcp_tool_use": {
-      // Compact one-liner header: tool name + a short input preview so
-      // operators can scan a long conversation without expanding every
-      // call. Expanded view shows full input JSON and (when paired) the
-      // matching result inline — single visual block per tool call.
       // All three use-types share the same shape (id + name + input);
-      // MCP additionally carries mcp_server_name which we surface as a
-      // small label so operators can tell built-in vs MCP at a glance.
-      const inputPreview = (() => {
-        const obj = event.input as Record<string, unknown> | undefined;
-        if (!obj || typeof obj !== "object") return "";
-        // Heuristic: prefer the "primary" string field if any of the
-        // common tool input keys exist (task/message/command/path/query),
-        // otherwise show the first string value.
-        const primaryKeys = ["task", "message", "command", "path", "query", "url", "input", "text"];
-        for (const k of primaryKeys) {
-          if (typeof obj[k] === "string") return obj[k] as string;
-        }
-        for (const v of Object.values(obj)) {
-          if (typeof v === "string") return v;
-        }
-        return "";
-      })();
-      const resultText = pairedResult
-        ? (typeof (pairedResult as { content?: unknown }).content === "string"
-            ? ((pairedResult as { content: string }).content)
-            : JSON.stringify((pairedResult as { content?: unknown }).content))
-        : null;
+      // MCP additionally carries mcp_server_name which we append to
+      // the title so operators can tell built-in vs MCP at a glance.
+      const mcpServerName =
+        event.type === "agent.mcp_tool_use"
+          ? (event as { mcp_server_name?: string }).mcp_server_name
+          : undefined;
+      const baseName = event.name ?? "tool";
+      const title = mcpServerName ? `${baseName} (mcp · ${mcpServerName})` : baseName;
+      // Result text — Tool's <ToolOutput> takes the raw value and will
+      // either CodeBlock-stringify an object or render a string in a
+      // CodeBlock. We pre-stringify content arrays since they're an
+      // OMA-specific shape, not a JSON-friendly object.
+      const rawContent = pairedResult
+        ? (pairedResult as { content?: unknown }).content
+        : undefined;
+      const output: unknown = rawContent === undefined
+        ? undefined
+        : typeof rawContent === "string"
+          ? rawContent
+          : JSON.stringify(rawContent, null, 2);
+      // State maps to the Tool badge: input-available (Running) while
+      // we have args but no result; output-available (Completed) once
+      // the paired result lands. We don't surface output-error because
+      // the OMA tool_result spec doesn't carry a failure flag.
+      const state = pairedResult ? "output-available" : "input-available";
       return (
-        <div className="max-w-2xl">
-          <button
-            onClick={() => setToolOpen(!toolOpen)}
-            className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg text-sm hover:bg-bg-surface transition-colors w-full text-left"
-          >
-            <svg className="w-3.5 h-3.5 text-fg-muted shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
-            </svg>
-            <span className="font-mono text-xs text-fg shrink-0">{event.name}</span>
-            {event.type === "agent.mcp_tool_use" && (event as { mcp_server_name?: string }).mcp_server_name && (
-              <span className="text-[10px] text-fg-subtle font-mono uppercase tracking-wide bg-bg-muted rounded px-1 py-0.5 shrink-0">
-                mcp · {(event as { mcp_server_name: string }).mcp_server_name}
-              </span>
-            )}
-            {inputPreview && (
-              <span className="text-xs text-fg-subtle truncate">
-                {inputPreview.length > 80 ? inputPreview.slice(0, 80) + "…" : inputPreview}
-              </span>
-            )}
-            {!pairedResult && (
-              // Pending result — visually distinct so operators know the
-              // tool call hasn't returned yet. Without this hint a stuck
-              // call looks identical to a finished-but-collapsed call.
-              <span className="text-[10px] text-fg-subtle font-mono uppercase tracking-wide ml-1 shrink-0">
-                ⏳
-              </span>
-            )}
-            <svg className={`w-3 h-3 ml-auto text-fg-subtle transition-transform shrink-0 ${toolOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-          {toolOpen && (
-            <div className="mt-1 border border-border rounded-lg overflow-hidden">
-              <div className="bg-bg-surface px-3 py-1.5 text-[10px] uppercase tracking-wide text-fg-subtle font-medium border-b border-border">
-                Input
-              </div>
-              <pre className="bg-bg-surface px-3 py-2 text-xs font-mono overflow-x-auto max-h-48 overflow-y-auto text-fg-muted">
-                {JSON.stringify(event.input, null, 2)}
-              </pre>
-              {resultText !== null && (
-                <>
-                  <div className="bg-bg-surface px-3 py-1.5 text-[10px] uppercase tracking-wide text-fg-subtle font-medium border-y border-border">
-                    Output
-                  </div>
-                  <div className="px-3 py-2 text-xs whitespace-pre-wrap text-fg max-h-96 overflow-y-auto">
-                    {resultText}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+        <Tool>
+          <ToolHeader type="dynamic-tool" toolName={title} state={state} />
+          <ToolContent>
+            <ToolInput input={event.input ?? {}} />
+            <ToolOutput output={output} errorText={undefined} />
+          </ToolContent>
+        </Tool>
       );
     }
 
     case "agent.tool_result":
+    case "agent.mcp_tool_result": {
       // Orphan tool_result — caller couldn't pair it with a tool_use
       // (race / out-of-order delivery, or recovery-injected placeholder).
-      // Fall back to a neutral standalone block; no green/success color
-      // since success/failure isn't conveyed by tool_result in the
-      // current spec.
+      // Render a degenerate Tool with output-only so the visual is still
+      // a "tool" card (matching the rest of the timeline) but the header
+      // signals it stands alone.
+      const rawContent = (event as { content?: unknown }).content;
+      const output: unknown = rawContent === undefined
+        ? undefined
+        : typeof rawContent === "string"
+          ? rawContent
+          : JSON.stringify(rawContent, null, 2);
       return (
-        <div className="max-w-2xl">
-          <div className="border-l-2 border-border bg-bg-surface rounded-r-lg px-3 py-2 text-xs whitespace-pre-wrap text-fg-muted max-h-40 overflow-y-auto">
-            <span className="text-[10px] uppercase tracking-wide text-fg-subtle font-medium block mb-1">
-              tool result · unpaired
-            </span>
-            {typeof event.content === "string" ? event.content : JSON.stringify(event.content)}
-          </div>
-        </div>
+        <Tool>
+          <ToolHeader
+            type="dynamic-tool"
+            toolName="tool result (unpaired)"
+            state="output-available"
+          />
+          <ToolContent>
+            <ToolOutput output={output} errorText={undefined} />
+          </ToolContent>
+        </Tool>
       );
+    }
 
     case "session.error":
       return (
         <div className="max-w-2xl bg-danger-subtle border border-danger/30 rounded-lg px-4 py-2.5 text-sm text-danger">
-          Error: {event.error}
+          <div>Error: {event.error}</div>
+          {modelErrorCause && (
+            <div className="mt-1.5 pt-1.5 border-t border-danger/20 text-[12px] opacity-90">
+              <span className="font-medium">Cause</span>
+              {modelErrorCause.model && (
+                <span className="ml-1 font-mono opacity-75">({modelErrorCause.model})</span>
+              )}
+              : {modelErrorCause.error}
+            </div>
+          )}
         </div>
       );
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { useApi } from "../lib/api";
-import { useCursorList } from "../lib/useCursorList";
+import { usePagedList } from "../lib/usePagedList";
 import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
 import { Select, SelectOption } from "../components/Select";
@@ -18,11 +18,14 @@ export function EnvironmentsList() {
   const {
     items: envs,
     isLoading: loading,
-    isLoadingMore,
-    hasMore,
-    loadMore,
+    pageIndex,
+    pageSize,
+    hasNext,
+    knownPages,
+    goToPage,
+    setPageSize,
     refresh: load,
-  } = useCursorList<Env>("/v1/environments", { limit: 50 });
+  } = usePagedList<Env>("/v1/environments", { defaultPageSize: 20 });
 
   const create = async () => {
     await api("/v1/environments", {
@@ -40,7 +43,7 @@ export function EnvironmentsList() {
         <button
           key={t}
           onClick={() => setTab(t)}
-          className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+          className={`inline-flex items-center justify-center px-3 py-1.5 min-h-11 sm:min-h-0 text-sm rounded-md transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] ${
             tab === t ? "bg-brand text-brand-fg" : "text-fg-muted hover:bg-bg-surface"
           }`}
         >
@@ -60,10 +63,15 @@ export function EnvironmentsList() {
       data={displayed}
       loading={loading}
       getRowKey={(e) => e.id}
-      hasMore={hasMore}
-      onLoadMore={loadMore}
-      loadingMore={isLoadingMore}
+      pageIndex={pageIndex}
+      pageSize={pageSize}
+      hasNext={hasNext}
+      knownPages={knownPages}
+      pageSizeOptions={[10, 20, 50, 100]}
+      onPageChange={goToPage}
+      onPageSizeChange={setPageSize}
       emptyTitle="No environments yet"
+      emptyKind="env"
       emptySubtitle="Create your first environment to get started."
       columns={[
         {
@@ -110,29 +118,31 @@ export function EnvironmentsList() {
       >
         <div className="space-y-4">
           <div>
-            <label className="text-sm text-fg-muted block mb-1">Name</label>
+            <label htmlFor="env-create-name" className="text-sm text-fg-muted block mb-1">Name</label>
             <input
+              id="env-create-name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value.slice(0, 50) })}
-              className="w-full border border-border rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-bg text-fg transition-colors placeholder:text-fg-subtle"
+              className="w-full border border-border rounded-md px-3 py-2 min-h-11 sm:min-h-0 text-sm outline-none focus:border-brand bg-bg text-fg transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle"
               placeholder="production"
             />
             <p className="text-xs text-fg-subtle mt-1">{form.name.length}/50 characters</p>
           </div>
           <div>
-            <label className="text-sm text-fg-muted block mb-1">Hosting Type</label>
+            <span className="text-sm text-fg-muted block mb-1">Hosting Type</span>
             <Select value="cloud" onValueChange={() => {}} disabled>
               <SelectOption value="cloud">Cloud</SelectOption>
             </Select>
             <p className="text-xs text-fg-subtle mt-1">This cannot be changed after creation.</p>
           </div>
           <div>
-            <label className="text-sm text-fg-muted block mb-1">Description <span className="text-fg-subtle">(optional)</span></label>
+            <label htmlFor="env-create-description" className="text-sm text-fg-muted block mb-1">Description <span className="text-fg-subtle">(optional)</span></label>
             <textarea
+              id="env-create-description"
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={3}
-              className="w-full border border-border rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-bg text-fg resize-none transition-colors placeholder:text-fg-subtle"
+              className="w-full border border-border rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-bg text-fg resize-none transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle"
               placeholder="Production environment for customer-facing agents..."
             />
           </div>

@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { useApi } from "../lib/api";
-import { useCursorList } from "../lib/useCursorList";
+import { usePagedList } from "../lib/usePagedList";
 import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
 import { ListPage } from "../components/ListPage";
 import { TextInput, SecretInput } from "../components/Input";
 import { LocalCombobox } from "../components/LocalCombobox";
+import { Disclosure } from "../components/Disclosure";
+import { TabsRoot, TabList, Tab, TabPanel } from "../components/Tabs";
 import { MCP_REGISTRY, type McpRegistryEntry } from "../data/mcp-registry";
 
 interface Vault { id: string; name: string; created_at: string; archived_at?: string; }
@@ -106,11 +108,14 @@ export function VaultsList() {
   const {
     items: vaults,
     isLoading: loading,
-    isLoadingMore,
-    hasMore,
-    loadMore,
+    pageIndex,
+    pageSize,
+    hasNext,
+    knownPages,
+    goToPage,
+    setPageSize,
     refresh: load,
-  } = useCursorList<Vault>("/v1/vaults", { limit: 50 });
+  } = usePagedList<Vault>("/v1/vaults", { defaultPageSize: 20 });
 
   // Listen for OAuth popup completion
   const handleOAuthMessage = useCallback((event: MessageEvent) => {
@@ -322,7 +327,7 @@ export function VaultsList() {
     openVault(selectedVault);
   };
 
-  const inputCls = "w-full border border-border rounded-md px-3 py-2 text-sm bg-bg text-fg outline-none focus:border-brand transition-colors placeholder:text-fg-subtle";
+  const inputCls = "w-full border border-border rounded-md px-3 py-2 min-h-11 sm:min-h-0 text-sm bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle";
 
   // Already connected MCP server URLs
   const connectedUrls = new Set(credentials.map((c) => c.auth.mcp_server_url).filter(Boolean));
@@ -336,7 +341,7 @@ export function VaultsList() {
         <button
           key={t}
           onClick={() => setVaultTab(t)}
-          className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+          className={`inline-flex items-center justify-center px-3 py-1.5 min-h-11 sm:min-h-0 text-sm rounded-md transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] ${
             vaultTab === t ? "bg-brand text-brand-fg" : "text-fg-muted hover:bg-bg-surface"
           }`}
         >
@@ -357,10 +362,18 @@ export function VaultsList() {
       loading={loading}
       getRowKey={(v) => v.id}
       onRowClick={openVault}
-      hasMore={hasMore}
-      onLoadMore={loadMore}
-      loadingMore={isLoadingMore}
+      pageIndex={pageIndex}
+      pageSize={pageSize}
+      hasNext={hasNext}
+      knownPages={knownPages}
+      pageSizeOptions={[10, 20, 50, 100]}
+      onPageChange={goToPage}
+      onPageSizeChange={setPageSize}
       emptyTitle="No vaults yet"
+      emptyKind="vault"
+      emptyAction={
+        <Button onClick={() => setShowCreateVault(true)}>+ New vault</Button>
+      }
       columns={[
         { key: "name", label: "Name", className: "font-medium text-fg" },
         { key: "id", label: "ID", className: "font-mono text-xs text-fg-muted" },
@@ -386,8 +399,9 @@ export function VaultsList() {
       >
         <div className="space-y-4">
           <div>
-            <label className="text-sm text-fg-muted block mb-1">Name</label>
+            <label htmlFor="vault-name" className="text-sm text-fg-muted block mb-1">Name</label>
             <input
+              id="vault-name"
               value={vaultName}
               onChange={(e) => setVaultName(e.target.value.slice(0, 30))}
               className={inputCls}
@@ -441,7 +455,7 @@ export function VaultsList() {
                     : c.auth.type === "cap_cli" ? "bg-brand-subtle text-brand"
                     : "bg-success-subtle text-success"
                   }`}>{c.auth.type === "mcp_oauth" ? "OAuth" : c.auth.type === "cap_cli" ? "CLI" : "Bearer"}</span>
-                  <button onClick={() => deleteCred(c.id)} className="text-xs text-fg-subtle hover:text-danger transition-colors">Delete</button>
+                  <button onClick={() => deleteCred(c.id)} className="inline-flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 px-2 text-xs text-fg-subtle hover:text-danger transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]">Delete</button>
                 </div>
               </div>
             ))}
@@ -489,31 +503,25 @@ export function VaultsList() {
           )
         }
       >
-        <div className="flex gap-1 mb-3 border-b border-border-subtle">
-          {(["mcp", "cli"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setAddTab(t)}
-              className={`px-3 py-2 text-sm border-b-2 -mb-px ${
-                addTab === t
-                  ? "border-fg text-fg font-medium"
-                  : "border-transparent text-fg-muted hover:text-fg"
-              }`}
-            >
-              {t === "mcp" ? "MCP server" : "CLI"}
-            </button>
-          ))}
-        </div>
+        <TabsRoot
+          value={addTab}
+          onValueChange={(v) => setAddTab(v as "mcp" | "cli")}
+          aria-label="Add credential"
+        >
+          <TabList className="mb-3">
+            <Tab value="mcp" compact>MCP server</Tab>
+            <Tab value="cli" compact>CLI</Tab>
+          </TabList>
 
-        {addTab === "mcp" && (
-          <div className="space-y-4">
+          <TabPanel value="mcp" className="space-y-4">
             <div className="text-sm text-fg-muted">Authorize an MCP server for delegated user authentication.</div>
 
             <div>
-              <label className="text-sm font-medium text-fg block mb-1">
+              <label htmlFor="vault-mcp-name" className="text-sm font-medium text-fg block mb-1">
                 Name <span className="text-xs text-fg-muted ml-1 px-1.5 py-0.5 rounded bg-bg-surface">Optional</span>
               </label>
               <input
+                id="vault-mcp-name"
                 value={customForm.name}
                 onChange={(e) => setCustomForm({ ...customForm, name: e.target.value })}
                 placeholder="Example MCP"
@@ -523,13 +531,13 @@ export function VaultsList() {
 
             <div>
               <label className="text-sm font-medium text-fg block mb-1">Type</label>
-              <div className="inline-flex rounded-md border border-border-subtle p-0.5">
+              <div className="inline-flex rounded-md border border-border p-0.5">
                 {(["oauth", "bearer"] as const).map((t) => (
                   <button
                     key={t}
                     type="button"
                     onClick={() => setCustomForm({ ...customForm, type: t })}
-                    className={`px-3 py-1 text-sm rounded ${customForm.type === t ? "bg-bg-surface text-fg font-medium" : "text-fg-muted"}`}
+                    className={`inline-flex items-center justify-center px-3 py-1 min-h-11 sm:min-h-0 text-sm rounded ${customForm.type === t ? "bg-bg-surface text-fg font-medium" : "text-fg-muted"}`}
                   >
                     {t === "oauth" ? "OAuth" : "Bearer token"}
                   </button>
@@ -572,7 +580,7 @@ export function VaultsList() {
                 renderItem={(entry) => (
                   <div className="flex items-center gap-3 px-3 py-2.5">
                     {entry.icon ? (
-                      <img src={entry.icon} alt="" className="w-5 h-5 rounded shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      <img src={entry.icon} alt="" loading="lazy" decoding="async" className="w-5 h-5 rounded shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     ) : (
                       <div className="w-5 h-5 rounded bg-bg-surface shrink-0" />
                     )}
@@ -583,7 +591,7 @@ export function VaultsList() {
                   </div>
                 )}
                 prefix={customForm.pickedIcon ? (
-                  <img src={customForm.pickedIcon} alt="" className="w-4 h-4 rounded shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  <img src={customForm.pickedIcon} alt="" loading="lazy" decoding="async" className="w-4 h-4 rounded shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 ) : null}
                 placeholder="Search Anthropic's MCP registry or enter a custom URL"
                 emptyHint="No matches — keep typing for a custom URL"
@@ -595,123 +603,109 @@ export function VaultsList() {
                 changes to Create. Visible regardless of Type so the
                 user can supply a pre-issued OAuth access_token without
                 a full handshake. */}
-            <div className="border border-border-subtle rounded-md">
-              <button
-                type="button"
-                onClick={() => setTokenSectionOpen((v) => !v)}
-                className="w-full flex items-center gap-2 px-3 py-2.5 text-left"
-              >
-                <span className={`text-fg-muted transition-transform ${tokenSectionOpen ? "rotate-90" : ""}`}>›</span>
-                <span className="text-sm font-medium text-fg">Access token</span>
-                <span className="text-xs text-fg-muted px-1.5 py-0.5 rounded bg-bg-surface">Optional</span>
-              </button>
-              {tokenSectionOpen && (
-                <div className="px-3 pb-3">
-                  <input
-                    value={customForm.token}
-                    onChange={(e) => setCustomForm({ ...customForm, token: e.target.value })}
-                    type="password"
-                    placeholder="••••••••"
-                    className={inputCls}
-                  />
-                  <div className="text-xs text-fg-subtle mt-1">If filled, the credential is stored as a static bearer token (no OAuth handshake).</div>
-                </div>
-              )}
-            </div>
+            <Disclosure
+              title="Access token"
+              meta={<span className="px-1.5 py-0.5 rounded bg-bg-surface">Optional</span>}
+              open={tokenSectionOpen}
+              onOpenChange={setTokenSectionOpen}
+            >
+              <input
+                value={customForm.token}
+                onChange={(e) => setCustomForm({ ...customForm, token: e.target.value })}
+                type="password"
+                placeholder="••••••••"
+                aria-label="Access token"
+                className={inputCls}
+              />
+              <div className="text-xs text-fg-subtle mt-1">If filled, the credential is stored as a static bearer token (no OAuth handshake).</div>
+            </Disclosure>
 
             {/* Refresh token block (Optional) — only meaningful when an
                 Access token is also set (RFC 6749 §6 refresh_token grant).
                 Render only when token has a value. */}
             {customForm.token && (
-              <div className="border border-border-subtle rounded-md">
-                <button
-                  type="button"
-                  onClick={() => setRefreshSectionOpen((v) => !v)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-left"
-                >
-                  <span className={`text-fg-muted transition-transform ${refreshSectionOpen ? "rotate-90" : ""}`}>›</span>
-                  <span className="text-sm font-medium text-fg">Refresh token</span>
-                  <span className="text-xs text-fg-muted px-1.5 py-0.5 rounded bg-bg-surface">Optional</span>
-                </button>
-                {refreshSectionOpen && (
-                  <div className="px-3 pb-3 space-y-3">
-                    <div>
-                      <input
-                        value={customForm.refreshToken}
-                        onChange={(e) => setCustomForm({ ...customForm, refreshToken: e.target.value })}
-                        placeholder="OAuth refresh token"
-                        className={inputCls}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-fg block mb-1">Token endpoint</label>
-                      <input
-                        value={customForm.tokenEndpoint}
-                        onChange={(e) => setCustomForm({ ...customForm, tokenEndpoint: e.target.value })}
-                        placeholder="https://auth.example.com/oauth/token"
-                        className={inputCls}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-fg block mb-1">Auth method</label>
-                      <select
-                        value={customForm.authMethod}
-                        onChange={(e) => setCustomForm({ ...customForm, authMethod: e.target.value as typeof customForm.authMethod })}
-                        className={inputCls}
-                      >
-                        <option value="client_secret_post">client_secret_post</option>
-                        <option value="client_secret_basic">client_secret_basic</option>
-                        <option value="none">none</option>
-                      </select>
-                    </div>
-                    <div className="text-xs text-fg-subtle">RFC 8414 token_endpoint_auth_methods_supported. Used when the server refreshes on 401.</div>
+              <Disclosure
+                title="Refresh token"
+                meta={<span className="px-1.5 py-0.5 rounded bg-bg-surface">Optional</span>}
+                open={refreshSectionOpen}
+                onOpenChange={setRefreshSectionOpen}
+                className="space-y-3"
+              >
+                <div className="space-y-3">
+                  <div>
+                    <input
+                      value={customForm.refreshToken}
+                      onChange={(e) => setCustomForm({ ...customForm, refreshToken: e.target.value })}
+                      placeholder="OAuth refresh token"
+                      aria-label="Refresh token"
+                      className={inputCls}
+                    />
                   </div>
-                )}
-              </div>
+                  <div>
+                    <label htmlFor="vault-token-endpoint" className="text-sm font-medium text-fg block mb-1">Token endpoint</label>
+                    <input
+                      id="vault-token-endpoint"
+                      value={customForm.tokenEndpoint}
+                      onChange={(e) => setCustomForm({ ...customForm, tokenEndpoint: e.target.value })}
+                      placeholder="https://auth.example.com/oauth/token"
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="vault-auth-method" className="text-sm font-medium text-fg block mb-1">Auth method</label>
+                    <select
+                      id="vault-auth-method"
+                      value={customForm.authMethod}
+                      onChange={(e) => setCustomForm({ ...customForm, authMethod: e.target.value as typeof customForm.authMethod })}
+                      className={inputCls}
+                    >
+                      <option value="client_secret_post">client_secret_post</option>
+                      <option value="client_secret_basic">client_secret_basic</option>
+                      <option value="none">none</option>
+                    </select>
+                  </div>
+                  <div className="text-xs text-fg-subtle">RFC 8414 token_endpoint_auth_methods_supported. Used when the server refreshes on 401.</div>
+                </div>
+              </Disclosure>
             )}
             {/* OAuth client credentials (Optional) — only shown for the
                 OAuth flow. Lets the user override the server's preset
                 client_id/secret on a per-credential basis (GitHub /
                 Feishu / any provider that doesn't support DCR). */}
             {customForm.type === "oauth" && !customForm.token && (
-              <div className="border border-border-subtle rounded-md">
-                <button
-                  type="button"
-                  onClick={() => setClientCredsSectionOpen((v) => !v)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-left"
-                >
-                  <span className={`text-fg-muted transition-transform ${clientCredsSectionOpen ? "rotate-90" : ""}`}>›</span>
-                  <span className="text-sm font-medium text-fg">OAuth client credentials</span>
-                  <span className="text-xs text-fg-muted px-1.5 py-0.5 rounded bg-bg-surface">Optional</span>
-                </button>
-                {clientCredsSectionOpen && (
-                  <div className="px-3 pb-3 space-y-2">
-                    <input
-                      value={customForm.clientId}
-                      onChange={(e) => setCustomForm({ ...customForm, clientId: e.target.value })}
-                      placeholder="Client ID"
-                      className={inputCls}
-                    />
-                    <input
-                      value={customForm.clientSecret}
-                      onChange={(e) => setCustomForm({ ...customForm, clientSecret: e.target.value })}
-                      type="password"
-                      placeholder="Client secret"
-                      className={inputCls}
-                    />
-                    <div className="text-xs text-fg-subtle">For OAuth providers that don't support Dynamic Client Registration (GitHub, Feishu) — supply a client_id/secret from a pre-registered app.</div>
-                  </div>
-                )}
-              </div>
+              <Disclosure
+                title="OAuth client credentials"
+                meta={<span className="px-1.5 py-0.5 rounded bg-bg-surface">Optional</span>}
+                open={clientCredsSectionOpen}
+                onOpenChange={setClientCredsSectionOpen}
+              >
+                <div className="space-y-2">
+                  <input
+                    value={customForm.clientId}
+                    onChange={(e) => setCustomForm({ ...customForm, clientId: e.target.value })}
+                    placeholder="Client ID"
+                    aria-label="OAuth client ID"
+                    className={inputCls}
+                  />
+                  <input
+                    value={customForm.clientSecret}
+                    onChange={(e) => setCustomForm({ ...customForm, clientSecret: e.target.value })}
+                    type="password"
+                    placeholder="Client secret"
+                    aria-label="OAuth client secret"
+                    className={inputCls}
+                  />
+                  <div className="text-xs text-fg-subtle">For OAuth providers that don't support Dynamic Client Registration (GitHub, Feishu) — supply a client_id/secret from a pre-registered app.</div>
+                </div>
+              </Disclosure>
             )}
-          </div>
-        )}
+          </TabPanel>
 
-        {addTab === "cli" && (
-          <div className="space-y-3">
+          <TabPanel value="cli" className="space-y-3">
             <div>
-              <label className="text-sm text-fg-muted block mb-1">CLI</label>
+              <label htmlFor="vault-cli-id" className="text-sm text-fg-muted block mb-1">CLI</label>
               <select
+                id="vault-cli-id"
                 value={cliForm.cli_id}
                 onChange={(e) => { setCliForm({ ...cliForm, cli_id: e.target.value }); setDeviceFlow(null); }}
                 className={inputCls}
@@ -756,8 +750,9 @@ export function VaultsList() {
             )}
 
             <div>
-              <label className="text-sm text-fg-muted block mb-1">Display Name <span className="text-fg-subtle">(optional)</span></label>
+              <label htmlFor="vault-cli-display-name" className="text-sm text-fg-muted block mb-1">Display Name <span className="text-fg-subtle">(optional)</span></label>
               <TextInput
+                id="vault-cli-display-name"
                 value={cliForm.display_name}
                 onChange={(e) => setCliForm({ ...cliForm, display_name: e.target.value })}
                 className={inputCls}
@@ -766,8 +761,9 @@ export function VaultsList() {
               />
             </div>
             <div>
-              <label className="text-sm text-fg-muted block mb-1">Token <span className="text-fg-subtle">(write-only — leave blank to use OAuth above)</span></label>
+              <label htmlFor="vault-cli-token" className="text-sm text-fg-muted block mb-1">Token <span className="text-fg-subtle">(write-only — leave blank to use OAuth above)</span></label>
               <SecretInput
+                id="vault-cli-token"
                 value={cliForm.token}
                 onChange={(e) => setCliForm({ ...cliForm, token: e.target.value })}
                 className={inputCls}
@@ -775,8 +771,8 @@ export function VaultsList() {
                 disabled={deviceFlow?.status === "polling"}
               />
             </div>
-          </div>
-        )}
+          </TabPanel>
+        </TabsRoot>
       </Modal>
 
     </ListPage>

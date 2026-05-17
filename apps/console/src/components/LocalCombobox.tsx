@@ -46,7 +46,7 @@ export interface LocalComboboxProps<T> {
 }
 
 const DEFAULT_INPUT_CLS =
-  "w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-fg outline-none focus-within:border-brand transition-colors flex items-center gap-2";
+  "w-full rounded-md border border-border bg-bg px-3 py-2 min-h-11 sm:min-h-0 text-sm text-fg outline-none focus-within:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] flex items-center gap-2";
 
 export function LocalCombobox<T>({
   value,
@@ -107,7 +107,11 @@ export function LocalCombobox<T>({
 
   return (
     <div className="relative" ref={anchorRef}>
-      <div className={className ?? DEFAULT_INPUT_CLS} onClick={() => inputRef.current?.focus()}>
+      <div
+        role="presentation"
+        className={className ?? DEFAULT_INPUT_CLS}
+        onClick={() => inputRef.current?.focus()}
+      >
         {prefix}
         <input
           ref={inputRef}
@@ -117,6 +121,10 @@ export function LocalCombobox<T>({
           placeholder={placeholder}
           disabled={disabled}
           autoFocus={autoFocus}
+          role="combobox"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-autocomplete="list"
           className="flex-1 bg-transparent outline-none text-sm min-w-0"
         />
         {value && !disabled && (
@@ -127,7 +135,7 @@ export function LocalCombobox<T>({
             // dropdown via blur, masking the clear).
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onChange("")}
-            className="text-fg-muted hover:text-fg shrink-0 px-1"
+            className="inline-flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 text-fg-muted hover:text-fg shrink-0 px-1"
             aria-label="Clear"
           >
             ×
@@ -138,8 +146,9 @@ export function LocalCombobox<T>({
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => setOpen((v) => !v)}
           disabled={disabled}
-          className={`text-fg-muted hover:text-fg shrink-0 px-1 transition-transform ${open ? "rotate-180" : ""}`}
+          aria-expanded={open}
           aria-label="Toggle options"
+          className={`inline-flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 text-fg-muted hover:text-fg shrink-0 px-1 transition-transform ${open ? "rotate-180" : ""}`}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="6 9 12 15 18 9" />
@@ -173,7 +182,7 @@ export function LocalCombobox<T>({
                       onPick?.(item);
                       setOpen(false);
                     }}
-                    className="w-full text-left hover:bg-bg-surface cursor-pointer"
+                    className="w-full text-left min-h-11 sm:min-h-0 hover:bg-bg-surface cursor-pointer"
                   >
                     {renderItem(item)}
                   </button>

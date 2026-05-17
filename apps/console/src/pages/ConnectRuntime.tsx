@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApi } from "../lib/api";
+import { useApiQuery } from "../lib/useApiQuery";
 import { Button } from "../components/Button";
+import { Logo } from "../components/Logo";
 
 /** Browser-side handler for `oma bridge setup`. The CLI binds a random
  *  127.0.0.1 port and opens this URL with `?cb=http://127.0.0.1:<port>/cb&state=<nonce>`.
@@ -36,36 +38,42 @@ export function ConnectRuntime() {
   const state = params.get("state") ?? "";
   const callbackOk = isLoopback(callback);
 
-  const [me, setMe] = useState<MeResponse | null>(null);
-  const [loading, setLoading] = useState(true);
   const [authNeeded, setAuthNeeded] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
 
+  // Validate URL params synchronously so an invalid callback never wastes
+  // a /v1/me roundtrip. The `enabled` gate on the query below carries the
+  // same guard for the actual fetch.
+  const paramsValid = callbackOk && !!state && state.length >= 8;
   useEffect(() => {
     if (!callbackOk) {
       setError(
         "Invalid callback URL — only loopback addresses (127.0.0.1, localhost) are permitted.",
       );
-      setLoading(false);
       return;
     }
     if (!state || state.length < 8) {
       setError("Missing or invalid state parameter — re-run `oma bridge setup`.");
-      setLoading(false);
-      return;
     }
-    api<MeResponse>("/v1/me")
-      .then(setMe)
-      .catch((err) => {
-        if (/401|Unauthorized/i.test(String(err?.message))) {
-          setAuthNeeded(true);
-        } else {
-          setError(String(err?.message ?? err));
-        }
-      })
-      .finally(() => setLoading(false));
-  }, [api, callbackOk, state]);
+  }, [callbackOk, state]);
+
+  // /v1/me lookup via TQ. Deduped across the page's lifetime; a tab switch
+  // away and back doesn't re-hit the endpoint within staleTime.
+  const meQuery = useApiQuery<MeResponse>(paramsValid ? "/v1/me" : null);
+  const me = meQuery.data ?? null;
+  const loading = paramsValid ? meQuery.isLoading : false;
+
+  // /v1/me failure: 401 → show "Sign in" CTA; everything else → inline.
+  useEffect(() => {
+    const err = meQuery.error;
+    if (!err) return;
+    if (/401|Unauthorized/i.test(String((err as Error).message))) {
+      setAuthNeeded(true);
+    } else {
+      setError(String((err as Error).message ?? err));
+    }
+  }, [meQuery.error]);
 
   const goLogin = () => {
     const next = encodeURIComponent(window.location.pathname + window.location.search);
@@ -107,11 +115,11 @@ export function ConnectRuntime() {
 
   return (
     <div className="min-h-screen bg-bg flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-bg-surface border border-border rounded-2xl p-8 shadow-sm">
+      <div className="w-full max-w-md bg-bg-surface border border-border rounded-xl p-8 shadow-sm">
         <div className="flex items-center gap-3 mb-6">
-          <img src="/logo.svg" alt="openma" className="h-9 shrink-0" />
+          <Logo size="md" />
           <div>
-            <div className="font-display text-lg font-semibold">Connect machine</div>
+            <h1 className="font-display text-lg font-semibold">Connect machine</h1>
             <div className="text-xs text-fg-subtle">openma local runtime</div>
           </div>
         </div>
@@ -155,7 +163,7 @@ export function ConnectRuntime() {
               <button
                 onClick={cancel}
                 disabled={working}
-                className="px-4 py-2.5 rounded-lg border border-border text-sm text-fg-muted hover:bg-bg disabled:opacity-40"
+                className="inline-flex items-center justify-center px-4 py-2.5 min-h-11 sm:min-h-0 rounded-lg border border-border text-sm text-fg-muted hover:bg-bg disabled:opacity-40"
               >
                 Cancel
               </button>

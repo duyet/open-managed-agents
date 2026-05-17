@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useApi, getActiveTenantId } from "../lib/api";
 import { useToast } from "../components/Toast";
 import { ListPage } from "../components/ListPage";
+import { usePagedList } from "../lib/usePagedList";
 
 interface FileRecord {
   id: string;
@@ -22,58 +23,39 @@ interface ListResponse {
   last_id?: string;
 }
 
-const PAGE_SIZE = 50;
-
 export function FilesList() {
   const { api } = useApi();
   const { toast } = useToast();
-  const [items, setItems] = useState<FileRecord[]>([]);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [scopeFilter, setScopeFilter] = useState("");
   const [search, setSearch] = useState("");
 
-  const buildUrl = (beforeId?: string) => {
-    const sp = new URLSearchParams();
-    sp.set("limit", String(PAGE_SIZE));
-    if (scopeFilter) sp.set("scope_id", scopeFilter);
-    if (beforeId) sp.set("before_id", beforeId);
-    return `/v1/files?${sp.toString()}`;
-  };
-
-  const refresh = async () => {
-    setLoading(true);
-    try {
-      const res = await api<ListResponse>(buildUrl());
-      setItems(res.data);
-      setHasMore(!!res.has_more);
-    } catch {
-      // api() already toasted; empty list communicates the failure.
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadMore = async () => {
-    const lastId = items[items.length - 1]?.id;
-    if (!lastId || loadingMore) return;
-    setLoadingMore(true);
-    try {
-      const res = await api<ListResponse>(buildUrl(lastId));
-      setItems((prev) => [...prev, ...res.data]);
-      setHasMore(!!res.has_more);
-    } catch {
-      // toasted by api()
-    } finally {
-      setLoadingMore(false);
-    }
-  };
-
-  useEffect(() => {
-    void refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopeFilter]);
+  // Files endpoint follows the Anthropic Files API shape — `before_id`
+  // for the cursor param and `last_id` (only when `has_more` is true) for
+  // the next-page cursor — instead of OMA's standard `cursor` /
+  // `next_cursor`. usePagedList accepts adapter overrides for both.
+  const filesParams = useMemo(
+    () => ({ scope_id: scopeFilter || undefined }),
+    [scopeFilter],
+  );
+  const {
+    items,
+    isLoading: loading,
+    pageIndex,
+    pageSize,
+    hasNext,
+    knownPages,
+    goToPage,
+    setPageSize,
+    refresh: refreshFiles,
+  } = usePagedList<FileRecord>("/v1/files", {
+    defaultPageSize: 20,
+    params: filesParams,
+    cursorParam: "before_id",
+    getNextCursor: (res) => {
+      const r = res as ListResponse;
+      return r.has_more ? r.data[r.data.length - 1]?.id : undefined;
+    },
+  });
 
   // Direct fetch for binary download — api() always parses JSON, and we need
   // the raw blob. Mirror its tenant-pin header so downloads honor the active
@@ -107,7 +89,11 @@ export function FilesList() {
     if (!confirm(`Delete "${f.filename}"? The R2 object and metadata both go. This cannot be undone.`)) return;
     try {
       await api(`/v1/files/${f.id}`, { method: "DELETE" });
-      setItems((prev) => prev.filter((x) => x.id !== f.id));
+      // Invalidate every /v1/files query (any scope filter) so the page
+      // Refetch — usePagedList exposes refresh() which clears the cursor
+      // stack and bounces back to page 0. Cheaper than maintaining a
+      // local optimistic copy; the next refetch lands fresh server truth.
+      refreshFiles();
     } catch {
       // toasted
     }
@@ -137,16 +123,21 @@ export function FilesList() {
           value={scopeFilter}
           onChange={(e) => setScopeFilter(e.target.value)}
           placeholder="Filter by scope (session ID)…"
-          className="border border-border rounded-md px-3 py-1.5 text-sm bg-bg text-fg placeholder:text-fg-subtle focus:border-brand focus:outline-none transition-colors w-full sm:w-72"
+          aria-label="Filter by session scope"
+          className="border border-border rounded-md px-3 py-1.5 min-h-11 sm:min-h-0 text-sm bg-bg text-fg placeholder:text-fg-subtle focus:border-brand focus:outline-none transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] w-full sm:w-72"
         />
       }
       data={filtered}
       loading={loading}
-      hasMore={hasMore && !search}
-      onLoadMore={loadMore}
-      loadingMore={loadingMore}
+      hasNext={hasNext && !search}
+      pageIndex={pageIndex}
+      pageSize={pageSize}
+      knownPages={knownPages}
+      onPageChange={goToPage}
+      onPageSizeChange={setPageSize}
       getRowKey={(f) => f.id}
       emptyTitle={scopeFilter ? "No files in this scope" : "No files yet"}
+      emptyKind="file"
       emptySubtitle={
         scopeFilter
           ? "Try clearing the scope filter, or check the session id."
@@ -212,14 +203,14 @@ export function FilesList() {
               {f.downloadable && (
                 <button
                   onClick={(e) => { e.stopPropagation(); void download(f); }}
-                  className="text-xs text-fg-muted hover:text-fg mr-3"
+                  className="inline-flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 text-xs text-fg-muted hover:text-fg mr-1 sm:mr-3 px-2"
                 >
                   Download
                 </button>
               )}
               <button
                 onClick={(e) => { e.stopPropagation(); void remove(f); }}
-                className="text-xs text-danger hover:text-danger/80"
+                className="inline-flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 text-xs text-danger hover:text-danger/80 px-2"
               >
                 Delete
               </button>

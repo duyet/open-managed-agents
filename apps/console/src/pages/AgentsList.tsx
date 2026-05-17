@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useApi } from "../lib/api";
-import { useCursorList } from "../lib/useCursorList";
+import { usePagedList } from "../lib/usePagedList";
 import { ListPage } from "../components/ListPage";
+import { Button } from "../components/Button";
 import { Select, SelectOption, SelectGroup, SelectGroupLabel } from "../components/Select";
 import { Combobox } from "../components/Combobox";
 import { McpServerPickerModal } from "../components/McpServerPickerModal";
@@ -105,6 +106,13 @@ export function AgentsList() {
   const [createError, setCreateError] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  /* Dialog accessibility ref. The create dialog stays hand-rolled (its
+     template→form/yaml/json multi-step header doesn't fit the standard
+     Modal), but the focus trap, scroll lock, restore-focus and Escape
+     handlers below mirror what Modal does so keyboard + screen-reader
+     users get the same affordances. */
+  const createDialogRef = useRef<HTMLDivElement>(null);
+  const createPreviousFocus = useRef<HTMLElement | null>(null);
   const [createStep, setCreateStep] = useState<"template" | "form">("template");
   const [templateSearch, setTemplateSearch] = useState("");
   const [form, setForm] = useState({ ...INITIAL_FORM });
@@ -113,8 +121,8 @@ export function AgentsList() {
   const [codeValue, setCodeValue] = useState("");
   const [showMcpPicker, setShowMcpPicker] = useState(false);
 
-  // Main agents table — cursor-paginated. Filter changes (showArchived)
-  // reset to page 1 automatically.
+  // Main agents table — paginated. Filter changes (showArchived) reset to
+  // page 0 automatically.
   const agentsParams = useMemo(
     () => ({ include_archived: showArchived ? "true" : undefined }),
     [showArchived],
@@ -122,11 +130,14 @@ export function AgentsList() {
   const {
     items: agents,
     isLoading: loading,
-    isLoadingMore,
-    hasMore,
-    loadMore,
+    pageIndex,
+    pageSize,
+    hasNext,
+    knownPages,
+    goToPage,
+    setPageSize,
     refresh: refreshAgents,
-  } = useCursorList<Agent>("/v1/agents", { limit: 50, params: agentsParams });
+  } = usePagedList<Agent>("/v1/agents", { defaultPageSize: 20, params: agentsParams });
 
   // Aux fetches that aren't paginated UI surfaces — refreshed on mount and
   // after agent CRUD. Pull all agents (for the callable-agents dropdown)
@@ -319,6 +330,47 @@ export function AgentsList() {
     setCodeValue("");
   };
 
+  // Dialog a11y — focus trap + Escape, scroll lock, focus restore on close.
+  // Mirrors components/Modal.tsx behavior so this hand-rolled multi-step
+  // dialog is keyboard-equivalent.
+  useEffect(() => {
+    if (!showCreate) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { closeCreate(); return; }
+      if (e.key !== "Tab") return;
+      const el = createDialogRef.current;
+      if (!el) return;
+      const f = el.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      if (!f.length) return;
+      const first = f[0];
+      const last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+      else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+    // closeCreate is stable enough — deps kept tight to avoid re-binding
+    // on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCreate]);
+
+  useEffect(() => {
+    if (!showCreate) return;
+    createPreviousFocus.current = document.activeElement as HTMLElement;
+    const el = createDialogRef.current;
+    el?.querySelector<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    )?.focus();
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+      createPreviousFocus.current?.focus();
+    };
+  }, [showCreate]);
+
   // Convert current form state to a config object
   const formToConfig = () => {
     const config: Record<string, unknown> = {
@@ -440,8 +492,8 @@ export function AgentsList() {
       )
     : AGENT_TEMPLATES;
 
-  const inputCls = "w-full border border-border rounded-md px-3 py-2 text-sm bg-bg text-fg outline-none focus:border-brand transition-colors placeholder:text-fg-subtle";
-  const tabCls = (t: string) => `px-3 py-1.5 text-sm rounded-md transition-colors ${tab === t ? "bg-brand text-brand-fg" : "text-fg-muted hover:bg-bg-surface"}`;
+  const inputCls = "w-full border border-border rounded-md px-3 py-2 min-h-11 sm:min-h-0 text-sm bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle";
+  const tabCls = (t: string) => `inline-flex items-center justify-center px-3 py-1.5 min-h-11 sm:min-h-0 text-sm rounded-md transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] ${tab === t ? "bg-brand text-brand-fg" : "text-fg-muted hover:bg-bg-surface"}`;
 
   // Resolve which card the Model dropdown should highlight: explicit pick
   // wins, otherwise derive from model_id (paste path / pre-select effect).
@@ -474,17 +526,25 @@ export function AgentsList() {
       loading={loading}
       getRowKey={(a) => a.id}
       onRowClick={(a) => nav(`/agents/${a.id}`)}
-      hasMore={hasMore}
-      onLoadMore={loadMore}
-      loadingMore={isLoadingMore}
+      pageIndex={pageIndex}
+      pageSize={pageSize}
+      hasNext={hasNext}
+      knownPages={knownPages}
+      pageSizeOptions={[10, 20, 50, 100]}
+      onPageChange={goToPage}
+      onPageSizeChange={setPageSize}
       emptyTitle={search ? "No matching agents" : "No agents yet"}
+      emptyKind="agent"
+      emptyAction={!search && (
+        <Button onClick={() => setShowCreate(true)}>+ New agent</Button>
+      )}
       emptySubtitle={
         search ? (
           "Try a different search term."
         ) : (
           <>
             <p>Create your first agent to get started.</p>
-            <button onClick={() => nav("/")} className="mt-3 text-sm text-brand hover:underline">
+            <button onClick={() => nav("/")} className="inline-flex items-center min-h-11 sm:min-h-0 mt-3 text-sm text-brand hover:underline">
               Get started with the quickstart guide →
             </button>
           </>
@@ -521,10 +581,18 @@ export function AgentsList() {
         },
       ]}
     >
-      {/* Create dialog — kept hand-rolled (template→form/yaml/json multi-step UI not a fit for the standard Modal) */}
+      {/* Create dialog — kept hand-rolled (template→form/yaml/json multi-step UI not a fit for the standard Modal).
+          Focus trap, scroll lock, focus restore + Escape come from the useEffect block above. */}
       {showCreate && (
         <div className="fixed inset-0 bg-bg-overlay flex items-center justify-center z-50" onClick={closeCreate}>
-          <div className="bg-bg rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div
+            ref={createDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="New Agent"
+            className="bg-bg rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
 
             {/* Template selection step */}
             {createStep === "template" && (
@@ -537,6 +605,7 @@ export function AgentsList() {
                     onChange={(e) => setTemplateSearch(e.target.value)}
                     className={`${inputCls} mt-3`}
                     placeholder="Search templates..."
+                    aria-label="Search templates"
                   />
                 </div>
                 <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -545,7 +614,7 @@ export function AgentsList() {
                       <button
                         key={tmpl.id}
                         onClick={() => selectTemplate(tmpl)}
-                        className="text-left border border-border rounded-lg p-4 hover:border-brand hover:bg-bg-surface transition-all"
+                        className="text-left border border-border rounded-lg p-4 hover:border-brand hover:bg-bg-surface transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
                       >
                         <div className="font-medium text-sm text-fg">{tmpl.name}</div>
                         <div className="text-xs text-fg-muted mt-1 line-clamp-2">{tmpl.description}</div>
@@ -564,7 +633,7 @@ export function AgentsList() {
                   )}
                 </div>
                 <div className="px-6 py-4 border-t border-border flex justify-end">
-                  <button onClick={closeCreate} className="px-4 py-2 text-sm text-fg-muted hover:text-fg">Cancel</button>
+                  <button onClick={closeCreate} className="inline-flex items-center min-h-11 sm:min-h-0 px-4 py-2 text-sm text-fg-muted hover:text-fg">Cancel</button>
                 </div>
               </>
             )}
@@ -574,11 +643,11 @@ export function AgentsList() {
               <>
             <div className="px-6 pt-6 pb-4 border-b border-border">
               <div className="flex items-center justify-between mb-1">
-                <button onClick={() => { setCreateStep("template"); setTemplateSearch(""); setCreateMode("form"); }} className="text-sm text-fg-subtle hover:text-fg transition-colors">&larr; Templates</button>
+                <button onClick={() => { setCreateStep("template"); setTemplateSearch(""); setCreateMode("form"); }} className="inline-flex items-center min-h-11 sm:min-h-0 text-sm text-fg-subtle hover:text-fg transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]">&larr; Templates</button>
                 <div className="flex items-center gap-0.5 bg-bg-surface rounded-md p-0.5">
                   {(["form", "yaml", "json"] as const).map((m) => (
                     <button key={m} onClick={() => switchMode(m)}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${createMode === m ? "bg-bg text-fg font-medium shadow-sm" : "text-fg-muted hover:text-fg"}`}>
+                      className={`inline-flex items-center justify-center px-2 py-1 min-h-11 sm:min-h-0 text-xs rounded transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] ${createMode === m ? "bg-bg text-fg font-medium shadow-sm" : "text-fg-muted hover:text-fg"}`}>
                       {m === "form" ? "Form" : m.toUpperCase()}
                     </button>
                   ))}
@@ -586,20 +655,20 @@ export function AgentsList() {
               </div>
               <h2 className="font-display text-lg font-semibold text-fg">New Agent</h2>
               {createMode === "form" && (
-              <div className="flex gap-1 mt-3">
-                <button onClick={() => setTab("basic")} className={tabCls("basic")}>Basic</button>
-                <button onClick={() => setTab("tools")} className={tabCls("tools")}>
+              <div role="tablist" aria-label="Agent configuration sections" className="flex gap-1 mt-3">
+                <button role="tab" aria-selected={tab === "basic"} tabIndex={tab === "basic" ? 0 : -1} onClick={() => setTab("basic")} className={tabCls("basic")}>Basic</button>
+                <button role="tab" aria-selected={tab === "tools"} tabIndex={tab === "tools" ? 0 : -1} onClick={() => setTab("tools")} className={tabCls("tools")}>
                   Tools {Object.keys(form.toolOverrides).length > 0 && (
                     <span className="ml-1 text-xs opacity-60">({Object.keys(form.toolOverrides).length})</span>
                   )}
                 </button>
-                <button onClick={() => setTab("skills")} className={tabCls("skills")}>
+                <button role="tab" aria-selected={tab === "skills"} tabIndex={tab === "skills" ? 0 : -1} onClick={() => setTab("skills")} className={tabCls("skills")}>
                   Skills {form.skills.length > 0 && <span className="ml-1 text-xs opacity-60">({form.skills.length})</span>}
                 </button>
-                <button onClick={() => setTab("mcp")} className={tabCls("mcp")}>
+                <button role="tab" aria-selected={tab === "mcp"} tabIndex={tab === "mcp" ? 0 : -1} onClick={() => setTab("mcp")} className={tabCls("mcp")}>
                   MCP Servers {form.mcpServers.length > 0 && <span className="ml-1 text-xs opacity-60">({form.mcpServers.length})</span>}
                 </button>
-                <button onClick={() => setTab("agents")} className={tabCls("agents")}>
+                <button role="tab" aria-selected={tab === "agents"} tabIndex={tab === "agents" ? 0 : -1} onClick={() => setTab("agents")} className={tabCls("agents")}>
                   Multi-Agent {form.callableAgents.length > 0 && <span className="ml-1 text-xs opacity-60">({form.callableAgents.length})</span>}
                 </button>
               </div>
@@ -624,8 +693,8 @@ export function AgentsList() {
                 <div className="space-y-3">
                   {createError && <div className="text-sm text-danger bg-danger-subtle border border-danger/30 rounded-lg px-3 py-2">{createError}</div>}
                   <div>
-                    <label className="text-sm text-fg-muted block mb-1">Name *</label>
-                    <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputCls} placeholder="Coding Assistant" />
+                    <label htmlFor="agent-name" className="text-sm text-fg-muted block mb-1">Name *</label>
+                    <input id="agent-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputCls} placeholder="Coding Assistant" />
                   </div>
                   {/* Model picker. (tenant_id, model_id) is UNIQUE in DB, so
                       one card == one model_id == one credentials set; the
@@ -677,12 +746,12 @@ export function AgentsList() {
                     </p>
                   )}
                   <div>
-                    <label className="text-sm text-fg-muted block mb-1">Description</label>
-                    <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={inputCls} placeholder="A coding assistant that writes clean code..." />
+                    <label htmlFor="agent-description" className="text-sm text-fg-muted block mb-1">Description</label>
+                    <input id="agent-description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={inputCls} placeholder="A coding assistant that writes clean code..." />
                   </div>
                   <div>
-                    <label className="text-sm text-fg-muted block mb-1">System Prompt</label>
-                    <textarea value={form.system} onChange={(e) => setForm({ ...form, system: e.target.value })} rows={5} className={`${inputCls} resize-none font-mono text-xs leading-relaxed`} placeholder="You are a helpful assistant..." />
+                    <label htmlFor="agent-system" className="text-sm text-fg-muted block mb-1">System Prompt</label>
+                    <textarea id="agent-system" value={form.system} onChange={(e) => setForm({ ...form, system: e.target.value })} rows={5} className={`${inputCls} resize-none font-mono text-xs leading-relaxed`} placeholder="You are a helpful assistant..." />
                   </div>
                   {/* Local Runtime — bind agent's loop to a user-registered
                       machine instead of OMA's cloud SessionDO. The "no
@@ -798,7 +867,7 @@ export function AgentsList() {
                                     <button
                                       type="button"
                                       onClick={() => setForm({ ...form, localSkillBlocklist: [] })}
-                                      className="text-[10px] text-fg-subtle hover:text-fg underline"
+                                      className="inline-flex items-center min-h-11 sm:min-h-0 px-1 text-[10px] text-fg-subtle hover:text-fg underline"
                                     >
                                       reset
                                     </button>
@@ -933,7 +1002,7 @@ export function AgentsList() {
                                 else next[bt.name] = v;
                                 setForm({ ...form, toolOverrides: next });
                               }}
-                              className="border border-border rounded-md px-2 py-1 text-xs bg-bg text-fg outline-none focus:border-brand shrink-0"
+                              className="border border-border rounded-md px-2 py-1 min-h-11 sm:min-h-0 text-xs bg-bg text-fg outline-none focus:border-brand shrink-0"
                             >
                               <option value="default">default ({effectiveLabel})</option>
                               <option value="always_allow">always_allow</option>
@@ -958,7 +1027,7 @@ export function AgentsList() {
                         const active = form.skills.some(sk => sk.type === "anthropic" && sk.skill_id === s.id);
                         return (
                           <button key={s.id} onClick={() => toggleAnthropicSkill(s.id)}
-                            className={`flex items-center gap-2 px-3 py-2.5 rounded-md border text-sm text-left transition-all ${active ? "border-brand bg-brand text-brand-fg" : "border-border hover:border-border-strong"}`}>
+                            className={`flex items-center gap-2 px-3 py-2.5 rounded-md border text-sm text-left transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] ${active ? "border-brand bg-brand text-brand-fg" : "border-border hover:border-border-strong"}`}>
                             <span className={`w-4 h-4 rounded border flex items-center justify-center text-xs ${active ? "bg-brand-fg text-brand border-brand-fg" : "border-border-strong"}`}>
                               {active && "✓"}
                             </span>
@@ -991,7 +1060,7 @@ export function AgentsList() {
                                   setForm({ ...form, skills: [...form.skills, { type: "custom", skill_id: cs.id, version: "latest" }] });
                                 }
                               }}
-                              className={`flex items-center gap-2 w-full px-3 py-2.5 rounded-md border text-sm text-left transition-all ${active ? "border-brand bg-brand text-brand-fg" : "border-border hover:border-border-strong"}`}>
+                              className={`flex items-center gap-2 w-full px-3 py-2.5 rounded-md border text-sm text-left transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] ${active ? "border-brand bg-brand text-brand-fg" : "border-border hover:border-border-strong"}`}>
                               <span className={`w-4 h-4 rounded border flex items-center justify-center text-xs shrink-0 ${active ? "bg-brand-fg text-brand border-brand-fg" : "border-border-strong"}`}>
                                 {active && "✓"}
                               </span>
@@ -1018,16 +1087,16 @@ export function AgentsList() {
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-sm font-medium text-fg">MCP Servers</label>
                     <div className="flex items-center gap-3">
-                      <button onClick={() => setShowMcpPicker(true)} className="text-xs text-fg-muted hover:text-fg transition-colors">+ Pick known</button>
-                      <button onClick={addMcp} className="text-xs text-fg-muted hover:text-fg transition-colors">+ Custom URL</button>
+                      <button onClick={() => setShowMcpPicker(true)} className="inline-flex items-center min-h-11 sm:min-h-0 text-xs text-fg-muted hover:text-fg transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]">+ Pick known</button>
+                      <button onClick={addMcp} className="inline-flex items-center min-h-11 sm:min-h-0 text-xs text-fg-muted hover:text-fg transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]">+ Custom URL</button>
                     </div>
                   </div>
                   {form.mcpServers.map((mcp, i) => (
                     <div key={i} className="border border-border rounded-lg p-3 space-y-2">
                       <div className="flex gap-2">
                         <div className="flex-1">
-                          <label className="text-xs text-fg-muted block mb-0.5">Name</label>
-                          <input value={mcp.name} onChange={(e) => updateMcp(i, "name", e.target.value)} className={inputCls} placeholder="github" />
+                          <label htmlFor={`mcp-name-${i}`} className="text-xs text-fg-muted block mb-0.5">Name</label>
+                          <input id={`mcp-name-${i}`} value={mcp.name} onChange={(e) => updateMcp(i, "name", e.target.value)} className={inputCls} placeholder="github" />
                         </div>
                         <div className="w-24">
                           <label className="text-xs text-fg-muted block mb-0.5">Type</label>
@@ -1036,11 +1105,11 @@ export function AgentsList() {
                             <SelectOption value="stdio">stdio</SelectOption>
                           </Select>
                         </div>
-                        <button onClick={() => removeMcp(i)} className="self-end px-2 py-2 text-fg-subtle hover:text-danger transition-colors">×</button>
+                        <button onClick={() => removeMcp(i)} aria-label={`Remove MCP server ${mcp.name || i + 1}`} className="self-end inline-flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 px-2 py-2 text-fg-subtle hover:text-danger transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]">×</button>
                       </div>
                       <div>
-                        <label className="text-xs text-fg-muted block mb-0.5">URL</label>
-                        <input value={mcp.url} onChange={(e) => updateMcp(i, "url", e.target.value)} className={inputCls} placeholder="https://mcp.github.com/sse" />
+                        <label htmlFor={`mcp-url-${i}`} className="text-xs text-fg-muted block mb-0.5">URL</label>
+                        <input id={`mcp-url-${i}`} value={mcp.url} onChange={(e) => updateMcp(i, "url", e.target.value)} className={inputCls} placeholder="https://mcp.github.com/sse" />
                       </div>
                     </div>
                   ))}
@@ -1093,7 +1162,7 @@ export function AgentsList() {
                           <div className="text-sm font-medium text-fg">{agentInfo?.name || ca.id}</div>
                           <div className="text-xs text-fg-subtle font-mono">{ca.id}</div>
                         </div>
-                        <button onClick={() => removeCallable(i)} className="px-2 text-fg-subtle hover:text-danger transition-colors">×</button>
+                        <button onClick={() => removeCallable(i)} className="inline-flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 px-2 text-fg-subtle hover:text-danger transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]">×</button>
                       </div>
                     );
                   })}
@@ -1135,11 +1204,11 @@ export function AgentsList() {
                 {createMode !== "form" && <span>{createMode.toUpperCase()} editor</span>}
               </div>
               <div className="flex gap-2">
-                <button onClick={closeCreate} className="px-4 py-2 text-sm text-fg-muted hover:text-fg">Cancel</button>
+                <button onClick={closeCreate} className="inline-flex items-center min-h-11 sm:min-h-0 px-4 py-2 text-sm text-fg-muted hover:text-fg">Cancel</button>
                 {createMode === "form" ? (
-                  <button onClick={create} disabled={!form.name} className="px-5 py-2 bg-brand text-brand-fg rounded-md text-sm font-medium hover:bg-brand-hover disabled:opacity-50 transition-colors">Create Agent</button>
+                  <button onClick={create} disabled={!form.name} className="inline-flex items-center justify-center min-h-11 sm:min-h-0 px-5 py-2 bg-brand text-brand-fg rounded-md text-sm font-medium hover:bg-brand-hover disabled:opacity-50 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]">Create Agent</button>
                 ) : (
-                  <button onClick={createFromCode} disabled={!codeValue.trim()} className="px-5 py-2 bg-brand text-brand-fg rounded-md text-sm font-medium hover:bg-brand-hover disabled:opacity-50 transition-colors">Create Agent</button>
+                  <button onClick={createFromCode} disabled={!codeValue.trim()} className="inline-flex items-center justify-center min-h-11 sm:min-h-0 px-5 py-2 bg-brand text-brand-fg rounded-md text-sm font-medium hover:bg-brand-hover disabled:opacity-50 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]">Create Agent</button>
                 )}
               </div>
             </div>

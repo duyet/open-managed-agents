@@ -67,7 +67,7 @@ export function ApiKeysList() {
   };
 
   const inputCls =
-    "w-full border border-border rounded-md px-3 py-2 text-sm bg-bg text-fg outline-none focus:border-brand transition-colors placeholder:text-fg-subtle";
+    "w-full border border-border rounded-md px-3 py-2 min-h-11 sm:min-h-0 text-sm bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle";
 
   return (
     <ListPage<ApiKey>
@@ -79,6 +79,7 @@ export function ApiKeysList() {
       loading={loading}
       getRowKey={(k) => k.id}
       emptyTitle="No API keys yet"
+      emptyKind="api_key"
       emptySubtitle="Create an API key to access the platform from CLI or SDK."
       columns={[
         {
@@ -110,7 +111,7 @@ export function ApiKeysList() {
           render: (k) => (
             <button
               onClick={() => remove(k.id)}
-              className="text-xs text-fg-subtle hover:text-danger"
+              className="inline-flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 px-2 text-xs text-fg-subtle hover:text-danger"
             >
               Revoke
             </button>
@@ -149,7 +150,7 @@ export function ApiKeysList() {
             </div>
             <button
               onClick={() => navigator.clipboard.writeText(createdKey)}
-              className="text-sm text-brand hover:underline"
+              className="inline-flex items-center min-h-11 sm:min-h-0 text-sm text-brand hover:underline"
             >
               Copy to clipboard
             </button>
@@ -162,10 +163,11 @@ export function ApiKeysList() {
               </div>
             )}
             <div>
-              <label className="text-sm text-fg-muted block mb-1">
+              <label htmlFor="api-key-name" className="text-sm text-fg-muted block mb-1">
                 Name (optional)
               </label>
               <input
+                id="api-key-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className={inputCls}

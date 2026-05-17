@@ -1,11 +1,16 @@
 import { useState, type InputHTMLAttributes, type ReactNode } from "react";
+import { Field } from "./Field";
 
 /**
  * Default styling for text-ish inputs across the console. Kept here so
  * pages don't each invent their own border/padding/focus look.
+ *
+ * `min-h-11` on mobile keeps the touch target at 44px (iOS HIG / WCAG 2.5.5);
+ * `sm:min-h-0` restores the desktop intrinsic height (~36px) so dense forms
+ * don't grow on wider viewports.
  */
 const baseClass =
-  "w-full border border-border rounded-md px-3 py-2 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors placeholder:text-fg-subtle";
+  "w-full border border-border rounded-md px-3 py-2 min-h-11 sm:min-h-0 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle";
 
 type CommonProps = Omit<
   InputHTMLAttributes<HTMLInputElement>,
@@ -13,23 +18,13 @@ type CommonProps = Omit<
 > & {
   className?: string;
   /** Wrap with a labelled <div> if provided. Saves callsites the
-   *  boilerplate of label + helper-text composition. */
+   *  boilerplate of label + helper-text composition. The label is
+   *  programmatically associated with the input via `htmlFor`/`id` so
+   *  screen readers announce them as a pair and clicking the label
+   *  focuses the input. */
   label?: ReactNode;
   hint?: ReactNode;
 };
-
-function Field({ label, hint, children }: { label?: ReactNode; hint?: ReactNode; children: ReactNode }) {
-  if (!label && !hint) return <>{children}</>;
-  return (
-    <div>
-      {label && (
-        <label className="block text-[13px] font-medium text-fg mb-1.5">{label}</label>
-      )}
-      {children}
-      {hint && <p className="mt-1 text-[12px] text-fg-muted">{hint}</p>}
-    </div>
-  );
-}
 
 /**
  * Plain text input. Defaults `autoComplete="off"` to prevent the browser
@@ -44,16 +39,20 @@ export function TextInput({
   autoComplete,
   ...rest
 }: CommonProps) {
+  const input = (
+    <input
+      type="text"
+      autoComplete={autoComplete ?? "off"}
+      data-1p-ignore
+      data-lpignore="true"
+      className={className ?? baseClass}
+      {...rest}
+    />
+  );
+  if (!label && !hint) return input;
   return (
     <Field label={label} hint={hint}>
-      <input
-        type="text"
-        autoComplete={autoComplete ?? "off"}
-        data-1p-ignore
-        data-lpignore="true"
-        className={className ?? baseClass}
-        {...rest}
-      />
+      {input}
     </Field>
   );
 }
@@ -79,27 +78,31 @@ export function SecretInput({
   ...rest
 }: CommonProps) {
   const [revealed, setRevealed] = useState(false);
+  const input = (
+    <div className="relative">
+      <input
+        type={revealed ? "text" : "password"}
+        autoComplete="new-password"
+        data-1p-ignore
+        data-lpignore="true"
+        className={`${className ?? baseClass} pr-10`}
+        {...rest}
+      />
+      <button
+        type="button"
+        onClick={() => setRevealed((r) => !r)}
+        className="absolute inset-y-0 right-0 inline-flex items-center justify-center min-w-11 sm:min-w-0 px-2.5 text-fg-subtle hover:text-fg-muted transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
+        title={revealed ? "Hide" : "Show"}
+        aria-label={revealed ? "Hide secret" : "Show secret"}
+      >
+        {revealed ? <EyeOffIcon /> : <EyeIcon />}
+      </button>
+    </div>
+  );
+  if (!label && !hint) return input;
   return (
     <Field label={label} hint={hint}>
-      <div className="relative">
-        <input
-          type={revealed ? "text" : "password"}
-          autoComplete="new-password"
-          data-1p-ignore
-          data-lpignore="true"
-          className={`${className ?? baseClass} pr-10`}
-          {...rest}
-        />
-        <button
-          type="button"
-          onClick={() => setRevealed((r) => !r)}
-          className="absolute inset-y-0 right-0 px-2.5 flex items-center text-fg-subtle hover:text-fg-muted transition-colors"
-          title={revealed ? "Hide" : "Show"}
-          aria-label={revealed ? "Hide secret" : "Show secret"}
-        >
-          {revealed ? <EyeOffIcon /> : <EyeIcon />}
-        </button>
-      </div>
+      {input}
     </Field>
   );
 }

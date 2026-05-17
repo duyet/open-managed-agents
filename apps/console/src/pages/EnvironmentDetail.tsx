@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useApi } from "../lib/api";
+import { useApiQuery } from "../lib/useApiQuery";
 import { Button } from "../components/Button";
 import { Select, SelectOption } from "../components/Select";
 import { useToast } from "../components/Toast";
+import { Page } from "../components/Page";
+import { Field } from "../components/Field";
 
 // =================================================================
 // Types
@@ -93,22 +96,25 @@ export function EnvironmentDetail() {
   // so save doesn't silently strip them.
   const [preservedGem, setPreservedGem] = useState<string[] | undefined>(undefined);
 
+  // Initial load via TQ. Re-renders when the cache is populated; the
+  // applyEnv side-effect below seeds the editable form state once per
+  // fetched payload (id changes between renders → form re-seeds).
+  const { data: fetchedEnv, error: fetchError } = useApiQuery<Env>(
+    id ? `/v1/environments/${id}` : null,
+  );
   useEffect(() => {
-    if (!id) return;
-    let cancelled = false;
-    api<Env>(`/v1/environments/${id}`)
-      .then((e) => {
-        if (cancelled) return;
-        applyEnv(e);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setLoadError(err instanceof Error ? err.message : "load failed");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
+    if (fetchedEnv) applyEnv(fetchedEnv);
+    // applyEnv only depends on `fetchedEnv` (it's a closure over the
+    // setters which are stable from useState). Disabled the lint rule
+    // because pulling applyEnv into deps would require memoizing every
+    // setter chain — simpler to keep this an "on data arrival" effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchedEnv]);
+  useEffect(() => {
+    if (fetchError) {
+      setLoadError(fetchError instanceof Error ? fetchError.message : "load failed");
+    }
+  }, [fetchError]);
 
   function applyEnv(e: Env) {
     setEnv(e);
@@ -187,10 +193,10 @@ export function EnvironmentDetail() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4 md:p-8 lg:p-10">
+    <Page>
       {/* Breadcrumb */}
       <div className="text-sm text-fg-muted mb-4 flex items-center gap-1.5">
-        <Link to="/environments" className="hover:text-fg transition-colors">
+        <Link to="/environments" className="hover:text-fg transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]">
           Environments
         </Link>
         <span className="text-fg-subtle">/</span>
@@ -200,11 +206,14 @@ export function EnvironmentDetail() {
       <div className="max-w-3xl space-y-6">
         {/* Header: name input + Cloud badge + status */}
         <section className="space-y-3">
+          <h1 className="sr-only">{env.name || "Environment"}</h1>
           <div className="flex items-center gap-3 flex-wrap">
+            <label className="sr-only" htmlFor="env-name">Environment name</label>
             <input
+              id="env-name"
               value={name}
               onChange={(e) => setName(e.target.value.slice(0, 50))}
-              className="border border-border rounded-md px-3 py-2 text-sm bg-bg text-fg outline-none focus:border-brand transition-colors w-full sm:w-72"
+              className="border border-border rounded-md px-3 py-2 min-h-11 sm:min-h-0 text-sm bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] w-full sm:w-72"
               placeholder="environment name"
             />
             <span className="text-[11px] px-2 py-0.5 rounded border border-border bg-bg-surface text-fg-muted font-medium uppercase tracking-wider">
@@ -221,14 +230,15 @@ export function EnvironmentDetail() {
           </div>
 
           <div>
-            <label className="block text-[13px] font-medium text-fg mb-1.5">
+            <label className="block text-[13px] font-medium text-fg mb-1.5" htmlFor="env-description">
               Description
             </label>
             <textarea
+              id="env-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              className="w-full border border-border rounded-md px-3 py-2 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors placeholder:text-fg-subtle resize-y"
+              className="w-full border border-border rounded-md px-3 py-2 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle resize-y"
               placeholder="What is this environment for?"
             />
           </div>
@@ -281,7 +291,7 @@ export function EnvironmentDetail() {
                   value={allowedHostsText}
                   onChange={(e) => setAllowedHostsText(e.target.value)}
                   rows={2}
-                  className="w-full border border-border rounded-md px-3 py-2 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors placeholder:text-fg-subtle resize-y"
+                  className="w-full border border-border rounded-md px-3 py-2 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle resize-y"
                   placeholder="www.example1.com, www.example2.com"
                 />
               </Field>
@@ -338,7 +348,7 @@ export function EnvironmentDetail() {
                       )
                     }
                     placeholder="package package==1.0.0"
-                    className="flex-1 min-w-0 border border-border rounded-md px-3 py-2 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors placeholder:text-fg-subtle font-mono"
+                    className="flex-1 min-w-0 border border-border rounded-md px-3 py-2 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle font-mono"
                   />
                   <IconButton
                     label="Remove package row"
@@ -391,7 +401,7 @@ export function EnvironmentDetail() {
                       )
                     }
                     placeholder="client_key"
-                    className="flex-1 min-w-0 border border-border rounded-md px-3 py-2 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors placeholder:text-fg-subtle font-mono"
+                    className="flex-1 min-w-0 border border-border rounded-md px-3 py-2 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle font-mono"
                   />
                   <input
                     value={row.value}
@@ -403,7 +413,7 @@ export function EnvironmentDetail() {
                       )
                     }
                     placeholder="Value"
-                    className="flex-1 min-w-0 border border-border rounded-md px-3 py-2 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors placeholder:text-fg-subtle"
+                    className="flex-1 min-w-0 border border-border rounded-md px-3 py-2 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle"
                   />
                   <IconButton
                     label="Remove metadata row"
@@ -432,7 +442,7 @@ export function EnvironmentDetail() {
           </span>
         </div>
       </div>
-    </div>
+    </Page>
   );
 }
 
@@ -467,24 +477,6 @@ function SectionCard({
   );
 }
 
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="block text-[13px] font-medium text-fg mb-1.5">{label}</label>
-      {children}
-      {hint && <p className="mt-1 text-[12px] text-fg-muted">{hint}</p>}
-    </div>
-  );
-}
-
 function Toggle({
   label,
   checked,
@@ -495,14 +487,14 @@ function Toggle({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-4 cursor-pointer">
+    <label className="flex items-center justify-between gap-4 min-h-11 sm:min-h-0 cursor-pointer">
       <span className="text-[13px] text-fg">{label}</span>
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none ${
+        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none ${
           checked ? "bg-brand" : "bg-bg-surface border border-border"
         }`}
       >
@@ -530,7 +522,7 @@ function IconButton({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="p-1.5 rounded-md text-fg-subtle hover:text-fg hover:bg-bg-surface transition-colors"
+      className="inline-flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 p-1.5 rounded-md text-fg-subtle hover:text-fg hover:bg-bg-surface transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
     >
       {children}
     </button>

@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
-import { useApi } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { useApiQuery } from "../lib/useApiQuery";
 import { useToast } from "../components/Toast";
+import { StatusPill } from "../components/Badge";
+import { BrandLoader } from "../components/BrandLoader";
+import { EmptyState } from "../components/EmptyState";
 
 interface Stats {
   agents: number;
@@ -24,30 +27,26 @@ interface RecentSession {
 
 export function Dashboard() {
   const nav = useNavigate();
-  const { api } = useApi();
   const { user: _user } = useAuth();
   const { toast } = useToast();
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
-  const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        // Headline cards: one /v1/stats roundtrip (server-side COUNT(*)
-        // per resource, all on covering tenant indexes). Recent sessions
-        // panel needs row data so it stays a list call, capped at 5.
-        const [stats, sessions] = await Promise.all([
-          api<Stats>("/v1/stats").catch(() => null),
-          api<{ data: RecentSession[] }>("/v1/sessions?limit=5").catch(() => ({ data: [] })),
-        ]);
-        if (stats) setStats(stats);
-        setRecentSessions(sessions.data.slice(0, 5));
-      } catch {}
-      setLoading(false);
-    })();
-  }, []);
+  // Headline cards + recent panel each ride their own TQ query so the
+  // dashboard renders the parts it has — a flaky /v1/stats no longer
+  // blocks the recent-sessions panel and vice versa. The previous
+  // hand-rolled `Promise.all` + single `loading` boolean made one failure
+  // hide both panels.
+  const statsQuery = useApiQuery<Stats>("/v1/stats");
+  const sessionsQuery = useApiQuery<{ data: RecentSession[] }>(
+    "/v1/sessions",
+    { limit: "5" },
+  );
+  const stats = statsQuery.data ?? null;
+  const recentSessions = sessionsQuery.data?.data.slice(0, 5) ?? [];
+  // Block initial render until BOTH first fetches settle (succeed or fail)
+  // so the page doesn't shift layout twice. `isLoading` is true only on
+  // the very first fetch; refetches stay invisible.
+  const loading = statsQuery.isLoading || sessionsQuery.isLoading;
 
   const copy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -60,9 +59,9 @@ export function Dashboard() {
     <button
       key={label}
       onClick={() => nav(to)}
-      className="group relative text-left px-4 py-3.5 border border-border rounded-md bg-bg hover:border-border-strong hover:bg-bg-surface/40 transition-colors"
+      className="group relative text-left px-4 py-3.5 border border-border rounded-md bg-bg hover:border-border-strong hover:bg-bg-surface/40 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
     >
-      <div className="font-display text-[28px] leading-none font-semibold text-fg group-hover:text-brand transition-colors tabular-nums">
+      <div className="font-display text-[28px] leading-none font-semibold text-fg group-hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] tabular-nums">
         {value ?? "–"}
       </div>
       <div className="mt-2 text-[11px] uppercase tracking-[0.08em] text-fg-muted font-medium">
@@ -80,16 +79,10 @@ export function Dashboard() {
     { label: "Model Cards", value: stats?.model_cards, to: "/model-cards" },
   ];
 
-  const statusCls = (s: string) => {
-    if (s === "running") return "bg-info-subtle text-info";
-    if (s === "idle") return "bg-success-subtle text-success";
-    return "bg-bg-surface text-fg-muted";
-  };
-
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="text-fg-subtle text-sm">Loading...</div>
+        <BrandLoader size="lg" label="Loading dashboard" />
       </div>
     );
   }
@@ -101,7 +94,7 @@ export function Dashboard() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-[1100px] mx-auto px-8 lg:px-10 py-10 lg:py-12 space-y-10">
+      <div className="px-4 sm:px-8 lg:px-10 py-10 lg:py-12 space-y-10">
         {/* Header */}
         <header>
           <h1 className="font-display text-[32px] leading-tight font-semibold tracking-tight text-fg">
@@ -127,11 +120,11 @@ export function Dashboard() {
               </p>
               <button
                 onClick={() => copy(cmd, "cmd")}
-                className="group w-full sm:w-auto sm:inline-flex items-center gap-3 pl-3 pr-2 py-2 rounded-md border border-border bg-bg-surface/50 hover:border-border-strong transition-colors text-left"
+                className="group w-full sm:w-auto sm:inline-flex items-center gap-3 pl-3 pr-2 py-2 rounded-md border border-border bg-bg-surface/50 hover:border-border-strong transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] text-left"
               >
                 <span className="text-fg-subtle select-none font-mono text-xs">›</span>
                 <span className="font-mono text-[13px] text-fg flex-1 truncate">{cmd}</span>
-                <span className="shrink-0 text-fg-subtle group-hover:text-fg transition-colors p-1">
+                <span className="shrink-0 text-fg-subtle group-hover:text-fg transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] p-1">
                   {copied === "cmd" ? (
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
                   ) : (
@@ -143,7 +136,7 @@ export function Dashboard() {
                 or globally:{" "}
                 <button
                   onClick={() => copy(cmdGlobal, "cmd-global")}
-                  className="font-mono text-fg-muted hover:text-brand transition-colors"
+                  className="inline-flex items-center min-h-11 sm:min-h-0 font-mono text-fg-muted hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
                 >
                   {cmdGlobal}
                 </button>
@@ -163,7 +156,7 @@ export function Dashboard() {
               </p>
               <button
                 onClick={() => nav("/api-keys")}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand text-brand-fg rounded-md text-[13px] font-medium hover:bg-brand-hover transition-colors"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand text-brand-fg rounded-md text-[13px] font-medium hover:bg-brand-hover transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
               >
                 Generate API key
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
@@ -185,13 +178,13 @@ export function Dashboard() {
               </p>
               <button
                 onClick={() => copy(examplePrompt, "prompt")}
-                className="group w-full text-left rounded-md border border-border bg-bg-surface/50 hover:border-border-strong transition-colors p-3 flex items-start gap-3"
+                className="group w-full text-left rounded-md border border-border bg-bg-surface/50 hover:border-border-strong transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] p-3 flex items-start gap-3"
               >
                 <span className="shrink-0 mt-0.5 font-mono text-[10px] tracking-wider text-fg-subtle">
                   PROMPT
                 </span>
                 <span className="flex-1 text-[13px] text-fg leading-snug">{examplePrompt}</span>
-                <span className="shrink-0 text-fg-subtle group-hover:text-fg transition-colors mt-0.5">
+                <span className="shrink-0 text-fg-subtle group-hover:text-fg transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] mt-0.5">
                   {copied === "prompt" ? (
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
                   ) : (
@@ -216,29 +209,30 @@ export function Dashboard() {
             <h2 className="font-display text-lg font-semibold text-fg">Recent sessions</h2>
             <button
               onClick={() => nav("/sessions")}
-              className="text-[13px] text-fg-muted hover:text-brand transition-colors"
+              className="inline-flex items-center min-h-11 sm:min-h-0 text-[13px] text-fg-muted hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
             >
               View all →
             </button>
           </div>
 
           {recentSessions.length === 0 ? (
-            <div className="border border-border rounded-lg px-6 py-10 text-center bg-bg-surface/30">
-              <div className="font-mono text-fg-subtle text-sm select-none mb-2">[ &nbsp;&nbsp; ]</div>
-              <p className="text-sm text-fg">No sessions yet — the stable's empty.</p>
-              <p className="text-[13px] text-fg-muted mt-1">
-                Tell your agent to start one, or visit the{" "}
-                <button
-                  onClick={() => nav("/sessions")}
-                  className="text-brand hover:underline"
-                >
-                  Sessions page
-                </button>
-                .
-              </p>
-            </div>
+            <EmptyState
+              title="No sessions yet — the stable's empty."
+              body={
+                <>
+                  Tell your agent to start one, or visit the{" "}
+                  <button
+                    onClick={() => nav("/sessions")}
+                    className="inline-flex items-center min-h-11 sm:min-h-0 text-brand hover:underline"
+                  >
+                    Sessions page
+                  </button>
+                  .
+                </>
+              }
+            />
           ) : (
-            <div className="border border-border rounded-lg overflow-hidden">
+            <div className="border border-border rounded-lg overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-bg-surface/40 text-fg-subtle text-[11px] uppercase tracking-[0.08em]">
@@ -253,13 +247,11 @@ export function Dashboard() {
                     <tr
                       key={s.id}
                       onClick={() => nav(`/sessions/${s.id}`)}
-                      className="border-t border-border hover:bg-bg-surface/40 cursor-pointer transition-colors"
+                      className="border-t border-border hover:bg-bg-surface/40 cursor-pointer transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
                     >
                       <td className="px-4 py-2.5 text-fg">{s.title || "Untitled"}</td>
                       <td className="px-4 py-2.5">
-                        <span className={`text-[11px] px-2 py-0.5 rounded ${statusCls(s.status)}`}>
-                          {s.status || "idle"}
-                        </span>
+                        <StatusPill status={s.status || "idle"} />
                       </td>
                       <td className="px-4 py-2.5 text-fg-muted font-mono text-[12px]">
                         {s.agent_id}

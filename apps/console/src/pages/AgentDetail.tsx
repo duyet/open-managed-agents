@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router";
 import { useApi } from "../lib/api";
+import { useApiQuery } from "../lib/useApiQuery";
 import { GitHubIcon, LinearIcon, SlackIcon } from "../components/icons";
+import { Page } from "../components/Page";
 
 interface Agent {
   id: string; name: string; model: string | { id: string; speed?: string };
@@ -31,30 +33,58 @@ export function AgentDetail() {
   const { id } = useParams();
   const { api } = useApi();
   const nav = useNavigate();
-  const [agent, setAgent] = useState<Agent | null>(null);
-  const [versions, setVersions] = useState<Agent[]>([]);
-  const [linearPubs, setLinearPubs] = useState<Pub[]>([]);
-  const [githubPubs, setGithubPubs] = useState<Pub[]>([]);
-  const [slackPubs, setSlackPubs] = useState<Pub[]>([]);
-  const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (!id) return;
-    api<Agent>(`/v1/agents/${id}`).then(setAgent).catch((e) => setError(e.message));
-    api<{ data: Agent[] }>(`/v1/agents/${id}/versions`).then((d) => setVersions(d.data)).catch(() => {});
-    // Reverse-lookup publications per provider. Each endpoint exists thanks
-    // to the /linear/agents/:id/publications + /slack/agents/:id/publications
-    // + /github/agents/:id/publications routes added on the main worker.
-    api<{ data: Pub[] }>(`/v1/integrations/linear/agents/${id}/publications`)
-      .then((r) => setLinearPubs(r.data.filter((p) => p.status === "live")))
-      .catch(() => {});
-    api<{ data: Pub[] }>(`/v1/integrations/github/agents/${id}/publications`)
-      .then((r) => setGithubPubs(r.data.filter((p) => p.status === "live")))
-      .catch(() => {});
-    api<{ data: Pub[] }>(`/v1/integrations/slack/agents/${id}/publications`)
-      .then((r) => setSlackPubs(r.data.filter((p) => p.status === "live")))
-      .catch(() => {});
-  }, [id]);
+  // Single-resource fetches via TQ. `enabled: !!id` defers until the route
+  // param is available; the publication queries inherit the same gate.
+  // Each query runs independently — failures on the publication endpoints
+  // (404 / not-installed) don't block the agent detail render, same as
+  // the previous behavior where each had its own .catch.
+  const enabled = !!id;
+  const { data: agent, error: agentError } = useApiQuery<Agent>(
+    id ? `/v1/agents/${id}` : null,
+    undefined,
+    { enabled },
+  );
+  const { data: versionsRes } = useApiQuery<{ data: Agent[] }>(
+    id ? `/v1/agents/${id}/versions` : null,
+    undefined,
+    { enabled },
+  );
+  // Reverse-lookup publications per provider. Each endpoint exists thanks
+  // to the /linear/agents/:id/publications + /slack/agents/:id/publications
+  // + /github/agents/:id/publications routes added on the main worker.
+  const { data: linearRes } = useApiQuery<{ data: Pub[] }>(
+    id ? `/v1/integrations/linear/agents/${id}/publications` : null,
+    undefined,
+    { enabled },
+  );
+  const { data: githubRes } = useApiQuery<{ data: Pub[] }>(
+    id ? `/v1/integrations/github/agents/${id}/publications` : null,
+    undefined,
+    { enabled },
+  );
+  const { data: slackRes } = useApiQuery<{ data: Pub[] }>(
+    id ? `/v1/integrations/slack/agents/${id}/publications` : null,
+    undefined,
+    { enabled },
+  );
+
+  const versions = versionsRes?.data ?? [];
+  // Filter to live publications only — same predicate the old useEffect ran.
+  const linearPubs = useMemo(
+    () => (linearRes?.data ?? []).filter((p) => p.status === "live"),
+    [linearRes],
+  );
+  const githubPubs = useMemo(
+    () => (githubRes?.data ?? []).filter((p) => p.status === "live"),
+    [githubRes],
+  );
+  const slackPubs = useMemo(
+    () => (slackRes?.data ?? []).filter((p) => p.status === "live"),
+    [slackRes],
+  );
+
+  const error = agentError instanceof Error ? agentError.message : agentError ? String(agentError) : "";
 
   const modelStr = (m: Agent["model"]) => typeof m === "string" ? m : `${m?.id} (${m?.speed || "standard"})`;
 
@@ -74,14 +104,14 @@ export function AgentDetail() {
   if (!agent) return <div className="p-10 text-fg-subtle">Loading...</div>;
 
   return (
-    <div className="flex-1 overflow-y-auto p-8 lg:p-10">
-      <Link to="/agents" className="text-sm text-fg-subtle hover:text-fg-muted transition-colors">&larr; Agents</Link>
+    <Page>
+      <Link to="/agents" className="inline-flex items-center min-h-11 sm:min-h-0 text-sm text-fg-subtle hover:text-fg-muted transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]">&larr; Agents</Link>
 
       <div className="flex items-start justify-between mt-2 mb-6">
         <h1 className="font-display text-xl font-semibold tracking-tight text-fg">{agent.name}</h1>
         <div className="flex gap-2">
-          <button onClick={archive} className="px-3 py-1.5 border border-border rounded-lg text-sm hover:bg-bg-surface transition-colors">Archive</button>
-          <button onClick={del} className="px-3 py-1.5 border border-danger/30 text-danger rounded-lg text-sm hover:bg-danger-subtle transition-colors">Delete</button>
+          <button onClick={archive} className="inline-flex items-center justify-center px-3 py-1.5 min-h-11 sm:min-h-0 border border-border rounded-lg text-sm hover:bg-bg-surface transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]">Archive</button>
+          <button onClick={del} className="inline-flex items-center justify-center px-3 py-1.5 min-h-11 sm:min-h-0 border border-danger/30 text-danger rounded-lg text-sm hover:bg-danger-subtle transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]">Delete</button>
         </div>
       </div>
 
@@ -153,7 +183,7 @@ export function AgentDetail() {
       {versions.length > 0 && (
         <div className="mt-8 max-w-2xl">
           <h2 className="font-display text-base font-semibold mb-2">Version History</h2>
-          <div className="border border-border rounded-lg overflow-hidden">
+          <div className="border border-border rounded-lg overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-bg-surface/60 text-fg-muted text-xs uppercase tracking-wider">
@@ -175,7 +205,7 @@ export function AgentDetail() {
           </div>
         </div>
       )}
-    </div>
+    </Page>
   );
 }
 
@@ -202,7 +232,7 @@ function IntegrationFold({
       open={pubs.length > 0}
       className="border border-border rounded-lg bg-bg-surface/30 [&_summary::-webkit-details-marker]:hidden"
     >
-      <summary className="px-4 py-2.5 flex items-center gap-3 text-sm cursor-pointer hover:bg-bg-surface/60 list-none">
+      <summary className="px-4 py-2.5 min-h-11 sm:min-h-0 flex items-center gap-3 text-sm cursor-pointer hover:bg-bg-surface/60 list-none">
         <span className="text-fg-muted shrink-0">{icon}</span>
         <span className="font-medium text-fg">{label}</span>
         <span className="ml-auto text-xs text-fg-subtle">
@@ -213,7 +243,7 @@ function IntegrationFold({
         {pubs.length === 0 ? (
           <Link
             to={`/integrations/${kind}/publish?agent_id=${agentId}`}
-            className="inline-flex items-center gap-1.5 text-brand hover:underline"
+            className="inline-flex items-center gap-1.5 min-h-11 sm:min-h-0 text-brand hover:underline"
           >
             Publish to {label} →
           </Link>
@@ -223,7 +253,7 @@ function IntegrationFold({
               <Link
                 key={p.id}
                 to={`/integrations/${kind}`}
-                className="flex items-center gap-2 text-fg-muted hover:text-fg"
+                className="flex items-center gap-2 min-h-11 sm:min-h-0 text-fg-muted hover:text-fg"
               >
                 <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded bg-success-subtle text-success">
                   Live
@@ -238,7 +268,7 @@ function IntegrationFold({
             ))}
             <Link
               to={`/integrations/${kind}/publish?agent_id=${agentId}`}
-              className="inline-block text-xs text-brand hover:underline pt-1"
+              className="inline-flex items-center min-h-11 sm:min-h-0 text-xs text-brand hover:underline pt-1"
             >
               + Publish to another workspace
             </Link>

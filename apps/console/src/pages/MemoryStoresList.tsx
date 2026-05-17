@@ -72,7 +72,7 @@ export function MemoryStoresList() {
     }
   };
 
-  const inputCls = "w-full border border-border rounded-md px-3 py-2 text-sm bg-bg text-fg outline-none focus:border-brand transition-colors placeholder:text-fg-subtle";
+  const inputCls = "w-full border border-border rounded-md px-3 py-2 min-h-11 sm:min-h-0 text-sm bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle";
 
   return (
     <ListPage<MemoryStore>
@@ -90,6 +90,7 @@ export function MemoryStoresList() {
       loading={loading}
       getRowKey={(s) => s.id}
       emptyTitle="No memory stores"
+      emptyKind="memory"
       columns={[
         {
           key: "name",
@@ -121,11 +122,11 @@ export function MemoryStoresList() {
           render: (s) => (
             <>
               {!s.archived_at && (
-                <button onClick={() => archiveStore(s.id)} className="text-xs text-fg-muted hover:text-fg mr-3">
+                <button onClick={() => archiveStore(s.id)} className="inline-flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 px-2 text-xs text-fg-muted hover:text-fg mr-1 sm:mr-3">
                   Archive
                 </button>
               )}
-              <button onClick={() => deleteStore(s.id)} className="text-xs text-danger hover:text-danger/80">
+              <button onClick={() => deleteStore(s.id)} className="inline-flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 px-2 text-xs text-danger hover:text-danger/80">
                 Delete
               </button>
             </>
@@ -153,8 +154,9 @@ export function MemoryStoresList() {
             </div>
           )}
           <div>
-            <label className="text-sm text-fg-muted block mb-1">Name</label>
+            <label htmlFor="memory-store-name" className="text-sm text-fg-muted block mb-1">Name</label>
             <input
+              id="memory-store-name"
               placeholder="e.g. User Preferences"
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
@@ -162,10 +164,11 @@ export function MemoryStoresList() {
             />
           </div>
           <div>
-            <label className="text-sm text-fg-muted block mb-1">
+            <label htmlFor="memory-store-description" className="text-sm text-fg-muted block mb-1">
               Description <span className="text-fg-subtle">(optional)</span>
             </label>
             <input
+              id="memory-store-description"
               placeholder="What's stored here?"
               value={formDesc}
               onChange={(e) => setFormDesc(e.target.value)}

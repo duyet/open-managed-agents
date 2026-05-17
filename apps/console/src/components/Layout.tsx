@@ -1,10 +1,18 @@
-import { useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 import type { ComponentType } from "react";
-import { NavLink, Outlet, Navigate } from "react-router";
+import { NavLink, Outlet, Navigate, useNavigate } from "react-router";
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
 import { authClient } from "../lib/auth-client";
+import { useChordKeybinding, type ChordBinding } from "../lib/useChordKeybinding";
+import { useSidebarCollapsed } from "../lib/useSidebarCollapsed";
 import { TenantSwitcher } from "./TenantSwitcher";
+import { Logo } from "./Logo";
+import { BrandLoader } from "./BrandLoader";
+import { Avatar } from "./Avatar";
+import { CommandPalette } from "./CommandPalette";
+import { NavigationProgress } from "./NavigationProgress";
+import { SidebarResizer } from "./SidebarResizer";
 import {
   AgentIcon,
   ApiKeysIcon,
@@ -85,20 +93,57 @@ const navGroups: NavGroup[] = [
   ...consolePlugins.flatMap((p) => p.navGroups ?? []),
 ];
 
+/* ── Linear-style chord keybindings (g + letter → route) ──
+ *
+ * Mapping is path → second-key. Prefix is always "g". Letter choice
+ * follows Linear's convention (first letter of the route) wherever
+ * possible; clashes are resolved with the second-most-meaningful letter:
+ *
+ *   k is taken by Skills, so API Keys uses `i` ("key id")
+ *   e is taken by Environments, so Eval Runs uses `h` ("hist")
+ *
+ * Exported so CommandPalette can render the same chord next to each
+ * route, making them discoverable without a separate cheatsheet. */
+export const ROUTE_CHORDS: Record<string, string> = {
+  "/":              "d",
+  "/agents":        "a",
+  "/sessions":      "s",
+  "/files":         "f",
+  "/environments":  "e",
+  "/vaults":        "v",
+  "/skills":        "k",
+  "/memory":        "m",
+  "/model-cards":   "c",
+  "/api-keys":      "i",
+  "/runtimes":      "r",
+  "/evals":         "h",
+};
+
+/* ── Sidebar collapse state — broadcast via context so deep children
+ *    (NavGroup, NavLink, ThemeToggle, UserMenu) don't need prop-drilling
+ *    through SidebarContent. Default `false` is used outside the
+ *    authenticated layout (login screen etc) so this hook is safe to
+ *    call anywhere without a provider — but those callers shouldn't,
+ *    they're not inside the sidebar. */
+const SidebarCtx = createContext<{ collapsed: boolean; toggle: () => void }>({
+  collapsed: false,
+  toggle: () => {},
+});
+const useSidebarCtx = () => useContext(SidebarCtx);
+
 /* ── Chevron icon for collapsible groups ── */
 function ChevronIcon({ open }: { open: boolean }) {
   return (
     <ChevronDownIcon
-      className={`w-3.5 h-3.5 text-fg-subtle transition-transform duration-200 ${open ? "rotate-0" : "-rotate-90"}`}
+      aria-hidden="true"
+      className={`w-3.5 h-3.5 text-fg-subtle transition-transform duration-[var(--dur-base)] ease-[var(--ease-soft)] ${open ? "rotate-0" : "-rotate-90"}`}
     />
   );
 }
 
 /* ── Logo ── */
 function LogoMark() {
-  return (
-    <img src="/logo.svg" alt="openma" className="h-8 shrink-0" />
-  );
+  return <Logo size="sm" />;
 }
 
 /* ── Theme toggle ── */
@@ -117,7 +162,7 @@ function ThemeToggle() {
         <button
           key={opt.value}
           onClick={() => setTheme(opt.value)}
-          className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+          className={`flex-1 inline-flex items-center justify-center px-2 py-1 min-h-11 sm:min-h-0 text-xs rounded transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] ${
             theme === opt.value
               ? "bg-bg text-fg font-medium shadow-sm"
               : "text-fg-muted hover:text-fg"
@@ -141,28 +186,61 @@ function NavGroup({
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const { collapsed } = useSidebarCtx();
+  const panelId = `sidebar-group-${label.toLowerCase().replace(/\s+/g, "-")}`;
+
+  // Collapsed: render items only, no group header. Subtle top divider
+  // between groups gives the icon column structure that group labels
+  // would have provided. Items get `title` tooltips so hovering reveals
+  // what each glyph is.
+  if (collapsed) {
+    return (
+      <div className="border-t border-border first:border-t-0 pt-1.5 mt-1.5 first:mt-0 first:pt-0 space-y-0.5">
+        {items.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={"end" in item && item.end}
+            title={item.label}
+            aria-label={item.label}
+            className={({ isActive }) =>
+              `flex items-center justify-center w-10 h-10 mx-auto rounded-md transition-[background-color,color,box-shadow] duration-[var(--dur-quick)] ease-[var(--ease-soft)] ${
+                isActive
+                  ? "bg-brand-subtle text-brand shadow-[var(--shadow-sm)]"
+                  : "text-fg-muted hover:bg-bg-surface hover:text-fg"
+              }`
+            }
+          >
+            <item.icon className="w-[18px] h-[18px] opacity-80 shrink-0" />
+          </NavLink>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center justify-between w-full px-3 py-1.5 text-xs font-medium text-fg-subtle uppercase tracking-wider hover:text-fg-muted transition-colors"
+        aria-expanded={open}
+        aria-controls={panelId}
+        className="flex items-center justify-between w-full px-3 py-1.5 min-h-11 sm:min-h-0 text-xs font-medium text-fg-subtle uppercase tracking-wider hover:text-fg-muted transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
       >
         {label}
         <ChevronIcon open={open} />
       </button>
 
       {open && (
-        <div className="mt-0.5 space-y-0.5">
+        <div id={panelId} className="mt-0.5 space-y-0.5">
           {items.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={"end" in item && item.end}
               className={({ isActive }) =>
-                `flex items-center gap-2.5 px-3 py-1.5 mx-1 rounded-md text-sm transition-colors ${
+                `flex items-center gap-2.5 px-3 py-1.5 min-h-11 sm:min-h-0 mx-1 rounded-md text-sm transition-[background-color,color,box-shadow] duration-[var(--dur-quick)] ease-[var(--ease-soft)] ${
                   isActive
-                    ? "bg-brand-subtle text-brand font-medium"
+                    ? "bg-brand-subtle text-brand font-medium shadow-[var(--shadow-sm)]"
                     : "text-fg-muted hover:bg-bg-surface hover:text-fg"
                 }`
               }
@@ -197,6 +275,7 @@ function CloseIcon() {
 /* ── User menu ── */
 function UserMenu() {
   const { user } = useAuth();
+  const { collapsed } = useSidebarCtx();
 
   const handleSignOut = async () => {
     await authClient.signOut();
@@ -205,11 +284,24 @@ function UserMenu() {
 
   if (!user) return null;
 
+  // Collapsed: avatar-as-button → click to sign out. Tooltip shows the
+  // user identity so the affordance is still discoverable.
+  if (collapsed) {
+    return (
+      <button
+        onClick={handleSignOut}
+        title={`Sign out (${user.name || user.email})`}
+        aria-label={`Sign out (${user.name || user.email})`}
+        className="flex items-center justify-center w-10 h-10 mx-auto rounded-md hover:bg-bg-surface transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
+      >
+        <Avatar name={user.name || user.email} size="sm" />
+      </button>
+    );
+  }
+
   return (
     <div className="flex items-center gap-2 px-3 py-2">
-      <div className="w-7 h-7 rounded-full bg-brand-subtle text-brand text-xs font-medium flex items-center justify-center shrink-0">
-        {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
-      </div>
+      <Avatar name={user.name || user.email} size="md" />
       <div className="flex-1 min-w-0">
         <div className="text-sm text-fg truncate">{user.name}</div>
         <div className="text-xs text-fg-subtle truncate">{user.email}</div>
@@ -217,7 +309,8 @@ function UserMenu() {
       <button
         onClick={handleSignOut}
         title="Sign out"
-        className="p-1 text-fg-subtle hover:text-fg rounded transition-colors shrink-0"
+        aria-label="Sign out"
+        className="inline-flex items-center justify-center w-11 h-11 sm:w-9 sm:h-9 text-fg-subtle hover:text-fg hover:bg-bg-surface rounded transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] shrink-0"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -229,20 +322,55 @@ function UserMenu() {
 
 /* ── Sidebar content (shared between desktop & mobile) ── */
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+  const { collapsed, toggle } = useSidebarCtx();
   return (
     <>
-      {/* Logo */}
-      <div className="flex items-center gap-2 px-4 pt-5 pb-3 text-brand">
-        <LogoMark />
-        <span className="font-mono font-bold text-base">openma</span>
-      </div>
+      {/* Logo + collapse toggle. The toggle is desktop-only — mobile
+          uses the drawer overlay pattern (sidebarOpen), not collapse.
+          When collapsed, the toggle sits directly under the logo as a
+          dedicated full-width button — same vertical region as the
+          collapse button when expanded so muscle memory holds; high
+          contrast so it can't be missed (the previous bottom-section
+          placement was below 12 nav icons and easy to miss). */}
+      {collapsed ? (
+        <div className="flex flex-col items-center pt-3 pb-2 gap-1.5">
+          <div className="flex items-center justify-center text-brand">
+            <LogoMark />
+          </div>
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label="Expand sidebar"
+            title="Expand sidebar (press [)"
+            className="hidden md:flex items-center justify-center w-10 h-7 mt-1 rounded-md text-fg-subtle hover:text-fg bg-bg hover:bg-bg-surface border border-border transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
+          >
+            <ExpandIcon />
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between pt-4 pb-2 px-4 text-brand">
+          <div className="flex items-center gap-2 min-w-0">
+            <LogoMark />
+            <span className="font-mono font-bold text-base">openma</span>
+          </div>
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label="Collapse sidebar"
+            title="Collapse sidebar (press [)"
+            className="hidden md:inline-flex items-center justify-center w-7 h-7 rounded text-fg-subtle hover:text-fg hover:bg-bg-surface transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
+          >
+            <CollapseIcon />
+          </button>
+        </div>
+      )}
 
-      {/* Workspace switcher (hidden when user has a single tenant; lets
-          owners create additional workspaces). */}
-      <TenantSwitcher />
+      {/* Workspace switcher — hidden in collapsed mode (it relies on
+          showing the tenant name). Expand sidebar to switch. */}
+      {!collapsed && <TenantSwitcher />}
 
       {/* Navigation */}
-      <nav className="flex-1 px-2 space-y-3 overflow-y-auto" onClick={onNavigate}>
+      <nav className={`flex-1 ${collapsed ? "px-2 py-2" : "px-2 space-y-3"} overflow-y-auto`} onClick={onNavigate}>
         {navGroups.map((group) => (
           <NavGroup
             key={group.label}
@@ -253,16 +381,50 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       {/* Bottom section */}
-      <div className="p-3 space-y-3 border-t border-border">
-        <a href="https://docs.openma.dev" target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-2 px-3 py-1.5 text-sm text-fg-muted hover:text-fg hover:bg-bg-surface rounded-md transition-colors">
-          <svg className="w-4 h-4 opacity-60" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-          Documentation
-        </a>
-        <ThemeToggle />
-        <UserMenu />
+      <div className={`${collapsed ? "p-2 space-y-1" : "p-3 space-y-3"} border-t border-border`}>
+        {collapsed ? (
+          <>
+            <a
+              href="https://docs.openma.dev"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Documentation"
+              aria-label="Documentation"
+              className="flex items-center justify-center w-10 h-10 mx-auto text-fg-muted hover:text-fg hover:bg-bg-surface rounded-md transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
+            >
+              <svg className="w-[18px] h-[18px] opacity-80" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+            </a>
+            <UserMenu />
+          </>
+        ) : (
+          <>
+            <a href="https://docs.openma.dev" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-1.5 min-h-11 sm:min-h-0 text-sm text-fg-muted hover:text-fg hover:bg-bg-surface rounded-md transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]">
+              <svg className="w-4 h-4 opacity-60" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+              Documentation
+            </a>
+            <ThemeToggle />
+            <UserMenu />
+          </>
+        )}
       </div>
     </>
+  );
+}
+
+/* Collapse / Expand chevron — points the direction the sidebar will move. */
+function CollapseIcon() {
+  return (
+    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+function ExpandIcon() {
+  return (
+    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
   );
 }
 
@@ -270,11 +432,30 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
+  const sidebar = useSidebarCollapsed();
+
+  // Linear-style chord bindings. Derived from ROUTE_CHORDS so the
+  // sidebar / palette / chords stay in lockstep — adding a route to
+  // the map enables `g <key>` automatically. The hook itself bypasses
+  // chords inside form inputs and while a Radix dialog is open, so
+  // these are safe to register at the top of the authenticated layout.
+  const chordBindings = useMemo<ChordBinding[]>(
+    () =>
+      Object.entries(ROUTE_CHORDS).map(([path, key]) => ({
+        prefix: "g",
+        key,
+        handler: () => navigate(path),
+        label: path,
+      })),
+    [navigate],
+  );
+  useChordKeybinding(chordBindings);
 
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-bg">
-        <div className="text-fg-subtle text-sm">Loading...</div>
+        <BrandLoader size="lg" label="Loading session" />
       </div>
     );
   }
@@ -284,7 +465,10 @@ export function Layout() {
   }
 
   return (
-    <div className="flex h-screen bg-bg">
+    <SidebarCtx.Provider value={sidebar}>
+      <div className="flex h-screen bg-bg">
+        <NavigationProgress />
+        <CommandPalette />
       {/*
         Autofill honeypot. Chrome / Safari ignore autoComplete="off" on
         text inputs and aggressively offer the saved login email/password
@@ -320,8 +504,20 @@ export function Layout() {
       </div>
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-60 shrink-0 bg-bg-sidebar border-r border-border flex-col">
+      <aside
+        className={`hidden md:flex shrink-0 bg-bg-sidebar border-r border-border flex-col relative ${sidebar.collapsed ? "w-14 transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-soft)]" : ""}`}
+        style={sidebar.collapsed ? undefined : { width: `${sidebar.width}px` }}
+      >
         <SidebarContent />
+        {!sidebar.collapsed && (
+          <SidebarResizer
+            width={sidebar.width}
+            minWidth={sidebar.minWidth}
+            maxWidth={sidebar.maxWidth}
+            onResize={sidebar.setWidth}
+            onReset={sidebar.resetWidth}
+          />
+        )}
       </aside>
 
       {/* Mobile overlay */}
@@ -334,14 +530,15 @@ export function Layout() {
 
       {/* Mobile sidebar drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-bg-sidebar border-r border-border flex flex-col transform transition-transform duration-200 md:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-bg-sidebar border-r border-border flex flex-col transform transition-transform duration-[var(--dur-slow)] ease-[var(--ease-soft)] md:hidden ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Close button */}
         <button
           onClick={() => setSidebarOpen(false)}
-          className="absolute top-4 right-3 p-1 text-fg-muted hover:text-fg rounded-md"
+          aria-label="Close menu"
+          className="absolute top-3 right-3 inline-flex items-center justify-center w-11 h-11 text-fg-muted hover:text-fg hover:bg-bg-surface rounded-md"
         >
           <CloseIcon />
         </button>
@@ -349,12 +546,13 @@ export function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col overflow-hidden m-0 md:m-2">
+      <main className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border md:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-1 text-fg-muted hover:text-fg rounded-md"
+            aria-label="Open menu"
+            className="inline-flex items-center justify-center w-11 h-11 text-fg-muted hover:text-fg hover:bg-bg-surface rounded-md"
           >
             <MenuIcon />
           </button>
@@ -362,10 +560,11 @@ export function Layout() {
           <span className="font-mono font-bold text-sm text-brand">openma</span>
         </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden bg-bg md:rounded-lg md:border md:border-border">
+        <div className="flex-1 flex flex-col overflow-hidden bg-bg">
           <Outlet />
         </div>
       </main>
     </div>
+    </SidebarCtx.Provider>
   );
 }

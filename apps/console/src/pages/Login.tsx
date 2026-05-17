@@ -4,7 +4,9 @@ import { authClient } from "../lib/auth-client";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../components/Toast";
 import { Turnstile } from "../components/Turnstile";
+import { Logo } from "../components/Logo";
 import { setActiveTenantId } from "../lib/api";
+import { useApiQuery } from "../lib/useApiQuery";
 
 // Clear browser-cached tenant pin on every successful auth transition.
 // The pin is per-user — different login → different membership set →
@@ -36,11 +38,26 @@ export function Login() {
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [googleEnabled, setGoogleEnabled] = useState(false);
-  // Turnstile site key (public) is fetched from /auth-info; null when the
+  // /auth-info is a public unauthenticated endpoint advertising which
+  // providers (google / email-otp) are wired up and the Turnstile public
+  // site key. TQ keeps the result cached + deduped across this page's
+  // re-mounts so a navigation between modes doesn't refetch.
+  const { data: authInfo } = useApiQuery<{
+    providers?: string[];
+    turnstile_site_key?: string | null;
+  }>("/auth-info");
+  const googleEnabled = !!authInfo?.providers?.includes("google");
+  // Whether the backend gates sign-up behind an email-OTP verification.
+  // /auth-info advertises "email-otp" iff AUTH_REQUIRE_EMAIL_VERIFY=1 on
+  // the server. When absent (default self-host), the sign-up flow does
+  // NOT route through verify-signup — sign-up succeeds → session cookie
+  // → straight to /. Avoids stranding the user on a verify screen with
+  // no way to receive the code.
+  const emailVerifyRequired = !!authInfo?.providers?.includes("email-otp");
+  // Turnstile site key (public) is read from /auth-info; null when the
   // backend hasn't been configured yet, in which case the auth middleware
   // also soft-passes — both sides agree to skip the check.
-  const [turnstileSiteKey, setTurnstileSiteKey] = useState<string | null>(null);
+  const turnstileSiteKey = authInfo?.turnstile_site_key ?? null;
   const [turnstileToken, setTurnstileToken] = useState("");
   // Bumping this counter re-mounts the Turnstile widget after each form
   // submission so the next attempt gets a fresh single-use token.
@@ -78,25 +95,6 @@ export function Login() {
       nav(nextUrl, { replace: true });
     }
   }, [isAuthenticated, isLoading]);
-
-  // Whether the backend gates sign-up behind an email-OTP verification.
-  // /auth-info advertises "email-otp" iff AUTH_REQUIRE_EMAIL_VERIFY=1 on
-  // the server. When absent (default self-host), the sign-up flow does
-  // NOT route through verify-signup — sign-up succeeds → session cookie
-  // → straight to /. Avoids stranding the user on a verify screen with
-  // no way to receive the code.
-  const [emailVerifyRequired, setEmailVerifyRequired] = useState(false);
-
-  useEffect(() => {
-    fetch("/auth-info")
-      .then((r) => r.json())
-      .then((data: { providers: string[]; turnstile_site_key?: string | null }) => {
-        if (data.providers?.includes("google")) setGoogleEnabled(true);
-        if (data.providers?.includes("email-otp")) setEmailVerifyRequired(true);
-        setTurnstileSiteKey(data.turnstile_site_key ?? null);
-      })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (
@@ -334,7 +332,7 @@ export function Login() {
   }
 
   const inputCls =
-    "w-full border border-border rounded-md px-3 py-2.5 text-sm bg-bg text-fg outline-none focus:border-brand transition-colors placeholder:text-fg-subtle";
+    "w-full border border-border rounded-md px-3 py-2.5 text-sm bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle";
 
   const isOtpMode = mode === "verify-signup" || mode === "verify-login" || mode === "reset-otp";
 
@@ -363,7 +361,7 @@ export function Login() {
       <div className="w-full max-w-sm space-y-6">
         {/* Header */}
         <div className="text-center">
-          <img src="/logo.svg" alt="openma" className="h-10 mx-auto" />
+          <Logo size="lg" className="mx-auto" />
           <h1 className="font-display text-xl font-semibold text-fg mt-4">
             {titles[mode]}
           </h1>
@@ -376,7 +374,7 @@ export function Login() {
             <>
               <button
                 onClick={handleGoogle}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-border rounded-md text-sm text-fg hover:bg-bg-surface transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-border rounded-md text-sm text-fg hover:bg-bg-surface transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path
@@ -417,8 +415,9 @@ export function Login() {
           {/* Name — signup only */}
           {mode === "signup" && (
             <div>
-              <label className="text-sm text-fg-muted block mb-1">Name</label>
+              <label htmlFor="auth-name" className="text-sm text-fg-muted block mb-1">Name</label>
               <input
+                id="auth-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -431,8 +430,9 @@ export function Login() {
           {/* Email — non-OTP modes */}
           {!isOtpMode && (
             <div>
-              <label className="text-sm text-fg-muted block mb-1">Email</label>
+              <label htmlFor="auth-email" className="text-sm text-fg-muted block mb-1">Email</label>
               <input
+                id="auth-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -455,7 +455,7 @@ export function Login() {
           {(mode === "login" || mode === "signup") && (
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-sm text-fg-muted">Password</label>
+                <label htmlFor="auth-password" className="text-sm text-fg-muted">Password</label>
                 {mode === "login" && (
                   <button
                     type="button"
@@ -463,13 +463,14 @@ export function Login() {
                       setMode("forgot");
                       setError("");
                     }}
-                    className="text-xs text-brand hover:underline"
+                    className="inline-flex items-center min-h-11 sm:min-h-0 text-xs text-brand hover:underline"
                   >
                     Forgot password?
                   </button>
                 )}
               </div>
               <input
+                id="auth-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -489,10 +490,11 @@ export function Login() {
           {/* OTP input */}
           {isOtpMode && (
             <div>
-              <label className="text-sm text-fg-muted block mb-1">
+              <label htmlFor="auth-otp" className="text-sm text-fg-muted block mb-1">
                 Verification code
               </label>
               <input
+                id="auth-otp"
                 ref={otpRef}
                 type="text"
                 inputMode="numeric"
@@ -513,10 +515,11 @@ export function Login() {
           {/* New password — reset-otp */}
           {mode === "reset-otp" && (
             <div>
-              <label className="text-sm text-fg-muted block mb-1">
+              <label htmlFor="auth-new-password" className="text-sm text-fg-muted block mb-1">
                 New password
               </label>
               <input
+                id="auth-new-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -561,7 +564,7 @@ export function Login() {
               ((mode === "login" || mode === "signup") && !password) ||
               (mode === "reset-otp" && !password)
             }
-            className="w-full px-4 py-2.5 bg-brand text-brand-fg rounded-md text-sm font-medium hover:bg-brand-hover disabled:opacity-50 transition-colors"
+            className="w-full px-4 py-2.5 bg-brand text-brand-fg rounded-md text-sm font-medium hover:bg-brand-hover disabled:opacity-50 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
           >
             {loading
               ? "Loading..."
@@ -586,7 +589,7 @@ export function Login() {
             <button
               onClick={handleResend}
               disabled={loading}
-              className="text-brand hover:underline disabled:opacity-50"
+              className="inline-flex items-center min-h-11 sm:min-h-0 text-brand hover:underline disabled:opacity-50"
             >
               Resend
             </button>
@@ -602,7 +605,7 @@ export function Login() {
                   setMode("otp-login");
                   setError("");
                 }}
-                className="text-brand hover:underline"
+                className="inline-flex items-center min-h-11 sm:min-h-0 text-brand hover:underline"
               >
                 Sign in with email code
               </button>
@@ -612,7 +615,7 @@ export function Login() {
                   setMode("signup");
                   setError("");
                 }}
-                className="text-brand hover:underline"
+                className="inline-flex items-center min-h-11 sm:min-h-0 text-brand hover:underline"
               >
                 Sign up
               </button>
@@ -626,7 +629,7 @@ export function Login() {
                   setMode("login");
                   setError("");
                 }}
-                className="text-brand hover:underline"
+                className="inline-flex items-center min-h-11 sm:min-h-0 text-brand hover:underline"
               >
                 Sign in
               </button>
@@ -639,7 +642,7 @@ export function Login() {
                   setMode("login");
                   setError("");
                 }}
-                className="text-brand hover:underline"
+                className="inline-flex items-center min-h-11 sm:min-h-0 text-brand hover:underline"
               >
                 Sign in with password
               </button>
@@ -649,7 +652,7 @@ export function Login() {
                   setMode("signup");
                   setError("");
                 }}
-                className="text-brand hover:underline"
+                className="inline-flex items-center min-h-11 sm:min-h-0 text-brand hover:underline"
               >
                 Sign up
               </button>
@@ -662,7 +665,7 @@ export function Login() {
                 setError("");
                 clearOtp();
               }}
-              className="text-brand hover:underline"
+              className="inline-flex items-center min-h-11 sm:min-h-0 text-brand hover:underline"
             >
               Go back
             </button>
@@ -675,7 +678,7 @@ export function Login() {
                   setMode("login");
                   setError("");
                 }}
-                className="text-brand hover:underline"
+                className="inline-flex items-center min-h-11 sm:min-h-0 text-brand hover:underline"
               >
                 Sign in
               </button>
@@ -688,7 +691,7 @@ export function Login() {
                 setError("");
                 clearOtp();
               }}
-              className="text-brand hover:underline"
+              className="inline-flex items-center min-h-11 sm:min-h-0 text-brand hover:underline"
             >
               Go back
             </button>

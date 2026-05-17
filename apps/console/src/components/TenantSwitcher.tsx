@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useApi, getActiveTenantId, setActiveTenantId } from "../lib/api";
+import { useApiQuery } from "../lib/useApiQuery";
 import { Modal } from "./Modal";
 import { Button } from "./Button";
+import { Avatar } from "./Avatar";
 
 // Slot beneath the logo in the sidebar. Hidden when the user has only one
 // tenant — single-tenant accounts shouldn't even see the workspace concept.
@@ -22,36 +24,35 @@ function displayName(t: Tenant): string {
 }
 
 export function TenantSwitcher() {
-  const { api } = useApi();
-  const [tenants, setTenants] = useState<Tenant[]>([]);
   const [active, setActive] = useState<string>("");
   const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // TQ replaces the previous mount-once useEffect that hand-rolled a fetch
+  // + setState. Dedup means a re-mount (sidebar collapse/expand) reuses the
+  // cached membership list rather than re-hitting /v1/me/tenants. A 401 on
+  // first paint (pre-auth) is silenced by useApi's auth-error list.
+  const { data: tenantsRes } = useApiQuery<{ data: Tenant[] }>(
+    "/v1/me/tenants",
+  );
+  const tenants = tenantsRes?.data ?? [];
+
+  // Sync the active-tenant pin once the membership list lands. The
+  // localStorage pin is the source of truth across page loads; on first
+  // visit (or when the stored id is no longer a valid membership) we
+  // fall back to whichever tenant the backend resolved (its own fallback
+  // chain ends at user.tenantId).
   useEffect(() => {
-    api<{ data: Tenant[] }>("/v1/me/tenants")
-      .then((res) => {
-        setTenants(res.data);
-        // First-time / no active set: pick whichever tenant the backend
-        // resolved (which itself fell back to user.tenantId). Persist so
-        // future requests pin it explicitly.
-        const stored = getActiveTenantId();
-        if (stored && res.data.some((t) => t.id === stored)) {
-          setActive(stored);
-        } else if (res.data.length > 0) {
-          setActive(res.data[0].id);
-          setActiveTenantId(res.data[0].id);
-        }
-      })
-      .catch(() => {
-        // Pre-auth or backend down — sidebar just hides the switcher.
-      });
-    // useApi() returns a fresh { api, streamEvents } closure every render,
-    // so listing `api` as a dep would re-fire this effect infinitely and
-    // hammer /v1/me/tenants. Mount-once is the right semantics.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (tenants.length === 0) return;
+    const stored = getActiveTenantId();
+    if (stored && tenants.some((t) => t.id === stored)) {
+      setActive(stored);
+    } else {
+      setActive(tenants[0].id);
+      setActiveTenantId(tenants[0].id);
+    }
+  }, [tenants]);
 
   // Close dropdown on outside click.
   useEffect(() => {
@@ -83,12 +84,14 @@ export function TenantSwitcher() {
     <>
       <div className="px-3 pt-1 pb-2 relative" ref={dropdownRef}>
         <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label="Switch workspace"
           onClick={() => setOpen((o) => !o)}
-          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-bg-surface transition-colors text-left group"
+          className="w-full flex items-center gap-2 px-2.5 py-2 min-h-11 sm:min-h-0 rounded-md hover:bg-bg-surface transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] text-left group"
         >
-          <div className="w-6 h-6 rounded-md bg-brand/15 text-brand flex items-center justify-center text-xs font-mono font-bold shrink-0">
-            {(current?.name ?? "?").trim().charAt(0).toUpperCase() || "·"}
-          </div>
+          <Avatar name={current?.name ?? "?"} size="sm" squared />
           <div className="min-w-0 flex-1">
             <div className="text-sm font-medium truncate text-fg">
               {current ? displayName(current) : "Workspace"}
@@ -99,23 +102,24 @@ export function TenantSwitcher() {
               </div>
             )}
           </div>
-          <svg className="w-3.5 h-3.5 text-fg-subtle shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <svg className="w-3.5 h-3.5 text-fg-subtle shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
             <polyline points="6 9 12 15 18 9" />
           </svg>
         </button>
 
         {open && (
-          <div className="absolute left-3 right-3 top-full mt-1 z-30 bg-bg border border-border rounded-lg shadow-lg overflow-hidden">
+          <div role="menu" aria-label="Workspaces" className="absolute left-3 right-3 top-full mt-1 z-30 bg-bg border border-border rounded-lg shadow-lg overflow-hidden">
             <div className="max-h-72 overflow-y-auto py-1">
               {tenants.map((t) => (
                 <button
                   key={t.id}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={t.id === active}
                   onClick={() => switchTo(t.id)}
-                  className={`w-full text-left px-3 py-2 text-sm hover:bg-bg-surface flex items-center gap-2 ${t.id === active ? "bg-bg-surface/60" : ""}`}
+                  className={`w-full text-left px-3 py-2 min-h-11 sm:min-h-0 text-sm hover:bg-bg-surface flex items-center gap-2 ${t.id === active ? "bg-bg-surface/60" : ""}`}
                 >
-                  <div className="w-5 h-5 rounded bg-brand/15 text-brand flex items-center justify-center text-[10px] font-mono font-bold shrink-0">
-                    {displayName(t).charAt(0).toUpperCase() || "·"}
-                  </div>
+                  <Avatar name={displayName(t)} size="xs" squared />
                   <div className="min-w-0 flex-1">
                     <div className="truncate">{displayName(t)}</div>
                     <div className="text-[10px] text-fg-subtle font-mono">{t.id}</div>
@@ -131,7 +135,7 @@ export function TenantSwitcher() {
             <div className="border-t border-border">
               <button
                 onClick={() => { setOpen(false); setCreateOpen(true); }}
-                className="w-full text-left px-3 py-2 text-sm text-fg-muted hover:bg-bg-surface flex items-center gap-2"
+                className="w-full text-left px-3 py-2 min-h-11 sm:min-h-0 text-sm text-fg-muted hover:bg-bg-surface flex items-center gap-2"
               >
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -196,17 +200,18 @@ function CreateTenantModal({
           and integrations. You'll be the owner of the new one.
         </p>
         <div>
-          <label className="block text-xs uppercase tracking-wider text-fg-subtle mb-1">
+          <label htmlFor="tenant-create-name" className="block text-xs uppercase tracking-wider text-fg-subtle mb-1">
             Name
           </label>
           <input
+            id="tenant-create-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
             placeholder="e.g. Acme Production"
             autoFocus
             disabled={working}
-            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-border-strong"
+            className="w-full bg-bg border border-border rounded-lg px-3 py-2 min-h-11 sm:min-h-0 text-sm outline-none focus:border-border-strong"
           />
         </div>
         {error && (
@@ -218,7 +223,7 @@ function CreateTenantModal({
           <button
             onClick={onClose}
             disabled={working}
-            className="px-4 py-2 rounded-lg border border-border text-sm text-fg-muted hover:bg-bg-surface disabled:opacity-40"
+            className="inline-flex items-center justify-center px-4 py-2 min-h-11 sm:min-h-0 rounded-lg border border-border text-sm text-fg-muted hover:bg-bg-surface disabled:opacity-40"
           >
             Cancel
           </button>
