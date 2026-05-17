@@ -653,48 +653,29 @@ export function SessionDetail() {
         }
       }
 
-      // Build user.message content per AMA spec
-      // (packages/api-types/src/types.ts:184-214): text first, then per
-      // uploaded file an ImageBlock (for image/*) or DocumentBlock (for
-      // pdf / text / source code). source.type="file" + file_id lets the
-      // model receive the file inline (vision for images, native PDF
-      // parsing for application/pdf, full-text for text/*). Anything we
-      // can't classify falls back to a DocumentBlock with the file_id
-      // anyway — the spec accepts it; the harness decides whether to
-      // dereference based on the agent's tools/skills.
-      const content: Array<
-        | { type: "text"; text: string }
-        | { type: "image"; source: { type: "file"; file_id: string; media_type: string } }
-        | { type: "document"; source: { type: "file"; file_id: string; media_type: string }; title?: string }
-      > = [];
-      if (text) content.push({ type: "text", text });
-      for (const u of uploaded) {
-        if (u.media_type.startsWith("image/")) {
-          content.push({
-            type: "image",
-            source: { type: "file", file_id: u.id, media_type: u.media_type },
-          });
-        } else {
-          content.push({
-            type: "document",
-            source: { type: "file", file_id: u.id, media_type: u.media_type },
-            title: u.filename,
-          });
-        }
-      }
-      // Guard the all-files / no-text case so the model still has SOME
-      // textual context about what the user wanted done with them.
-      if (!text && uploaded.length) {
-        content.unshift({
-          type: "text",
-          text: `📎 ${uploaded.length === 1 ? "Attached file" : "Attached files"}.`,
-        });
-      }
+      // Build user.message content per Claude Managed Agents spec
+      // (https://platform.claude.com/docs/en/managed-agents/events-and-streaming):
+      // the AMA `user.message` event only accepts text content blocks —
+      // that's the whole content surface for the event type. (Image /
+      // DocumentBlock with file_id sources are a base Claude Messages
+      // API feature, NOT AMA — different product surface.)
+      //
+      // Files reach the agent through the environment, not through
+      // content blocks: upload to /v1/files with scope_id=session_id
+      // mounts the file into the session container's /workspace.
+      // The agent reads via its bash / file_read tool. We tell the
+      // model that this happened with a short footer line so it knows
+      // to go look — without that, the model wouldn't know files
+      // appeared mid-conversation.
+      const attachLines = uploaded.length
+        ? `\n\n📎 ${uploaded.length === 1 ? "Attached file" : "Attached files"} (read from /workspace):\n${uploaded.map((u) => `- \`${u.filename}\` (${u.media_type})`).join("\n")}`
+        : "";
+      const composed = (text || (uploaded.length ? "Please look at the attached file(s)." : "")) + attachLines;
 
       await api(`/v1/sessions/${id}/events`, {
         method: "POST",
         body: JSON.stringify({
-          events: [{ type: "user.message", content }],
+          events: [{ type: "user.message", content: [{ type: "text", text: composed }] }],
         }),
       });
       // POST resolved → server already inserted the row + broadcast
