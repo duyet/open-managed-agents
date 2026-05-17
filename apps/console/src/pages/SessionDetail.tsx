@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router";
 import { useApi } from "../lib/api";
+import { useToast } from "../components/Toast";
 import { Markdown } from "../components/Markdown";
 import { formatDuration, formatRelative, shortenId } from "../lib/format";
 import { Badge, StatusPill } from "../components/Badge";
@@ -38,6 +39,7 @@ import {
   PromptInputFooter,
   PromptInputTools,
   PromptInputSubmit,
+  PromptInputActionAddAttachments,
 } from "../components/ai-elements/prompt-input";
 import { CodeBlock } from "../components/ai-elements/code-block";
 
@@ -59,6 +61,7 @@ interface PendingEntry {
 export function SessionDetail() {
   const { id } = useParams();
   const { api, streamEvents } = useApi();
+  const { toast } = useToast();
   const [events, setEvents] = useState<Event[]>([]);
   /** In-flight assistant streams keyed by message_id. Each entry holds
    *  the deltas accumulated so far. Wiped on the matching agent.message
@@ -617,17 +620,52 @@ export function SessionDetail() {
     return () => { abort.abort(); };
   }, [id]);
 
-  const send = async (overrideText?: string) => {
+  const send = async (overrideText?: string, files?: File[]) => {
     const text = (overrideText ?? input).trim();
-    if (!text || !id) return;
+    if (!text && !files?.length) return;
+    if (!id) return;
     setInput("");
-    setLocalPending(text);
+    setLocalPending(text || (files?.length ? `📎 ${files.length} file(s)` : ""));
     setSending(true);
     try {
+      // Upload attachments first so the user.message can reference them
+      // by file_id. Each file is scoped to this session via scope_id so
+      // it appears in the session's Files panel + the agent's mount.
+      // We mark them downloadable so the operator can re-download from
+      // the panel. Per-file failures don't block the others — the text
+      // still goes out and the user can retry the failed upload.
+      const uploaded: Array<{ id: string; filename: string; media_type: string }> = [];
+      if (files?.length) {
+        for (const file of files) {
+          try {
+            const fd = new FormData();
+            fd.append("file", file);
+            fd.append("scope_id", id);
+            fd.append("downloadable", "true");
+            const r = await api<{ id: string; filename: string; media_type: string }>(
+              `/v1/files`,
+              { method: "POST", body: fd },
+            );
+            uploaded.push({ id: r.id, filename: r.filename, media_type: r.media_type });
+          } catch (e) {
+            console.error("file upload failed", file.name, e);
+          }
+        }
+      }
+
+      // Build content blocks: any text first, then a small "Attached"
+      // line listing the uploaded file_ids so the agent can read them
+      // via its file_read tool. Cleaner than embedding base64 in the
+      // event log (which would also blow past the model's context
+      // window for non-trivial attachments).
+      const composed = uploaded.length
+        ? `${text ? text + "\n\n" : ""}📎 Attached ${uploaded.length === 1 ? "file" : "files"}:\n${uploaded.map((u) => `- \`${u.filename}\` (file_id: ${u.id}, ${u.media_type})`).join("\n")}`
+        : text;
+
       await api(`/v1/sessions/${id}/events`, {
         method: "POST",
         body: JSON.stringify({
-          events: [{ type: "user.message", content: [{ type: "text", text }] }],
+          events: [{ type: "user.message", content: [{ type: "text", text: composed }] }],
         }),
       });
       // POST resolved → server already inserted the row + broadcast
@@ -1085,32 +1123,45 @@ export function SessionDetail() {
           </Conversation>
 
           {/* Prompt input. ai-elements <PromptInput> wraps a <form> with
-              an InputGroup-based textarea; we hand it our own onSubmit so
-              the existing send() (POST /events) stays the source of truth.
-              The textarea is uncontrolled — we read `text` from onSubmit
-              and the form clears itself on resolve. Mirrors the local
-              `input` state into the disabled-submit check so empty sends
-              are blocked. */}
+              an InputGroup-based textarea + attachment lifecycle; we
+              hand it our own onSubmit so the existing send() (POST
+              /events) stays the source of truth. Files dropped or
+              picked via the paperclip button arrive in onSubmit's
+              files[] — send() uploads them to /v1/files (scope_id =
+              session) then appends a synthetic "Attached:" line so the
+              agent sees the file_ids alongside the text. */}
           <div className="px-4 sm:px-8 py-4 border-t border-border shrink-0">
             <PromptInput
-              onSubmit={async ({ text }) => {
+              accept="image/*,application/pdf,text/*,.md,.json,.yaml,.yml,.csv,.xml,.html,.toml,.log,.sh,.ts,.tsx,.js,.jsx,.py,.go,.rs,.java,.rb,.cpp,.c,.h"
+              multiple
+              maxFiles={10}
+              maxFileSize={25 * 1024 * 1024}
+              onError={(err) => toast(err.message, "error")}
+              globalDrop
+              onSubmit={async ({ text, files }) => {
                 // PromptInput captured the textarea's value into `text`
-                // and already triggered form.reset() before this handler
-                // runs. send() owns clearing the mirrored `input` state
-                // and the optimistic outbox slot, so we just hand off.
-                await send(text);
+                // and the picked/dropped files into `files`, then
+                // form.reset() before this handler runs. send() owns
+                // clearing the mirrored `input` state, the optimistic
+                // outbox slot, and the file uploads.
+                const rawFiles = files
+                  .map((f) => (f as { file?: File }).file)
+                  .filter((f): f is File => f instanceof File);
+                await send(text, rawFiles);
               }}
             >
               <PromptInputTextarea
-                placeholder="Send a message..."
+                placeholder="Send a message…  (drag files in or click 📎)"
                 disabled={sending}
                 onChange={(e) => setInput(e.currentTarget.value)}
               />
               <PromptInputFooter>
-                <PromptInputTools />
+                <PromptInputTools>
+                  <PromptInputActionAddAttachments />
+                </PromptInputTools>
                 <PromptInputSubmit
                   status={sending ? "submitted" : undefined}
-                  disabled={sending || !input.trim()}
+                  disabled={sending}
                 />
               </PromptInputFooter>
             </PromptInput>
