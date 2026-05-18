@@ -318,6 +318,72 @@ app.get("/authorize", async (c) => {
     }
   }
 
+  // Known-provider preset: Asana publishes ASM but no registration_endpoint.
+  // Operator workflow: visit https://app.asana.com/0/my-apps, create an
+  // OAuth app with redirect URL ${baseUrl}/v1/oauth/callback, then set
+  // ASANA_OAUTH_CLIENT_ID + ASANA_OAUTH_CLIENT_SECRET on the main worker.
+  if (!clientId && /^https:\/\/app\.asana\.com\/?$/.test(meta.authServer.issuer)) {
+    if (c.env.ASANA_OAUTH_CLIENT_ID && c.env.ASANA_OAUTH_CLIENT_SECRET) {
+      clientId = c.env.ASANA_OAUTH_CLIENT_ID;
+      clientSecret = c.env.ASANA_OAUTH_CLIENT_SECRET;
+    } else {
+      return c.json(
+        {
+          error:
+            "Asana MCP OAuth requires a pre-registered Asana app: visit https://app.asana.com/0/my-apps, create an OAuth app with redirect URL " +
+            `${callbackUri}, then set ASANA_OAUTH_CLIENT_ID + ASANA_OAUTH_CLIENT_SECRET on the main worker.`,
+        },
+        501,
+      );
+    }
+  }
+
+  // Known-provider preset: ClickUp exposes a DCR endpoint but gates it
+  // behind an allowlist form (returns invalid_request: "integration is
+  // not currently allowlisted"). Operator workflow: visit
+  // https://app.clickup.com/settings/apps, create an OAuth app with
+  // redirect URL ${baseUrl}/v1/oauth/callback, then set
+  // CLICKUP_OAUTH_CLIENT_ID + CLICKUP_OAUTH_CLIENT_SECRET on the main worker.
+  if (!clientId && /^https:\/\/mcp\.clickup\.com\/?$/.test(meta.authServer.issuer)) {
+    if (c.env.CLICKUP_OAUTH_CLIENT_ID && c.env.CLICKUP_OAUTH_CLIENT_SECRET) {
+      clientId = c.env.CLICKUP_OAUTH_CLIENT_ID;
+      clientSecret = c.env.CLICKUP_OAUTH_CLIENT_SECRET;
+    } else {
+      return c.json(
+        {
+          error:
+            "ClickUp MCP OAuth requires a pre-registered ClickUp app: visit https://app.clickup.com/settings/apps, create an OAuth app with redirect URL " +
+            `${callbackUri}, then set CLICKUP_OAUTH_CLIENT_ID + CLICKUP_OAUTH_CLIENT_SECRET on the main worker.`,
+        },
+        501,
+      );
+    }
+  }
+
+  // Known-provider preset: Slack publishes ASM but no registration_endpoint.
+  // Note: distinct from SLACK_CLIENT_ID/SECRET used by `oma slack bind`'s
+  // per-installation App flow — that's a different OAuth App with bot
+  // scopes for the integrations gateway. This one is for the Slack MCP
+  // server (https://mcp.slack.com/mcp) and uses user-scope tokens.
+  // Operator workflow: visit https://api.slack.com/apps, create an app
+  // with redirect URL ${baseUrl}/v1/oauth/callback, then set
+  // SLACK_OAUTH_CLIENT_ID + SLACK_OAUTH_CLIENT_SECRET on the main worker.
+  if (!clientId && /^https:\/\/slack\.com\/?$/.test(meta.authServer.issuer)) {
+    if (c.env.SLACK_OAUTH_CLIENT_ID && c.env.SLACK_OAUTH_CLIENT_SECRET) {
+      clientId = c.env.SLACK_OAUTH_CLIENT_ID;
+      clientSecret = c.env.SLACK_OAUTH_CLIENT_SECRET;
+    } else {
+      return c.json(
+        {
+          error:
+            "Slack MCP OAuth requires a pre-registered Slack app: visit https://api.slack.com/apps, create an app with redirect URL " +
+            `${callbackUri}, then set SLACK_OAUTH_CLIENT_ID + SLACK_OAUTH_CLIENT_SECRET on the main worker.`,
+        },
+        501,
+      );
+    }
+  }
+
   if (!clientId) {
     return c.json(
       {
