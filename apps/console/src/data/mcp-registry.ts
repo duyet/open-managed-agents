@@ -30,11 +30,20 @@ export const MCP_REGISTRY: McpRegistryEntry[] = [
   { id: "amplitude", name: "Amplitude", url: "https://mcp.amplitude.com/mcp", icon: favicon("amplitude.com") },
   { id: "apollo", name: "Apollo.io", url: "https://mcp.apollo.io/mcp", icon: favicon("apollo.io") },
   { id: "asana", name: "Asana", url: "https://mcp.asana.com/v2/mcp", icon: favicon("asana.com") },
-  { id: "atlassian", name: "Atlassian Rovo", url: "https://mcp.atlassian.com/v1/mcp", icon: favicon("atlassian.com") },
+  // { id: "atlassian", name: "Atlassian Rovo", url: "https://mcp.atlassian.com/v1/mcp", icon: favicon("atlassian.com") },
+  //   ↑ disabled: vendor publishes no PRM at standard well-known paths; OAuth discovery 404s.
+  //     SSE endpoint /v1/sse 401s, suggesting a non-discoverable auth scheme.
+  //     Re-enable once Atlassian ships RFC 9728 PRM or we add a hard-coded ASM fallback like GitHub's.
   { id: "clickup", name: "ClickUp", url: "https://mcp.clickup.com/mcp", icon: favicon("clickup.com") },
-  { id: "feishu", name: "Feishu (飞书)", url: "https://mcp.feishu.cn/mcp", icon: favicon("feishu.cn") },
+  // { id: "feishu", name: "Feishu (飞书)", url: "https://mcp.feishu.cn/mcp", icon: favicon("feishu.cn") },
+  //   ↑ disabled: requires Feishu Partner allowlist for a https redirect URI; DCR returns
+  //     invalid_redirect_uri for app.openma.dev. Re-enable after registering openma.dev as
+  //     Feishu partner OR pushing FEISHU_OAUTH_CLIENT_ID/SECRET from a manually-registered App.
   { id: "github", name: "GitHub", url: "https://api.githubcopilot.com/mcp/", icon: favicon("github.com") },
-  { id: "intercom", name: "Intercom", url: "https://mcp.intercom.com/mcp", icon: favicon("intercom.com") },
+  // { id: "intercom", name: "Intercom", url: "https://mcp.intercom.com/mcp", icon: favicon("intercom.com") },
+  //   ↑ disabled: same as Atlassian — no PRM published, OAuth discovery 404s.
+  // { id: "lark", name: "Lark", url: "https://mcp.larksuite.com/mcp", icon: favicon("larksuite.com") },
+  //   ↑ disabled: same Partner-allowlist gate as Feishu (international counterpart, same vendor).
   { id: "linear", name: "Linear", url: "https://mcp.linear.app/mcp", icon: favicon("linear.app") },
   { id: "notion", name: "Notion", url: "https://mcp.notion.com/mcp", icon: favicon("notion.so") },
   { id: "sentry", name: "Sentry", url: "https://mcp.sentry.dev/mcp", icon: favicon("sentry.io") },
