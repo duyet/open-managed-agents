@@ -98,7 +98,13 @@ export const authMiddleware = createMiddleware<{
           if (ok) {
             tenantId = requested;
           } else {
-            return c.json({ error: "Not a member of the requested tenant" }, 403);
+            return c.json(
+              {
+                type: "error",
+                error: { type: "not_a_member", message: "Not a member of the requested tenant" },
+              },
+              403,
+            );
           }
         }
         if (!tenantId) {

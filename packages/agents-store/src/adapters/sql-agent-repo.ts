@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import {
   asBuilder,
   atomicWrite,
@@ -103,14 +103,24 @@ export class SqlAgentRepo implements AgentRepo {
   async listPage(
     tenantId: string,
     opts: {
-      includeArchived: boolean;
+      status?: "active" | "archived" | "any";
+      createdAfter?: number;
+      createdBefore?: number;
       limit: number;
       after?: PageCursor;
       q?: string;
     },
   ): Promise<{ items: AgentRow[]; hasMore: boolean }> {
     const conds = [eq(agents.tenant_id, tenantId)];
-    if (!opts.includeArchived) conds.push(isNull(agents.archived_at));
+    // status: default "any" — caller has to opt in to a narrow row set.
+    // Mirrors the legacy includeArchived=true default; callers that
+    // genuinely want "exclude archived" pass "active" explicitly.
+    if (opts.status === "active") conds.push(isNull(agents.archived_at));
+    else if (opts.status === "archived") conds.push(isNotNull(agents.archived_at));
+    if (opts.createdAfter !== undefined)
+      conds.push(gte(agents.created_at, opts.createdAfter));
+    if (opts.createdBefore !== undefined)
+      conds.push(lt(agents.created_at, opts.createdBefore));
     if (opts.q) {
       // agents.name lives in the JSON config blob, so the q-filter has to
       // pull it out via json_extract. SQLite's LIKE is ASCII-case-insensitive
