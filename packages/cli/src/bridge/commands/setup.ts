@@ -187,14 +187,22 @@ async function runSetupInner(opts: SetupOpts): Promise<void> {
     hostname: hostname(),
     os: osTag(),
     version: PKG_VERSION,
+    // Opt into the v2 multi-tenant response — server returns one entry
+    // per (runtime, tenant) pair instead of a single legacy agent_api_key.
+    multi_tenant: true,
   });
-  log.ok(`runtime registered  ${c.dim(exchange.runtime_id.slice(0, 8) + "…")}`);
+  log.ok(`runtime registered  ${c.dim(exchange.runtime_id.slice(0, 8) + "…")}  (${exchange.tenants.length} workspaces authorized)`);
 
   await writeCreds({
+    v: 2,
     serverUrl: opts.serverUrl,
     runtimeId: exchange.runtime_id,
     token: exchange.token,
-    agentApiKey: exchange.agent_api_key,
+    tenants: exchange.tenants.map((t) => ({
+      id: t.id,
+      name: t.name,
+      agentApiKey: t.agent_api_key,
+    })),
     machineId,
     createdAt: Math.floor(Date.now() / 1000),
   });
@@ -406,12 +414,14 @@ function waitForCallback(state: string, browserOrigin: string): Promise<string> 
 interface ExchangeResponse {
   runtime_id: string;
   token: string;
-  agent_api_key?: string;
+  /** v2 shape — one entry per (runtime, tenant) pair. The setup flow
+   *  always requests `multi_tenant: true` so this is always populated. */
+  tenants: Array<{ id: string; name: string; role: string; agent_api_key: string }>;
 }
 
 async function postExchange(
   serverUrl: string,
-  body: { code: string; state: string; machine_id: string; hostname: string; os: string; version: string },
+  body: { code: string; state: string; machine_id: string; hostname: string; os: string; version: string; multi_tenant: true },
 ): Promise<ExchangeResponse> {
   const url = `${serverUrl.replace(/\/$/, "")}/agents/runtime/exchange`;
   const res = await fetch(url, {

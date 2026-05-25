@@ -2208,6 +2208,7 @@ function usage() {
   Bridge (local runtime):
     oma bridge setup [--force] [--no-service]    Pair this machine with OMA + start daemon
     oma bridge status                            Show creds + probe server reachability
+    oma bridge refresh                           Reconcile authorized tenants + reload daemon
     oma bridge agents refresh                    Re-detect agents + offer wrapper installs
     oma bridge uninstall                         Stop service + remove creds
     (oma bridge daemon                           Internal: launched by service mgr / debugging)
@@ -2311,12 +2312,18 @@ async function main() {
         await runAgents(args.slice(2));
         return;
       }
+      case "refresh": {
+        const { runRefresh } = await import("./bridge/commands/refresh.js");
+        await runRefresh();
+        return;
+      }
       default:
         console.error(
           "oma bridge — pair a local ACP agent with OMA\n\n" +
           "  oma bridge setup [--server-url=…] [--no-service] [--force] [--yes]\n" +
           "                                       Pair + install service + start daemon\n" +
           "  oma bridge status                    Creds + service kind + probe server\n" +
+          "  oma bridge refresh                   Reconcile authorized tenants + reload daemon\n" +
           "  oma bridge agents refresh [--yes]    Re-scan + offer-install wrappers + reload\n" +
           "  oma bridge uninstall                 Stop service + remove creds\n" +
           "  oma bridge daemon                    (internal — launched by service mgr / for debug)\n" +

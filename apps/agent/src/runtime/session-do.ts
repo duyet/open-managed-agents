@@ -4022,6 +4022,10 @@ export class SessionDO extends DurableObject<Env> {
       tools: subTools,
       model: subModel,
       systemPrompt: subAgent.system || "",
+      // Sub-agent inherits the parent's tenant — same daemon, same per-tenant
+      // ACP child key resolution. AcpProxyHarness reads this to forward
+      // x-harness-tenant when opening a RuntimeRoom WS for the sub-agent.
+      tenant_id: this.state.tenant_id,
       // Same resolver the primary HarnessContext uses — the sub-agent shares
       // the parent's tenant + R2 bucket so an `image`/`document` block with
       // a file_id source in a future sub-agent user message would resolve
@@ -4453,6 +4457,7 @@ export class SessionDO extends DurableObject<Env> {
       agent,
       userMessage,
       session_id: this.state.session_id,
+      tenant_id: this.state.tenant_id,
       tools: allTools,
       model,
       systemPrompt,
