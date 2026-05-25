@@ -22,14 +22,15 @@
   "durable_objects": {
     "bindings": [
       { "name": "SESSION_DO", "class_name": "SessionDO" },
-      { "name": "SANDBOX", "class_name": "Sandbox" }
+      { "name": "SANDBOX", "class_name": "Sandbox" },
+      { "name": "RUNTIME_ROOM", "class_name": "RuntimeRoom" }
     ]
   },
 
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["SessionDO", "Sandbox"]
+      "new_sqlite_classes": ["SessionDO", "Sandbox", "RuntimeRoom"]
     }
   ]
 }

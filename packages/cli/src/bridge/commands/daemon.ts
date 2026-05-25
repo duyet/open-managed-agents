@@ -128,15 +128,32 @@ export async function runDaemon(): Promise<void> {
     process.stderr.write(`! pid file write failed (non-fatal): ${(e as Error).message}\n`);
   }
 
-  // SIGHUP — `oma bridge agents refresh`. Side-channel re-detection: do
-  // NOT touch the WS, do NOT restart sessions, do NOT kill ACP children.
-  // Just re-fetch the official ACP registry, re-snapshot npm/uv installs,
-  // re-scan local skills, and re-send the hello manifest so the relay's
-  // runtime row reflects whatever the user just installed (or removed).
+  // SIGHUP — `oma bridge agents refresh` AND `oma bridge refresh`. Both
+  // are side-channel reloads: do NOT touch the WS, do NOT restart
+  // sessions, do NOT kill ACP children. Two things to refresh:
+  //   1. Agent detection — re-fetch official ACP registry, re-snapshot
+  //      npm/uv installs, re-scan local skills, re-send the hello
+  //      manifest so the relay reflects new wrappers the user installed.
+  //   2. Per-tenant credentials — re-read the creds file and push the
+  //      updated tenant key map into SessionManager so newly-authorized
+  //      tenants become sessionable without a daemon restart. The creds
+  //      file may also have been replaced with a new token via setup
+  //      --force, but we deliberately DON'T reattach the WS here — the
+  //      next reconnect cycle picks the new token up. (Tenant key
+  //      changes happen far more often than token rotation, and reloading
+  //      keys with stale `creds` in scope is harmless because the WS
+  //      uses the original auth bearer only.)
   process.on("SIGHUP", () => {
     void (async () => {
-      log.step("SIGHUP — refreshing agent detection");
+      log.step("SIGHUP — refreshing agent detection + credentials");
       try {
+        const freshCreds = await readCreds();
+        if (freshCreds) {
+          sessions.setTenantKeys(freshCreds.tenants);
+          log.ok(`re-loaded credentials  (${freshCreds.tenants.length} tenants)`);
+        } else {
+          log.warn("credentials file disappeared mid-SIGHUP; tenant keys unchanged");
+        }
         await loadRegistry({ cachePath, forceRefresh: true });
         const agents = (await detectAll()).map((a) => ({ id: a.id, binary: a.spec.command }));
         const localSkillsDetailed = await detectLocalSkills();
@@ -173,13 +190,17 @@ export async function runDaemon(): Promise<void> {
     /* placeholder — replaced on first attach via setSender */
   });
   // Wire daemon's identity into SessionManager so it can fetch session
-  // bundles from main and inject the agent API key into ACP children's MCP
-  // proxy auth (no spawn-env LLM key — user manages that themselves).
+  // bundles from main and stamp the right per-tenant API key onto ACP
+  // children's MCP proxy auth (no spawn-env LLM key — user manages that
+  // themselves). The per-tenant `oma_*` keys come from setTenantKeys
+  // below, NOT from setSpawnEnv — keys live in a tenant-keyed map so a
+  // multi-tenant daemon can hand the right one to each spawned ACP
+  // child based on the session's tenant_id pin.
   sessions.setSpawnEnv({
-    apiKey: creds.agentApiKey ?? "",
     apiUrl: creds.serverUrl,
     runtimeToken: creds.token,
   });
+  sessions.setTenantKeys(creds.tenants);
 
   while (!stopping) {
     try {

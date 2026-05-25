@@ -13,6 +13,7 @@ registerHarness("default", () => new DefaultHarness());
 
 export { SessionDO } from "../apps/agent/src/runtime/session-do";
 export { Sandbox } from "@cloudflare/sandbox";
+export { RuntimeRoom } from "../apps/main/src/runtime-room";
 export { outbound, outboundByHost } from "../apps/agent/src/outbound";
 
 // --- Migration bootstrap ---
@@ -23,16 +24,23 @@ export { outbound, outboundByHost } from "../apps/agent/src/outbound";
 // Mirrors what `wrangler d1 migrations apply` does in prod — applies the
 // consolidated baseline SQL file. The original 20 historical files live in
 // _archive/ for git-blame reference; this test path uses the same single
-// 0001_consolidated.sql self-host deploys ship with.
+// 0000_consolidated.sql self-host deploys ship with, plus any post-
+// consolidation files added on top (0018_runtime_multi_tenant.sql is the
+// first such — see multi-tenant CLI bridge daemon PR).
 
 // @ts-expect-error vitest resolves SQL via ?raw
-import authSchema from "../apps/main/migrations/0001_consolidated.sql?raw";
+import authSchema from "../apps/main/migrations/0000_consolidated.sql?raw";
+// @ts-expect-error vitest resolves SQL via ?raw
+import schema0018 from "../apps/main/migrations/0018_runtime_multi_tenant.sql?raw";
 // @ts-expect-error vitest resolves SQL via ?raw
 import integrationsSchema from "../apps/main/migrations-integrations/0001_consolidated.sql?raw";
 // @ts-expect-error vitest resolves SQL via ?raw
 import routerSchema from "../apps/main/migrations-router/0001_consolidated.sql?raw";
 
-const MIGRATIONS_RAW: string[] = [authSchema as string];
+const MIGRATIONS_RAW: string[] = [
+  authSchema as string,
+  schema0018 as string,
+];
 
 const INTEGRATIONS_MIGRATIONS_RAW: string[] = [integrationsSchema as string];
 
