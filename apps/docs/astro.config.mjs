@@ -54,12 +54,12 @@ export default defineConfig({
         {
           icon: 'github',
           label: 'GitHub',
-          href: 'https://github.com/open-ma/open-managed-agents',
+          href: 'https://github.com/openma-ai/open-managed-agents',
         },
       ],
       editLink: {
         baseUrl:
-          'https://github.com/open-ma/open-managed-agents/edit/main/apps/docs/',
+          'https://github.com/openma-ai/open-managed-agents/edit/main/apps/docs/',
       },
       lastUpdated: true,
       pagination: true,

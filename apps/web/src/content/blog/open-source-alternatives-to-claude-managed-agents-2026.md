@@ -38,7 +38,7 @@ By that bar, the list is short.
 
 ## Open Managed Agents
 
-[github.com/open-ma/open-managed-agents](https://github.com/open-ma/open-managed-agents)
+[github.com/openma-ai/open-managed-agents](https://github.com/openma-ai/open-managed-agents)
 · Apache 2.0 · 2026-04 first release
 
 The most direct alternative — built explicitly to mirror Anthropic's
@@ -211,7 +211,7 @@ framework I'll wrap myself," LangGraph and AutoGen are mature picks.
 ## Try Open Managed Agents
 
 ```bash
-git clone https://github.com/open-ma/open-managed-agents
+git clone https://github.com/openma-ai/open-managed-agents
 cd open-managed-agents
 cp .env.example .env
 docker compose up -d

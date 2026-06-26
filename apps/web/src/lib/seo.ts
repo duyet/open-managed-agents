@@ -17,7 +17,7 @@
 // recommends and it doesn't pollute the rendered HTML.
 
 const SITE_URL = "https://openma.dev";
-const REPO_URL = "https://github.com/open-ma/open-managed-agents";
+const REPO_URL = "https://github.com/openma-ai/open-managed-agents";
 const ORG_NAME = "Open Managed Agents";
 // Google's Organization.logo policy rejects SVG — Schema.org logo must
 // be a raster format (PNG/JPG/GIF). The /logo.png file is rsvg-rendered
@@ -94,8 +94,17 @@ export function softwareApplicationSchema() {
     url: SITE_URL,
     downloadUrl: REPO_URL,
     license: "https://www.apache.org/licenses/LICENSE-2.0",
+    keywords:
+      "Claude Managed Agents alternative, Claude Tag alternative, open-source Claude Tag, self-hosted Claude Tag, MCP, BYOK",
+    featureList: [
+      "Claude Managed Agents API compatibility",
+      "Claude Tag-style Slack publication",
+      "MCP server hosting",
+      "Vault-backed credentials",
+      "Cloudflare Workers and Docker self-hosting",
+    ],
     description:
-      "Open-source alternative to Claude Managed Agents. Self-host Claude agents on Cloudflare Workers or Docker. Wire-compatible API, MCP + Claude Code skills built in.",
+      "Open-source alternative to Claude Managed Agents and a foundation for self-hosted Claude Tag-style agents. Self-host Claude agents on Cloudflare Workers or Docker. Wire-compatible API, MCP + Claude Code skills built in.",
     sameAs: [REPO_URL],
   };
 }
@@ -147,6 +156,21 @@ export function breadcrumbSchema(crumbs: Array<{ name: string; path: string }>) 
       position: i + 1,
       name: c.name,
       item: `${SITE_URL}${c.path}`,
+    })),
+  };
+}
+
+export function faqPageSchema(items: Array<{ question: string; answer: string }>) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: items.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
     })),
   };
 }

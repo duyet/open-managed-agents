@@ -48,6 +48,14 @@ const CONSOLE_PATH_PREFIXES = [
   "/usage",
 ];
 
+const LEGACY_MARKETING_REDIRECTS: Record<string, string> = {
+  "/slack-ai-agent/": "/self-hosted-claude-tag/",
+  "/blog/claude-tag-alternative-open-source-slack-ai-teammate/":
+    "/blog/claude-tag-open-source-alternative/",
+  "/blog/self-host-claude-tag-style-slack-ai-agent/":
+    "/blog/self-hosted-claude-tag-open-source/",
+};
+
 function isConsolePath(pathname: string): boolean {
   return CONSOLE_PATH_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
@@ -89,6 +97,13 @@ export default {
 
     if (url.hostname.startsWith("www.")) {
       return Response.redirect(wwwToApex(url).toString(), 301);
+    }
+
+    const legacyMarketingPath = LEGACY_MARKETING_REDIRECTS[url.pathname];
+    if (legacyMarketingPath) {
+      const out = new URL(url.toString());
+      out.pathname = legacyMarketingPath;
+      return Response.redirect(out.toString(), 301);
     }
 
     if (isConsolePath(url.pathname)) {

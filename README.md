@@ -12,11 +12,19 @@
 
 # Open Managed Agents
 
-**Open-source alternative to Claude Managed Agents** — a meta-harness for AI agents you can run yourself.
+**Open-source alternative to Claude Managed Agents** — and a foundation for open-source, self-hosted Claude Tag-style agents.
 
-🌐 **[openma.dev](https://openma.dev)** · 📖 **[docs.openma.dev](https://docs.openma.dev)** · 💬 **[github.com/open-ma/open-managed-agents](https://github.com/open-ma/open-managed-agents)**
+🌐 **[openma.dev](https://openma.dev)** · 📖 **[docs.openma.dev](https://docs.openma.dev)** · 💬 **[github.com/openma-ai/open-managed-agents](https://github.com/openma-ai/open-managed-agents)**
 
-Write a harness. Deploy. The platform runs it — with sessions, sandboxes, tools, memory, vaults, and crash recovery out of the box. Drop-in compatible with the Claude Managed Agents API; runs on Cloudflare Workers + Durable Objects, or `docker compose up` on your own box.
+Write a harness. Deploy. The platform runs it — with sessions, sandboxes, tools, memory, vaults, Slack/GitHub/Linear integrations, and crash recovery out of the box. Drop-in compatible with the Claude Managed Agents API; runs on Cloudflare Workers + Durable Objects, or `docker compose up` on your own box.
+
+Use Open Managed Agents when you want:
+
+- A self-hosted Claude Managed Agents API implementation.
+- An open-source, self-hosted Claude Tag-style workflow with BYOK model credentials.
+- MCP, private tools, encrypted vaults, and durable sessions under your own deployment boundary.
+
+Compare: [Claude Tag alternative](https://openma.dev/claude-tag-alternative/) · [Open-source Claude Tag](https://openma.dev/claude-tag-open-source/) · [Self-hosted Claude Tag](https://openma.dev/self-hosted-claude-tag/)
 
 ---
 
@@ -41,7 +49,7 @@ crash-recovery semantics. Switch between them by changing env vars, not code.
 ## Quick start: self-host (Docker)
 
 ```bash
-git clone https://github.com/open-ma/open-managed-agents.git
+git clone https://github.com/openma-ai/open-managed-agents.git
 cd open-managed-agents
 cp .env.example .env
 
@@ -91,7 +99,7 @@ Console UI, operator gotchas): **[docs.openma.dev/self-host/overview](https://do
 Requires [Workers Paid plan](https://developers.cloudflare.com/workers/platform/pricing/) (for Durable Objects + Containers).
 
 ```bash
-git clone https://github.com/open-ma/open-managed-agents.git
+git clone https://github.com/openma-ai/open-managed-agents.git
 cd open-managed-agents
 pnpm install
 

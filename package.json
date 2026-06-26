@@ -1,15 +1,33 @@
 {
   "name": "open-managed-agents",
   "version": "0.1.0",
-  "description": "Open-source meta-harness for AI agents — Anthropic Managed Agents API parity, runs on Cloudflare Workers or self-hosted Node.",
+  "description": "Open-source Claude Managed Agents API implementation and self-hosted Claude Tag-style agent runtime.",
   "homepage": "https://openma.dev",
   "repository": {
     "type": "git",
-    "url": "https://github.com/open-ma/open-managed-agents"
+    "url": "https://github.com/openma-ai/open-managed-agents"
   },
   "bugs": {
-    "url": "https://github.com/open-ma/open-managed-agents/issues"
+    "url": "https://github.com/openma-ai/open-managed-agents/issues"
   },
+  "keywords": [
+    "ai-agents",
+    "agent-platform",
+    "agent-infrastructure",
+    "claude-managed-agents",
+    "claude-tag",
+    "claude-tag-alternative",
+    "claude-api",
+    "claude-code",
+    "open-source-agents",
+    "self-hosted-agents",
+    "mcp",
+    "byok",
+    "self-hosted",
+    "cloudflare-workers",
+    "durable-objects",
+    "open-source"
+  ],
   "license": "Apache-2.0",
   "private": true,
   "type": "module",

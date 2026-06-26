@@ -246,7 +246,7 @@ that lets you change them.
 ## Try it
 
 ```bash
-git clone https://github.com/open-ma/open-managed-agents
+git clone https://github.com/openma-ai/open-managed-agents
 cd open-managed-agents
 cp .env.example .env  # set ANTHROPIC_API_KEY
 docker compose up -d
