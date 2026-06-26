@@ -115,6 +115,7 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
     <meta property="og:site_name" content="Open Managed Agents" />
     <meta property="og:locale" content="en_US" />
     <meta property="og:image" content={finalOgImage} />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content={fullTitle} />
@@ -125,10 +126,13 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
       <meta property="article:modified_time" content={updatedAt.toISOString()} />
     )}
 
-    <!-- Open Graph / Twitter cards: only og:* is needed. Twitter's
-         renderer falls back to og:title / og:description / og:image
-         when twitter:* is absent, so we don't need to repeat ourselves
-         and we don't claim a Twitter presence we don't have. -->
+    <!-- Twitter/X cards. We intentionally omit twitter:site until a
+         verified project handle exists, but explicit card metadata avoids
+         small-card fallbacks in link unfurlers. -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={desc} />
+    <meta name="twitter:image" content={finalOgImage} />
 
     <!-- RSS -->
     <link rel="alternate" type="application/rss+xml" title="Open Managed Agents — Blog" href="/blog/rss.xml" />
@@ -136,7 +140,7 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
     <!-- JSON-LD structured data — Organization + WebSite on every page,
          plus per-page schemas (BlogPosting, BreadcrumbList) injected by callers. -->
     {allSchemas.map((schema) => (
-      <script type="application/ld+json" set:html={JSON.stringify(schema)} />
+      <script is:inline type="application/ld+json" set:html={JSON.stringify(schema)} />
     ))}
   </head>
   <body class="bg-bg text-fg">
@@ -166,10 +170,11 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
 
         <!-- Desktop nav -->
         <nav class="hidden md:flex items-center gap-1 text-sm" aria-label="Primary">
+          <a href="/claude-tag-alternative/" class="px-3 py-2 rounded-md text-[var(--color-fg)] hover:text-[var(--color-brand)]">Claude Tag</a>
           <a href="/blog/" class="px-3 py-2 rounded-md text-[var(--color-fg)] hover:text-[var(--color-brand)]">Blog</a>
           <a href="https://docs.openma.dev" class="px-3 py-2 rounded-md text-[var(--color-fg)] hover:text-[var(--color-brand)]">Docs</a>
           <a
-            href="https://github.com/open-ma/open-managed-agents"
+            href="https://github.com/openma-ai/open-managed-agents"
             target="_blank"
             rel="noopener noreferrer"
             class="px-3 py-2 rounded-md text-[var(--color-fg)] hover:text-[var(--color-brand)]"
@@ -254,10 +259,11 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
               class="absolute right-0 top-full mt-2 min-w-[180px] py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-md shadow-lg flex flex-col text-sm z-40"
               aria-label="Mobile primary"
             >
+              <a href="/claude-tag-alternative/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Claude Tag</a>
               <a href="/blog/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Blog</a>
               <a href="https://docs.openma.dev" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Docs</a>
               <a
-                href="https://github.com/open-ma/open-managed-agents"
+                href="https://github.com/openma-ai/open-managed-agents"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]"
@@ -282,10 +288,13 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
       <div class="max-w-5xl mx-auto px-4 py-8 text-sm text-[var(--color-fg-muted)] flex flex-wrap gap-x-8 gap-y-2 justify-between">
         <div>© {new Date().getFullYear()} Open Managed Agents. Apache 2.0 licensed.</div>
         <nav class="flex flex-wrap gap-x-3 gap-y-1" aria-label="Footer">
-          <a href="/blog/" class="py-2 px-2 -mx-2 rounded hover:bg-[var(--color-bg-surface)]">Blog</a>
+          <a href="/claude-tag-alternative/" class="py-2 px-2 -mx-2 rounded hover:bg-[var(--color-bg-surface)]">Claude Tag</a>
+          <a href="/claude-tag-open-source/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Open Source Tag</a>
+          <a href="/self-hosted-claude-tag/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Self-hosted Tag</a>
+          <a href="/blog/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Blog</a>
           <a href="https://docs.openma.dev" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Docs</a>
           <a
-            href="https://github.com/open-ma/open-managed-agents"
+            href="https://github.com/openma-ai/open-managed-agents"
             target="_blank"
             rel="noopener noreferrer"
             class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]"

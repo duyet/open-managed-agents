@@ -1,7 +1,7 @@
 {
   "name": "Open Managed Agents",
   "short_name": "openma",
-  "description": "Open-source alternative to Anthropic's Managed Agents.",
+  "description": "Open-source Claude Managed Agents alternative and self-hosted Claude Tag-style agent platform.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

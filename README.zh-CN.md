@@ -14,7 +14,7 @@
 
 **Claude Managed Agents 的开源替代品** —— 一个你可以自部署的 AI 智能体元框架（meta-harness）。
 
-🌐 **[openma.dev](https://openma.dev)** · 📖 **[docs.openma.dev](https://docs.openma.dev)** · 💬 **[github.com/open-ma/open-managed-agents](https://github.com/open-ma/open-managed-agents)**
+🌐 **[openma.dev](https://openma.dev)** · 📖 **[docs.openma.dev](https://docs.openma.dev)** · 💬 **[github.com/openma-ai/open-managed-agents](https://github.com/openma-ai/open-managed-agents)**
 
 写一个 harness，部署它。平台负责运行 —— 内置会话、沙箱、工具、记忆、保险库和崩溃恢复。API 与 Claude Managed Agents 兼容；可以跑在 Cloudflare Workers + Durable Objects 上，或者直接 `docker compose up` 在你自己的机器上。
 
@@ -39,7 +39,7 @@
 ## 快速开始：自部署（Docker）
 
 ```bash
-git clone https://github.com/open-ma/open-managed-agents.git
+git clone https://github.com/openma-ai/open-managed-agents.git
 cd open-managed-agents
 cp .env.example .env
 
@@ -88,7 +88,7 @@ curl -s -X POST localhost:8787/v1/sessions/$SID/events -H 'content-type: applica
 需要 [Workers 付费计划](https://developers.cloudflare.com/workers/platform/pricing/)（用于 Durable Objects + Containers）。
 
 ```bash
-git clone https://github.com/open-ma/open-managed-agents.git
+git clone https://github.com/openma-ai/open-managed-agents.git
 cd open-managed-agents
 pnpm install
 
