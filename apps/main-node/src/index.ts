@@ -487,11 +487,22 @@ const sessionRegistry = new SessionRegistry({
   buildModel: (agent) => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY env var required for harness turns");
+    // OMA_API_COMPAT selects the wire format for every model on this node
+    // self-host (which has no D1 model cards to choose per-model). Set it to
+    // "oai"/"oai-compatible" to talk to an OpenAI-compatible gateway
+    // (e.g. AnyRouter /chat/completions) instead of the Anthropic /messages
+    // default. Unset → undefined → "ant" (unchanged behavior).
+    const apiCompat = process.env.OMA_API_COMPAT as
+      | "ant"
+      | "ant-compatible"
+      | "oai"
+      | "oai-compatible"
+      | undefined;
     return resolveModel(
       agent.model,
       apiKey,
       process.env.ANTHROPIC_BASE_URL,
-      undefined,
+      apiCompat,
       parseCustomHeaders(process.env.ANTHROPIC_CUSTOM_HEADERS),
     );
   },

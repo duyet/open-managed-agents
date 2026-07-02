@@ -3536,6 +3536,18 @@ export class SessionDO extends DurableObject<Env> {
     let apiCompat: ApiCompat = "ant";
     if (provider && (OAI_PROVIDERS.has(provider) || ANT_PROVIDERS.has(provider))) {
       apiCompat = provider as ApiCompat;
+    } else {
+      // Node self-host has no D1 model cards, so there's no per-model way to
+      // select the OpenAI-compatible wire format. OMA_API_COMPAT lets the
+      // deployment default every model to "oai"/"oai-compatible" (e.g. to
+      // reach an OpenAI-compatible gateway like AnyRouter /chat/completions).
+      // Read process.env directly — the node runtime's `env` object is a
+      // fixed allowlist that doesn't carry this key.
+      const envCompat =
+        typeof process !== "undefined" ? process.env.OMA_API_COMPAT : undefined;
+      if (envCompat && (OAI_PROVIDERS.has(envCompat) || ANT_PROVIDERS.has(envCompat))) {
+        apiCompat = envCompat as ApiCompat;
+      }
     }
 
     return { model: wireModel, apiKey, baseURL, apiCompat, customHeaders };
