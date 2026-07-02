@@ -405,8 +405,18 @@ export class DefaultHarness implements HarnessInterface {
         : model;
 
       try {
+      // Cap output tokens when OMA_MAX_OUTPUT_TOKENS is set. The AI SDK
+      // otherwise defaults to the provider max (4096 for Anthropic), which
+      // some upstreams — notably BYOK gateways that bill a low-balance
+      // account — reject up front when the *requested* max exceeds the
+      // affordable budget, even if the actual output would be tiny. Opt-in:
+      // unset → undefined → SDK default, so existing deployments are unchanged.
+      const maxOutputTokens = process.env.OMA_MAX_OUTPUT_TOKENS
+        ? Number(process.env.OMA_MAX_OUTPUT_TOKENS)
+        : undefined;
       const r = streamText({
       model: wrappedModel,
+      ...(maxOutputTokens ? { maxOutputTokens } : {}),
       // Empty system prompt → omit entirely. Anthropic's API rejects an
       // empty `system` block ("system: text content blocks must be non-
       // empty"); the AI SDK forwards the empty string as a block instead
