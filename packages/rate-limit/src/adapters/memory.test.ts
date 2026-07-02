@@ -2,10 +2,14 @@
 // for /auth/* and /v1/* rate limiting. No prior test covered its actual
 // bucket arithmetic (exhaustion, reset, cost > 1, retryAfter).
 
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { MemoryRateLimitGate, buildMemoryGates } from "./memory";
 
 describe("MemoryRateLimitGate", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
   afterEach(() => {
     vi.useRealTimers();
   });
@@ -22,8 +26,7 @@ describe("MemoryRateLimitGate", () => {
     expect((await gate.consume("k")).ok).toBe(true);
     const r = await gate.consume("k");
     expect(r.ok).toBe(false);
-    expect(r.retryAfter).toBeGreaterThan(0);
-    expect(r.retryAfter).toBeLessThanOrEqual(60);
+    expect(r.retryAfter).toBe(60);
   });
 
   it("tracks buckets independently per key", async () => {
@@ -41,7 +44,6 @@ describe("MemoryRateLimitGate", () => {
   });
 
   it("refills the bucket once the window elapses", async () => {
-    vi.useFakeTimers();
     const gate = new MemoryRateLimitGate(1, 60);
     expect((await gate.consume("k")).ok).toBe(true);
     expect((await gate.consume("k")).ok).toBe(false);

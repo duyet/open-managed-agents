@@ -45,7 +45,7 @@ describe("encodeCursor / decodeCursor", () => {
   });
 
   it("is base64url safe (no +, /, or = padding)", () => {
-    const encoded = encodeCursor({ createdAt: Date.now(), id: "id-with-special-chars-????" });
+    const encoded = encodeCursor({ createdAt: 1700000000000, id: "id-with-special-chars-????" });
     expect(encoded).not.toMatch(/[+/=]/);
   });
 
