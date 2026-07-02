@@ -20,6 +20,7 @@
     "@cloudflare/containers": "^0.3.0",
     "@cloudflare/playwright": "^1.3.0",
     "@cloudflare/sandbox": "^0.9.1",
+    "@flue/runtime": "1.0.0-beta.8",
     "@open-managed-agents/agents-store": "workspace:*",
     "@open-managed-agents/api-types": "workspace:*",
     "@open-managed-agents/browser-harness": "workspace:*",
