@@ -411,9 +411,15 @@ export class DefaultHarness implements HarnessInterface {
       // account — reject up front when the *requested* max exceeds the
       // affordable budget, even if the actual output would be tiny. Opt-in:
       // unset → undefined → SDK default, so existing deployments are unchanged.
-      const maxOutputTokens = process.env.OMA_MAX_OUTPUT_TOKENS
-        ? Number(process.env.OMA_MAX_OUTPUT_TOKENS)
-        : undefined;
+      // Prefer the CF Worker binding (ctx.env); fall back to process.env on
+      // self-hosted Node. Guard `process` with typeof — it is not defined in
+      // Workers without nodejs_compat, where a bare reference throws.
+      const rawMaxTokens =
+        ctx.env.OMA_MAX_OUTPUT_TOKENS ??
+        (typeof process !== "undefined" ? process.env.OMA_MAX_OUTPUT_TOKENS : undefined);
+      const parsedMaxTokens = rawMaxTokens ? Number.parseInt(rawMaxTokens, 10) : Number.NaN;
+      const maxOutputTokens =
+        Number.isFinite(parsedMaxTokens) && parsedMaxTokens > 0 ? parsedMaxTokens : undefined;
       const r = streamText({
       model: wrappedModel,
       ...(maxOutputTokens ? { maxOutputTokens } : {}),
