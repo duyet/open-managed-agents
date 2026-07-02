@@ -55,6 +55,7 @@ import { SqlEventLog } from "@open-managed-agents/event-log/sql";
 import type { SessionEvent } from "@open-managed-agents/shared";
 import { generateEventId } from "@open-managed-agents/shared";
 import { DefaultHarness } from "@open-managed-agents/agent/harness/default-loop";
+import { FlueHarness } from "@open-managed-agents/agent/harness/flue-loop";
 import { buildTools } from "@open-managed-agents/agent/harness/tools";
 import { resolveModel } from "@open-managed-agents/agent/harness/provider";
 import { composeSystemPrompt } from "@open-managed-agents/agent/harness/platform-guidance";
@@ -516,8 +517,21 @@ const sessionRegistry = new SessionRegistry({
     });
   },
   buildHarness: () => {
-    const h = new DefaultHarness();
-    return { run: (ctx: unknown) => h.run(ctx as HarnessContext) };
+    // Route per-turn by the agent marker so OMA can manage Flue agents as a
+    // harness (metadata.harness === "flue" or _oma.harness). HarnessContext
+    // carries the agent, so selection happens at run() time with no
+    // registry/interface change. Node only invokes run() (compaction etc.
+    // are the harness's own concern), so a {run} wrapper is sufficient.
+    const def = new DefaultHarness();
+    const flue = new FlueHarness();
+    return {
+      run: (ctx: unknown) => {
+        const c = ctx as HarnessContext;
+        const meta = (c.agent as { metadata?: Record<string, unknown> })?.metadata;
+        const useFlue = meta?.harness === "flue";
+        return (useFlue ? flue : def).run(c);
+      },
+    };
   },
   buildHarnessContext: async (input) => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
