@@ -13,8 +13,10 @@ import type { Env } from "@open-managed-agents/shared";
 import { registerHarness } from "./harness/registry";
 import { DefaultHarness } from "./harness/default-loop";
 import { AcpProxyHarness } from "./harness/acp-proxy-loop";
+import { FlueHarness } from "./harness/flue-loop";
 registerHarness("default", () => new DefaultHarness());
 registerHarness("acp-proxy", () => new AcpProxyHarness());
+registerHarness("flue", () => new FlueHarness());
 
 // --- Export DO classes (required by wrangler) ---
 export { SessionDO } from "./runtime/session-do";
