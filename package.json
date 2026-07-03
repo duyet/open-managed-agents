@@ -47,6 +47,8 @@
     "dev:docs": "pnpm --filter open-managed-agents-docs dev",
     "build:docs": "pnpm --filter open-managed-agents-docs build",
     "deploy:docs": "pnpm --filter open-managed-agents-docs deploy",
+    "build:web": "pnpm --filter @open-managed-agents/web build",
+    "deploy:web": "pnpm --filter @open-managed-agents/web deploy",
     "deploy": "./scripts/deploy.sh",
     "typecheck": "tsc --noEmit && pnpm run typecheck:node",
     "typecheck:node": "pnpm --filter @open-managed-agents/sandbox typecheck && pnpm --filter @open-managed-agents/main-node typecheck && pnpm --filter @open-managed-agents/oma-vault typecheck && pnpm --filter @open-managed-agents/cap typecheck",
