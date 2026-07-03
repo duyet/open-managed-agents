@@ -7,9 +7,9 @@ export { SqlShardPoolRepo } from "./sql-shard-pool-repo";
 export { SqlMemoryStoreTenantIndexRepo } from "./sql-memory-store-tenant-index-repo";
 
 import { drizzle } from "drizzle-orm/d1";
-import * as cfRouterSchema from "@open-managed-agents/db-schema/cf-router";
-import type { OmaDb } from "@open-managed-agents/db-schema";
-import type { SqlClient } from "@open-managed-agents/sql-client";
+import * as cfRouterSchema from "@duyet/oma-db-schema/cf-router";
+import type { OmaDb } from "@duyet/oma-db-schema";
+import type { SqlClient } from "@duyet/oma-sql-client";
 import { SqlTenantShardDirectoryRepo } from "./sql-tenant-shard-repo";
 import { SqlShardPoolRepo } from "./sql-shard-pool-repo";
 import { SqlMemoryStoreTenantIndexRepo } from "./sql-memory-store-tenant-index-repo";
@@ -47,7 +47,7 @@ export function createCfMemoryStoreTenantIndexService(deps: {
 // constructs Drizzle from better-sqlite3 / postgres.js and passes it here.
 //
 // The legacy `{ client: SqlClient }` shape is intentionally rejected — it
-// would force this package to depend on @open-managed-agents/sql-client
+// would force this package to depend on @duyet/oma-sql-client
 // which we're decommissioning. Update the caller to construct Drizzle.
 
 type SqliteFactoryDeps = { client: SqlClient } | { db: OmaDb };

@@ -2,7 +2,7 @@
 // queries — no codegen for now since the surface is small. Add codegen if we
 // add many more queries.
 
-import type { HttpClient } from "@open-managed-agents/integrations-core";
+import type { HttpClient } from "@duyet/oma-integrations-core";
 
 const LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql";
 

@@ -35,8 +35,8 @@ import {
   parseModelsResponse,
   parseRegisterResponse,
   parseTokenResponse,
-} from "@open-managed-agents/anyrouter";
-import type { KvStore } from "@open-managed-agents/kv-store";
+} from "@duyet/oma-anyrouter";
+import type { KvStore } from "@duyet/oma-kv-store";
 import type { RouteServices, RouteServicesArg } from "../types";
 import { resolveServices } from "../types";
 

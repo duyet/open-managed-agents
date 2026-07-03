@@ -9,9 +9,9 @@ import { buildProviders } from "./providers";
 import { buildContainer } from "./wire";
 import { CfInstallBridge } from "./cf-install-bridge";
 import { webhookRateLimitMiddleware, shouldDropForTenantRateLimit } from "./webhook-rate-limit";
-import { linearDispatchTick } from "@open-managed-agents/scheduler/jobs/linear-dispatch";
-import { getLogger } from "@open-managed-agents/observability";
-import { buildIntegrationsGatewayRoutes } from "@open-managed-agents/http-routes";
+import { linearDispatchTick } from "@duyet/oma-scheduler/jobs/linear-dispatch";
+import { getLogger } from "@duyet/oma-observability";
+import { buildIntegrationsGatewayRoutes } from "@duyet/oma-http-routes";
 
 const log = getLogger("apps.integrations");
 
@@ -19,7 +19,7 @@ const log = getLogger("apps.integrations");
 // Slack), runs OAuth/install flows for installations, and hosts the MCP servers
 // that expose external APIs to agent sessions.
 //
-// Most route bodies live in @open-managed-agents/http-routes via
+// Most route bodies live in @duyet/oma-http-routes via
 // `buildIntegrationsGatewayRoutes` — this file just wires the CF-flavored
 // install bridge + provider webhook handlers + per-IP/per-tenant rate
 // limiting onto that. The publications + manifest-start endpoints stay
@@ -37,7 +37,7 @@ app.get("/health", (c) => c.json({ status: "ok" }));
 // (`x-debug-token`) — wrong/missing token = 401. Correct token falls
 // through; current routes resolve to 404 because no admin handler is
 // mounted. Staging detection uses \bstaging\b word boundary so hosts like
-// `stagecoach.openma.dev` are NOT misclassified as staging. Mounted before
+// `stagecoach.oma.duyet.net` are NOT misclassified as staging. Mounted before
 // the gateway middleware so the cheap reject runs first.
 app.all("/admin/*", (c) => {
   const origin = c.env.GATEWAY_ORIGIN ?? "";

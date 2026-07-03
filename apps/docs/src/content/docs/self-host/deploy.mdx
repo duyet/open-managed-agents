@@ -23,7 +23,7 @@ You do **not** need a custom domain to start — workers default to `*.workers.d
 1. **Clone, install, login.**
 
    ```bash
-   git clone https://github.com/openma-ai/open-managed-agents.git
+   git clone https://github.com/duyet/oma.git
    cd open-managed-agents
    pnpm install
    npx wrangler login
@@ -93,7 +93,7 @@ See [OAuth Apps](/self-host/oauth-apps/) for the per-provider walkthrough.
 
 ### Staging environment
 
-The wrangler files include `env.staging` overlays preconfigured against openma.dev's staging DB IDs. To use these for **your** staging deployment, you'd need to create a parallel set of staging DBs and patch those IDs in. Most self-hosters don't need this — `--env staging` is primarily for openma.dev itself.
+The wrangler files include `env.staging` overlays preconfigured against oma.duyet.net's staging DB IDs. To use these for **your** staging deployment, you'd need to create a parallel set of staging DBs and patch those IDs in. Most self-hosters don't need this — `--env staging` is primarily for oma.duyet.net itself.
 
 ```bash
 npx wrangler deploy --config apps/main/wrangler.jsonc --env staging

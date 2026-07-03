@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { tenant_shard } from "@open-managed-agents/db-schema/cf-router";
+import { tenant_shard } from "@duyet/oma-db-schema/cf-router";
 import {
   asBuilder,
   getAll,
@@ -7,7 +7,7 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
+} from "@duyet/oma-db-schema";
 import type {
   NewTenantShard,
   TenantShardDirectoryRepo,

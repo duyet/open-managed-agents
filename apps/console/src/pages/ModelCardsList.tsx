@@ -9,7 +9,7 @@ import { FacetedFilter } from "../components/FacetedFilter";
 import { FilterChip, CreatedFilterChip } from "../components/FilterChip";
 import { TextInput, SecretInput } from "../components/Input";
 import { toast } from "sonner";
-import type { ModelCard } from "@open-managed-agents/api-types";
+import type { ModelCard } from "@duyet/oma-api-types";
 
 // ─── AnyRouter — "Connect to AnyRouter" OAuth (PKCE) button ────────────
 //

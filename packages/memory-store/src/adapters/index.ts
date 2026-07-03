@@ -3,7 +3,7 @@
 // SqlMemoryRepo / SqlMemoryStoreRepo / SqlMemoryVersionRepo class trio.
 //
 // LocalFsBlobStore lives behind a subpath export
-// (`@open-managed-agents/memory-store/adapters/local-fs-blob`) because it
+// (`@duyet/oma-memory-store/adapters/local-fs-blob`) because it
 // pulls Node-only imports (node:fs / node:crypto). Re-exporting it here
 // would force the root CF tsc pass to typecheck Node types it doesn't have.
 // Node consumers import it directly from the subpath.
@@ -18,7 +18,7 @@ import { SqlMemoryRepo } from "./sql-memory-repo";
 import { SqlMemoryVersionRepo } from "./sql-version-repo";
 import { CfR2BlobStore } from "./cf-r2";
 import { drizzle } from "drizzle-orm/d1";
-import type { OmaDb } from "@open-managed-agents/db-schema";
+import type { OmaDb } from "@duyet/oma-db-schema";
 import { MemoryStoreService } from "../service";
 import type { BlobStore, Logger } from "../ports";
 

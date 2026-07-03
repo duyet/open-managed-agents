@@ -5,9 +5,9 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { github_webhook_events } from "@open-managed-agents/db-schema/cf-integrations";
-import type { WebhookEventStore } from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-db-schema";
+import { github_webhook_events } from "@duyet/oma-db-schema/cf-integrations";
+import type { WebhookEventStore } from "@duyet/oma-integrations-core";
 
 /**
  * Standalone SQL store for `github_webhook_events`. Previously GitHub

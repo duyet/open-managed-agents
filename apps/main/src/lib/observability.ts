@@ -20,7 +20,7 @@ import {
   logError,
   recordEvent,
   type Env,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 
 /**
  * Per-request middleware. Times the handler, records one AE row on

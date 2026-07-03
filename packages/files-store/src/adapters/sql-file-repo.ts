@@ -6,8 +6,8 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { files } from "@open-managed-agents/db-schema/cf-auth";
+} from "@duyet/oma-db-schema";
+import { files } from "@duyet/oma-db-schema/cf-auth";
 import type {
   FileListOptions,
   FileRepo,

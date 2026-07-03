@@ -9,13 +9,13 @@ import {
   SUPPORTED_DREAM_MODELS,
   type DreamModel,
   type DreamRow,
-} from "@open-managed-agents/dreams-store";
+} from "@duyet/oma-dreams-store";
 import {
   pickCurator,
   runDream,
   type DreamCuratorEnv,
   type DreamPipelineServices,
-} from "@open-managed-agents/dreams-pipeline";
+} from "@duyet/oma-dreams-pipeline";
 import type { RouteServicesArg } from "../types";
 import { resolveServices } from "../types";
 

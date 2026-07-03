@@ -12,7 +12,7 @@ import {
   generateMemoryVersionId,
   generateFileId,
   generateResourceId,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 
 // ============================================================
 // 1. Prefix checks

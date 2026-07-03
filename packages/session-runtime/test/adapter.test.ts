@@ -21,17 +21,17 @@
 //   - CF DO ctx.abort() eviction: lives in test/integration/recovery-do
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { createBetterSqlite3SqlClient, type SqlClient } from "@open-managed-agents/sql-client";
+import { createBetterSqlite3SqlClient, type SqlClient } from "@duyet/oma-sql-client";
 import {
   SqlStreamRepo,
   SqlEventLog,
   ensureSchema as ensureEventLogSchema,
-} from "@open-managed-agents/event-log/sql";
+} from "@duyet/oma-event-log/sql";
 import {
   RuntimeAdapterImpl,
   type RuntimeAdapter,
-} from "@open-managed-agents/session-runtime";
-import type { SessionEvent } from "@open-managed-agents/shared";
+} from "@duyet/oma-session-runtime";
+import type { SessionEvent } from "@duyet/oma-shared";
 
 interface Fixture {
   sql: SqlClient;

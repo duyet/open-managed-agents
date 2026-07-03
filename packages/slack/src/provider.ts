@@ -27,7 +27,7 @@ import type {
   StartInstallInput,
   WebhookOutcome,
   WebhookRequest,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 
 import { SlackApiClient } from "./api/client";
 import {

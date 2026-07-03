@@ -114,6 +114,6 @@ describe("refreshResultToInitEvents — silent failures eliminated", () => {
   // The legacy `it("ensures sessions.ts default export is unchanged")` test
   // was deleted alongside apps/main/src/routes/sessions.ts in the P2-B
   // sessions extraction — the route surface is now mounted from
-  // @open-managed-agents/http-routes and exercised by the integration
+  // @duyet/oma-http-routes and exercised by the integration
   // suite.
 });

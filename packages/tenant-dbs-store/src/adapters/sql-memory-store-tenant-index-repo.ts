@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { memory_store_tenant } from "@open-managed-agents/db-schema/cf-router";
+import { memory_store_tenant } from "@duyet/oma-db-schema/cf-router";
 import {
   asBuilder,
   getAll,
@@ -7,7 +7,7 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
+} from "@duyet/oma-db-schema";
 import type {
   MemoryStoreTenantIndexRepo,
   MemoryStoreTenantRow,

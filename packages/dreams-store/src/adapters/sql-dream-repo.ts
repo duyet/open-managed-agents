@@ -1,4 +1,4 @@
-import type { SqlClient } from "@open-managed-agents/sql-client";
+import type { SqlClient } from "@duyet/oma-sql-client";
 import type {
   DreamListOptions,
   DreamRepo,

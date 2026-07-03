@@ -2,7 +2,7 @@
  * apps/main-node — self-host Node entry for the Open Managed Agents API.
  *
  * Wiring file. ~280 lines: build services → mount route bundles from
- * @open-managed-agents/http-routes → start server. All route bodies live
+ * @duyet/oma-http-routes → start server. All route bodies live
  * in packages/http-routes; storage adapters in their respective packages
  * (agents-store, vaults-store, memory-store, etc.).
  */
@@ -12,58 +12,58 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import {
   createNodeLogger,
-} from "@open-managed-agents/observability/logger/node";
+} from "@duyet/oma-observability/logger/node";
 import {
   createNodeMetricsRecorder,
   type NodeMetricsHandle,
-} from "@open-managed-agents/observability/metrics/node";
+} from "@duyet/oma-observability/metrics/node";
 import {
   createNodeTracer,
   type NodeTracerHandle,
-} from "@open-managed-agents/observability/tracer/node";
+} from "@duyet/oma-observability/tracer/node";
 import {
   requestMetrics,
   tracerMiddleware,
   setRootLogger,
   type Logger,
-} from "@open-managed-agents/observability";
+} from "@duyet/oma-observability";
 import {
   createBetterSqlite3SqlClient,
   createPostgresSqlClient,
   type SqlClient,
-} from "@open-managed-agents/sql-client";
-import { createSqliteAgentService } from "@open-managed-agents/agents-store";
+} from "@duyet/oma-sql-client";
+import { createSqliteAgentService } from "@duyet/oma-agents-store";
 import {
   createSqliteMemoryStoreService,
   SqlMemoryRepo,
-} from "@open-managed-agents/memory-store";
-import { createSqliteDreamService } from "@open-managed-agents/dreams-store";
-import { LocalFsBlobStore as MemoryLocalFsBlobStore } from "@open-managed-agents/memory-store/adapters/local-fs-blob";
+} from "@duyet/oma-memory-store";
+import { createSqliteDreamService } from "@duyet/oma-dreams-store";
+import { LocalFsBlobStore as MemoryLocalFsBlobStore } from "@duyet/oma-memory-store/adapters/local-fs-blob";
 import {
   S3BlobStore as FilesS3BlobStore,
   type BlobStore,
-} from "@open-managed-agents/blob-store";
-import { LocalFsBlobStore as FilesLocalFsBlobStore } from "@open-managed-agents/blob-store/adapters/local-fs";
-import { createSqliteVaultService } from "@open-managed-agents/vaults-store";
-import { createSqliteCredentialService } from "@open-managed-agents/credentials-store";
-import { createSqliteSessionService } from "@open-managed-agents/sessions-store";
-import { createSqliteFileService } from "@open-managed-agents/files-store";
-import { createSqliteEvalRunService } from "@open-managed-agents/evals-store";
-import { createSqliteEnvironmentService } from "@open-managed-agents/environments-store";
-import { toFileRecord } from "@open-managed-agents/files-store";
-import { SqlEventLog } from "@open-managed-agents/event-log/sql";
-import type { SessionEvent } from "@open-managed-agents/shared";
-import { generateEventId } from "@open-managed-agents/shared";
-import { DefaultHarness } from "@open-managed-agents/agent/harness/default-loop";
-import { FlueHarness } from "@open-managed-agents/agent/harness/flue-loop";
-import { ClaudeAgentSdkHarness } from "@open-managed-agents/agent/harness/claude-agent-sdk-loop";
-import { buildTools } from "@open-managed-agents/agent/harness/tools";
-import { resolveModel } from "@open-managed-agents/agent/harness/provider";
-import { composeSystemPrompt } from "@open-managed-agents/agent/harness/platform-guidance";
-import type { HarnessContext } from "@open-managed-agents/agent/harness/interface";
-import { nodeToMarkdown } from "@open-managed-agents/markdown/adapters/node";
-import { applyBetterAuthSchema } from "@open-managed-agents/schema";
-import { ensureSchema as ensureEventLogSchema } from "@open-managed-agents/event-log/sql";
+} from "@duyet/oma-blob-store";
+import { LocalFsBlobStore as FilesLocalFsBlobStore } from "@duyet/oma-blob-store/adapters/local-fs";
+import { createSqliteVaultService } from "@duyet/oma-vaults-store";
+import { createSqliteCredentialService } from "@duyet/oma-credentials-store";
+import { createSqliteSessionService } from "@duyet/oma-sessions-store";
+import { createSqliteFileService } from "@duyet/oma-files-store";
+import { createSqliteEvalRunService } from "@duyet/oma-evals-store";
+import { createSqliteEnvironmentService } from "@duyet/oma-environments-store";
+import { toFileRecord } from "@duyet/oma-files-store";
+import { SqlEventLog } from "@duyet/oma-event-log/sql";
+import type { SessionEvent } from "@duyet/oma-shared";
+import { generateEventId } from "@duyet/oma-shared";
+import { DefaultHarness } from "@duyet/oma-agent/harness/default-loop";
+import { FlueHarness } from "@duyet/oma-agent/harness/flue-loop";
+import { ClaudeAgentSdkHarness } from "@duyet/oma-agent/harness/claude-agent-sdk-loop";
+import { buildTools } from "@duyet/oma-agent/harness/tools";
+import { resolveModel } from "@duyet/oma-agent/harness/provider";
+import { composeSystemPrompt } from "@duyet/oma-agent/harness/platform-guidance";
+import type { HarnessContext } from "@duyet/oma-agent/harness/interface";
+import { nodeToMarkdown } from "@duyet/oma-markdown/adapters/node";
+import { applyBetterAuthSchema } from "@duyet/oma-schema";
+import { ensureSchema as ensureEventLogSchema } from "@duyet/oma-event-log/sql";
 import {
   buildAgentRoutes,
   buildVaultRoutes,
@@ -84,7 +84,7 @@ import {
   type InstallProxyForwarder,
   mintApiKeyOnStorage,
   sha256Hex,
-} from "@open-managed-agents/http-routes";
+} from "@duyet/oma-http-routes";
 import {
   getActiveAnyRouterProvider,
   loadActiveAnyRouterProvider,
@@ -99,34 +99,34 @@ import {
   WebCryptoAesGcm,
   CryptoIdGenerator,
   type NodeReposEnv,
-} from "@open-managed-agents/integrations-adapters-node";
+} from "@duyet/oma-integrations-adapters-node";
 import {
   NodeInstallBridge,
   buildNodeProvidersForRequest,
 } from "./lib/node-install-bridge.js";
-import { OmaVaultResolver } from "@open-managed-agents/oma-cap-adapter";
+import { OmaVaultResolver } from "@duyet/oma-cap-adapter";
 import { NodeSessionRouter } from "./lib/node-session-router.js";
 import { nodeOutputsAdapter } from "./lib/node-outputs-adapter.js";
 import { nodeSessionLifecycle } from "./lib/node-session-lifecycle.js";
 import { NodeWorkspaceBackupService } from "./lib/node-workspace-backup.js";
-import { DefaultSandboxOrchestrator } from "@open-managed-agents/sandbox/orchestrator";
+import { DefaultSandboxOrchestrator } from "@duyet/oma-sandbox/orchestrator";
 import {
   createAuthMiddleware as buildAuthMw,
   type TrustedProxyGuardConfig,
-} from "@open-managed-agents/auth";
+} from "@duyet/oma-auth";
 import {
   buildBetterAuth,
   ensureTenantSqlite,
   resolveTrustedProxyUser,
-} from "@open-managed-agents/auth-config";
-import { BetterSqlite3SqlClient } from "@open-managed-agents/sql-client/adapters/better-sqlite3";
-import { senderFromEnv } from "@open-managed-agents/email/adapters/nodemailer";
-import { SqlKvStore } from "@open-managed-agents/kv-store/adapters/sql";
+} from "@duyet/oma-auth-config";
+import { BetterSqlite3SqlClient } from "@duyet/oma-sql-client/adapters/better-sqlite3";
+import { senderFromEnv } from "@duyet/oma-email/adapters/nodemailer";
+import { SqlKvStore } from "@duyet/oma-kv-store/adapters/sql";
 import {
   selectBrowserHarness,
   buildSelectedBrowserHarness,
-} from "@open-managed-agents/browser-harness/select";
-import type { BrowserHarness } from "@open-managed-agents/browser-harness";
+} from "@duyet/oma-browser-harness/select";
+import type { BrowserHarness } from "@duyet/oma-browser-harness";
 import { startMemoryBlobWatcher } from "./lib/memory-blob-watcher.js";
 import { buildNodeScheduler } from "./lib/node-scheduler-jobs.js";
 import { startNodeMemoryQueue } from "./lib/node-memory-queue.js";
@@ -173,7 +173,7 @@ let backendDescription: string;
 // Constructed once at the composition root from the right concrete driver.
 // Existing SqlClient is still built alongside for the legacy applySchema /
 // integrations adapters until those finish migrating.
-import type { OmaDb } from "@open-managed-agents/db-schema";
+import type { OmaDb } from "@duyet/oma-db-schema";
 let drizzleDb: OmaDb<Record<string, unknown>>;
 if (usePostgres) {
   sql = await createPostgresSqlClient(dbUrl);
@@ -205,7 +205,7 @@ if (usePostgres) {
 // drifting from the canonical CF migration files.
 //
 // session_events (event-log) is still its own concern: its idempotent
-// ensureSchema lives in @open-managed-agents/event-log/sql and runs after
+// ensureSchema lives in @duyet/oma-event-log/sql and runs after
 // the baseline migration applies the rest.
 const migrationsFolder = usePostgres
   ? new URL("../migrations", import.meta.url).pathname
@@ -310,7 +310,7 @@ if (!authDisabled) {
 // `trustedProxy` dep below is simply never constructed, so the auth
 // middleware never inspects the identity header at all.
 //
-// Threat model (see @open-managed-agents/auth's trusted-proxy.ts for the
+// Threat model (see @duyet/oma-auth's trusted-proxy.ts for the
 // full writeup): a header alone is never proof of anything — anyone who
 // can reach this service directly could set it and impersonate any user.
 // TRUSTED_PROXY_SHARED_SECRET is the mitigation: a value known only to the
@@ -355,7 +355,7 @@ const filesService = createSqliteFileService({ db: drizzleDb });
 const evalsService = createSqliteEvalRunService({ db: drizzleDb });
 const environmentsService = createSqliteEnvironmentService({ db: drizzleDb });
 
-let memoryBlobs: import("@open-managed-agents/memory-store").BlobStore;
+let memoryBlobs: import("@duyet/oma-memory-store").BlobStore;
 let memoryBlobDescription: string;
 let memoryBlobLocalDir: string | null = null;
 let s3MemoryConfig: {
@@ -373,7 +373,7 @@ if (
   process.env.MEMORY_S3_SECRET_KEY
 ) {
   const { S3BlobStore } = await import(
-    "@open-managed-agents/memory-store/adapters/s3-blob"
+    "@duyet/oma-memory-store/adapters/s3-blob"
   );
   s3MemoryConfig = {
     endpoint: process.env.MEMORY_S3_ENDPOINT,
@@ -518,20 +518,20 @@ if (usePostgres) {
 // ─── Sandbox factory ────────────────────────────────────────────────────
 
 const SANDBOX_PROVIDER_PATHS: Record<string, string> = {
-  subprocess: "@open-managed-agents/sandbox/adapters/local-subprocess",
-  litebox: "@open-managed-agents/sandbox/adapters/litebox",
-  boxlite: "@open-managed-agents/sandbox/adapters/litebox",
-  boxrun: "@open-managed-agents/sandbox/adapters/boxrun",
-  daytona: "@open-managed-agents/sandbox/adapters/daytona",
-  e2b: "@open-managed-agents/sandbox/adapters/e2b",
-  k8s: "@open-managed-agents/sandbox/adapters/kubernetes",
-  kubernetes: "@open-managed-agents/sandbox/adapters/kubernetes",
+  subprocess: "@duyet/oma-sandbox/adapters/local-subprocess",
+  litebox: "@duyet/oma-sandbox/adapters/litebox",
+  boxlite: "@duyet/oma-sandbox/adapters/litebox",
+  boxrun: "@duyet/oma-sandbox/adapters/boxrun",
+  daytona: "@duyet/oma-sandbox/adapters/daytona",
+  e2b: "@duyet/oma-sandbox/adapters/e2b",
+  k8s: "@duyet/oma-sandbox/adapters/kubernetes",
+  kubernetes: "@duyet/oma-sandbox/adapters/kubernetes",
 };
 
 async function buildSandbox(
   sessionId: string,
   workdir: string,
-): Promise<import("@open-managed-agents/sandbox").SandboxExecutor> {
+): Promise<import("@duyet/oma-sandbox").SandboxExecutor> {
   const provider = (process.env.SANDBOX_PROVIDER ?? "subprocess").toLowerCase();
   const path = SANDBOX_PROVIDER_PATHS[provider];
   if (!path) {
@@ -540,7 +540,7 @@ async function buildSandbox(
     );
   }
   const mod = (await import(path)) as {
-    sandboxFactory: import("@open-managed-agents/sandbox").SandboxFactory;
+    sandboxFactory: import("@duyet/oma-sandbox").SandboxFactory;
   };
   return mod.sandboxFactory(
     {
@@ -703,7 +703,7 @@ const services: RouteServices = {
       void sessionRegistry
         .getOrCreate(sid, tenantId)
         .then((entry) =>
-          entry.machine.runHarnessTurn(agentId, ev as import("@open-managed-agents/shared").UserMessageEvent),
+          entry.machine.runHarnessTurn(agentId, ev as import("@duyet/oma-shared").UserMessageEvent),
         )
         .catch((err) => {
           logger.error(
@@ -958,7 +958,7 @@ v1.route("/sessions", buildSessionRoutes({
       id: environmentId,
       runtime: "local",
       sandbox_template: null,
-    } as unknown as import("@open-managed-agents/shared").EnvironmentConfig;
+    } as unknown as import("@duyet/oma-shared").EnvironmentConfig;
   },
 }));
 v1.route("/vaults", buildVaultRoutes({ services }));

@@ -8,11 +8,11 @@ import { Select, SelectGroup, SelectGroupLabel, SelectOption } from "../../compo
 import { Combobox } from "../../components/Combobox";
 import { McpServerPickerModal } from "../../components/McpServerPickerModal";
 import { AGENT_TEMPLATES, type AgentTemplate } from "../../data/templates";
-import type { ModelCard } from "@open-managed-agents/api-types";
+import type { ModelCard } from "@duyet/oma-api-types";
 import {
   KNOWN_ACP_AGENTS,
   resolveKnownAgent,
-} from "@open-managed-agents/acp-runtime/known-agents";
+} from "@duyet/oma-acp-runtime/known-agents";
 import type { AgentRecord as Agent } from "../../types/agent";
 
 interface McpEntry {

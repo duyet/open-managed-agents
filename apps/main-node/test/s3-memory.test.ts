@@ -11,7 +11,7 @@
 //     MEMORY_S3_TEST_ACCESS_KEY=minioadmin \
 //     MEMORY_S3_TEST_SECRET_KEY=minioadmin \
 //     PG_TEST_URL=postgres://oma:oma@127.0.0.1:54329/oma \
-//     pnpm --filter @open-managed-agents/main-node test s3
+//     pnpm --filter @duyet/oma-main-node test s3
 //
 // Asserts:
 //   1. S3BlobStore.put → head → getText → delete round-trip.
@@ -22,9 +22,9 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import {
   createPostgresSqlClient,
   type SqlClient,
-} from "@open-managed-agents/sql-client";
-import { SqlMemoryRepo } from "@open-managed-agents/memory-store";
-import { S3BlobStore } from "@open-managed-agents/memory-store/adapters/s3-blob";
+} from "@duyet/oma-sql-client";
+import { SqlMemoryRepo } from "@duyet/oma-memory-store";
+import { S3BlobStore } from "@duyet/oma-memory-store/adapters/s3-blob";
 import { startS3MemoryPoller } from "../src/lib/s3-memory-poller.js";
 
 const PG_URL = process.env.PG_TEST_URL ?? "";

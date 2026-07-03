@@ -26,7 +26,7 @@ describe("service builders — OMA_PROFILE injection", () => {
     else process.env.OMA_PROFILE = ORIGINAL;
   });
 
-  const opts = { nodePath: "/usr/local/bin/node", cliEntry: "/usr/local/lib/node_modules/@openma/cli/dist/index.js" };
+  const opts = { nodePath: "/usr/local/bin/node", cliEntry: "/usr/local/lib/node_modules/@duyet/oma-cli/dist/index.js" };
 
   describe("launchd plist", () => {
     it("injects OMA_PROFILE when profile is set", () => {

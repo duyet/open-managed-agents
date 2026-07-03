@@ -17,7 +17,7 @@
 //     internal.ts:131, eval-runner.ts:27, session-do.ts:24) reads it on
 //     every session-attached request, so the column read avoids a JSON.parse.
 
-import type { EnvironmentConfig } from "@open-managed-agents/shared";
+import type { EnvironmentConfig } from "@duyet/oma-shared";
 
 /**
  * Status of the environment build. Mirrors EnvironmentConfig.status with

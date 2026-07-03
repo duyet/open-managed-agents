@@ -32,16 +32,16 @@ import type {
   AgentConfig,
   SessionEvent,
   UserMessageEvent,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import type { LanguageModel } from "ai";
 import { recoverInterruptedState } from "./recovery";
 import type { OrphanTurn, RuntimeAdapter, TurnId } from "./ports";
-import type { SandboxExecutor } from "@open-managed-agents/sandbox";
+import type { SandboxExecutor } from "@duyet/oma-sandbox";
 
 /**
  * Pluggable harness — both CF and Node want the same default-loop
  * harness, but the machine doesn't import it directly so we keep the
- * package's dep graph small (no `@open-managed-agents/agent` dep).
+ * package's dep graph small (no `@duyet/oma-agent` dep).
  *
  * The shell wires this with:
  *   buildHarness: () => new DefaultHarness()
@@ -89,7 +89,7 @@ export interface SessionMachineDeps {
 
   /** Build the harness instance + context for one turn. The shell does
    *  this so the machine doesn't need a hard dep on
-   *  `@open-managed-agents/agent`. The machine just calls run().
+   *  `@duyet/oma-agent`. The machine just calls run().
    *
    *  Async because shells often need to warm up state (e.g. read the
    *  event log into the harness's history cache) before harness.run

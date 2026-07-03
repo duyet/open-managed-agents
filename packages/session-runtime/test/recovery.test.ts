@@ -36,8 +36,8 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   InMemoryEventLog,
   InMemoryStreamRepo,
-} from "@open-managed-agents/event-log/memory";
-import type { SessionEvent } from "@open-managed-agents/shared";
+} from "@duyet/oma-event-log/memory";
+import type { SessionEvent } from "@duyet/oma-shared";
 import { recoverInterruptedState } from "../src/recovery";
 
 interface Fixture {

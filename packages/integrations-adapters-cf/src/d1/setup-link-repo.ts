@@ -6,14 +6,14 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { linear_setup_links } from "@open-managed-agents/db-schema/cf-integrations";
+} from "@duyet/oma-db-schema";
+import { linear_setup_links } from "@duyet/oma-db-schema/cf-integrations";
 import type {
   IdGenerator,
   NewSetupLink,
   SetupLink,
   SetupLinkRepo,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 
 /**
  * SQL setup-link repo for Linear. Targets `linear_setup_links`. Holds

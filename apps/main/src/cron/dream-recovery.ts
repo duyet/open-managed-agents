@@ -2,9 +2,9 @@ import {
   log,
   logError,
   type Env,
-} from "@open-managed-agents/shared";
-import { forEachShardServices } from "@open-managed-agents/services";
-import { pickCurator, runDream } from "@open-managed-agents/dreams-pipeline";
+} from "@duyet/oma-shared";
+import { forEachShardServices } from "@duyet/oma-services";
+import { pickCurator, runDream } from "@duyet/oma-dreams-pipeline";
 
 // Wall-clock window after which a `running` dream is considered orphaned.
 // 5 minutes is a deliberate trade-off:

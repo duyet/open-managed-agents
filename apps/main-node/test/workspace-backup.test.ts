@@ -14,13 +14,13 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomBytes } from "node:crypto";
 import BetterSqlite3 from "better-sqlite3";
-import { createBetterSqlite3SqlClient } from "@open-managed-agents/sql-client";
-import type { SqlClient } from "@open-managed-agents/sql-client";
+import { createBetterSqlite3SqlClient } from "@duyet/oma-sql-client";
+import type { SqlClient } from "@duyet/oma-sql-client";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { fileURLToPath } from "node:url";
-import { InMemoryBlobStore } from "@open-managed-agents/blob-store";
-import type { SandboxExecutor } from "@open-managed-agents/sandbox";
+import { InMemoryBlobStore } from "@duyet/oma-blob-store";
+import type { SandboxExecutor } from "@duyet/oma-sandbox";
 import { NodeWorkspaceBackupService } from "../src/lib/node-workspace-backup.js";
 
 class FakeSandbox implements SandboxExecutor {

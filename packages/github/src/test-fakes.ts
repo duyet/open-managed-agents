@@ -2,7 +2,7 @@
 //
 // Counterpart to the test-fakes from integrations-core, narrowed to the
 // publication-first GitHubPublicationRepo. Lives in this package because
-// integrations-core can't depend on @open-managed-agents/github (one-way
+// integrations-core can't depend on @duyet/oma-github (one-way
 // dependency).
 //
 // These fakes are intentionally simple: maps + arrays, no concurrency
@@ -20,7 +20,7 @@ import type {
   SessionGranularity,
   SessionId,
   Clock,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 
 import type {
   GitHubIssueSession,

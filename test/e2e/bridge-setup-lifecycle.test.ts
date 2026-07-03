@@ -18,7 +18,7 @@
  *
  * Default-skipped because:
  *   - It needs staging cli creds (`oma auth login --base-url
- *     https://app.staging.openma.dev` first).
+ *     https://app.staging.oma.duyet.net` first).
  *   - It mints + tears down a real launchd plist / systemd unit, which
  *     is destructive on the user's machine.
  *   - It uses OMA_PROFILE=e2e-test so it can't collide with the user's
@@ -64,7 +64,7 @@ const PROFILE = "e2e-test";
 // staging server. Tests that hit the chat path expect a staging cli
 // auth profile (~/.config/oma/credentials.e2e-test.json) — caller's
 // responsibility to set up via `OMA_PROFILE=e2e-test oma auth login`.
-const SERVER = "https://app.staging.openma.dev";
+const SERVER = "https://app.staging.oma.duyet.net";
 
 interface RunResult { code: number; stdout: string; stderr: string; combined: string; }
 function run(args: string[], opts: { timeoutMs?: number; input?: string } = {}): RunResult {
@@ -94,7 +94,7 @@ function profileConfigDir(): string {
 
 before(() => {
   if (SKIP) return;
-  assert.ok(existsSync(CLI), `cli must be built: ${CLI} (run \`pnpm --filter @openma/cli build\`)`);
+  assert.ok(existsSync(CLI), `cli must be built: ${CLI} (run \`pnpm --filter @duyet/oma-cli build\`)`);
   // Make sure the user has logged in for this profile; we can't OAuth
   // headlessly. Leaving this to the user keeps the test from popping a
   // browser mid-CI.

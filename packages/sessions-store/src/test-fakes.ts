@@ -7,7 +7,7 @@ import type {
   EnvironmentConfig,
   SessionResource,
   SessionStatus,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import { SessionNotFoundError } from "./errors";
 import type {
   Clock,
@@ -113,7 +113,7 @@ export class InMemorySessionRepo implements SessionRepo {
       agentId?: string;
       includeArchived: boolean;
       limit: number;
-      after?: import("@open-managed-agents/shared").PageCursor;
+      after?: import("@duyet/oma-shared").PageCursor;
       status?: SessionStatus;
       q?: string;
     },

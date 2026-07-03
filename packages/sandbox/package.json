@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/sandbox",
+  "name": "@duyet/oma-sandbox",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -18,8 +18,8 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@open-managed-agents/observability": "workspace:*",
-    "@open-managed-agents/shared": "workspace:*"
+    "@duyet/oma-observability": "workspace:*",
+    "@duyet/oma-shared": "workspace:*"
   },
   "devDependencies": {
     "@kubernetes/client-node": "^1.0.0"

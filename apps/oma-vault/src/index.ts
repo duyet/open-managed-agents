@@ -34,10 +34,10 @@ import {
   createBetterSqlite3SqlClient,
   createPostgresSqlClient,
   type SqlClient,
-} from "@open-managed-agents/sql-client";
-import type { CredentialAuth } from "@open-managed-agents/shared";
-import { createNodeLogger } from "@open-managed-agents/observability/logger/node";
-import { setRootLogger, type Logger } from "@open-managed-agents/observability";
+} from "@duyet/oma-sql-client";
+import type { CredentialAuth } from "@duyet/oma-shared";
+import { createNodeLogger } from "@duyet/oma-observability/logger/node";
+import { setRootLogger, type Logger } from "@duyet/oma-observability";
 
 const logger: Logger = await createNodeLogger({ bindings: { service: "oma-vault" } });
 setRootLogger(logger);

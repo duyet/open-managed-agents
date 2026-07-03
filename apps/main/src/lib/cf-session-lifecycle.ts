@@ -2,13 +2,13 @@
 // (USAGE_METER gate, GitHub binding fast-path,
 // refreshProviderCredentialsForSession, R2 file copy + outputs cascade)
 // behind the runtime-agnostic `SessionLifecycleHooks` shape that
-// `@open-managed-agents/http-routes`'s sessions package consumes.
+// `@duyet/oma-http-routes`'s sessions package consumes.
 //
 // All hooks are best-effort: a failure in any of them (USAGE_METER outage,
 // integrations gateway 5xx, etc.) returns a fail-open value matching the
 // legacy inline behavior — see the comments on each hook.
 
-import type { Env, ContentBlock, SessionEvent, CredentialConfig } from "@open-managed-agents/shared";
+import type { Env, ContentBlock, SessionEvent, CredentialConfig } from "@duyet/oma-shared";
 import type { Context } from "hono";
 import {
   generateFileId,
@@ -18,10 +18,10 @@ import {
   recordEvent,
   errFields,
   classifyExternalError,
-} from "@open-managed-agents/shared";
-import type { Services } from "@open-managed-agents/services";
-import type { SessionLifecycleHooks } from "@open-managed-agents/http-routes";
-import { toFileRecord } from "@open-managed-agents/files-store";
+} from "@duyet/oma-shared";
+import type { Services } from "@duyet/oma-services";
+import type { SessionLifecycleHooks } from "@duyet/oma-http-routes";
+import { toFileRecord } from "@duyet/oma-files-store";
 import { rateLimitSessionCreate } from "../rate-limit";
 import { checkDailySessionCap } from "../quotas";
 

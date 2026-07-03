@@ -1,4 +1,4 @@
-// Public surface of @open-managed-agents/outbound-snapshots-store.
+// Public surface of @duyet/oma-outbound-snapshots-store.
 //
 //   - types       : OutboundSnapshot, DEFAULT_OUTBOUND_SNAPSHOT_TTL_SECONDS
 //   - errors      : reserved for future typed errors (currently empty)
@@ -7,9 +7,9 @@
 //   - adapters    : Cloudflare-specific implementations + factory
 //
 // Callers in apps/agent (SessionDO + outbound worker) normally only need:
-//   import { createCfOutboundSnapshotService } from "@open-managed-agents/outbound-snapshots-store";
+//   import { createCfOutboundSnapshotService } from "@duyet/oma-outbound-snapshots-store";
 // Tests use:
-//   import { createInMemoryOutboundSnapshotService } from "@open-managed-agents/outbound-snapshots-store/test-fakes";
+//   import { createInMemoryOutboundSnapshotService } from "@duyet/oma-outbound-snapshots-store/test-fakes";
 
 export * from "./types";
 export * from "./errors";

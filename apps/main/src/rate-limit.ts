@@ -1,6 +1,6 @@
 import { createMiddleware } from "hono/factory";
-import type { Env } from "@open-managed-agents/shared";
-import { logWarn } from "@open-managed-agents/shared";
+import type { Env } from "@duyet/oma-shared";
+import { logWarn } from "@duyet/oma-shared";
 import { verifyTurnstile } from "./turnstile";
 
 // Rate limiting via CF Workers Rate Limiting bindings (declared in

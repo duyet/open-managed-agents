@@ -15,7 +15,7 @@ import {
   RateLimitedError,
   TransientInfraError,
   classifyExternalError,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 
 describe("classifyExternalError", () => {
   it("maps CF 'version rollout' to TransientInfraError (the motivating case)", () => {

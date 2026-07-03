@@ -34,7 +34,7 @@
  * charset. Defenses are described inline.
  */
 
-import type { Services } from "@open-managed-agents/services";
+import type { Services } from "@duyet/oma-services";
 
 /** Hosts whose outbound traffic the agent worker rewrites with a per-repo
  *  GitHub token. Lowercase. Anything not in this set is left alone. */

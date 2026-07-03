@@ -18,7 +18,7 @@ import type {
   Publication,
   PublicationRepo,
   SessionGranularity,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 
 /**
  * Publication-first install state stored on each `github_publications` row.
@@ -157,7 +157,7 @@ export interface GitHubPublicationRepo extends PublicationRepo {
 // only the two-phase webhook claim used by dispatchEvent against the
 // concurrent issues.* + issue_comment.* webhook race.
 
-import type { SessionId } from "@open-managed-agents/integrations-core";
+import type { SessionId } from "@duyet/oma-integrations-core";
 
 export type GitHubIssueSessionStatus = "pending" | "active" | "failed" | "inactive";
 

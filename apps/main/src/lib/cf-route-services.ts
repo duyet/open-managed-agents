@@ -5,10 +5,10 @@
 // through naturally.
 
 import type { Context } from "hono";
-import type { Env } from "@open-managed-agents/shared";
-import type { Services } from "@open-managed-agents/services";
-import type { RouteServices } from "@open-managed-agents/http-routes";
-import { CfD1SqlClient } from "@open-managed-agents/sql-client/adapters/cf-d1";
+import type { Env } from "@duyet/oma-shared";
+import type { Services } from "@duyet/oma-services";
+import type { RouteServices } from "@duyet/oma-http-routes";
+import { CfD1SqlClient } from "@duyet/oma-sql-client/adapters/cf-d1";
 
 interface AppContextLike {
   Bindings: Env;

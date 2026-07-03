@@ -1,4 +1,4 @@
-// Public surface of @open-managed-agents/model-cards-store.
+// Public surface of @duyet/oma-model-cards-store.
 //
 //   - types       : ModelCardRow, apiKeyPreview helper
 //   - errors      : typed errors so HTTP handlers can map → status codes
@@ -7,9 +7,9 @@
 //   - adapters    : Cloudflare-specific implementations + factory
 //
 // Callers in apps/main and apps/agent normally only need:
-//   import { createCfModelCardService } from "@open-managed-agents/model-cards-store";
+//   import { createCfModelCardService } from "@duyet/oma-model-cards-store";
 // Tests use:
-//   import { createInMemoryModelCardService } from "@open-managed-agents/model-cards-store/test-fakes";
+//   import { createInMemoryModelCardService } from "@duyet/oma-model-cards-store/test-fakes";
 
 export * from "./types";
 export * from "./errors";

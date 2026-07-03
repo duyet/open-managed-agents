@@ -1,4 +1,4 @@
-// @open-managed-agents/integrations-adapters-cf
+// @duyet/oma-integrations-adapters-cf
 //
 // Cloudflare-specific adapters that implement integrations-core ports against
 // D1, KV, service bindings, Web Crypto, and the Workers fetch API.

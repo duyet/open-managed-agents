@@ -1,5 +1,5 @@
-import { generateModelCardId } from "@open-managed-agents/shared";
-import { paginateVia } from "@open-managed-agents/shared";
+import { generateModelCardId } from "@duyet/oma-shared";
+import { paginateVia } from "@duyet/oma-shared";
 import { ModelCardNotFoundError } from "./errors";
 import type {
   Clock,

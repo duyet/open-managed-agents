@@ -1,4 +1,4 @@
-// @open-managed-agents/observability — runtime-agnostic Logger, MetricsRecorder,
+// @duyet/oma-observability — runtime-agnostic Logger, MetricsRecorder,
 // Tracer used by the rest of the codebase. CF + Node ship distinct adapters
 // behind the same interface. Hono middleware (requestMetrics, tracerMiddleware)
 // lives in ./middleware.

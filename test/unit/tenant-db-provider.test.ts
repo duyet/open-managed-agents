@@ -4,7 +4,7 @@
 // alongside the directory service it depends on.
 
 import { describe, it, expect } from "vitest";
-import { CfSharedAuthDbProvider } from "@open-managed-agents/tenant-db";
+import { CfSharedAuthDbProvider } from "@duyet/oma-tenant-db";
 
 const fakeDb = (label: string) => ({ __label: label }) as unknown as D1Database;
 

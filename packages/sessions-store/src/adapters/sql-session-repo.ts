@@ -7,19 +7,19 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
+} from "@duyet/oma-db-schema";
 import {
   session_resources,
   sessions,
-} from "@open-managed-agents/db-schema/cf-auth";
+} from "@duyet/oma-db-schema/cf-auth";
 import type {
   AgentConfig,
   EnvironmentConfig,
   PageCursor,
   SessionResource,
   SessionStatus,
-} from "@open-managed-agents/shared";
-import { escapeLikePattern, fetchN, trimPage } from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
+import { escapeLikePattern, fetchN, trimPage } from "@duyet/oma-shared";
 import { SessionNotFoundError } from "../errors";
 import type {
   NewSessionInput,

@@ -3,7 +3,7 @@ export interface Env {
   /** @deprecated Pre-shard binding. Equivalent to AUTH_DB_00 (the original
    *  openma-auth database) for back-compat during the shard rollout. New
    *  code MUST use `getShardForTenant(env, tenantId)` from
-   *  @open-managed-agents/sql-client to route to the correct shard. */
+   *  @duyet/oma-sql-client to route to the correct shard. */
   MAIN_DB: D1Database;
   /** Tenant→shard routing table. Holds tenant_shard + shard_pool tables.
    *  Every per-tenant query reads this first (cached in SHARD_CACHE_KV
@@ -79,7 +79,7 @@ export interface Env {
   BETTER_AUTH_SECRET: string;
   /** When set, the better-auth session cookie is scoped to this domain
    *  (leading dot for cross-subdomain). Typical value on hosted:
-   *  ".openma.dev" so app.openma.dev's auth cookie is also visible from
+   *  ".oma.duyet.net" so app.oma.duyet.net's auth cookie is also visible from
    *  the apex landing site. Self-hosters can leave unset for default
    *  per-host scoping. */
   AUTH_COOKIE_DOMAIN?: string;

@@ -2,7 +2,7 @@
  * `oma bridge setup` — one-time onboarding.
  *
  *   1. Bind 127.0.0.1:<rand-port> as a single-shot HTTP server.
- *   2. Open the user's browser to https://openma.dev/connect-runtime?cb=…&state=…
+ *   2. Open the user's browser to https://oma.duyet.net/connect-runtime?cb=…&state=…
  *   3. User clicks "Allow this machine" (already auth'd via session cookie).
  *      Browser POSTs /api/v1/runtimes/connect-runtime → gets one-time `code`.
  *      Browser redirects to http://127.0.0.1:<port>/cb?code=…&state=…
@@ -37,7 +37,7 @@ import {
   type InstallOptions,
   type InstallResult,
 } from "../lib/service-manager.js";
-import { detectAll, loadRegistry } from "@open-managed-agents/acp-runtime/registry";
+import { detectAll, loadRegistry } from "@duyet/oma-acp-runtime/registry";
 import { printBanner, log, c } from "../lib/style.js";
 import { PKG_VERSION } from "../lib/version.js";
 import { probeRuntimeToken } from "../lib/probe.js";
@@ -61,7 +61,7 @@ interface SetupOpts {
   serverUrl: string;
   /** Browser-facing origin where the user authorizes this machine. Almost
    *  always the same as `serverUrl` in production (Console + API both live
-   *  on the same Worker at openma.dev). Kept separate so dev/staging can
+   *  on the same Worker at oma.duyet.net). Kept separate so dev/staging can
    *  point the browser at one host while the daemon hits another. */
   browserOrigin: string;
   /** When true, skip system service install. The setup process exec's

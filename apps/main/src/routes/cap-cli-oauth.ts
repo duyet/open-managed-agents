@@ -25,9 +25,9 @@
 // "+ Add CLI" form.
 
 import { Hono } from "hono";
-import type { Env } from "@open-managed-agents/shared";
-import { logWarn } from "@open-managed-agents/shared";
-import type { Services } from "@open-managed-agents/services";
+import type { Env } from "@duyet/oma-shared";
+import { logWarn } from "@duyet/oma-shared";
+import type { Services } from "@duyet/oma-services";
 import {
   builtinSpecs,
   createSpecRegistry,
@@ -40,7 +40,7 @@ import {
   type HttpReqLike,
   type HttpResLike,
   type Clock,
-} from "@open-managed-agents/cap";
+} from "@duyet/oma-cap";
 
 const app = new Hono<{
   Bindings: Env;
@@ -253,8 +253,8 @@ async function fetchHttp(req: HttpReqLike): Promise<HttpResLike> {
 function capCliAuthFromToken(
   cli_id: string,
   token: { token: string; expires_at?: number; extras?: Readonly<Record<string, string>> },
-): import("@open-managed-agents/shared").CredentialAuth {
-  const auth: import("@open-managed-agents/shared").CredentialAuth = {
+): import("@duyet/oma-shared").CredentialAuth {
+  const auth: import("@duyet/oma-shared").CredentialAuth = {
     type: "cap_cli",
     cli_id,
     token: token.token,

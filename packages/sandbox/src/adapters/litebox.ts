@@ -28,7 +28,7 @@ import { promises as fs, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { randomBytes } from "node:crypto";
-import { getLogger } from "@open-managed-agents/observability";
+import { getLogger } from "@duyet/oma-observability";
 
 const moduleLogger = getLogger("litebox-sandbox");
 

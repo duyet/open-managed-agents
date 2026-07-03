@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/integrations-adapters-cf",
+  "name": "@duyet/oma-integrations-adapters-cf",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,12 +7,12 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@open-managed-agents/db-schema": "workspace:*",
-    "@open-managed-agents/github": "workspace:*",
-    "@open-managed-agents/integrations-core": "workspace:*",
-    "@open-managed-agents/linear": "workspace:*",
-    "@open-managed-agents/shared": "workspace:*",
-    "@open-managed-agents/slack": "workspace:*",
+    "@duyet/oma-db-schema": "workspace:*",
+    "@duyet/oma-github": "workspace:*",
+    "@duyet/oma-integrations-core": "workspace:*",
+    "@duyet/oma-linear": "workspace:*",
+    "@duyet/oma-shared": "workspace:*",
+    "@duyet/oma-slack": "workspace:*",
     "drizzle-orm": "^0.45.2"
   }
 }

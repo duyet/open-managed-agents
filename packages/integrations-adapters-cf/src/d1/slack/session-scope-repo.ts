@@ -6,13 +6,13 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { slack_thread_sessions } from "@open-managed-agents/db-schema/cf-integrations";
+} from "@duyet/oma-db-schema";
+import { slack_thread_sessions } from "@duyet/oma-db-schema/cf-integrations";
 import type {
   SessionScope,
   SessionScopeStatus,
-} from "@open-managed-agents/integrations-core";
-import type { SlackSessionScopeRepo } from "@open-managed-agents/slack";
+} from "@duyet/oma-integrations-core";
+import type { SlackSessionScopeRepo } from "@duyet/oma-slack";
 
 /** Pending claims older than this are eligible for reassignIfInactive
  *  takeover. Live claims fulfill in <1s typically (just one sessions.create

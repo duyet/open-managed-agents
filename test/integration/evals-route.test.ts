@@ -3,7 +3,7 @@ import { env, exports } from "cloudflare:workers";
 import { describe, it, expect } from "vitest";
 import { registerHarness } from "../../apps/agent/src/harness/registry";
 import { tickEvalRuns } from "../../apps/main/src/eval-runner";
-import { buildCfServices } from "@open-managed-agents/services";
+import { buildCfServices } from "@duyet/oma-services";
 
 // Lightweight test harness: emits a single agent.message per turn, then idle.
 class EvalTestHarness {

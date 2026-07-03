@@ -18,7 +18,7 @@ import type { ProviderId } from "./domain";
 
 /** The OAuth callback handlers all flow through this single entrypoint.
  *  Routing by `provider` keeps `packages/http-routes` free of imports
- *  for `@open-managed-agents/{linear,github,slack}` (they're heavy + only
+ *  for `@duyet/oma-{linear,github,slack}` (they're heavy + only
  *  one runs per install). */
 export interface ContinueInstallArgs {
   provider: ProviderId;

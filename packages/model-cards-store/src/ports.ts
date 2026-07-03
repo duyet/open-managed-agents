@@ -15,7 +15,7 @@
 //     can decrypt on demand without polluting the standard read shape.
 
 import type { ModelCardRow } from "./types";
-import type { PageCursor } from "@open-managed-agents/shared";
+import type { PageCursor } from "@duyet/oma-shared";
 
 export interface NewModelCardInput {
   id: string;

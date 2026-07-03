@@ -1,9 +1,9 @@
 # apps/web — openma marketing + blog
 
-Astro 5 static site. Lives at **www.openma.dev** (apex `openma.dev` is
+Astro 5 static site. Lives at **oma.duyet.net** (apex `oma.duyet.net` is
 currently the Console SPA on the main worker; merging this site with
 the apex is a deliberate later step that requires moving Console to
-`app.openma.dev`).
+`app.oma.duyet.net`).
 
 ## Layout
 
@@ -27,22 +27,22 @@ apps/web/
 ## Dev
 
 ```bash
-pnpm --filter @open-managed-agents/web dev
+pnpm --filter @duyet/oma-web dev
 # → http://localhost:4321
 ```
 
 ## Build
 
 ```bash
-pnpm --filter @open-managed-agents/web build
+pnpm --filter @duyet/oma-web build
 # Static output → apps/web/dist
 ```
 
 ## Deploy
 
 ```bash
-pnpm --filter @open-managed-agents/web deploy
-# Builds + wrangler deploy → www.openma.dev
+pnpm --filter @duyet/oma-web deploy
+# Builds + wrangler deploy → oma.duyet.net
 ```
 
 ## Adding a blog post

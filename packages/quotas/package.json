@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/quotas",
+  "name": "@duyet/oma-quotas",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,7 +7,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@open-managed-agents/kv-store": "workspace:*",
-    "@open-managed-agents/rate-limit": "workspace:*"
+    "@duyet/oma-kv-store": "workspace:*",
+    "@duyet/oma-rate-limit": "workspace:*"
   }
 }

@@ -5,7 +5,7 @@
 // freeform strings. Bind `wrangler tail --format json` to view locally.
 //
 // Usage:
-//   import { log, logWarn, logError } from "@open-managed-agents/shared";
+//   import { log, logWarn, logError } from "@duyet/oma-shared";
 //   log({ op: "session.create", session_id, tenant_id }, "session created");
 //   logError({ op: "session.delete.cleanup", session_id, err }, "cleanup failed");
 //

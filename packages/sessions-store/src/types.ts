@@ -6,7 +6,7 @@
 //     environment_snapshot (frozen at create time so trajectory + replay still
 //     work after the agent or env definition mutates).
 //   - SessionResourceRow keeps the discriminated SessionResource shape from
-//     @open-managed-agents/shared as the resource payload — adapters JSON.parse
+//     @duyet/oma-shared as the resource payload — adapters JSON.parse
 //     the `config` column. The full SessionResource is round-tripped through
 //     `config` for symmetry across resource types; a denormalized `type` column
 //     supports the per-type quota count without touching JSON.
@@ -22,7 +22,7 @@ import type {
   EnvironmentConfig,
   SessionResource,
   SessionStatus,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 
 export interface SessionRow {
   id: string;

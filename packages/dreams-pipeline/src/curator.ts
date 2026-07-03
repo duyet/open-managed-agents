@@ -13,7 +13,7 @@
 import type {
   DreamModel,
   DreamUsage,
-} from "@open-managed-agents/dreams-store";
+} from "@duyet/oma-dreams-store";
 
 /** A single curated memory the LLM emitted. Bounded by the memory store's
  *  per-memory cap (100KB) — we silently truncate over-large entries rather

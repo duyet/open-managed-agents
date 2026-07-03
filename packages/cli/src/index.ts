@@ -4,7 +4,7 @@ import { homedir, hostname } from "node:os";
 import { join, dirname } from "node:path";
 import { mkdirSync, readFileSync, writeFileSync, unlinkSync, existsSync, chmodSync } from "node:fs";
 import { randomBytes } from "node:crypto";
-import type { AgentConfig, ModelCard, SessionMeta } from "@open-managed-agents/api-types";
+import type { AgentConfig, ModelCard, SessionMeta } from "@duyet/oma-api-types";
 import { currentProfile } from "./bridge/lib/platform.js";
 
 // ─── Config ───
@@ -142,7 +142,7 @@ function loadConfig(): Config {
   const stored = readCredentials();
   if (envKey) {
     return {
-      baseUrl: envBase || stored?.base_url || "https://openma.dev",
+      baseUrl: envBase || stored?.base_url || "https://oma.duyet.net",
       apiKey: envKey,
       json: false,
       source: "env",
@@ -177,7 +177,7 @@ function loadConfigOptional(): Config {
   const envTenant = process.env.OMA_TENANT_ID;
   const stored = readCredentials();
   if (envKey) {
-    return { baseUrl: envBase || stored?.base_url || "https://openma.dev", apiKey: envKey, json: false, source: "env" };
+    return { baseUrl: envBase || stored?.base_url || "https://oma.duyet.net", apiKey: envKey, json: false, source: "env" };
   }
   if (stored) {
     const activeId = envTenant || stored.active_tenant_id;
@@ -186,7 +186,7 @@ function loadConfigOptional(): Config {
       return { baseUrl: envBase || stored.base_url, apiKey: profile.token, json: false, source: "stored" };
     }
   }
-  return { baseUrl: envBase || "https://openma.dev", apiKey: "", json: false, source: "missing" };
+  return { baseUrl: envBase || "https://oma.duyet.net", apiKey: "", json: false, source: "missing" };
 }
 
 // ─── API Client ───
@@ -223,10 +223,10 @@ async function apiFetch<T = unknown>(config: Config, path: string, init?: Reques
       "x-api-key": config.apiKey,
       "content-type": "application/json",
       // Identify as a browser-compatible client. Node's default `node` UA
-      // gets rejected by Cloudflare's bot fight rules on api.openma.dev with
+      // gets rejected by Cloudflare's bot fight rules on api.oma.duyet.net with
       // a 1010 ban; a Mozilla-style UA passes the integrity check while
       // still naming the actual client and product page for log readers.
-      "user-agent": "Mozilla/5.0 (compatible; OpenManagedAgents-CLI/0.1; +https://openma.dev)",
+      "user-agent": "Mozilla/5.0 (compatible; OpenManagedAgents-CLI/0.1; +https://oma.duyet.net)",
       ...init?.headers,
     },
   });
@@ -260,7 +260,7 @@ async function rawStream(
     ...init,
     headers: {
       "x-api-key": config.apiKey,
-      "user-agent": "Mozilla/5.0 (compatible; OpenManagedAgents-CLI/0.1; +https://openma.dev)",
+      "user-agent": "Mozilla/5.0 (compatible; OpenManagedAgents-CLI/0.1; +https://oma.duyet.net)",
       ...init?.headers,
     },
   });
@@ -657,7 +657,7 @@ const commands: Cmd[] = [
     usage: "oma auth login [--base-url <url>] [--tenant <id>]", desc: "Open browser to authenticate; --tenant pre-picks a workspace",
     http: "POST   /v1/me/cli-tokens (browser handoff via /cli/login)",
     async run(_config, args) {
-      const baseUrl = (flag(args, "--base-url") ?? process.env.OMA_BASE_URL ?? "https://openma.dev").replace(/\/+$/, "");
+      const baseUrl = (flag(args, "--base-url") ?? process.env.OMA_BASE_URL ?? "https://oma.duyet.net").replace(/\/+$/, "");
       const tenant = flag(args, "--tenant");
       await authLogin(baseUrl, tenant);
     },
@@ -2218,7 +2218,7 @@ function usage() {
     oma api <resource>                         Show endpoints for a resource
 
 Environment:
-  OMA_BASE_URL   API base (default: https://openma.dev)
+  OMA_BASE_URL   API base (default: https://oma.duyet.net)
   OMA_API_KEY    API key — overrides stored credentials when set
   XDG_CONFIG_HOME  Base dir for credentials (default: ~/.config)
 
@@ -2276,12 +2276,12 @@ async function main() {
       case "setup": {
         // Default browser-origin to wherever serverUrl points so a single
         // --server-url flips both the API endpoint AND the OAuth redirect.
-        // Otherwise --server-url=https://app.staging.openma.dev would open
-        // the OAuth dance against prod openma.dev and the resulting code
+        // Otherwise --server-url=https://app.staging.oma.duyet.net would open
+        // the OAuth dance against prod oma.duyet.net and the resulting code
         // would fail at exchange ("invalid code"). Two separate flags are
         // still useful for split dev setups (web on one host, api on
         // another) — keep --browser-origin as an explicit override.
-        const serverUrl = flag(args, "--server-url") ?? "https://openma.dev";
+        const serverUrl = flag(args, "--server-url") ?? "https://oma.duyet.net";
         const { runSetup } = await import("./bridge/commands/setup.js");
         await runSetup({
           serverUrl,

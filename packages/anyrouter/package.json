@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/anyrouter",
+  "name": "@duyet/oma-anyrouter",
   "version": "0.1.0",
   "private": true,
   "type": "module",

@@ -12,7 +12,7 @@
 //     (matching the legacy KV semantics: versions n..current-1 are in history,
 //     `current` is in `agents`).
 
-import type { AgentConfig } from "@open-managed-agents/shared";
+import type { AgentConfig } from "@duyet/oma-shared";
 
 /**
  * Current-state agent row. Equivalent to the AgentConfig shape with the

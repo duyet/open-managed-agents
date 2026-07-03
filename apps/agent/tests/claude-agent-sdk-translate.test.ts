@@ -9,7 +9,7 @@
 // Cloudflare-Workers-pool test suite.
 
 import { describe, it, expect } from "vitest";
-import type { SessionEvent } from "@open-managed-agents/shared";
+import type { SessionEvent } from "@duyet/oma-shared";
 import type { HarnessRuntime } from "../src/harness/interface";
 import { ClaudeAgentSdkEventTranslator } from "../src/harness/claude-agent-sdk/translate";
 import type { SDKAssistantMessage, SDKUserMessage, SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";

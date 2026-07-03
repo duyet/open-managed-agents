@@ -1,4 +1,4 @@
-// Public surface of @open-managed-agents/dreams-pipeline.
+// Public surface of @duyet/oma-dreams-pipeline.
 //
 // The portable pipeline used by apps/main. Hosts construct a service
 // container, pick a curator backend, and call `runDream` — the steps in

@@ -325,7 +325,7 @@ POST /v1/daemons/heartbeat      — 心跳
 WS   /v1/daemons/connect        — WebSocket 长连接，双向通信
 ```
 
-**Daemon 端**（未来作为 `npx @open-managed-agents/daemon`）：
+**Daemon 端**（未来作为 `npx @duyet/oma-daemon`）：
 - 注册到 platform，上报本地可用的 agent CLIs
 - 通过 WebSocket 接收 session dispatch
 - 本地启动 agent CLI（使用 AgentAdapter）

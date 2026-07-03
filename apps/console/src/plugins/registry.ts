@@ -21,7 +21,7 @@
 //
 // Plugin pages are responsible for their own data fetching — they
 // don't reach into OSS app state. A hosted billing page typically
-// hits a separate hosted worker domain (billing.openma.dev) with the
+// hits a separate hosted worker domain (billing.oma.duyet.net) with the
 // session cookie, no OSS API surface needed.
 
 import type { ReactNode, ComponentType } from "react";

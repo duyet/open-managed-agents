@@ -27,11 +27,11 @@ import {
   SqlSlackSetupLinkRepo,
   SqlSlackWebhookEventStore,
   type CfContainerEnv,
-} from "@open-managed-agents/integrations-adapters-cf";
+} from "@duyet/oma-integrations-adapters-cf";
 import { drizzle } from "drizzle-orm/d1";
-import type { GitHubContainer } from "@open-managed-agents/github";
-import type { LinearContainer } from "@open-managed-agents/linear";
-import type { SlackContainer } from "@open-managed-agents/slack";
+import type { GitHubContainer } from "@duyet/oma-github";
+import type { LinearContainer } from "@duyet/oma-linear";
+import type { SlackContainer } from "@duyet/oma-slack";
 import type { Env } from "./env";
 
 function cfEnvOf(env: Env): CfContainerEnv {

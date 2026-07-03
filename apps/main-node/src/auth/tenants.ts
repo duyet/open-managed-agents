@@ -1,10 +1,10 @@
 // Thin re-export shim for the legacy import path. Test files
 // (pg-better-auth.test.ts) import these from here; the actual schema
-// lives in @open-managed-agents/schema.
+// lives in @duyet/oma-schema.
 
-import { applyTenantSchema } from "@open-managed-agents/schema";
-import { ensureTenantSqlite as _ensureTenantSqlite } from "@open-managed-agents/auth-config";
-import type { SqlClient } from "@open-managed-agents/sql-client";
+import { applyTenantSchema } from "@duyet/oma-schema";
+import { ensureTenantSqlite as _ensureTenantSqlite } from "@duyet/oma-auth-config";
+import type { SqlClient } from "@duyet/oma-sql-client";
 
 export const ensureTenantSchema = applyTenantSchema;
 export const ensureTenantSqlite = _ensureTenantSqlite;

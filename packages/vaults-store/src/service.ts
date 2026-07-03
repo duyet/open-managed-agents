@@ -1,5 +1,5 @@
-import { generateVaultId } from "@open-managed-agents/shared";
-import { paginateVia } from "@open-managed-agents/shared";
+import { generateVaultId } from "@duyet/oma-shared";
+import { paginateVia } from "@duyet/oma-shared";
 import { VaultNotFoundError } from "./errors";
 import type {
   Clock,

@@ -3,15 +3,15 @@
 OMA uses [changesets](https://github.com/changesets/changesets) to manage
 versioning and publishing for the public npm packages:
 
-- `@openma/cli` (`packages/cli`)
+- `@duyet/oma-cli` (`packages/cli`)
 
-`@openma/sdk` is **deprecated**: the openma API is wire-compatible with
+`@duyet/oma-sdk` is **deprecated**: the openma API is wire-compatible with
 Anthropic's Managed Agents API, so the recommended client is now
-`@anthropic-ai/sdk` pointed at `baseURL: 'https://openma.dev'`. The package
+`@anthropic-ai/sdk` pointed at `baseURL: 'https://oma.duyet.net'`. The package
 remains in `packages/sdk` for reference; no new versions will be published.
 See `packages/sdk/README.md` for the migration note.
 
-All `@open-managed-agents/*` internal packages are private and never
+All `@duyet/oma-*` internal packages are private and never
 published — changesets is configured to skip them entirely.
 
 ## TL;DR
@@ -102,7 +102,7 @@ checks).
 `release.yml` publishes via npm's OIDC trusted publisher. Each public
 package needs the workflow registered on npmjs.com:
 
-1. Go to https://www.npmjs.com/package/@openma/cli/access
+1. Go to https://www.npmjs.com/package/@duyet/oma-cli/access
 2. Trusted Publishers → Add publisher → GitHub Actions
 3. Owner: `open-ma`, repo: `open-managed-agents`
 4. Workflow filename: `release.yml`
@@ -146,6 +146,6 @@ version was actively harmful.
 **I need to re-point a dist-tag (e.g. roll back `latest` to an older
 version).**
 This isn't supported via OIDC — you'll need to `npm login` locally and
-run `npm dist-tag add @openma/cli@<version> latest`. Use sparingly; the
+run `npm dist-tag add @duyet/oma-cli@<version> latest`. Use sparingly; the
 right answer for "this version is bad" is usually publish a new version
 that fixes it, not move the tag.

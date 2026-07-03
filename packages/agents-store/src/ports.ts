@@ -13,8 +13,8 @@
 // a top-level field on the input). This is intentional — see
 // packages/credentials-store/src/ports.ts for the rationale.
 
-import type { AgentConfig } from "@open-managed-agents/shared";
-import type { PageCursor } from "@open-managed-agents/shared";
+import type { AgentConfig } from "@duyet/oma-shared";
+import type { PageCursor } from "@duyet/oma-shared";
 import type { AgentRow, AgentVersionRow } from "./types";
 
 export interface NewAgentInput {

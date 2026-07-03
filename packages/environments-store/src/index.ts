@@ -1,4 +1,4 @@
-// Public surface of @open-managed-agents/environments-store.
+// Public surface of @duyet/oma-environments-store.
 //
 //   - types       : EnvironmentRow, EnvironmentStatus
 //   - errors      : typed errors so HTTP handlers can map → status codes
@@ -8,10 +8,10 @@
 //
 // Callers in apps/main and apps/agent normally only need:
 //   import { createCfEnvironmentService, toEnvironmentConfig }
-//     from "@open-managed-agents/environments-store";
+//     from "@duyet/oma-environments-store";
 // Tests use:
 //   import { createInMemoryEnvironmentService }
-//     from "@open-managed-agents/environments-store/test-fakes";
+//     from "@duyet/oma-environments-store/test-fakes";
 
 export * from "./types";
 export * from "./errors";

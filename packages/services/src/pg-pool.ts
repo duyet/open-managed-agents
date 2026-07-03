@@ -22,7 +22,7 @@
 // when a pg adapter is wired and an env actually requests pg does the
 // import resolve. To enable in your deployment: `pnpm add postgres -w`.
 
-import type { Env } from "@open-managed-agents/shared";
+import type { Env } from "@duyet/oma-shared";
 
 // `unknown` so this module compiles without `postgres` installed. The cast
 // happens at the call site that actually uses the pool.

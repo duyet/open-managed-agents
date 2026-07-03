@@ -1,7 +1,7 @@
 // SlackProvider configuration. Cleanly separated from runtime ports so the
 // provider remains pure and testable.
 
-import type { SessionGranularity } from "@open-managed-agents/integrations-core";
+import type { SessionGranularity } from "@duyet/oma-integrations-core";
 
 /**
  * Slack-specific capability keys gating Web API operations. Stored as opaque

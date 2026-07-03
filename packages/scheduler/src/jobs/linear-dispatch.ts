@@ -11,7 +11,7 @@
 // workspace doesn't push past the runtime CPU budget. Tunable by env via
 // LINEAR_DISPATCH_RULE_LIMIT / LINEAR_DISPATCH_EVENT_LIMIT.
 
-import { getLogger } from "@open-managed-agents/observability";
+import { getLogger } from "@duyet/oma-observability";
 
 const log = getLogger("scheduler.linear-dispatch");
 

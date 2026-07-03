@@ -6,7 +6,7 @@ import type {
   CreateCapCliInput,
   CreateCredentialInput,
   VaultManager,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 
 export interface ServiceBindingVaultManagerOptions {
   internalSecret: string;

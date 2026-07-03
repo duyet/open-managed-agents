@@ -59,7 +59,7 @@ export interface TrustedProxyAuthDeps {
   /** Resolve (typically find-or-create) a validated identity into an
    *  AuthSession. Only ever called after checkTrustedProxyGuard has
    *  passed for the current request. Runtime-specific (DB access) — see
-   *  @open-managed-agents/auth-config's resolveTrustedProxyUser for the
+   *  @duyet/oma-auth-config's resolveTrustedProxyUser for the
    *  Node/self-host implementation. */
   resolve(identity: TrustedProxyIdentity): Promise<AuthSession | null>;
 }

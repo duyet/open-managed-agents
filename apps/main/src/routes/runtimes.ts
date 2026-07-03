@@ -11,7 +11,7 @@
  *
  * Setup flow:
  *   1. CLI binds 127.0.0.1:<rand-port>, opens browser to
- *      `https://app.openma.dev/connect-runtime?cb=...&state=...`
+ *      `https://app.oma.duyet.net/connect-runtime?cb=...&state=...`
  *   2. Browser (auth'd via Better Auth cookie) POSTs `/v1/runtimes/connect-runtime`
  *      with the state echo → gets back a one-time `code`.
  *   3. Browser redirects to `http://127.0.0.1:<port>/cb?code=...&state=...`.
@@ -25,11 +25,11 @@
  */
 
 import { Hono } from "hono";
-import type { Env, AgentConfig } from "@open-managed-agents/shared";
-import { skillFileR2Key } from "@open-managed-agents/shared";
-import { resolveKnownAgent } from "@open-managed-agents/acp-runtime/known-agents";
-import type { Services } from "@open-managed-agents/services";
-import type { KvStore } from "@open-managed-agents/kv-store";
+import type { Env, AgentConfig } from "@duyet/oma-shared";
+import { skillFileR2Key } from "@duyet/oma-shared";
+import { resolveKnownAgent } from "@duyet/oma-acp-runtime/known-agents";
+import type { Services } from "@duyet/oma-services";
+import type { KvStore } from "@duyet/oma-kv-store";
 
 /** Browser-facing routes — mounted under /v1/runtimes. */
 export const runtimesRoutes = new Hono<{

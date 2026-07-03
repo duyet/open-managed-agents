@@ -9,7 +9,7 @@
   // SELF-HOST BASELINE (integrations gateway worker)
   // ─────────────────────────────────────────────────────────────────────
   // Top-level config = single-D1 self-host shape: MAIN_DB +
-  // INTEGRATIONS_DB only, no shards. openma.dev's multi-shard prod
+  // INTEGRATIONS_DB only, no shards. oma.duyet.net's multi-shard prod
   // lives in env.production overlay below.
   // ─────────────────────────────────────────────────────────────────────
 
@@ -69,11 +69,11 @@
     "production": {
       "name": "managed-agents-integrations",
       "vars": {
-        "GATEWAY_ORIGIN": "https://integrations.openma.dev"
+        "GATEWAY_ORIGIN": "https://integrations.oma.duyet.net"
       },
       "workers_dev": true,
       "routes": [
-        { "pattern": "integrations.openma.dev", "custom_domain": true }
+        { "pattern": "integrations.oma.duyet.net", "custom_domain": true }
       ],
       "d1_databases": [
         { "binding": "MAIN_DB",         "database_name": "openma-auth",          "database_id": "dbb5f01c-7016-4157-945d-f8ff9fbda967" },
@@ -99,10 +99,10 @@
     "staging": {
       "name": "managed-agents-integrations-staging",
       "vars": {
-        "GATEWAY_ORIGIN": "https://integrations.staging.openma.dev"
+        "GATEWAY_ORIGIN": "https://integrations.staging.oma.duyet.net"
       },
       "routes": [
-        { "pattern": "integrations.staging.openma.dev", "custom_domain": true }
+        { "pattern": "integrations.staging.oma.duyet.net", "custom_domain": true }
       ],
       "d1_databases": [
         { "binding": "MAIN_DB",         "database_name": "openma-auth-staging",          "database_id": "aff5dbb7-36f9-46b7-b82f-4513e5603ac6" },

@@ -11,8 +11,8 @@
 // include only the items the dashboard headline cards represent.
 
 import { Hono } from "hono";
-import type { Env } from "@open-managed-agents/shared";
-import type { Services } from "@open-managed-agents/services";
+import type { Env } from "@duyet/oma-shared";
+import type { Services } from "@duyet/oma-services";
 import { kvPrefix, kvListAll } from "../kv-helpers";
 
 const app = new Hono<{

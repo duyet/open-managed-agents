@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createInMemoryDreamService } from "@open-managed-agents/dreams-store/test-fakes";
-import { createInMemoryMemoryStoreService } from "@open-managed-agents/memory-store/test-fakes";
+import { createInMemoryDreamService } from "@duyet/oma-dreams-store/test-fakes";
+import { createInMemoryMemoryStoreService } from "@duyet/oma-memory-store/test-fakes";
 import {
   DedupOnlyDreamCurator,
   runDream,
   type DreamPipelineServices,
-} from "@open-managed-agents/dreams-pipeline";
+} from "@duyet/oma-dreams-pipeline";
 
 const TENANT = "tenant-1";
 

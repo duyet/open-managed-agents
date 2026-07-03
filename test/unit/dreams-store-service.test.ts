@@ -12,8 +12,8 @@ import {
   DreamNotFoundError,
   MAX_DREAM_INSTRUCTIONS_CHARS,
   MAX_SESSIONS_PER_DREAM,
-} from "@open-managed-agents/dreams-store";
-import { createInMemoryDreamService } from "@open-managed-agents/dreams-store/test-fakes";
+} from "@duyet/oma-dreams-store";
+import { createInMemoryDreamService } from "@duyet/oma-dreams-store/test-fakes";
 
 const TENANT = "tenant-1";
 const STORE = "memstore-1";

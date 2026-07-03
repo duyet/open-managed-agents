@@ -3,7 +3,7 @@ import { env, exports } from "cloudflare:workers";
 import { describe, it, expect } from "vitest";
 import { registerHarness } from "../../apps/agent/src/harness/registry";
 import type { HarnessInterface, HarnessContext } from "../../apps/agent/src/harness/interface";
-import { toAnthropicMessages } from "@open-managed-agents/shared";
+import { toAnthropicMessages } from "@duyet/oma-shared";
 
 // Test harness that emits a tool_use → tool_result → message sequence so we can
 // validate trajectory builder + anthropic projection on a non-trivial event stream.

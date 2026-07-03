@@ -1,6 +1,6 @@
 /**
  * Console-side Session list/detail row. Differs from
- * `@open-managed-agents/api-types`' `SessionMeta` (wire-format) — the
+ * `@duyet/oma-api-types`' `SessionMeta` (wire-format) — the
  * list endpoint returns `agent: {id, version}` rather than `agent_id`
  * + `agent_version`, and `title` may be null.
  *

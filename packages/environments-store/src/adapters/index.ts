@@ -5,7 +5,7 @@ export { SqlEnvironmentRepo } from "./sql-environment-repo";
 
 import { drizzle } from "drizzle-orm/d1";
 import { SqlEnvironmentRepo } from "./sql-environment-repo";
-import type { OmaDb } from "@open-managed-agents/db-schema";
+import type { OmaDb } from "@duyet/oma-db-schema";
 import type { Logger } from "../ports";
 import { EnvironmentService } from "../service";
 

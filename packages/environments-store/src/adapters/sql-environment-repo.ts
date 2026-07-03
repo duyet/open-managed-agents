@@ -6,10 +6,10 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { environments } from "@open-managed-agents/db-schema/cf-auth";
-import type { EnvironmentConfig, PageCursor } from "@open-managed-agents/shared";
-import { escapeLikePattern, fetchN, trimPage } from "@open-managed-agents/shared";
+} from "@duyet/oma-db-schema";
+import { environments } from "@duyet/oma-db-schema/cf-auth";
+import type { EnvironmentConfig, PageCursor } from "@duyet/oma-shared";
+import { escapeLikePattern, fetchN, trimPage } from "@duyet/oma-shared";
 import { EnvironmentNotFoundError } from "../errors";
 import type {
   EnvironmentRepo,

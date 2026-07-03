@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/sql-client",
+  "name": "@duyet/oma-sql-client",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "./adapters/postgres": "./src/adapters/postgres.ts"
   },
   "dependencies": {
-    "@open-managed-agents/shared": "workspace:*"
+    "@duyet/oma-shared": "workspace:*"
   },
   "peerDependencies": {
     "better-sqlite3": "^11.5.0",

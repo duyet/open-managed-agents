@@ -1,6 +1,6 @@
-import { generateAgentId } from "@open-managed-agents/shared";
-import { paginateVia } from "@open-managed-agents/shared";
-import type { AgentConfig, ToolConfig } from "@open-managed-agents/shared";
+import { generateAgentId } from "@duyet/oma-shared";
+import { paginateVia } from "@duyet/oma-shared";
+import type { AgentConfig, ToolConfig } from "@duyet/oma-shared";
 import {
   AgentNotFoundError,
   AgentVersionMismatchError,

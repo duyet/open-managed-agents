@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { describe, it, expect } from "vitest";
-import { buildTrajectory } from "@open-managed-agents/shared";
-import type { SessionRecord, FullStatus } from "@open-managed-agents/shared";
+import { buildTrajectory } from "@duyet/oma-shared";
+import type { SessionRecord, FullStatus } from "@duyet/oma-shared";
 
 const baseAgent: any = {
   id: "agent-x",

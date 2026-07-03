@@ -9,7 +9,7 @@ import type {
   AgentMessageEvent,
   AgentToolUseEvent,
   AgentToolResultEvent,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 
 // ============================================================
 // 1. eventsToMessages — basic conversions

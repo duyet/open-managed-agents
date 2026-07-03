@@ -13,7 +13,7 @@ import type {
   EnvironmentConfig,
   SessionMeta,
   StoredEvent,
-} from "@open-managed-agents/api-types";
+} from "@duyet/oma-api-types";
 import { customAlphabet } from "nanoid";
 
 // Local id generator. Matches the alphabet/length of @oma/shared.generateId

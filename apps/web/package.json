@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/web",
+  "name": "@duyet/oma-web",
   "version": "0.0.1",
   "private": true,
   "type": "module",

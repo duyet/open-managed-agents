@@ -7,7 +7,7 @@
 // crypto so existing tests keep working unchanged. Pass a custom Crypto (e.g.
 // FakeCrypto below) to exercise the encryption path in a unit test.
 
-import type { CredentialAuth } from "@open-managed-agents/shared";
+import type { CredentialAuth } from "@duyet/oma-shared";
 import { CredentialDuplicateMcpUrlError, CredentialNotFoundError } from "./errors";
 import type {
   Clock,

@@ -1,4 +1,4 @@
-// Drizzle-backed KvStore. Schema lives in @open-managed-agents/db-schema
+// Drizzle-backed KvStore. Schema lives in @duyet/oma-db-schema
 // (kv_entries table). Tenant scoping: keys are partitioned by tenant_id;
 // callers pass the active tenant via the constructor. This is the
 // self-host cousin of CfKvStore — same KvStore port, different backing.
@@ -9,7 +9,7 @@
 // "delete tenant" be one SQL statement instead of a prefix scan.
 
 import { and, asc, eq, gt, isNull, like, or, sql } from "drizzle-orm";
-import { kv_entries } from "@open-managed-agents/db-schema/cf-auth";
+import { kv_entries } from "@duyet/oma-db-schema/cf-auth";
 import {
   asBuilder,
   getAll,
@@ -17,7 +17,7 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
+} from "@duyet/oma-db-schema";
 import type {
   KvListKey,
   KvListOptions,

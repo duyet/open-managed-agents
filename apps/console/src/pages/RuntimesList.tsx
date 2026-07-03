@@ -258,7 +258,7 @@ export function RuntimesList() {
       emptySubtitle={
         status === "any" ? (
           <>
-            Run <code className="text-xs bg-bg-surface px-1 py-0.5 rounded">npx @openma/cli bridge setup</code> on the machine you want to connect.
+            Run <code className="text-xs bg-bg-surface px-1 py-0.5 rounded">npx @duyet/oma-cli bridge setup</code> on the machine you want to connect.
           </>
         ) : (
           "Try a different status filter."
@@ -277,7 +277,7 @@ export function RuntimesList() {
             On the machine you want to connect, run:
           </p>
           <div className="bg-bg-surface border border-border rounded-lg p-3 font-mono text-xs space-y-1">
-            <div className="text-fg select-all">npx @openma/cli@beta bridge setup</div>
+            <div className="text-fg select-all">npx @duyet/oma-cli@beta bridge setup</div>
           </div>
           <p className="text-fg-muted text-xs">
             Setup opens this browser for OAuth, writes credentials to{" "}

@@ -28,9 +28,9 @@
  */
 
 import type { HarnessInterface, HarnessContext, HarnessRuntime } from "./interface";
-import type { SessionEvent, UserMessageEvent } from "@open-managed-agents/shared";
+import type { SessionEvent, UserMessageEvent } from "@duyet/oma-shared";
 import { AcpTranslator } from "./acp-translate";
-import { generateEventId, log, logError, logWarn } from "@open-managed-agents/shared";
+import { generateEventId, log, logError, logWarn } from "@duyet/oma-shared";
 
 interface AttachedWs {
   send(data: string): void;

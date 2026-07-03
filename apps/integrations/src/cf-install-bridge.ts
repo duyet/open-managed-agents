@@ -17,12 +17,12 @@ import type {
   LinearMcpCredentialLookupResult,
   RefreshGithubVaultArgs,
   RefreshGithubVaultResult,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 import {
   mintAppJwt,
   buildInstallationTokenRequest,
   parseInstallationTokenResponse,
-} from "@open-managed-agents/github";
+} from "@duyet/oma-github";
 import { buildContainer, buildGitHubContainer } from "./wire";
 import { buildProviders } from "./providers";
 import type { Env } from "./env";

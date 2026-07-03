@@ -1,4 +1,4 @@
-// @open-managed-agents/slack
+// @duyet/oma-slack
 //
 // Slack-specific implementation of integrations-core's IntegrationProvider.
 // Pure logic only — no Cloudflare imports, no Hono, no D1. All runtime

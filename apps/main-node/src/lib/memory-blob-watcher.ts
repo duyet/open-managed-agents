@@ -28,8 +28,8 @@ import { promises as fs } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { watch as chokidarWatch } from "chokidar";
-import { generateMemoryVersionId } from "@open-managed-agents/shared";
-import type { MemoryRepo } from "@open-managed-agents/memory-store";
+import { generateMemoryVersionId } from "@duyet/oma-shared";
+import type { MemoryRepo } from "@duyet/oma-memory-store";
 
 export interface MemoryBlobWatcherOptions {
   memoryRoot: string;        // absolute path to LocalFsBlobStore.baseDir

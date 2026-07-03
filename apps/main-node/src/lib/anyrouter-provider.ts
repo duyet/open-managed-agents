@@ -13,10 +13,10 @@
 import {
   ANYROUTER_API_BASE,
   ANYROUTER_API_COMPAT,
-} from "@open-managed-agents/anyrouter";
-import type { CredentialService } from "@open-managed-agents/credentials-store";
-import type { VaultService } from "@open-managed-agents/vaults-store";
-import type { SqlClient } from "@open-managed-agents/sql-client";
+} from "@duyet/oma-anyrouter";
+import type { CredentialService } from "@duyet/oma-credentials-store";
+import type { VaultService } from "@duyet/oma-vaults-store";
+import type { SqlClient } from "@duyet/oma-sql-client";
 
 export interface AnyRouterProviderState {
   apiKey: string;

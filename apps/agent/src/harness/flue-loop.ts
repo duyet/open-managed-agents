@@ -29,8 +29,8 @@
 import { defineAgent, createSandboxSessionEnv, registerProvider, observe } from "@flue/runtime";
 import type { SandboxFactory, FlueEvent } from "@flue/runtime";
 import type { HarnessInterface, HarnessContext, HarnessRuntime } from "./interface";
-import type { SessionEvent, UserMessageEvent } from "@open-managed-agents/shared";
-import { generateEventId, log, logError } from "@open-managed-agents/shared";
+import type { SessionEvent, UserMessageEvent } from "@duyet/oma-shared";
+import { generateEventId, log, logError } from "@duyet/oma-shared";
 import { createFlueSandboxApi } from "./flue/sandbox-bridge";
 import { buildFlueProvider, type FlueProviderApi } from "./flue/provider-bridge";
 import { FlueEventTranslator } from "./flue/translate";

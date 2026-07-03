@@ -2,11 +2,11 @@ import { betterAuth } from "better-auth";
 import { drizzle } from "drizzle-orm/d1";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { emailOTP } from "better-auth/plugins";
-import type { Env } from "@open-managed-agents/shared";
+import type { Env } from "@duyet/oma-shared";
 import {
   createCfShardPoolService,
   createCfTenantShardDirectoryService,
-} from "@open-managed-agents/tenant-dbs-store";
+} from "@duyet/oma-tenant-dbs-store";
 import * as schema from "./db/schema";
 
 function sendEmail(
@@ -21,7 +21,7 @@ function sendEmail(
     return;
   }
   return env.SEND_EMAIL.send({
-    from: "openma <noreply@openma.dev>",
+    from: "openma <noreply@oma.duyet.net>",
     to,
     subject,
     html,
@@ -111,15 +111,15 @@ export function createAuth(env: Env) {
     database: drizzleAdapter(db, { provider: "sqlite", schema }),
     trustedOrigins: ["*"],
     // Cross-subdomain session cookies. Hosted sets AUTH_COOKIE_DOMAIN
-    // to ".openma.dev" so the cookie minted on app.openma.dev is also
-    // sent on requests to openma.dev (apex landing) — lets the marketing
+    // to ".oma.duyet.net" so the cookie minted on app.oma.duyet.net is also
+    // sent on requests to oma.duyet.net (apex landing) — lets the marketing
     // site show "logged in as X" without re-auth. Self-hosters leaving
     // the var unset get default per-host scoping.
     //
     // AUTH_COOKIE_NAME (optional, recommended for non-prod envs that
-    // share the openma.dev parent domain): override the session-token
-    // cookie name so a browser used against both prod (.openma.dev) and
-    // staging (.staging.openma.dev) doesn't end up with two same-named
+    // share the oma.duyet.net parent domain): override the session-token
+    // cookie name so a browser used against both prod (.oma.duyet.net) and
+    // staging (.staging.oma.duyet.net) doesn't end up with two same-named
     // cookies — browsers send both, server reads the first, and the
     // wrong-env token defeats sign-in.
     ...(env.AUTH_COOKIE_DOMAIN
@@ -289,7 +289,7 @@ export async function ensureTenant(
   // MAIN_DB itself in this mode, so the row lives in the same DB as the
   // tenant data — fine for single-D1 deployments.
   //
-  // Multi-shard mode (openma.dev's --env production): pickShardForNewTenant
+  // Multi-shard mode (oma.duyet.net's --env production): pickShardForNewTenant
   // returns the open shard with lowest tenant_count; null when no shards
   // open → fall back to AUTH_DB_00 (= shard 0, the original openma-auth)
   // so signup never blocks on shard-pool exhaustion.

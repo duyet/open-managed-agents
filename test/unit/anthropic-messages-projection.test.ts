@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { describe, it, expect } from "vitest";
-import { toAnthropicMessages } from "@open-managed-agents/shared";
-import type { Trajectory } from "@open-managed-agents/shared";
+import { toAnthropicMessages } from "@duyet/oma-shared";
+import type { Trajectory } from "@duyet/oma-shared";
 
 function ev(seq: number, type: string, data: object = {}) {
   return { seq, type, data: JSON.stringify({ type, ...data }), ts: "2026-04-17T10:00:00Z" };

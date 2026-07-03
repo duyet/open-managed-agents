@@ -13,7 +13,7 @@
   // `<set-by-setup-cf-sh>` placeholders are filled in by scripts/setup-cf.sh
   // when a fresh user runs the setup wizard.
   //
-  // openma.dev's multi-shard production overrides ALL bindings via the
+  // oma.duyet.net's multi-shard production overrides ALL bindings via the
   // env.production overlay below. Run `wrangler deploy --env production`
   // (or `--env staging`) for the hosted deployments.
   // ─────────────────────────────────────────────────────────────────────
@@ -187,7 +187,7 @@
   // ─────────────────────────────────────────────────────────────────────
   // wrangler v4 env overlays REPLACE the top-level bindings entirely, so
   // each env block re-declares every binding it needs. This keeps the
-  // self-host baseline (top-level) decoupled from openma.dev's hosted
+  // self-host baseline (top-level) decoupled from oma.duyet.net's hosted
   // multi-shard prod.
   // ─────────────────────────────────────────────────────────────────────
 
@@ -195,7 +195,7 @@
     "production": {
       "name": "managed-agents",
       "vars": {
-        "INTEGRATIONS_ORIGIN": "https://integrations.openma.dev",
+        "INTEGRATIONS_ORIGIN": "https://integrations.oma.duyet.net",
         "TURNSTILE_SITE_KEY": "0x4AAAAAADDow0APKUYcuXMp"
       },
       "kv_namespaces": [
@@ -271,10 +271,10 @@
     "staging": {
       "name": "managed-agents-staging",
       "vars": {
-        "INTEGRATIONS_ORIGIN": "https://integrations.staging.openma.dev"
+        "INTEGRATIONS_ORIGIN": "https://integrations.staging.oma.duyet.net"
       },
       "routes": [
-        { "pattern": "app.staging.openma.dev", "custom_domain": true }
+        { "pattern": "app.staging.oma.duyet.net", "custom_domain": true }
       ],
       "kv_namespaces": [
         { "binding": "CONFIG_KV", "id": "f91ddab8abe64941bd3ef398b0c187a7" }

@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/session-secrets-store",
+  "name": "@duyet/oma-session-secrets-store",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,6 +8,6 @@
     "./test-fakes": "./src/test-fakes.ts"
   },
   "dependencies": {
-    "@open-managed-agents/shared": "workspace:*"
+    "@duyet/oma-shared": "workspace:*"
   }
 }

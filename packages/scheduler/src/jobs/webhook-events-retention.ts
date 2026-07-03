@@ -10,7 +10,7 @@
 //
 // Same once-per-day-via-minute-tick gating as memoryRetentionTick.
 
-import type { SqlClient } from "@open-managed-agents/sql-client";
+import type { SqlClient } from "@duyet/oma-sql-client";
 
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const TABLES = ["linear_events", "github_webhook_events", "slack_webhook_events"] as const;

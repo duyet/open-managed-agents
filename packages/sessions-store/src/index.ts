@@ -1,4 +1,4 @@
-// Public surface of @open-managed-agents/sessions-store.
+// Public surface of @duyet/oma-sessions-store.
 //
 //   - types       : SessionRow, SessionResourceRow, MAX_RESOURCES_PER_SESSION,
 //                   MAX_MEMORY_STORE_RESOURCES_PER_SESSION
@@ -8,9 +8,9 @@
 //   - adapters    : Cloudflare-specific implementations + factory
 //
 // Callers in apps/main and apps/agent normally only need:
-//   import { createCfSessionService } from "@open-managed-agents/sessions-store";
+//   import { createCfSessionService } from "@duyet/oma-sessions-store";
 // Tests use:
-//   import { createInMemorySessionService } from "@open-managed-agents/sessions-store/test-fakes";
+//   import { createInMemorySessionService } from "@duyet/oma-sessions-store/test-fakes";
 
 export * from "./types";
 export * from "./errors";

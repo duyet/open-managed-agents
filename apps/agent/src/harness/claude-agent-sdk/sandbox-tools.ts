@@ -24,7 +24,7 @@ import { z } from "zod";
 import { tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
 import type { McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type { SandboxExecutor } from "@open-managed-agents/sandbox";
+import type { SandboxExecutor } from "@duyet/oma-sandbox";
 import { shellQuote, parseExecResult } from "../flue/sandbox-bridge";
 
 const MAX_RESULT_CHARS = 50_000;

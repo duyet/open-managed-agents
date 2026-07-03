@@ -23,11 +23,11 @@
 // API reference: https://developers.cloudflare.com/changelog/post/2026-04-13-sandbox-outbound-workers-tls-auth/
 
 import { Sandbox } from "@cloudflare/sandbox";
-import type { Env } from "@open-managed-agents/shared";
+import type { Env } from "@duyet/oma-shared";
 import {
   buildCfTenantDbProvider,
   getCfServicesForTenant,
-} from "@open-managed-agents/services";
+} from "@duyet/oma-services";
 import { recordBackup } from "./runtime/workspace-backups";
 
 const BACKUP_TTL_SEC = 7 * 24 * 3600;

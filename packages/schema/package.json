@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/schema",
+  "name": "@duyet/oma-schema",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,8 +10,8 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@open-managed-agents/sql-client": "workspace:*",
-    "@open-managed-agents/event-log": "workspace:*"
+    "@duyet/oma-sql-client": "workspace:*",
+    "@duyet/oma-event-log": "workspace:*"
   },
   "devDependencies": {
     "better-sqlite3": "^11.5.0",

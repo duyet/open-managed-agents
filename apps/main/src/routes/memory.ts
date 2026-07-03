@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { Env } from "@open-managed-agents/shared";
+import type { Env } from "@duyet/oma-shared";
 import {
   MemoryBlobStoreError,
   MemoryContentTooLargeError,
@@ -8,8 +8,8 @@ import {
   MemoryStoreNotFoundError,
   type Actor,
   type WritePrecondition,
-} from "@open-managed-agents/memory-store";
-import type { Services } from "@open-managed-agents/services";
+} from "@duyet/oma-memory-store";
+import type { Services } from "@duyet/oma-services";
 
 // REST surface for memory stores. Aligned with Anthropic Managed Agents Memory
 // (https://platform.claude.com/docs/en/managed-agents/memory). All persistence
@@ -415,7 +415,7 @@ app.post("/:id/memory_versions/:ver_id/redact", async (c) => {
 });
 
 /** Shape returned to clients — Anthropic-aligned. */
-function toApiStore(s: import("@open-managed-agents/memory-store").MemoryStoreRow) {
+function toApiStore(s: import("@duyet/oma-memory-store").MemoryStoreRow) {
   return {
     type: "memory_store" as const,
     id: s.id,
@@ -427,7 +427,7 @@ function toApiStore(s: import("@open-managed-agents/memory-store").MemoryStoreRo
   };
 }
 
-function toApiMemory(m: import("@open-managed-agents/memory-store").MemoryRow) {
+function toApiMemory(m: import("@duyet/oma-memory-store").MemoryRow) {
   return {
     id: m.id,
     store_id: m.store_id,
@@ -442,7 +442,7 @@ function toApiMemory(m: import("@open-managed-agents/memory-store").MemoryRow) {
 }
 
 /** Re-nest actor_type/actor_id back into Anthropic's `actor: {type, id}` shape. */
-function toApiVersion(v: import("@open-managed-agents/memory-store").MemoryVersionRow) {
+function toApiVersion(v: import("@duyet/oma-memory-store").MemoryVersionRow) {
   return {
     id: v.id,
     memory_id: v.memory_id,

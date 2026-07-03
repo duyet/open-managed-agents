@@ -6,8 +6,8 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { linear_publications } from "@open-managed-agents/db-schema/cf-integrations";
+} from "@duyet/oma-db-schema";
+import { linear_publications } from "@duyet/oma-db-schema/cf-integrations";
 import type {
   CapabilityKey,
   CapabilitySet,
@@ -23,7 +23,7 @@ import type {
   PublicationMode,
   PublicationStatus,
   SessionGranularity,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 
 /** Sentinel used for `installation_id` on rows that haven't bound yet. */
 const PENDING_INSTALLATION_ID = "";

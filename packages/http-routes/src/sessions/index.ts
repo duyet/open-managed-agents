@@ -19,7 +19,7 @@ import {
   generateFileId,
   generateEventId,
   guessSessionOutputMime,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import type {
   AgentConfig,
   ContentBlock,
@@ -28,15 +28,15 @@ import type {
   SessionEvent,
   SessionResource,
   UserMessageEvent,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import {
   SessionArchivedError,
   SessionMemoryStoreMaxExceededError,
   SessionNotFoundError,
   SessionResourceMaxExceededError,
   SessionResourceNotFoundError,
-} from "@open-managed-agents/sessions-store";
-import type { SessionRouter, SessionInitParams } from "@open-managed-agents/session-runtime";
+} from "@duyet/oma-sessions-store";
+import type { SessionRouter, SessionInitParams } from "@duyet/oma-session-runtime";
 import type { RouteServicesArg } from "../types";
 import { resolveServices } from "../types";
 
@@ -1252,7 +1252,7 @@ async function openSse(
   //   ?replay=1        → replay full persisted history before tailing
   //                      (Last-Event-ID also implies replay-from-seq, so
   //                      callers can resume cleanly without flag awareness)
-  // See SPEC_EVENT_TYPES in @open-managed-agents/api-types for the spec set.
+  // See SPEC_EVENT_TYPES in @duyet/oma-api-types for the spec set.
   const include = (c.req.query("include") ?? "")
     .split(",")
     .map((s) => s.trim())

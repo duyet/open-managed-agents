@@ -1,8 +1,8 @@
 {
-  "name": "@openma/sdk",
+  "name": "@duyet/oma-sdk",
   "version": "0.1.0-beta.2",
-  "description": "[Deprecated — use @anthropic-ai/sdk with baseURL=https://openma.dev] Official TypeScript SDK for the openma managed agents platform.",
-  "deprecated": "@openma/sdk is deprecated. The openma API is wire-compatible with Anthropic's Managed Agents API — use `@anthropic-ai/sdk` with `baseURL: 'https://openma.dev'`. See https://openma.dev/docs/cli-sdk for migration.",
+  "description": "[Deprecated — use @anthropic-ai/sdk with baseURL=https://oma.duyet.net] Official TypeScript SDK for the openma managed agents platform.",
+  "deprecated": "@duyet/oma-sdk is deprecated. The openma API is wire-compatible with Anthropic's Managed Agents API — use `@anthropic-ai/sdk` with `baseURL: 'https://oma.duyet.net'`. See https://oma.duyet.net/docs/cli-sdk for migration.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -25,14 +25,14 @@
   },
   "keywords": ["ai", "agents", "managed-agents", "openma", "sdk", "llm", "streaming", "sse"],
   "license": "Apache-2.0",
-  "homepage": "https://openma.dev",
+  "homepage": "https://oma.duyet.net",
   "repository": {
     "type": "git",
-    "url": "https://github.com/openma-ai/open-managed-agents",
+    "url": "https://github.com/duyet/oma",
     "directory": "packages/sdk"
   },
   "bugs": {
-    "url": "https://github.com/openma-ai/open-managed-agents/issues"
+    "url": "https://github.com/duyet/oma/issues"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

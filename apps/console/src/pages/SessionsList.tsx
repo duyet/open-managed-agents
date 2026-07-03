@@ -33,7 +33,7 @@ type AgentLite = {
 
 // Session status options for the toolbar status chip. "any" maps to no
 // server filter; the other four match the SessionStatus union in
-// @open-managed-agents/api-types (idle | running | rescheduling | terminated).
+// @duyet/oma-api-types (idle | running | rescheduling | terminated).
 type StatusValue = "any" | "idle" | "running" | "rescheduling" | "terminated";
 
 const STATUS_OPTIONS: { value: StatusValue; label: string }[] = [

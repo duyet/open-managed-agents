@@ -6,7 +6,7 @@
 // routes only manage create + read + cancel.
 //
 // Storage: caller injects `evals` (EvalRunService from
-// @open-managed-agents/evals-store) + `agents`/`environments` for the
+// @duyet/oma-evals-store) + `agents`/`environments` for the
 // existence checks. CF passes its services bundle; Node passes its own
 // (Node returns null from `environments` lookups today — we accept the
 // run create against a synthesized localhost env).
@@ -16,10 +16,10 @@ import type {
   EvalRunService,
   EvalRunRow,
   EvalRunStatus,
-} from "@open-managed-agents/evals-store";
-import type { AgentService } from "@open-managed-agents/agents-store";
-import type { EnvironmentService } from "@open-managed-agents/environments-store";
-import type { RewardSpec } from "@open-managed-agents/shared";
+} from "@duyet/oma-evals-store";
+import type { AgentService } from "@duyet/oma-agents-store";
+import type { EnvironmentService } from "@duyet/oma-environments-store";
+import type { RewardSpec } from "@duyet/oma-shared";
 
 interface Vars {
   Variables: { tenant_id: string };

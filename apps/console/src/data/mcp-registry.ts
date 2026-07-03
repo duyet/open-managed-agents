@@ -50,7 +50,7 @@ export const MCP_REGISTRY: McpRegistryEntry[] = [
   //     getting openma allowlisted in ClickUp's MCP partner program.
   // { id: "feishu", name: "Feishu (飞书)", url: "https://mcp.feishu.cn/mcp", icon: favicon("feishu.cn") },
   //   ↑ disabled: requires Feishu Partner allowlist for a https redirect URI; DCR returns
-  //     invalid_redirect_uri for app.openma.dev. Re-enable after registering openma.dev as
+  //     invalid_redirect_uri for app.oma.duyet.net. Re-enable after registering oma.duyet.net as
   //     Feishu partner OR pushing FEISHU_OAUTH_CLIENT_ID/SECRET from a manually-registered App.
   { id: "github", name: "GitHub", url: "https://api.githubcopilot.com/mcp/", icon: favicon("github.com") },
   // { id: "intercom", name: "Intercom", url: "https://mcp.intercom.com/mcp", icon: favicon("intercom.com") },

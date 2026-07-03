@@ -10,7 +10,7 @@ If you want to run a full agent platform — not a chatbot, but the
 managed kind: sessions, sandboxes, tool dispatch, crash recovery,
 event log, billing — Cloudflare's primitives are surprisingly close to
 what you need out of the box. This guide walks through deploying
-[Open Managed Agents](https://github.com/openma-ai/open-managed-agents)
+[Open Managed Agents](https://github.com/duyet/oma)
 on Cloudflare end-to-end: what each Worker does, what each binding is
 for, what breaks, and how to debug when something doesn't come up.
 
@@ -33,7 +33,7 @@ keeps the Durable Object placement clean.
 | `openma-web` | Marketing site + blog (this site) |
 
 For a minimum self-host you need the first three. Docs and web are
-optional — you can point at the public docs.openma.dev instead.
+optional — you can point at the public docs.oma.duyet.net instead.
 
 ## Prerequisites
 
@@ -51,7 +51,7 @@ optional — you can point at the public docs.openma.dev instead.
 ## Step 1 — Clone and install
 
 ```bash
-git clone https://github.com/openma-ai/open-managed-agents
+git clone https://github.com/duyet/oma
 cd open-managed-agents
 pnpm install
 ```
@@ -230,7 +230,7 @@ What this guide doesn't cover:
   provider configured (Better Auth + your IdP).
 - **Backups.** D1 has automatic backups; R2 has versioning. The
   important thing to script is `PLATFORM_ROOT_SECRET` rotation —
-  see [the encryption design notes in the repo](https://github.com/openma-ai/open-managed-agents/tree/main/docs).
+  see [the encryption design notes in the repo](https://github.com/duyet/oma/tree/main/docs).
 - **Observability.** Workers Analytics Engine + Logpush is the
   default; the `packages/cf-billing/src/cf-analytics.ts` module
   emits usage events you can query for billing.
@@ -265,7 +265,7 @@ self-host work:
 
 ```bash
 # Hosted, BYOK
-curl https://openma.dev/v1/agents \
+curl https://oma.duyet.net/v1/agents \
   -H "x-api-key: YOUR_PLATFORM_KEY" \
   -H "content-type: application/json" \
   -d '{"name":"hello","model":"claude-sonnet-4-6"}'

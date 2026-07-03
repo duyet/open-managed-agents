@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gte, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
-import { vaults } from "@open-managed-agents/db-schema/cf-auth";
+import { vaults } from "@duyet/oma-db-schema/cf-auth";
 import {
   asBuilder,
   getAll,
@@ -7,13 +7,13 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
+} from "@duyet/oma-db-schema";
 import {
   escapeLikePattern,
   fetchN,
   trimPage,
   type PageCursor,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import { VaultNotFoundError } from "../errors";
 import type { NewVaultInput, VaultRepo, VaultUpdateFields } from "../ports";
 import type { VaultRow } from "../types";
@@ -22,7 +22,7 @@ type Row = typeof vaults.$inferSelect;
 
 /**
  * Drizzle-backed implementation of {@link VaultRepo}. Owns the SQL against
- * the `vaults` table defined in @open-managed-agents/db-schema/cf-auth.
+ * the `vaults` table defined in @duyet/oma-db-schema/cf-auth.
  */
 export class SqlVaultRepo implements VaultRepo {
   private readonly db: OmaDbBuilder;

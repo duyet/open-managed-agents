@@ -1,7 +1,7 @@
 import { createMiddleware } from "hono/factory";
-import type { Env } from "@open-managed-agents/shared";
-import { logWarn, logError } from "@open-managed-agents/shared";
-import { CfKvStore } from "@open-managed-agents/kv-store";
+import type { Env } from "@duyet/oma-shared";
+import { logWarn, logError } from "@duyet/oma-shared";
+import { CfKvStore } from "@duyet/oma-kv-store";
 
 async function sha256(data: string): Promise<string> {
   const encoded = new TextEncoder().encode(data);

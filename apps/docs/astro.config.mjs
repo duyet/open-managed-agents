@@ -12,7 +12,7 @@ const FONT_HREF =
   'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Source+Serif+4:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap';
 
 export default defineConfig({
-  site: 'https://docs.openma.dev',
+  site: 'https://docs.oma.duyet.net',
   integrations: [
     starlight({
       title: 'openma',
@@ -54,12 +54,12 @@ export default defineConfig({
         {
           icon: 'github',
           label: 'GitHub',
-          href: 'https://github.com/openma-ai/open-managed-agents',
+          href: 'https://github.com/duyet/oma',
         },
       ],
       editLink: {
         baseUrl:
-          'https://github.com/openma-ai/open-managed-agents/edit/main/apps/docs/',
+          'https://github.com/duyet/oma/edit/main/apps/docs/',
       },
       lastUpdated: true,
       pagination: true,
@@ -124,7 +124,7 @@ export default defineConfig({
           // without this prefix the Console link looks identical to
           // internal docs links.
           label: '↗ Console',
-          link: 'https://app.openma.dev',
+          link: 'https://app.oma.duyet.net',
           attrs: { target: '_blank', rel: 'noopener' },
         },
       ],

@@ -10,7 +10,7 @@ export type {
 // Node consumers can import the port + better-sqlite3 adapter without
 // pulling Cloudflare Worker types into their tsconfig. The CF worker
 // imports stay as before:
-//   import { CfD1SqlClient } from "@open-managed-agents/sql-client/adapters/cf-d1";
+//   import { CfD1SqlClient } from "@duyet/oma-sql-client/adapters/cf-d1";
 
 // better-sqlite3 / postgres adapters are exported here because neither has
 // CF type dependencies; the drivers themselves are peer deps so this remains

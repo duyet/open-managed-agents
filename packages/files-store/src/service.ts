@@ -30,7 +30,7 @@ export interface FileServiceDeps {
  *
  * Does NOT own:
  *   - id generation. Caller pre-allocates with `generateFileId()` from
- *     @open-managed-agents/shared so the route can compute the R2 key,
+ *     @duyet/oma-shared so the route can compute the R2 key,
  *     PUT the blob, and only THEN call `create`. Keeps the failure semantics
  *     (R2 PUT before metadata write) identical to the KV era.
  *   - R2 PUT / GET / DELETE. The route owns R2 lifecycle. Service exposes

@@ -163,7 +163,7 @@ infrastructure you can own.
 For the fastest local path:
 
 ```bash
-git clone https://github.com/openma-ai/open-managed-agents.git
+git clone https://github.com/duyet/oma.git
 cd open-managed-agents
 cp .env.example .env
 
@@ -174,8 +174,8 @@ docker compose up -d
 
 Then open the Console, create an agent, and publish it into Slack from
 the integrations flow. For a full production deployment, start with the
-[self-host overview](https://docs.openma.dev/self-host/overview/) and
-the [Slack OAuth app setup](https://docs.openma.dev/self-host/oauth-apps/#slack).
+[self-host overview](https://docs.oma.duyet.net/self-host/overview/) and
+the [Slack OAuth app setup](https://docs.oma.duyet.net/self-host/oauth-apps/#slack).
 
 ## Bottom line
 

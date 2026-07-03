@@ -4,8 +4,8 @@
 // to the membership table directly, so a one-row JOIN against that is
 // the simpler answer and matches what the auth bootstrap sets up.
 
-import type { SqlClient } from "@open-managed-agents/sql-client";
-import type { TenantResolver } from "@open-managed-agents/integrations-core";
+import type { SqlClient } from "@duyet/oma-sql-client";
+import type { TenantResolver } from "@duyet/oma-integrations-core";
 
 export class SqlMembershipTenantResolver implements TenantResolver {
   constructor(private readonly db: SqlClient) {}

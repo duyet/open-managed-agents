@@ -10,12 +10,12 @@
 //      DLQ subscriber.
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { createPostgresSqlClient, type SqlClient } from "@open-managed-agents/sql-client";
+import { createPostgresSqlClient, type SqlClient } from "@duyet/oma-sql-client";
 import {
   createPgQueue,
   createPgDlq,
   ensureQueueSchema,
-} from "@open-managed-agents/queue";
+} from "@duyet/oma-queue";
 
 const PG_URL = process.env.PG_TEST_URL ?? "";
 const enabled = PG_URL.startsWith("postgres://") || PG_URL.startsWith("postgresql://");

@@ -9,9 +9,9 @@
 // The state machine holds one of these per session and never branches on
 // platform.
 
-import type { SqlClient } from "@open-managed-agents/sql-client";
-import type { EventLogRepo, StreamRepo } from "@open-managed-agents/event-log";
-import type { SandboxExecutor } from "@open-managed-agents/sandbox";
+import type { SqlClient } from "@duyet/oma-sql-client";
+import type { EventLogRepo, StreamRepo } from "@duyet/oma-event-log";
+import type { SandboxExecutor } from "@duyet/oma-sandbox";
 import type { OrphanTurn, RuntimeAdapter, TurnId } from "./ports";
 
 export interface RuntimeAdapterOptions {

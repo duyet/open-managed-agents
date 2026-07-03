@@ -14,7 +14,7 @@ import type {
   PageCursor,
   SessionResource,
   SessionStatus,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import type { SessionResourceRow, SessionRow } from "./types";
 
 export interface NewSessionInput {

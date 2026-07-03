@@ -1,6 +1,6 @@
 // Linear-specific repo ports. Provider-owned, no leakage to GitHub/Slack.
 
-import type { SessionId } from "@open-managed-agents/integrations-core";
+import type { SessionId } from "@duyet/oma-integrations-core";
 
 /** Status of a `linear_issue_sessions` row.
  *  - `pending`: a webhook winner has just claimed the (publication, issue)

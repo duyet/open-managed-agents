@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/evals-runner",
+  "name": "@duyet/oma-evals-runner",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,11 +7,11 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@open-managed-agents/shared": "workspace:*",
-    "@open-managed-agents/agents-store": "workspace:*",
-    "@open-managed-agents/sessions-store": "workspace:*",
-    "@open-managed-agents/evals-store": "workspace:*",
-    "@open-managed-agents/environments-store": "workspace:*",
-    "@open-managed-agents/kv-store": "workspace:*"
+    "@duyet/oma-shared": "workspace:*",
+    "@duyet/oma-agents-store": "workspace:*",
+    "@duyet/oma-sessions-store": "workspace:*",
+    "@duyet/oma-evals-store": "workspace:*",
+    "@duyet/oma-environments-store": "workspace:*",
+    "@duyet/oma-kv-store": "workspace:*"
   }
 }

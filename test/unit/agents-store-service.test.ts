@@ -10,7 +10,7 @@
 // null/"".
 //
 // NOTE: imports use relative paths because vitest.config.ts has not yet been
-// updated with the @open-managed-agents/agents-store alias (that's done at
+// updated with the @duyet/oma-agents-store alias (that's done at
 // integration time per packages/agents-store/INTEGRATION_GUIDE.md). After the
 // alias lands, these can be swapped to package imports to match the
 // credentials-store test style.

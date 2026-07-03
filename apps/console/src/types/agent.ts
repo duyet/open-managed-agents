@@ -1,5 +1,5 @@
 /**
- * Console-side Agent record. Wider than `@open-managed-agents/api-types`'
+ * Console-side Agent record. Wider than `@duyet/oma-api-types`'
  * `AgentConfig` (the wire-format) — adds the runtime metadata the list
  * and detail endpoints return on top of the config (`version`,
  * `created_at`, `archived_at`) plus the `_oma` console extension.

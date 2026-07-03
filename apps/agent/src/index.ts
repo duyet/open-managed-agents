@@ -7,7 +7,7 @@
  */
 
 import { Hono } from "hono";
-import type { Env } from "@open-managed-agents/shared";
+import type { Env } from "@duyet/oma-shared";
 
 // --- Register harnesses ---
 import { registerHarness } from "./harness/registry";

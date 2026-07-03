@@ -1,8 +1,8 @@
 // Runtime ports — abstract dependencies a provider needs from its host.
 //
-// Provider packages (e.g. @open-managed-agents/linear) accept implementations
+// Provider packages (e.g. @duyet/oma-linear) accept implementations
 // of these via constructor injection. Adapter packages (e.g.
-// @open-managed-agents/integrations-adapters-cf) implement them against
+// @duyet/oma-integrations-adapters-cf) implement them against
 // concrete runtimes.
 //
 // Keep these tiny and runtime-agnostic. Do not import Web Request/Response
@@ -179,7 +179,7 @@ export interface CreateCapCliInput {
   displayName: string;
   /**
    * cap CLI id, e.g. `"gh"` / `"aws"` / `"kubectl"`. Must match a builtin
-   * spec in @open-managed-agents/cap.
+   * spec in @duyet/oma-cap.
    */
   cliId: string;
   /** Token value. Stored encrypted. Injected by cap proxy at HTTPS time. */

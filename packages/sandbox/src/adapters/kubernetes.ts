@@ -88,7 +88,7 @@
 import type { Writable as NodeWritable } from "node:stream";
 import type { ProcessHandle, SandboxExecutor, SandboxFactory } from "../ports";
 import { readS3MemoryBucket } from "../ports";
-import { getLogger } from "@open-managed-agents/observability";
+import { getLogger } from "@duyet/oma-observability";
 
 const moduleLogger = getLogger("k8s-sandbox");
 

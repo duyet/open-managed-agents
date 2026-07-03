@@ -55,7 +55,7 @@ export type {
  * Official TypeScript SDK for openma — typed REST + SSE streaming.
  *
  * ```ts
- * import { OpenMA } from "@openma/sdk";
+ * import { OpenMA } from "@duyet/oma-sdk";
  *
  * const oma = new OpenMA({ apiKey: process.env.OMA_API_KEY! });
  *

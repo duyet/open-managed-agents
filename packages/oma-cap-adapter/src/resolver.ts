@@ -1,4 +1,4 @@
-// L3 adapter: implements `@open-managed-agents/cap`'s Resolver port against
+// L3 adapter: implements `@duyet/oma-cap`'s Resolver port against
 // OMA's vaults-store + credentials-store + sessions-store.
 //
 // Encoding: cap's `Resolver` port carries an opaque `principal: string`.
@@ -10,12 +10,12 @@
 import type {
   CredentialConfig,
   CredentialAuth,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import type {
   Resolver,
   ResolveInput,
   ResolvedToken,
-} from "@open-managed-agents/cap";
+} from "@duyet/oma-cap";
 
 export interface OmaResolverServices {
   readonly sessions: {

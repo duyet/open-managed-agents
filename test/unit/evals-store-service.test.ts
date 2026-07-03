@@ -8,7 +8,7 @@
 // results JSON round-trip + isolation from caller mutation.
 //
 // NOTE: imports use relative paths because vitest.config.ts has not yet been
-// updated with the @open-managed-agents/evals-store alias (that's done at
+// updated with the @duyet/oma-evals-store alias (that's done at
 // integration time per packages/evals-store/INTEGRATION_GUIDE.md). After the
 // alias lands, these can be swapped to the package import to match the
 // credentials-store test style.

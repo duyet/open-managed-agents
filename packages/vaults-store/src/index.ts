@@ -1,4 +1,4 @@
-// Public surface of @open-managed-agents/vaults-store.
+// Public surface of @duyet/oma-vaults-store.
 
 export * from "./types";
 export * from "./errors";

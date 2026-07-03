@@ -6,7 +6,7 @@ import { resolveModel } from "../../apps/agent/src/harness/provider";
 import { evaluateOutcome } from "../../apps/agent/src/harness/outcome-evaluator";
 import { outboundByHost } from "../../apps/agent/src/outbound";
 import { registerHarness } from "../../apps/agent/src/harness/registry";
-import type { Env } from "@open-managed-agents/shared";
+import type { Env } from "@duyet/oma-shared";
 
 // ============================================================
 // Helpers

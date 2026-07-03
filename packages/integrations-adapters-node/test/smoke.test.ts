@@ -3,11 +3,11 @@
 // Catches schema/typo regressions when the Node port drifts from the CF port.
 
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
-import { createBetterSqlite3SqlClient, type SqlClient } from "@open-managed-agents/sql-client";
+import { createBetterSqlite3SqlClient, type SqlClient } from "@duyet/oma-sql-client";
 import BetterSqlite3 from "better-sqlite3";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import type { OmaDb } from "@open-managed-agents/db-schema";
+import type { OmaDb } from "@duyet/oma-db-schema";
 import { fileURLToPath } from "node:url";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

@@ -8,7 +8,7 @@
 // MCP tool calls are NOT routed through here — the agent talks to the GitHub
 // MCP server directly with the installation token from its vault.
 
-import type { HttpClient } from "@open-managed-agents/integrations-core";
+import type { HttpClient } from "@duyet/oma-integrations-core";
 
 const GITHUB_API = "https://api.github.com";
 

@@ -1,6 +1,6 @@
 // Built-in avatars for integration personas. Files live at
 // apps/console/public/integration-avatars/ and are served by apps/main's
-// ASSETS binding from `https://openma.dev/integration-avatars/<file>.png`.
+// ASSETS binding from `https://oma.duyet.net/integration-avatars/<file>.png`.
 //
 // `id` is a stable positional slug matching the filename — safe to persist
 // in DB rows or external configs. `label` is a human-readable description
@@ -16,7 +16,7 @@ export interface IntegrationAvatar {
   url: string;
 }
 
-const AVATAR_BASE_URL = "https://openma.dev/integration-avatars";
+const AVATAR_BASE_URL = "https://oma.duyet.net/integration-avatars";
 
 export function getIntegrationAvatarUrl(id: string): string {
   return `${AVATAR_BASE_URL}/avatar_${id}.png`;

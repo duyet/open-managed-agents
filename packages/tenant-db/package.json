@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/tenant-db",
+  "name": "@duyet/oma-tenant-db",
   "version": "0.1.0",
   "private": true,
   "type": "module",

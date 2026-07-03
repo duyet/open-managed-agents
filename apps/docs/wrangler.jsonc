@@ -14,10 +14,10 @@
   },
 
   // Custom Domain: Cloudflare auto-creates the DNS record + worker route
-  // when this is in place. Requires openma.dev to be on the same Cloudflare
+  // when this is in place. Requires oma.duyet.net to be on the same Cloudflare
   // account.
   "routes": [
-    { "pattern": "docs.openma.dev", "custom_domain": true }
+    { "pattern": "docs.oma.duyet.net", "custom_domain": true }
   ],
 
   "observability": { "enabled": true },
@@ -26,7 +26,7 @@
     "staging": {
       "name": "openma-docs-staging",
       "routes": [
-        { "pattern": "docs.staging.openma.dev", "custom_domain": true }
+        { "pattern": "docs.staging.oma.duyet.net", "custom_domain": true }
       ],
       "observability": { "enabled": true }
     }

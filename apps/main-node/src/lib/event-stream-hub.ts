@@ -4,13 +4,13 @@
 // becomes a different EventStreamHub implementation behind the same
 // interface, no consumer changes.
 //
-// Why this lives here (not in @open-managed-agents/runtime-node yet):
+// Why this lives here (not in @duyet/oma-runtime-node yet):
 // the runtime-node package doesn't exist; the hub is small enough to
 // inline into the main-node app for the PoC and gets extracted when a
 // second consumer (apps/agent's NodeSessionRuntime, future Phase D) needs
 // it.
 
-import type { SessionEvent } from "@open-managed-agents/shared";
+import type { SessionEvent } from "@duyet/oma-shared";
 
 export interface EventWriter {
   /** True after .close() or after the underlying stream errored. The hub

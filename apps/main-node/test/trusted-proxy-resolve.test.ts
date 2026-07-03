@@ -7,9 +7,9 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applyBetterAuthSchema } from "@open-managed-agents/schema";
-import { resolveTrustedProxyUser } from "@open-managed-agents/auth-config";
-import { BetterSqlite3SqlClient } from "@open-managed-agents/sql-client/adapters/better-sqlite3";
+import { applyBetterAuthSchema } from "@duyet/oma-schema";
+import { resolveTrustedProxyUser } from "@duyet/oma-auth-config";
+import { BetterSqlite3SqlClient } from "@duyet/oma-sql-client/adapters/better-sqlite3";
 
 let dir: string;
 let db: import("better-sqlite3").Database;

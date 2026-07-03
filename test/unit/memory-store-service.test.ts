@@ -14,9 +14,9 @@ import {
   MemoryNotFoundError,
   MemoryPreconditionFailedError,
   MemoryStoreNotFoundError,
-} from "@open-managed-agents/memory-store";
-import { createInMemoryMemoryStoreService } from "@open-managed-agents/memory-store/test-fakes";
-import { generateMemoryVersionId } from "@open-managed-agents/shared";
+} from "@duyet/oma-memory-store";
+import { createInMemoryMemoryStoreService } from "@duyet/oma-memory-store/test-fakes";
+import { generateMemoryVersionId } from "@duyet/oma-shared";
 
 const TENANT = "tn_test_memstore";
 const ACTOR = { type: "system" as const, id: "test" };

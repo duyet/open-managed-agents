@@ -1,13 +1,13 @@
 import type { ModelMessage, LanguageModel } from "ai";
-import type { AgentConfig, SessionEvent, UserMessageEvent } from "@open-managed-agents/shared";
+import type { AgentConfig, SessionEvent, UserMessageEvent } from "@duyet/oma-shared";
 import type { FileResolver } from "../runtime/history";
 
-// SandboxExecutor + ProcessHandle live in @open-managed-agents/sandbox so
+// SandboxExecutor + ProcessHandle live in @duyet/oma-sandbox so
 // non-CF runtimes (apps/main-node, future deployments) can implement the
 // same shape without depending on apps/agent's CF-only modules. Imported
 // for local use AND re-exported so existing imports keep working unchanged.
-import type { SandboxExecutor, ProcessHandle } from "@open-managed-agents/sandbox";
-export type { SandboxExecutor, ProcessHandle } from "@open-managed-agents/sandbox";
+import type { SandboxExecutor, ProcessHandle } from "@duyet/oma-sandbox";
+export type { SandboxExecutor, ProcessHandle } from "@duyet/oma-sandbox";
 export type { FileResolver, ResolvedFile } from "../runtime/history";
 
 export interface HarnessInterface {

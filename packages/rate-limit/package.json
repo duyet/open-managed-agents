@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/rate-limit",
+  "name": "@duyet/oma-rate-limit",
   "version": "0.1.0",
   "private": true,
   "type": "module",

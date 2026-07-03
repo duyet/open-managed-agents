@@ -13,15 +13,15 @@ import {
   recordEvent,
   type Env,
   type R2EventMessage,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import {
   CfR2BlobStore,
   SqlMemoryRepo,
   type Actor,
-} from "@open-managed-agents/memory-store";
+} from "@duyet/oma-memory-store";
 import { drizzle } from "drizzle-orm/d1";
-import { buildCfTenantDbProvider } from "@open-managed-agents/services";
-import { createCfMemoryStoreTenantIndexService } from "@open-managed-agents/tenant-dbs-store";
+import { buildCfTenantDbProvider } from "@duyet/oma-services";
+import { createCfMemoryStoreTenantIndexService } from "@duyet/oma-tenant-dbs-store";
 import {
   createCfQueue,
   createCfDlq,
@@ -29,11 +29,11 @@ import {
   type Queue,
   type DeadLetterQueue,
   type QueueHandler,
-} from "@open-managed-agents/queue";
+} from "@duyet/oma-queue";
 import {
   processMemoryEvent,
   type MemoryEvent,
-} from "@open-managed-agents/queue/handlers/memory-events";
+} from "@duyet/oma-queue/handlers/memory-events";
 
 interface CfQueueBindings {
   /** Optional producer binding — present in tests/local where main also

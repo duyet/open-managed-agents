@@ -24,7 +24,7 @@ import type {
   InstallationRepo,
   PublicationRepo,
   DispatchRuleRepo,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 
 interface Vars {
   Variables: { tenant_id: string; user_id?: string };

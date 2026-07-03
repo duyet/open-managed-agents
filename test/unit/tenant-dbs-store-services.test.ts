@@ -13,11 +13,11 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   TenantShardDirectoryService,
   ShardPoolService,
-} from "@open-managed-agents/tenant-dbs-store";
+} from "@duyet/oma-tenant-dbs-store";
 import {
   InMemoryTenantShardDirectoryRepo,
   InMemoryShardPoolRepo,
-} from "@open-managed-agents/tenant-dbs-store/test-fakes";
+} from "@duyet/oma-tenant-dbs-store/test-fakes";
 
 describe("TenantShardDirectoryService", () => {
   let service: TenantShardDirectoryService;
@@ -136,7 +136,7 @@ describe("MetaTableTenantDbProvider — caching + fallback", () => {
   }
 
   it("falls back to defaultBinding when tenant_shard has no row", async () => {
-    const { MetaTableTenantDbProvider } = await import("@open-managed-agents/tenant-db");
+    const { MetaTableTenantDbProvider } = await import("@duyet/oma-tenant-db");
     const auth = { __label: "AUTH_DB" } as unknown as D1Database;
     const provider = new MetaTableTenantDbProvider(
       { AUTH_DB: auth },
@@ -148,7 +148,7 @@ describe("MetaTableTenantDbProvider — caching + fallback", () => {
   });
 
   it("returns the env-bound D1 when tenant_shard has a row", async () => {
-    const { MetaTableTenantDbProvider } = await import("@open-managed-agents/tenant-db");
+    const { MetaTableTenantDbProvider } = await import("@duyet/oma-tenant-db");
     const auth = { __label: "AUTH_DB" } as unknown as D1Database;
     const db001 = { __label: "DB_001" } as unknown as D1Database;
     const provider = new MetaTableTenantDbProvider(
@@ -161,7 +161,7 @@ describe("MetaTableTenantDbProvider — caching + fallback", () => {
   });
 
   it("caches per-tenant — second resolve does not re-query control plane", async () => {
-    const { MetaTableTenantDbProvider } = await import("@open-managed-agents/tenant-db");
+    const { MetaTableTenantDbProvider } = await import("@duyet/oma-tenant-db");
     const auth = { __label: "AUTH_DB" } as unknown as D1Database;
     const db007 = { __label: "DB_007" } as unknown as D1Database;
     let queryCount = 0;
@@ -187,7 +187,7 @@ describe("MetaTableTenantDbProvider — caching + fallback", () => {
   });
 
   it("control-plane lookup failure falls back to defaultBinding (graceful degradation)", async () => {
-    const { MetaTableTenantDbProvider } = await import("@open-managed-agents/tenant-db");
+    const { MetaTableTenantDbProvider } = await import("@duyet/oma-tenant-db");
     const auth = { __label: "AUTH_DB" } as unknown as D1Database;
     const failingDb = {
       prepare: () => ({
@@ -208,7 +208,7 @@ describe("MetaTableTenantDbProvider — caching + fallback", () => {
   });
 
   it("throws when tenant_shard row references a binding that doesn't exist in env", async () => {
-    const { MetaTableTenantDbProvider } = await import("@open-managed-agents/tenant-db");
+    const { MetaTableTenantDbProvider } = await import("@duyet/oma-tenant-db");
     const auth = { __label: "AUTH_DB" } as unknown as D1Database;
     const provider = new MetaTableTenantDbProvider(
       { AUTH_DB: auth }, // no DB_999 binding

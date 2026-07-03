@@ -1,7 +1,7 @@
 import type { SandboxExecutor, ProcessHandle } from "../harness/interface";
-import type { Env } from "@open-managed-agents/shared";
+import type { Env } from "@duyet/oma-shared";
 import { getSandbox as cfGetSandbox } from "@cloudflare/sandbox";
-import { sessionOutputsPrefix } from "@open-managed-agents/shared";
+import { sessionOutputsPrefix } from "@duyet/oma-shared";
 // `bash-parser` is CJS; the bundler handles interop for worker builds.
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore

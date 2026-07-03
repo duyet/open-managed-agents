@@ -1,4 +1,4 @@
-// @open-managed-agents/tenant-db
+// @duyet/oma-tenant-db
 //
 // Abstraction for "given a tenant id, give me the D1 database that holds that
 // tenant's data".

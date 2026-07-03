@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/blob-store",
+  "name": "@duyet/oma-blob-store",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "./adapters/local-fs": "./src/adapters/local-fs.ts"
   },
   "dependencies": {
-    "@open-managed-agents/shared": "workspace:*"
+    "@duyet/oma-shared": "workspace:*"
   },
   "peerDependencies": {
     "@aws-sdk/client-s3": "^3.0.0"

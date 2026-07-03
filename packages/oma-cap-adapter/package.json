@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/oma-cap-adapter",
+  "name": "@duyet/oma-cap-adapter",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,9 +7,9 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@open-managed-agents/cap": "workspace:*",
-    "@open-managed-agents/credentials-store": "workspace:*",
-    "@open-managed-agents/sessions-store": "workspace:*",
-    "@open-managed-agents/shared": "workspace:*"
+    "@duyet/oma-cap": "workspace:*",
+    "@duyet/oma-credentials-store": "workspace:*",
+    "@duyet/oma-sessions-store": "workspace:*",
+    "@duyet/oma-shared": "workspace:*"
   }
 }

@@ -34,7 +34,7 @@ import {
 } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import type { ProcessHandle, SandboxExecutor, SandboxFactory } from "../ports";
-import { getLogger } from "@open-managed-agents/observability";
+import { getLogger } from "@duyet/oma-observability";
 
 const moduleLogger = getLogger("local-sandbox");
 

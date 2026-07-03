@@ -2,13 +2,13 @@
 //
 // Mirrors the structure of packages/github/src/test-fakes.ts. Lives in
 // this package because integrations-core can't depend on
-// @open-managed-agents/linear (one-way dependency).
+// @duyet/oma-linear (one-way dependency).
 
 import {
   buildFakeContainer,
   type FakeContainer,
 } from "../../integrations-core/src/test-fakes";
-import type { SessionId } from "@open-managed-agents/integrations-core";
+import type { SessionId } from "@duyet/oma-integrations-core";
 
 import type {
   LinearIssueSession,

@@ -4,8 +4,8 @@
 export { SqlDreamRepo } from "./sql-dream-repo";
 
 import { SqlDreamRepo } from "./sql-dream-repo";
-import { CfD1SqlClient } from "@open-managed-agents/sql-client/adapters/cf-d1";
-import type { SqlClient } from "@open-managed-agents/sql-client";
+import { CfD1SqlClient } from "@duyet/oma-sql-client/adapters/cf-d1";
+import type { SqlClient } from "@duyet/oma-sql-client";
 import { DreamService, type DreamServiceDeps } from "../service";
 
 type ExistenceDeps = Pick<

@@ -6,8 +6,8 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { github_publications } from "@open-managed-agents/db-schema/cf-integrations";
+} from "@duyet/oma-db-schema";
+import { github_publications } from "@duyet/oma-db-schema/cf-integrations";
 import type {
   CapabilityKey,
   CapabilitySet,
@@ -19,11 +19,11 @@ import type {
   PublicationMode,
   PublicationStatus,
   SessionGranularity,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 import type {
   GitHubPublicationCredentialState,
   GitHubPublicationRepo,
-} from "@open-managed-agents/github";
+} from "@duyet/oma-github";
 
 /**
  * SQL publication repo for GitHub. Implements both the base PublicationRepo

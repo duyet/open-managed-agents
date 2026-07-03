@@ -1,4 +1,4 @@
-# @open-managed-agents/services
+# @duyet/oma-services
 
 The single canonical surface for every platform-agnostic service in OMA.
 
@@ -17,7 +17,7 @@ Stores live in their own packages (`packages/<name>-store`); this package only w
 OMA started as a Cloudflare Workers app. Each route did:
 
 ```ts
-import { createCfXxxService } from "@open-managed-agents/xxx-store";
+import { createCfXxxService } from "@duyet/oma-xxx-store";
 
 app.post("/whatever", async (c) => {
   const service = createCfXxxService(c.env);
@@ -60,7 +60,7 @@ To swap deployment target = swap one factory call in `apps/main/src/index.ts`. R
 Top of `apps/main/src/index.ts`:
 
 ```ts
-import { servicesMiddleware } from "@open-managed-agents/services";
+import { servicesMiddleware } from "@duyet/oma-services";
 
 app.use("/v1/*", servicesMiddleware);
 ```
@@ -70,7 +70,7 @@ Then any route handler reads `c.var.services.X.method(...)`.
 Routes must declare the service-bearing variable in the Hono generic:
 
 ```ts
-import type { Services } from "@open-managed-agents/services";
+import type { Services } from "@duyet/oma-services";
 
 const app = new Hono<{
   Bindings: Env;
@@ -81,7 +81,7 @@ const app = new Hono<{
 ### 2. Outside Hono (DO classes, sandbox-default outbound, cron) — direct factory
 
 ```ts
-import { buildCfServices } from "@open-managed-agents/services";
+import { buildCfServices } from "@duyet/oma-services";
 
 class SessionDO {
   someMethod() {
@@ -98,10 +98,10 @@ Same `Services` type, same factory — just no Hono context.
 ```ts
 import {
   createInMemoryCredentialService,
-} from "@open-managed-agents/credentials-store/test-fakes";
+} from "@duyet/oma-credentials-store/test-fakes";
 import {
   createInMemoryMemoryStoreService,
-} from "@open-managed-agents/memory-store/test-fakes";
+} from "@duyet/oma-memory-store/test-fakes";
 
 const services: Services = {
   credentials: createInMemoryCredentialService().service,
@@ -119,7 +119,7 @@ When you add `packages/foo-store`:
 1. **Implement** the store package (port interface, in-memory fake, D1 adapter, factory function `createCfFooService(env)`)
 2. **Extend** `packages/services/src/index.ts`:
    ```ts
-   import { FooService, createCfFooService } from "@open-managed-agents/foo-store";
+   import { FooService, createCfFooService } from "@duyet/oma-foo-store";
 
    export interface Services {
      // ...existing
@@ -133,7 +133,7 @@ When you add `packages/foo-store`:
      };
    }
    ```
-3. **Bump** `apps/main/package.json` and `apps/agent/package.json` to depend on `@open-managed-agents/foo-store` (workspace:*)
+3. **Bump** `apps/main/package.json` and `apps/agent/package.json` to depend on `@duyet/oma-foo-store` (workspace:*)
 4. **Use it**: routes read `c.var.services.foo.method(...)`. No imports from `foo-store` needed in route files.
 
 That's it. No grep-and-replace across routes when you change deployment.

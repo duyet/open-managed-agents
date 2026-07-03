@@ -1,6 +1,6 @@
 import { generateText } from "ai";
 import type { ModelMessage, LanguageModel } from "ai";
-import type { ContentBlock, SessionEvent } from "@open-managed-agents/shared";
+import type { ContentBlock, SessionEvent } from "@duyet/oma-shared";
 import { eventsToMessages } from "../runtime/history";
 import type { HarnessRuntime } from "./interface";
 

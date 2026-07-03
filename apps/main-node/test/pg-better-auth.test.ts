@@ -9,14 +9,14 @@
 //   docker run --rm -p 54329:5432 -e POSTGRES_USER=oma -e POSTGRES_PASSWORD=oma \
 //     -e POSTGRES_DB=oma postgres:16-alpine
 //   PG_TEST_URL=postgres://oma:oma@127.0.0.1:54329/oma pnpm --filter \
-//     @open-managed-agents/main-node test pg-better-auth
+//     @duyet/oma-main-node test pg-better-auth
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { Hono } from "hono";
 import {
   createPostgresSqlClient,
   type SqlClient,
-} from "@open-managed-agents/sql-client";
+} from "@duyet/oma-sql-client";
 import { createAuth } from "../src/auth/config.js";
 import { ensureTenantSchema } from "../src/auth/tenants.js";
 

@@ -5,7 +5,7 @@ export interface ClientOptions {
   apiKey?: string;
   /** Browser cookie auth — for embedding the SDK in the Console UI. */
   bearer?: string;
-  /** Base URL of the openma deployment. Defaults to https://openma.dev. */
+  /** Base URL of the openma deployment. Defaults to https://oma.duyet.net. */
   baseUrl?: string;
   /** Override the User-Agent header. The default identifies as
    *  OpenManagedAgents-SDK; some hardened deployments (Cloudflare bot
@@ -44,13 +44,13 @@ export class Client {
     if (!opts.apiKey && !opts.bearer) {
       throw new TypeError("OpenMA: provide either `apiKey` or `bearer`");
     }
-    this.baseUrl = (opts.baseUrl ?? "https://openma.dev").replace(/\/+$/, "");
+    this.baseUrl = (opts.baseUrl ?? "https://oma.duyet.net").replace(/\/+$/, "");
     this.fetcher = opts.fetch ?? globalThis.fetch.bind(globalThis);
     this.maxRetries = opts.maxRetries ?? 3;
     this.maxRetryAfterSeconds = opts.maxRetryAfterSeconds ?? 30;
     this.headers = {
       "user-agent": opts.userAgent
-        ?? "Mozilla/5.0 (compatible; OpenManagedAgents-SDK/0.1; +https://openma.dev)",
+        ?? "Mozilla/5.0 (compatible; OpenManagedAgents-SDK/0.1; +https://oma.duyet.net)",
       ...(opts.apiKey ? { "x-api-key": opts.apiKey } : {}),
       ...(opts.bearer ? { authorization: `Bearer ${opts.bearer}` } : {}),
       ...(opts.activeTenantId ? { "x-active-tenant": opts.activeTenantId } : {}),

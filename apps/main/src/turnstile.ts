@@ -10,7 +10,7 @@
 // keeps dev/test working without a real CF site. Production should always
 // have the secret set; the middleware logs a warn when it bypasses.
 
-import { logWarn } from "@open-managed-agents/shared";
+import { logWarn } from "@duyet/oma-shared";
 
 interface SiteVerifyResponse {
   success: boolean;

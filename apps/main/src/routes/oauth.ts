@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import type { Env } from "@open-managed-agents/shared";
-import { logWarn } from "@open-managed-agents/shared";
-import type { CredentialAuth } from "@open-managed-agents/shared";
-import type { Services } from "@open-managed-agents/services";
+import type { Env } from "@duyet/oma-shared";
+import { logWarn } from "@duyet/oma-shared";
+import type { CredentialAuth } from "@duyet/oma-shared";
+import type { Services } from "@duyet/oma-services";
 
 const app = new Hono<{
   Bindings: Env;
@@ -651,7 +651,7 @@ app.get("/callback", async (c) => {
   //      it uses same-origin browser bus, not the popup→parent reference.
   //      Required for Sentry (COOP: same-origin), GitHub etc., effectively
   //      anything large enough to set COOP defensively. Both popup and
-  //      parent are same-origin (app.openma.dev / app.staging.openma.dev),
+  //      parent are same-origin (app.oma.duyet.net / app.staging.oma.duyet.net),
   //      so the channel is delivered.
   //
   // We always try both, then close. The fallback `location.href` only fires

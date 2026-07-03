@@ -16,8 +16,8 @@
 // We deliberately avoid microdata / RDFa — JSON-LD is what Google
 // recommends and it doesn't pollute the rendered HTML.
 
-const SITE_URL = "https://openma.dev";
-const REPO_URL = "https://github.com/openma-ai/open-managed-agents";
+const SITE_URL = "https://oma.duyet.net";
+const REPO_URL = "https://github.com/duyet/oma";
 const ORG_NAME = "Open Managed Agents";
 // Google's Organization.logo policy rejects SVG — Schema.org logo must
 // be a raster format (PNG/JPG/GIF). The /logo.png file is rsvg-rendered

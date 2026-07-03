@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/vault-forward",
+  "name": "@duyet/oma-vault-forward",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,8 +10,8 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@open-managed-agents/shared": "workspace:*",
-    "@open-managed-agents/credentials-store": "workspace:*"
+    "@duyet/oma-shared": "workspace:*",
+    "@duyet/oma-credentials-store": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.3"

@@ -1,5 +1,5 @@
-import { createPostgresSqlClient } from "@open-managed-agents/sql-client";
-import { ensureSchema, SqlEventLog } from "@open-managed-agents/event-log/sql";
+import { createPostgresSqlClient } from "@duyet/oma-sql-client";
+import { ensureSchema, SqlEventLog } from "@duyet/oma-event-log/sql";
 import { PgEventStreamHub } from "../src/lib/pg-event-stream-hub.js";
 
 const dsn = process.env.PG_TEST_URL;

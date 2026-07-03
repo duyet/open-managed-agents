@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/vaults-store",
+  "name": "@duyet/oma-vaults-store",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,9 +8,9 @@
     "./test-fakes": "./src/test-fakes.ts"
   },
   "dependencies": {
-    "@open-managed-agents/db-schema": "workspace:*",
-    "@open-managed-agents/shared": "workspace:*",
-    "@open-managed-agents/sql-client": "workspace:*",
+    "@duyet/oma-db-schema": "workspace:*",
+    "@duyet/oma-shared": "workspace:*",
+    "@duyet/oma-sql-client": "workspace:*",
     "drizzle-orm": "^0.45.2"
   }
 }

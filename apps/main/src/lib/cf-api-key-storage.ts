@@ -3,12 +3,12 @@
 // api-keys.ts (sha256 hash key + per-tenant index). Matches what
 // auth.ts already reads for x-api-key resolution.
 
-import type { KvStore } from "@open-managed-agents/kv-store";
+import type { KvStore } from "@duyet/oma-kv-store";
 import type {
   ApiKeyMeta,
   ApiKeyRecord,
   ApiKeyStorage,
-} from "@open-managed-agents/http-routes";
+} from "@duyet/oma-http-routes";
 
 interface IndexEntry {
   id: string;

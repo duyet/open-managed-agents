@@ -38,7 +38,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { registerHarness } from "../../apps/agent/src/harness/registry";
 import type { HarnessInterface, HarnessContext } from "../../apps/agent/src/harness/interface";
 import { SqliteHistory } from "../../apps/agent/src/runtime/history";
-import { ensureSchema as ensureEventLogSchema } from "@open-managed-agents/event-log/cf-do";
+import { ensureSchema as ensureEventLogSchema } from "@duyet/oma-event-log/cf-do";
 
 class NoopHarness implements HarnessInterface {
   async run(_ctx: HarnessContext): Promise<void> { /* no LLM */ }

@@ -26,10 +26,10 @@
 // as opaque storage of actor metadata, same as chokidar.
 
 import { createHash } from "node:crypto";
-import { generateMemoryVersionId } from "@open-managed-agents/shared";
-import { getLogger } from "@open-managed-agents/observability";
-import type { MemoryRepo } from "@open-managed-agents/memory-store";
-import type { SqlClient } from "@open-managed-agents/sql-client";
+import { generateMemoryVersionId } from "@duyet/oma-shared";
+import { getLogger } from "@duyet/oma-observability";
+import type { MemoryRepo } from "@duyet/oma-memory-store";
+import type { SqlClient } from "@duyet/oma-sql-client";
 
 const log = getLogger("s3-memory-poller");
 

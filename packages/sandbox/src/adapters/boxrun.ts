@@ -39,7 +39,7 @@
 // POST /exec auto-starts the VM if needed. Cached `boxId` per-instance.
 
 import type { SandboxExecutor, SandboxFactory } from "../ports";
-import { getLogger } from "@open-managed-agents/observability";
+import { getLogger } from "@duyet/oma-observability";
 
 const moduleLogger = getLogger("boxrun-sandbox");
 

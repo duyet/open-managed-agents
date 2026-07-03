@@ -16,8 +16,8 @@
 // test that actually constructs the pg instance.
 
 import { describe, it, expect } from "vitest";
-import { buildCfServices } from "@open-managed-agents/services";
-import type { Env } from "@open-managed-agents/shared";
+import { buildCfServices } from "@duyet/oma-services";
+import type { Env } from "@duyet/oma-shared";
 
 const fakeDb = { __fake: "db" } as unknown as D1Database;
 

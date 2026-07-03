@@ -90,72 +90,72 @@ importers:
       '@cloudflare/sandbox':
         specifier: ^0.9.1
         version: 0.9.1
+      '@duyet/oma-agents-store':
+        specifier: workspace:*
+        version: link:../../packages/agents-store
+      '@duyet/oma-api-types':
+        specifier: workspace:*
+        version: link:../../packages/api-types
+      '@duyet/oma-browser-harness':
+        specifier: workspace:*
+        version: link:../../packages/browser-harness
+      '@duyet/oma-cap':
+        specifier: workspace:*
+        version: link:../../packages/cap
+      '@duyet/oma-credentials-store':
+        specifier: workspace:*
+        version: link:../../packages/credentials-store
+      '@duyet/oma-environments-store':
+        specifier: workspace:*
+        version: link:../../packages/environments-store
+      '@duyet/oma-event-log':
+        specifier: workspace:*
+        version: link:../../packages/event-log
+      '@duyet/oma-files-store':
+        specifier: workspace:*
+        version: link:../../packages/files-store
+      '@duyet/oma-markdown':
+        specifier: workspace:*
+        version: link:../../packages/markdown
+      '@duyet/oma-memory-store':
+        specifier: workspace:*
+        version: link:../../packages/memory-store
+      '@duyet/oma-model-cards-store':
+        specifier: workspace:*
+        version: link:../../packages/model-cards-store
+      '@duyet/oma-outbound-snapshots-store':
+        specifier: workspace:*
+        version: link:../../packages/outbound-snapshots-store
+      '@duyet/oma-sandbox':
+        specifier: workspace:*
+        version: link:../../packages/sandbox
+      '@duyet/oma-services':
+        specifier: workspace:*
+        version: link:../../packages/services
+      '@duyet/oma-session-runtime':
+        specifier: workspace:*
+        version: link:../../packages/session-runtime
+      '@duyet/oma-session-secrets-store':
+        specifier: workspace:*
+        version: link:../../packages/session-secrets-store
+      '@duyet/oma-sessions-store':
+        specifier: workspace:*
+        version: link:../../packages/sessions-store
+      '@duyet/oma-shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@duyet/oma-sql-client':
+        specifier: workspace:*
+        version: link:../../packages/sql-client
+      '@duyet/oma-vaults-store':
+        specifier: workspace:*
+        version: link:../../packages/vaults-store
       '@flue/runtime':
         specifier: 1.0.0-beta.8
         version: 1.0.0-beta.8(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(typebox@1.1.38)(typescript@5.9.3)(ws@8.20.0)(zod-to-json-schema@3.25.2(zod@4.3.6))(zod@4.3.6)
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.3.6)
-      '@open-managed-agents/agents-store':
-        specifier: workspace:*
-        version: link:../../packages/agents-store
-      '@open-managed-agents/api-types':
-        specifier: workspace:*
-        version: link:../../packages/api-types
-      '@open-managed-agents/browser-harness':
-        specifier: workspace:*
-        version: link:../../packages/browser-harness
-      '@open-managed-agents/cap':
-        specifier: workspace:*
-        version: link:../../packages/cap
-      '@open-managed-agents/credentials-store':
-        specifier: workspace:*
-        version: link:../../packages/credentials-store
-      '@open-managed-agents/environments-store':
-        specifier: workspace:*
-        version: link:../../packages/environments-store
-      '@open-managed-agents/event-log':
-        specifier: workspace:*
-        version: link:../../packages/event-log
-      '@open-managed-agents/files-store':
-        specifier: workspace:*
-        version: link:../../packages/files-store
-      '@open-managed-agents/markdown':
-        specifier: workspace:*
-        version: link:../../packages/markdown
-      '@open-managed-agents/memory-store':
-        specifier: workspace:*
-        version: link:../../packages/memory-store
-      '@open-managed-agents/model-cards-store':
-        specifier: workspace:*
-        version: link:../../packages/model-cards-store
-      '@open-managed-agents/outbound-snapshots-store':
-        specifier: workspace:*
-        version: link:../../packages/outbound-snapshots-store
-      '@open-managed-agents/sandbox':
-        specifier: workspace:*
-        version: link:../../packages/sandbox
-      '@open-managed-agents/services':
-        specifier: workspace:*
-        version: link:../../packages/services
-      '@open-managed-agents/session-runtime':
-        specifier: workspace:*
-        version: link:../../packages/session-runtime
-      '@open-managed-agents/session-secrets-store':
-        specifier: workspace:*
-        version: link:../../packages/session-secrets-store
-      '@open-managed-agents/sessions-store':
-        specifier: workspace:*
-        version: link:../../packages/sessions-store
-      '@open-managed-agents/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
-      '@open-managed-agents/sql-client':
-        specifier: workspace:*
-        version: link:../../packages/sql-client
-      '@open-managed-agents/vaults-store':
-        specifier: workspace:*
-        version: link:../../packages/vaults-store
       ai:
         specifier: ^6.0.158
         version: 6.0.158(zod@4.3.6)
@@ -184,6 +184,15 @@ importers:
       '@ai-sdk/react':
         specifier: ^3.0.184
         version: 3.0.184(react@19.2.5)(zod@4.4.3)
+      '@duyet/oma-acp-runtime':
+        specifier: workspace:*
+        version: link:../../packages/acp-runtime
+      '@duyet/oma-api-types':
+        specifier: workspace:*
+        version: link:../../packages/api-types
+      '@duyet/oma-integrations-core':
+        specifier: workspace:*
+        version: link:../../packages/integrations-core
       '@fontsource-variable/geist':
         specifier: ^5.2.8
         version: 5.2.8
@@ -193,15 +202,6 @@ importers:
       '@hookform/resolvers':
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.75.0(react@19.2.5))
-      '@open-managed-agents/acp-runtime':
-        specifier: workspace:*
-        version: link:../../packages/acp-runtime
-      '@open-managed-agents/api-types':
-        specifier: workspace:*
-        version: link:../../packages/api-types
-      '@open-managed-agents/integrations-core':
-        specifier: workspace:*
-        version: link:../../packages/integrations-core
       '@radix-ui/react-collapsible':
         specifier: ^1.1.12
         version: 1.1.12(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -396,37 +396,37 @@ importers:
 
   apps/integrations:
     dependencies:
-      '@open-managed-agents/github':
+      '@duyet/oma-github':
         specifier: workspace:*
         version: link:../../packages/github
-      '@open-managed-agents/http-routes':
+      '@duyet/oma-http-routes':
         specifier: workspace:*
         version: link:../../packages/http-routes
-      '@open-managed-agents/integrations-adapters-cf':
+      '@duyet/oma-integrations-adapters-cf':
         specifier: workspace:*
         version: link:../../packages/integrations-adapters-cf
-      '@open-managed-agents/integrations-core':
+      '@duyet/oma-integrations-core':
         specifier: workspace:*
         version: link:../../packages/integrations-core
-      '@open-managed-agents/linear':
+      '@duyet/oma-linear':
         specifier: workspace:*
         version: link:../../packages/linear
-      '@open-managed-agents/observability':
+      '@duyet/oma-observability':
         specifier: workspace:*
         version: link:../../packages/observability
-      '@open-managed-agents/scheduler':
+      '@duyet/oma-scheduler':
         specifier: workspace:*
         version: link:../../packages/scheduler
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@open-managed-agents/slack':
+      '@duyet/oma-slack':
         specifier: workspace:*
         version: link:../../packages/slack
-      '@open-managed-agents/tenant-db':
+      '@duyet/oma-tenant-db':
         specifier: workspace:*
         version: link:../../packages/tenant-db
-      '@open-managed-agents/tenant-dbs-store':
+      '@duyet/oma-tenant-dbs-store':
         specifier: workspace:*
         version: link:../../packages/tenant-dbs-store
       hono:
@@ -441,97 +441,97 @@ importers:
       '@cloudflare/sandbox':
         specifier: ^0.9.1
         version: 0.9.1
-      '@open-managed-agents/acp-runtime':
+      '@duyet/oma-acp-runtime':
         specifier: workspace:*
         version: link:../../packages/acp-runtime
-      '@open-managed-agents/agents-store':
+      '@duyet/oma-agents-store':
         specifier: workspace:*
         version: link:../../packages/agents-store
-      '@open-managed-agents/blob-store':
+      '@duyet/oma-blob-store':
         specifier: workspace:*
         version: link:../../packages/blob-store
-      '@open-managed-agents/cap':
+      '@duyet/oma-cap':
         specifier: workspace:*
         version: link:../../packages/cap
-      '@open-managed-agents/cf-billing':
+      '@duyet/oma-cf-billing':
         specifier: workspace:*
         version: link:../../packages/cf-billing
-      '@open-managed-agents/credentials-store':
+      '@duyet/oma-credentials-store':
         specifier: workspace:*
         version: link:../../packages/credentials-store
-      '@open-managed-agents/dreams-pipeline':
+      '@duyet/oma-dreams-pipeline':
         specifier: workspace:*
         version: link:../../packages/dreams-pipeline
-      '@open-managed-agents/dreams-store':
+      '@duyet/oma-dreams-store':
         specifier: workspace:*
         version: link:../../packages/dreams-store
-      '@open-managed-agents/environments-store':
+      '@duyet/oma-environments-store':
         specifier: workspace:*
         version: link:../../packages/environments-store
-      '@open-managed-agents/evals-runner':
+      '@duyet/oma-evals-runner':
         specifier: workspace:*
         version: link:../../packages/evals-runner
-      '@open-managed-agents/evals-store':
+      '@duyet/oma-evals-store':
         specifier: workspace:*
         version: link:../../packages/evals-store
-      '@open-managed-agents/files-store':
+      '@duyet/oma-files-store':
         specifier: workspace:*
         version: link:../../packages/files-store
-      '@open-managed-agents/http-routes':
+      '@duyet/oma-http-routes':
         specifier: workspace:*
         version: link:../../packages/http-routes
-      '@open-managed-agents/integrations-adapters-cf':
+      '@duyet/oma-integrations-adapters-cf':
         specifier: workspace:*
         version: link:../../packages/integrations-adapters-cf
-      '@open-managed-agents/integrations-core':
+      '@duyet/oma-integrations-core':
         specifier: workspace:*
         version: link:../../packages/integrations-core
-      '@open-managed-agents/kv-store':
+      '@duyet/oma-kv-store':
         specifier: workspace:*
         version: link:../../packages/kv-store
-      '@open-managed-agents/memory-store':
+      '@duyet/oma-memory-store':
         specifier: workspace:*
         version: link:../../packages/memory-store
-      '@open-managed-agents/model-cards-store':
+      '@duyet/oma-model-cards-store':
         specifier: workspace:*
         version: link:../../packages/model-cards-store
-      '@open-managed-agents/observability':
+      '@duyet/oma-observability':
         specifier: workspace:*
         version: link:../../packages/observability
-      '@open-managed-agents/outbound-snapshots-store':
+      '@duyet/oma-outbound-snapshots-store':
         specifier: workspace:*
         version: link:../../packages/outbound-snapshots-store
-      '@open-managed-agents/queue':
+      '@duyet/oma-queue':
         specifier: workspace:*
         version: link:../../packages/queue
-      '@open-managed-agents/scheduler':
+      '@duyet/oma-scheduler':
         specifier: workspace:*
         version: link:../../packages/scheduler
-      '@open-managed-agents/services':
+      '@duyet/oma-services':
         specifier: workspace:*
         version: link:../../packages/services
-      '@open-managed-agents/session-runtime':
+      '@duyet/oma-session-runtime':
         specifier: workspace:*
         version: link:../../packages/session-runtime
-      '@open-managed-agents/session-secrets-store':
+      '@duyet/oma-session-secrets-store':
         specifier: workspace:*
         version: link:../../packages/session-secrets-store
-      '@open-managed-agents/sessions-store':
+      '@duyet/oma-sessions-store':
         specifier: workspace:*
         version: link:../../packages/sessions-store
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@open-managed-agents/sql-client':
+      '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../../packages/sql-client
-      '@open-managed-agents/tenant-db':
+      '@duyet/oma-tenant-db':
         specifier: workspace:*
         version: link:../../packages/tenant-db
-      '@open-managed-agents/tenant-dbs-store':
+      '@duyet/oma-tenant-dbs-store':
         specifier: workspace:*
         version: link:../../packages/tenant-dbs-store
-      '@open-managed-agents/vaults-store':
+      '@duyet/oma-vaults-store':
         specifier: workspace:*
         version: link:../../packages/vaults-store
       fflate:
@@ -549,129 +549,129 @@ importers:
       '@boxlite-ai/boxlite':
         specifier: ^0.9.3
         version: 0.9.3(playwright-core@1.59.1)
+      '@duyet/oma-agent':
+        specifier: workspace:*
+        version: link:../agent
+      '@duyet/oma-agents-store':
+        specifier: workspace:*
+        version: link:../../packages/agents-store
+      '@duyet/oma-anyrouter':
+        specifier: workspace:*
+        version: link:../../packages/anyrouter
+      '@duyet/oma-api-types':
+        specifier: workspace:*
+        version: link:../../packages/api-types
+      '@duyet/oma-auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@duyet/oma-auth-config':
+        specifier: workspace:*
+        version: link:../../packages/auth-config
+      '@duyet/oma-blob-store':
+        specifier: workspace:*
+        version: link:../../packages/blob-store
+      '@duyet/oma-browser-harness':
+        specifier: workspace:*
+        version: link:../../packages/browser-harness
+      '@duyet/oma-cap-adapter':
+        specifier: workspace:*
+        version: link:../../packages/oma-cap-adapter
+      '@duyet/oma-credentials-store':
+        specifier: workspace:*
+        version: link:../../packages/credentials-store
+      '@duyet/oma-db-schema':
+        specifier: workspace:*
+        version: link:../../packages/db-schema
+      '@duyet/oma-dreams-store':
+        specifier: workspace:*
+        version: link:../../packages/dreams-store
+      '@duyet/oma-email':
+        specifier: workspace:*
+        version: link:../../packages/email
+      '@duyet/oma-environments-store':
+        specifier: workspace:*
+        version: link:../../packages/environments-store
+      '@duyet/oma-evals-runner':
+        specifier: workspace:*
+        version: link:../../packages/evals-runner
+      '@duyet/oma-evals-store':
+        specifier: workspace:*
+        version: link:../../packages/evals-store
+      '@duyet/oma-event-log':
+        specifier: workspace:*
+        version: link:../../packages/event-log
+      '@duyet/oma-files-store':
+        specifier: workspace:*
+        version: link:../../packages/files-store
+      '@duyet/oma-github':
+        specifier: workspace:*
+        version: link:../../packages/github
+      '@duyet/oma-http-routes':
+        specifier: workspace:*
+        version: link:../../packages/http-routes
+      '@duyet/oma-integrations-adapters-node':
+        specifier: workspace:*
+        version: link:../../packages/integrations-adapters-node
+      '@duyet/oma-integrations-core':
+        specifier: workspace:*
+        version: link:../../packages/integrations-core
+      '@duyet/oma-kv-store':
+        specifier: workspace:*
+        version: link:../../packages/kv-store
+      '@duyet/oma-linear':
+        specifier: workspace:*
+        version: link:../../packages/linear
+      '@duyet/oma-markdown':
+        specifier: workspace:*
+        version: link:../../packages/markdown
+      '@duyet/oma-memory-store':
+        specifier: workspace:*
+        version: link:../../packages/memory-store
+      '@duyet/oma-observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@duyet/oma-queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
+      '@duyet/oma-quotas':
+        specifier: workspace:*
+        version: link:../../packages/quotas
+      '@duyet/oma-rate-limit':
+        specifier: workspace:*
+        version: link:../../packages/rate-limit
+      '@duyet/oma-sandbox':
+        specifier: workspace:*
+        version: link:../../packages/sandbox
+      '@duyet/oma-scheduler':
+        specifier: workspace:*
+        version: link:../../packages/scheduler
+      '@duyet/oma-schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+      '@duyet/oma-session-runtime':
+        specifier: workspace:*
+        version: link:../../packages/session-runtime
+      '@duyet/oma-sessions-store':
+        specifier: workspace:*
+        version: link:../../packages/sessions-store
+      '@duyet/oma-shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@duyet/oma-slack':
+        specifier: workspace:*
+        version: link:../../packages/slack
+      '@duyet/oma-sql-client':
+        specifier: workspace:*
+        version: link:../../packages/sql-client
+      '@duyet/oma-vault-forward':
+        specifier: workspace:*
+        version: link:../../packages/vault-forward
+      '@duyet/oma-vaults-store':
+        specifier: workspace:*
+        version: link:../../packages/vaults-store
       '@hono/node-server':
         specifier: ^1.13.0
         version: 1.19.14(hono@4.12.12)
-      '@open-managed-agents/agent':
-        specifier: workspace:*
-        version: link:../agent
-      '@open-managed-agents/agents-store':
-        specifier: workspace:*
-        version: link:../../packages/agents-store
-      '@open-managed-agents/anyrouter':
-        specifier: workspace:*
-        version: link:../../packages/anyrouter
-      '@open-managed-agents/api-types':
-        specifier: workspace:*
-        version: link:../../packages/api-types
-      '@open-managed-agents/auth':
-        specifier: workspace:*
-        version: link:../../packages/auth
-      '@open-managed-agents/auth-config':
-        specifier: workspace:*
-        version: link:../../packages/auth-config
-      '@open-managed-agents/blob-store':
-        specifier: workspace:*
-        version: link:../../packages/blob-store
-      '@open-managed-agents/browser-harness':
-        specifier: workspace:*
-        version: link:../../packages/browser-harness
-      '@open-managed-agents/credentials-store':
-        specifier: workspace:*
-        version: link:../../packages/credentials-store
-      '@open-managed-agents/db-schema':
-        specifier: workspace:*
-        version: link:../../packages/db-schema
-      '@open-managed-agents/dreams-store':
-        specifier: workspace:*
-        version: link:../../packages/dreams-store
-      '@open-managed-agents/email':
-        specifier: workspace:*
-        version: link:../../packages/email
-      '@open-managed-agents/environments-store':
-        specifier: workspace:*
-        version: link:../../packages/environments-store
-      '@open-managed-agents/evals-runner':
-        specifier: workspace:*
-        version: link:../../packages/evals-runner
-      '@open-managed-agents/evals-store':
-        specifier: workspace:*
-        version: link:../../packages/evals-store
-      '@open-managed-agents/event-log':
-        specifier: workspace:*
-        version: link:../../packages/event-log
-      '@open-managed-agents/files-store':
-        specifier: workspace:*
-        version: link:../../packages/files-store
-      '@open-managed-agents/github':
-        specifier: workspace:*
-        version: link:../../packages/github
-      '@open-managed-agents/http-routes':
-        specifier: workspace:*
-        version: link:../../packages/http-routes
-      '@open-managed-agents/integrations-adapters-node':
-        specifier: workspace:*
-        version: link:../../packages/integrations-adapters-node
-      '@open-managed-agents/integrations-core':
-        specifier: workspace:*
-        version: link:../../packages/integrations-core
-      '@open-managed-agents/kv-store':
-        specifier: workspace:*
-        version: link:../../packages/kv-store
-      '@open-managed-agents/linear':
-        specifier: workspace:*
-        version: link:../../packages/linear
-      '@open-managed-agents/markdown':
-        specifier: workspace:*
-        version: link:../../packages/markdown
-      '@open-managed-agents/memory-store':
-        specifier: workspace:*
-        version: link:../../packages/memory-store
-      '@open-managed-agents/observability':
-        specifier: workspace:*
-        version: link:../../packages/observability
-      '@open-managed-agents/oma-cap-adapter':
-        specifier: workspace:*
-        version: link:../../packages/oma-cap-adapter
-      '@open-managed-agents/queue':
-        specifier: workspace:*
-        version: link:../../packages/queue
-      '@open-managed-agents/quotas':
-        specifier: workspace:*
-        version: link:../../packages/quotas
-      '@open-managed-agents/rate-limit':
-        specifier: workspace:*
-        version: link:../../packages/rate-limit
-      '@open-managed-agents/sandbox':
-        specifier: workspace:*
-        version: link:../../packages/sandbox
-      '@open-managed-agents/scheduler':
-        specifier: workspace:*
-        version: link:../../packages/scheduler
-      '@open-managed-agents/schema':
-        specifier: workspace:*
-        version: link:../../packages/schema
-      '@open-managed-agents/session-runtime':
-        specifier: workspace:*
-        version: link:../../packages/session-runtime
-      '@open-managed-agents/sessions-store':
-        specifier: workspace:*
-        version: link:../../packages/sessions-store
-      '@open-managed-agents/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
-      '@open-managed-agents/slack':
-        specifier: workspace:*
-        version: link:../../packages/slack
-      '@open-managed-agents/sql-client':
-        specifier: workspace:*
-        version: link:../../packages/sql-client
-      '@open-managed-agents/vault-forward':
-        specifier: workspace:*
-        version: link:../../packages/vault-forward
-      '@open-managed-agents/vaults-store':
-        specifier: workspace:*
-        version: link:../../packages/vaults-store
       ai:
         specifier: ^6.0.158
         version: 6.0.158(zod@4.4.3)
@@ -730,13 +730,13 @@ importers:
 
   apps/oma-vault:
     dependencies:
-      '@open-managed-agents/observability':
+      '@duyet/oma-observability':
         specifier: workspace:*
         version: link:../../packages/observability
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@open-managed-agents/sql-client':
+      '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../../packages/sql-client
       better-sqlite3:
@@ -808,13 +808,13 @@ importers:
 
   packages/agents-store:
     dependencies:
-      '@open-managed-agents/db-schema':
+      '@duyet/oma-db-schema':
         specifier: workspace:*
         version: link:../db-schema
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
-      '@open-managed-agents/sql-client':
+      '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../sql-client
       drizzle-orm:
@@ -833,10 +833,10 @@ importers:
 
   packages/auth-config:
     dependencies:
-      '@open-managed-agents/email':
+      '@duyet/oma-email':
         specifier: workspace:*
         version: link:../email
-      '@open-managed-agents/sql-client':
+      '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../sql-client
       better-auth:
@@ -848,7 +848,7 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.0.0
         version: 3.1044.0
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
 
@@ -884,15 +884,15 @@ importers:
       '@agentclientprotocol/sdk':
         specifier: ^0.20.0
         version: 0.20.0(zod@4.4.3)
+      '@duyet/oma-acp-runtime':
+        specifier: workspace:*
+        version: link:../acp-runtime
+      '@duyet/oma-api-types':
+        specifier: workspace:*
+        version: link:../api-types
       '@inquirer/checkbox':
         specifier: ^5.1.4
         version: 5.1.4(@types/node@22.19.17)
-      '@open-managed-agents/acp-runtime':
-        specifier: workspace:*
-        version: link:../acp-runtime
-      '@open-managed-agents/api-types':
-        specifier: workspace:*
-        version: link:../api-types
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.17
@@ -914,10 +914,10 @@ importers:
 
   packages/credentials-store:
     dependencies:
-      '@open-managed-agents/db-schema':
+      '@duyet/oma-db-schema':
         specifier: workspace:*
         version: link:../db-schema
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
       drizzle-orm:
@@ -944,43 +944,43 @@ importers:
 
   packages/dreams-pipeline:
     dependencies:
-      '@open-managed-agents/dreams-store':
+      '@duyet/oma-dreams-store':
         specifier: workspace:*
         version: link:../dreams-store
-      '@open-managed-agents/memory-store':
+      '@duyet/oma-memory-store':
         specifier: workspace:*
         version: link:../memory-store
-      '@open-managed-agents/sessions-store':
+      '@duyet/oma-sessions-store':
         specifier: workspace:*
         version: link:../sessions-store
 
   packages/dreams-store:
     dependencies:
-      '@open-managed-agents/memory-store':
+      '@duyet/oma-memory-store':
         specifier: workspace:*
         version: link:../memory-store
-      '@open-managed-agents/sessions-store':
+      '@duyet/oma-sessions-store':
         specifier: workspace:*
         version: link:../sessions-store
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
-      '@open-managed-agents/sql-client':
+      '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../sql-client
 
   packages/email:
     dependencies:
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
 
   packages/environments-store:
     dependencies:
-      '@open-managed-agents/db-schema':
+      '@duyet/oma-db-schema':
         specifier: workspace:*
         version: link:../db-schema
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
       drizzle-orm:
@@ -989,7 +989,7 @@ importers:
 
   packages/eval-core:
     dependencies:
-      '@open-managed-agents/api-types':
+      '@duyet/oma-api-types':
         specifier: workspace:*
         version: link:../api-types
       nanoid:
@@ -998,31 +998,31 @@ importers:
 
   packages/evals-runner:
     dependencies:
-      '@open-managed-agents/agents-store':
+      '@duyet/oma-agents-store':
         specifier: workspace:*
         version: link:../agents-store
-      '@open-managed-agents/environments-store':
+      '@duyet/oma-environments-store':
         specifier: workspace:*
         version: link:../environments-store
-      '@open-managed-agents/evals-store':
+      '@duyet/oma-evals-store':
         specifier: workspace:*
         version: link:../evals-store
-      '@open-managed-agents/kv-store':
+      '@duyet/oma-kv-store':
         specifier: workspace:*
         version: link:../kv-store
-      '@open-managed-agents/sessions-store':
+      '@duyet/oma-sessions-store':
         specifier: workspace:*
         version: link:../sessions-store
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
 
   packages/evals-store:
     dependencies:
-      '@open-managed-agents/db-schema':
+      '@duyet/oma-db-schema':
         specifier: workspace:*
         version: link:../db-schema
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
       drizzle-orm:
@@ -1031,19 +1031,19 @@ importers:
 
   packages/event-log:
     dependencies:
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
-      '@open-managed-agents/sql-client':
+      '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../sql-client
 
   packages/files-store:
     dependencies:
-      '@open-managed-agents/db-schema':
+      '@duyet/oma-db-schema':
         specifier: workspace:*
         version: link:../db-schema
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
       drizzle-orm:
@@ -1052,79 +1052,79 @@ importers:
 
   packages/github:
     dependencies:
-      '@open-managed-agents/integrations-core':
+      '@duyet/oma-integrations-core':
         specifier: workspace:*
         version: link:../integrations-core
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
 
   packages/http-routes:
     dependencies:
-      '@open-managed-agents/agents-store':
+      '@duyet/oma-agents-store':
         specifier: workspace:*
         version: link:../agents-store
-      '@open-managed-agents/anyrouter':
+      '@duyet/oma-anyrouter':
         specifier: workspace:*
         version: link:../anyrouter
-      '@open-managed-agents/api-types':
+      '@duyet/oma-api-types':
         specifier: workspace:*
         version: link:../api-types
-      '@open-managed-agents/blob-store':
+      '@duyet/oma-blob-store':
         specifier: workspace:*
         version: link:../blob-store
-      '@open-managed-agents/browser-harness':
+      '@duyet/oma-browser-harness':
         specifier: workspace:*
         version: link:../browser-harness
-      '@open-managed-agents/credentials-store':
+      '@duyet/oma-credentials-store':
         specifier: workspace:*
         version: link:../credentials-store
-      '@open-managed-agents/dreams-pipeline':
+      '@duyet/oma-dreams-pipeline':
         specifier: workspace:*
         version: link:../dreams-pipeline
-      '@open-managed-agents/dreams-store':
+      '@duyet/oma-dreams-store':
         specifier: workspace:*
         version: link:../dreams-store
-      '@open-managed-agents/environments-store':
+      '@duyet/oma-environments-store':
         specifier: workspace:*
         version: link:../environments-store
-      '@open-managed-agents/evals-store':
+      '@duyet/oma-evals-store':
         specifier: workspace:*
         version: link:../evals-store
-      '@open-managed-agents/event-log':
+      '@duyet/oma-event-log':
         specifier: workspace:*
         version: link:../event-log
-      '@open-managed-agents/integrations-core':
+      '@duyet/oma-integrations-core':
         specifier: workspace:*
         version: link:../integrations-core
-      '@open-managed-agents/kv-store':
+      '@duyet/oma-kv-store':
         specifier: workspace:*
         version: link:../kv-store
-      '@open-managed-agents/memory-store':
+      '@duyet/oma-memory-store':
         specifier: workspace:*
         version: link:../memory-store
-      '@open-managed-agents/observability':
+      '@duyet/oma-observability':
         specifier: workspace:*
         version: link:../observability
-      '@open-managed-agents/quotas':
+      '@duyet/oma-quotas':
         specifier: workspace:*
         version: link:../quotas
-      '@open-managed-agents/session-runtime':
+      '@duyet/oma-session-runtime':
         specifier: workspace:*
         version: link:../session-runtime
-      '@open-managed-agents/sessions-store':
+      '@duyet/oma-sessions-store':
         specifier: workspace:*
         version: link:../sessions-store
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
-      '@open-managed-agents/sql-client':
+      '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../sql-client
-      '@open-managed-agents/vault-forward':
+      '@duyet/oma-vault-forward':
         specifier: workspace:*
         version: link:../vault-forward
-      '@open-managed-agents/vaults-store':
+      '@duyet/oma-vaults-store':
         specifier: workspace:*
         version: link:../vaults-store
       hono:
@@ -1136,22 +1136,22 @@ importers:
 
   packages/integrations-adapters-cf:
     dependencies:
-      '@open-managed-agents/db-schema':
+      '@duyet/oma-db-schema':
         specifier: workspace:*
         version: link:../db-schema
-      '@open-managed-agents/github':
+      '@duyet/oma-github':
         specifier: workspace:*
         version: link:../github
-      '@open-managed-agents/integrations-core':
+      '@duyet/oma-integrations-core':
         specifier: workspace:*
         version: link:../integrations-core
-      '@open-managed-agents/linear':
+      '@duyet/oma-linear':
         specifier: workspace:*
         version: link:../linear
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
-      '@open-managed-agents/slack':
+      '@duyet/oma-slack':
         specifier: workspace:*
         version: link:../slack
       drizzle-orm:
@@ -1160,32 +1160,32 @@ importers:
 
   packages/integrations-adapters-node:
     dependencies:
-      '@open-managed-agents/db-schema':
+      '@duyet/oma-db-schema':
         specifier: workspace:*
         version: link:../db-schema
-      '@open-managed-agents/github':
+      '@duyet/oma-github':
         specifier: workspace:*
         version: link:../github
-      '@open-managed-agents/integrations-adapters-cf':
+      '@duyet/oma-integrations-adapters-cf':
         specifier: workspace:*
         version: link:../integrations-adapters-cf
-      '@open-managed-agents/integrations-core':
+      '@duyet/oma-integrations-core':
         specifier: workspace:*
         version: link:../integrations-core
-      '@open-managed-agents/linear':
+      '@duyet/oma-linear':
         specifier: workspace:*
         version: link:../linear
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
-      '@open-managed-agents/slack':
+      '@duyet/oma-slack':
         specifier: workspace:*
         version: link:../slack
-      '@open-managed-agents/sql-client':
+      '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../sql-client
     devDependencies:
-      '@open-managed-agents/schema':
+      '@duyet/oma-schema':
         specifier: workspace:*
         version: link:../schema
       better-sqlite3:
@@ -1197,16 +1197,16 @@ importers:
 
   packages/integrations-core:
     dependencies:
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
 
   packages/kv-store:
     dependencies:
-      '@open-managed-agents/db-schema':
+      '@duyet/oma-db-schema':
         specifier: workspace:*
         version: link:../db-schema
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
       drizzle-orm:
@@ -1215,10 +1215,10 @@ importers:
 
   packages/linear:
     dependencies:
-      '@open-managed-agents/integrations-core':
+      '@duyet/oma-integrations-core':
         specifier: workspace:*
         version: link:../integrations-core
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
 
@@ -1233,13 +1233,13 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.0.0
         version: 3.1044.0
-      '@open-managed-agents/db-schema':
+      '@duyet/oma-db-schema':
         specifier: workspace:*
         version: link:../db-schema
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
-      '@open-managed-agents/sql-client':
+      '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../sql-client
       drizzle-orm:
@@ -1248,10 +1248,10 @@ importers:
 
   packages/model-cards-store:
     dependencies:
-      '@open-managed-agents/db-schema':
+      '@duyet/oma-db-schema':
         specifier: workspace:*
         version: link:../db-schema
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
       drizzle-orm:
@@ -1260,7 +1260,7 @@ importers:
 
   packages/observability:
     dependencies:
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
       '@opentelemetry/api':
@@ -1303,34 +1303,34 @@ importers:
 
   packages/oma-cap-adapter:
     dependencies:
-      '@open-managed-agents/cap':
+      '@duyet/oma-cap':
         specifier: workspace:*
         version: link:../cap
-      '@open-managed-agents/credentials-store':
+      '@duyet/oma-credentials-store':
         specifier: workspace:*
         version: link:../credentials-store
-      '@open-managed-agents/sessions-store':
+      '@duyet/oma-sessions-store':
         specifier: workspace:*
         version: link:../sessions-store
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
 
   packages/outbound-snapshots-store:
     dependencies:
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
 
   packages/queue:
     dependencies:
-      '@open-managed-agents/memory-store':
+      '@duyet/oma-memory-store':
         specifier: workspace:*
         version: link:../memory-store
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
-      '@open-managed-agents/sql-client':
+      '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../sql-client
       nanoid:
@@ -1339,10 +1339,10 @@ importers:
 
   packages/quotas:
     dependencies:
-      '@open-managed-agents/kv-store':
+      '@duyet/oma-kv-store':
         specifier: workspace:*
         version: link:../kv-store
-      '@open-managed-agents/rate-limit':
+      '@duyet/oma-rate-limit':
         specifier: workspace:*
         version: link:../rate-limit
 
@@ -1360,10 +1360,10 @@ importers:
       '@daytonaio/sdk':
         specifier: ^0.171.0
         version: 0.171.0(ws@8.20.0)
-      '@open-managed-agents/observability':
+      '@duyet/oma-observability':
         specifier: workspace:*
         version: link:../observability
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
       e2b:
@@ -1376,19 +1376,19 @@ importers:
 
   packages/scheduler:
     dependencies:
-      '@open-managed-agents/memory-store':
+      '@duyet/oma-memory-store':
         specifier: workspace:*
         version: link:../memory-store
-      '@open-managed-agents/observability':
+      '@duyet/oma-observability':
         specifier: workspace:*
         version: link:../observability
-      '@open-managed-agents/services':
+      '@duyet/oma-services':
         specifier: workspace:*
         version: link:../services
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
-      '@open-managed-agents/sql-client':
+      '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../sql-client
       croner:
@@ -1397,10 +1397,10 @@ importers:
 
   packages/schema:
     dependencies:
-      '@open-managed-agents/event-log':
+      '@duyet/oma-event-log':
         specifier: workspace:*
         version: link:../event-log
-      '@open-managed-agents/sql-client':
+      '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../sql-client
     devDependencies:
@@ -1419,61 +1419,61 @@ importers:
 
   packages/services:
     dependencies:
-      '@open-managed-agents/agents-store':
+      '@duyet/oma-agents-store':
         specifier: workspace:*
         version: link:../agents-store
-      '@open-managed-agents/blob-store':
+      '@duyet/oma-blob-store':
         specifier: workspace:*
         version: link:../blob-store
-      '@open-managed-agents/credentials-store':
+      '@duyet/oma-credentials-store':
         specifier: workspace:*
         version: link:../credentials-store
-      '@open-managed-agents/dreams-store':
+      '@duyet/oma-dreams-store':
         specifier: workspace:*
         version: link:../dreams-store
-      '@open-managed-agents/environments-store':
+      '@duyet/oma-environments-store':
         specifier: workspace:*
         version: link:../environments-store
-      '@open-managed-agents/evals-store':
+      '@duyet/oma-evals-store':
         specifier: workspace:*
         version: link:../evals-store
-      '@open-managed-agents/files-store':
+      '@duyet/oma-files-store':
         specifier: workspace:*
         version: link:../files-store
-      '@open-managed-agents/integrations-adapters-cf':
+      '@duyet/oma-integrations-adapters-cf':
         specifier: workspace:*
         version: link:../integrations-adapters-cf
-      '@open-managed-agents/kv-store':
+      '@duyet/oma-kv-store':
         specifier: workspace:*
         version: link:../kv-store
-      '@open-managed-agents/memory-store':
+      '@duyet/oma-memory-store':
         specifier: workspace:*
         version: link:../memory-store
-      '@open-managed-agents/model-cards-store':
+      '@duyet/oma-model-cards-store':
         specifier: workspace:*
         version: link:../model-cards-store
-      '@open-managed-agents/outbound-snapshots-store':
+      '@duyet/oma-outbound-snapshots-store':
         specifier: workspace:*
         version: link:../outbound-snapshots-store
-      '@open-managed-agents/session-secrets-store':
+      '@duyet/oma-session-secrets-store':
         specifier: workspace:*
         version: link:../session-secrets-store
-      '@open-managed-agents/sessions-store':
+      '@duyet/oma-sessions-store':
         specifier: workspace:*
         version: link:../sessions-store
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
-      '@open-managed-agents/sql-client':
+      '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../sql-client
-      '@open-managed-agents/tenant-db':
+      '@duyet/oma-tenant-db':
         specifier: workspace:*
         version: link:../tenant-db
-      '@open-managed-agents/tenant-dbs-store':
+      '@duyet/oma-tenant-dbs-store':
         specifier: workspace:*
         version: link:../tenant-dbs-store
-      '@open-managed-agents/vaults-store':
+      '@duyet/oma-vaults-store':
         specifier: workspace:*
         version: link:../vaults-store
       hono:
@@ -1482,16 +1482,16 @@ importers:
 
   packages/session-runtime:
     dependencies:
-      '@open-managed-agents/event-log':
+      '@duyet/oma-event-log':
         specifier: workspace:*
         version: link:../event-log
-      '@open-managed-agents/sandbox':
+      '@duyet/oma-sandbox':
         specifier: workspace:*
         version: link:../sandbox
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
-      '@open-managed-agents/sql-client':
+      '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../sql-client
       ai:
@@ -1510,19 +1510,19 @@ importers:
 
   packages/session-secrets-store:
     dependencies:
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
 
   packages/sessions-store:
     dependencies:
-      '@open-managed-agents/db-schema':
+      '@duyet/oma-db-schema':
         specifier: workspace:*
         version: link:../db-schema
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
-      '@open-managed-agents/sql-client':
+      '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../sql-client
       drizzle-orm:
@@ -1531,10 +1531,10 @@ importers:
 
   packages/shared:
     dependencies:
-      '@open-managed-agents/api-types':
+      '@duyet/oma-api-types':
         specifier: workspace:*
         version: link:../api-types
-      '@open-managed-agents/eval-core':
+      '@duyet/oma-eval-core':
         specifier: workspace:*
         version: link:../eval-core
       nanoid:
@@ -1543,16 +1543,16 @@ importers:
 
   packages/slack:
     dependencies:
-      '@open-managed-agents/integrations-core':
+      '@duyet/oma-integrations-core':
         specifier: workspace:*
         version: link:../integrations-core
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
 
   packages/sql-client:
     dependencies:
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
       better-sqlite3:
@@ -1566,10 +1566,10 @@ importers:
 
   packages/tenant-dbs-store:
     dependencies:
-      '@open-managed-agents/db-schema':
+      '@duyet/oma-db-schema':
         specifier: workspace:*
         version: link:../db-schema
-      '@open-managed-agents/sql-client':
+      '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../sql-client
       drizzle-orm:
@@ -1578,10 +1578,10 @@ importers:
 
   packages/vault-forward:
     dependencies:
-      '@open-managed-agents/credentials-store':
+      '@duyet/oma-credentials-store':
         specifier: workspace:*
         version: link:../credentials-store
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
     devDependencies:
@@ -1591,13 +1591,13 @@ importers:
 
   packages/vaults-store:
     dependencies:
-      '@open-managed-agents/db-schema':
+      '@duyet/oma-db-schema':
         specifier: workspace:*
         version: link:../db-schema
-      '@open-managed-agents/shared':
+      '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
-      '@open-managed-agents/sql-client':
+      '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../sql-client
       drizzle-orm:

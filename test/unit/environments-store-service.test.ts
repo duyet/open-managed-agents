@@ -4,7 +4,7 @@
 // description/metadata null handling, sandbox_worker_name updates,
 // toEnvironmentConfig conversion.
 //
-// NOTE: relative imports — the vitest alias for `@open-managed-agents/environments-store`
+// NOTE: relative imports — the vitest alias for `@duyet/oma-environments-store`
 // gets added by the integrator (see INTEGRATION_GUIDE.md step 2). After that lands,
 // these can be flipped to package-name imports for consistency with the
 // credentials-store test (cosmetic — not blocking).

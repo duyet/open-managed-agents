@@ -16,6 +16,6 @@ export function kvPrefix(tenantId: string, ...parts: string[]): string {
 
 // Re-export the KvStore-based listAll so existing callers can switch
 // `import { kvListAll } from "../kv-helpers"` →
-// `import { listAll } from "@open-managed-agents/kv-store"` without losing
+// `import { listAll } from "@duyet/oma-kv-store"` without losing
 // pagination behavior. Same logic, runtime-agnostic.
-export { listAll as kvListAll } from "@open-managed-agents/kv-store";
+export { listAll as kvListAll } from "@duyet/oma-kv-store";

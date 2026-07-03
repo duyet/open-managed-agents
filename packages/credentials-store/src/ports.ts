@@ -14,7 +14,7 @@
 // pick a database per call without any port changes. See
 // packages/services/README.md "Per-tenant routing is an adapter-internal concern".
 
-import type { CredentialAuth } from "@open-managed-agents/shared";
+import type { CredentialAuth } from "@duyet/oma-shared";
 import type { CredentialRow } from "./types";
 
 export interface NewCredentialInput {

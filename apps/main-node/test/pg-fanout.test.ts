@@ -15,13 +15,13 @@
 // postgres` and export PG_TEST_URL=postgres://oma:oma@localhost:5432/oma.
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { createPostgresSqlClient, type SqlClient } from "@open-managed-agents/sql-client";
+import { createPostgresSqlClient, type SqlClient } from "@duyet/oma-sql-client";
 import {
   SqlEventLog,
   SqlStreamRepo,
   ensureSchema as ensureEventLogSchema,
-} from "@open-managed-agents/event-log/sql";
-import type { SessionEvent } from "@open-managed-agents/shared";
+} from "@duyet/oma-event-log/sql";
+import type { SessionEvent } from "@duyet/oma-shared";
 import { PgEventStreamHub } from "../src/lib/pg-event-stream-hub";
 import type { EventWriter } from "../src/lib/event-stream-hub";
 

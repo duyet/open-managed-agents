@@ -74,8 +74,8 @@ export function Dashboard() {
     { label: "Model Cards", value: stats?.model_cards, to: "/model-cards" },
   ];
 
-  const cmd = "npx -y -p @openma/cli oma";
-  const cmdGlobal = "npm i -g @openma/cli";
+  const cmd = "npx -y -p @duyet/oma-cli oma";
+  const cmdGlobal = "npm i -g @duyet/oma-cli";
   const examplePrompt =
     "Use oma to create a research agent that monitors arXiv for new ML papers daily";
 

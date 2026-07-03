@@ -13,13 +13,13 @@ import {
   generateFileId,
   fileR2Key,
   logWarn,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import {
   toFileRecord,
   type FileService,
-} from "@open-managed-agents/files-store";
-import type { BlobStore } from "@open-managed-agents/blob-store";
-import type { SessionLifecycleHooks } from "@open-managed-agents/http-routes";
+} from "@duyet/oma-files-store";
+import type { BlobStore } from "@duyet/oma-blob-store";
+import type { SessionLifecycleHooks } from "@duyet/oma-http-routes";
 
 export interface NodeSessionLifecycleDeps {
   files: FileService;

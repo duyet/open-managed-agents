@@ -185,24 +185,24 @@ package mounted by both apps:
 
 | Package | Purpose | Adapters |
 |---|---|---|
-| `@open-managed-agents/schema` | One canonical `applySchema` for the OMA tables, idempotent on sqlite + PG. | — |
-| `@open-managed-agents/email` | `EmailSender` interface; `null` is valid (signals "no SMTP, mount email-disabled better-auth flows"). | `cf` (SEND_EMAIL), `nodemailer` |
-| `@open-managed-agents/kv-store/adapters/sql` | KvStore on top of SqlClient (`kv_entries` table). Companion to existing `cf` + `in-memory` adapters. | sqlite + PG via SqlClient |
-| `@open-managed-agents/quotas` | `QuotaService` — daily session cap, upload freq, upload size. KV + RateLimitGate-backed. | KV-agnostic |
-| `@open-managed-agents/rate-limit` | `RateLimitGate` interface + `gates` bundle (5 named buckets). Hono middleware factory. | `cf` (Workers Rate Limiting bindings), `memory` (in-process token bucket) |
-| `@open-managed-agents/auth` | Hono auth middleware factory — apiKey + cookie session resolution, x-active-tenant validation, AUTH_DISABLED bypass. | Resolvers injected per-runtime |
-| `@open-managed-agents/auth-config` | `buildBetterAuth` factory + tenant auto-create hook + `ensureTenantSqlite`. | Driver injected |
-| `@open-managed-agents/vault-forward` | `buildAuthHeader`, `refreshMcpOAuth`, `forwardWithRefresh` (401-then-refresh pure transport). | Pluggable fetcher |
-| `@open-managed-agents/http-routes` | Hono `mountXxxRoutes(app, services)` factories: agents / vaults / sessions / memory / tenants / me / api_keys. Same paths CF mounts today; behavior preserved. The sessions package routes the runtime layer through the `SessionRouter` interface (see below). | Runtime constructs `RouteServices` bundle |
-| `@open-managed-agents/session-runtime` | `SessionStateMachine` + `RuntimeAdapter` (Phase 2) plus `SessionRouter` — uniform contract over the per-runtime session routing layer. CF impl wraps the SessionDO RPC surface; Node impl wraps `SessionRegistry` + `SqlEventLog` + `EventStreamHub`. | `apps/main/src/lib/cf-session-router.ts`, `apps/main-node/src/lib/node-session-router.ts` |
-| `@open-managed-agents/sandbox/orchestrator` | `SandboxOrchestrator` — single entry point both runtimes use to provision a session sandbox: vault outbound (HTTPS_PROXY + CA), `/mnt/memory` mounts, `/mnt/session/outputs` mount, optional workspace backup/restore. Replaces the per-runtime plumbing that lived separately in `apps/agent/src/oma-sandbox.ts` and `apps/main-node/src/registry.ts`. Per-provider capability matrix lives in `docs/self-host.md`. | `DefaultSandboxOrchestrator` (both runtimes); CF wires the OmaSandbox + R2 squashfs backup; Node wires `NodeWorkspaceBackupService` (tar+upload to BlobStore). |
+| `@duyet/oma-schema` | One canonical `applySchema` for the OMA tables, idempotent on sqlite + PG. | — |
+| `@duyet/oma-email` | `EmailSender` interface; `null` is valid (signals "no SMTP, mount email-disabled better-auth flows"). | `cf` (SEND_EMAIL), `nodemailer` |
+| `@duyet/oma-kv-store/adapters/sql` | KvStore on top of SqlClient (`kv_entries` table). Companion to existing `cf` + `in-memory` adapters. | sqlite + PG via SqlClient |
+| `@duyet/oma-quotas` | `QuotaService` — daily session cap, upload freq, upload size. KV + RateLimitGate-backed. | KV-agnostic |
+| `@duyet/oma-rate-limit` | `RateLimitGate` interface + `gates` bundle (5 named buckets). Hono middleware factory. | `cf` (Workers Rate Limiting bindings), `memory` (in-process token bucket) |
+| `@duyet/oma-auth` | Hono auth middleware factory — apiKey + cookie session resolution, x-active-tenant validation, AUTH_DISABLED bypass. | Resolvers injected per-runtime |
+| `@duyet/oma-auth-config` | `buildBetterAuth` factory + tenant auto-create hook + `ensureTenantSqlite`. | Driver injected |
+| `@duyet/oma-vault-forward` | `buildAuthHeader`, `refreshMcpOAuth`, `forwardWithRefresh` (401-then-refresh pure transport). | Pluggable fetcher |
+| `@duyet/oma-http-routes` | Hono `mountXxxRoutes(app, services)` factories: agents / vaults / sessions / memory / tenants / me / api_keys. Same paths CF mounts today; behavior preserved. The sessions package routes the runtime layer through the `SessionRouter` interface (see below). | Runtime constructs `RouteServices` bundle |
+| `@duyet/oma-session-runtime` | `SessionStateMachine` + `RuntimeAdapter` (Phase 2) plus `SessionRouter` — uniform contract over the per-runtime session routing layer. CF impl wraps the SessionDO RPC surface; Node impl wraps `SessionRegistry` + `SqlEventLog` + `EventStreamHub`. | `apps/main/src/lib/cf-session-router.ts`, `apps/main-node/src/lib/node-session-router.ts` |
+| `@duyet/oma-sandbox/orchestrator` | `SandboxOrchestrator` — single entry point both runtimes use to provision a session sandbox: vault outbound (HTTPS_PROXY + CA), `/mnt/memory` mounts, `/mnt/session/outputs` mount, optional workspace backup/restore. Replaces the per-runtime plumbing that lived separately in `apps/agent/src/oma-sandbox.ts` and `apps/main-node/src/registry.ts`. Per-provider capability matrix lives in `docs/self-host.md`. | `DefaultSandboxOrchestrator` (both runtimes); CF wires the OmaSandbox + R2 squashfs backup; Node wires `NodeWorkspaceBackupService` (tar+upload to BlobStore). |
 
 `apps/main-node/src/index.ts` is now ~280 lines: build the SqlClient,
 construct services, mount route bundles, start the server. The previous
 1664-line inline-routes implementation is gone.
 
 `apps/main/src/index.ts` mounts agents / vaults / sessions / api-keys /
-me / tenants from `@open-managed-agents/http-routes`. The legacy
+me / tenants from `@duyet/oma-http-routes`. The legacy
 `apps/main/src/routes/{agents,vaults,sessions,api-keys,me,tenants}.ts`
 files are deleted; CF-only callbacks (USAGE_METER gate, GitHub fast-path
 token mint, `refreshProviderCredentialsForSession`, R2 outputs cascade,

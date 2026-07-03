@@ -8,7 +8,7 @@
 //   - InstallBridge.refreshGithubVault (GitHub internal endpoint)
 //   - WebhookHandlers (per-provider, returns the same WebhookOutcome the
 //     CF route consumed) — kept as a callback so the package doesn't
-//     import @open-managed-agents/{linear,github,slack}.
+//     import @duyet/oma-{linear,github,slack}.
 //
 // This file mirrors apps/integrations/src/routes/* one-for-one, with the
 // CF-specific bits (executionCtx.waitUntil, env binding access) replaced by
@@ -24,13 +24,13 @@ import type {
   WebhookOutcome,
   WebhookRequest,
   JwtSigner,
-} from "@open-managed-agents/integrations-core";
-import { getLogger } from "@open-managed-agents/observability";
+} from "@duyet/oma-integrations-core";
+import { getLogger } from "@duyet/oma-observability";
 
 const log = getLogger("http-routes.integrations.gateway");
 
 /** Per-provider webhook handler closure. The host wires this to
- *  `provider.handleWebhook(req)` — keeps `@open-managed-agents/{linear,
+ *  `provider.handleWebhook(req)` — keeps `@duyet/oma-{linear,
  *  github,slack}` out of the http-routes deps. */
 export type WebhookHandler = (req: WebhookRequest) => Promise<WebhookOutcome>;
 
@@ -691,7 +691,7 @@ const LINEAR_GRAPHQL_TOOL_DESCRIPTOR = {
 };
 
 async function runLinearGraphQL(
-  cred: import("@open-managed-agents/integrations-core").LinearMcpCredentialLookupResult,
+  cred: import("@duyet/oma-integrations-core").LinearMcpCredentialLookupResult,
   args: Record<string, unknown>,
 ): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
   const query = String(args.query ?? "").trim();

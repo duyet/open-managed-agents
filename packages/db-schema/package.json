@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/db-schema",
+  "name": "@duyet/oma-db-schema",
   "version": "0.1.0",
   "private": true,
   "type": "module",

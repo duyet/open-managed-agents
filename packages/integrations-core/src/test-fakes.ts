@@ -1,6 +1,6 @@
 // In-memory fakes for every port and repo defined in this package.
 //
-// Used by downstream package tests (e.g. @open-managed-agents/linear) to
+// Used by downstream package tests (e.g. @duyet/oma-linear) to
 // exercise provider logic without spinning up workerd or a real Linear API.
 // Adapters in integrations-adapters-cf are tested separately against real
 // D1/KV via miniflare; together the two layers form the production stack.

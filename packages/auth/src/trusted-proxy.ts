@@ -6,7 +6,7 @@
 // see apps/main-node/src/index.ts) supplies a `resolve()` callback via
 // AuthMiddlewareDeps.trustedProxy that turns a validated
 // TrustedProxyIdentity into an AuthSession, typically a find-or-create
-// against the "user" table (see @open-managed-agents/auth-config's
+// against the "user" table (see @duyet/oma-auth-config's
 // resolveTrustedProxyUser).
 //
 // ─── Threat model ────────────────────────────────────────────────────────

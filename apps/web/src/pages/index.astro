@@ -49,13 +49,13 @@ const schemas = [softwareApplicationSchema()];
       </p>
       <div class="mt-8 flex items-center justify-center gap-3 flex-wrap">
         <a
-          href="https://github.com/openma-ai/open-managed-agents"
+          href="https://github.com/duyet/oma"
           target="_blank" rel="noopener noreferrer"
           class="px-5 py-3 rounded-md bg-[var(--color-fg)] text-[var(--color-bg)] font-medium"
           >★ Star on GitHub</a
         >
         <a
-          href="https://app.openma.dev/login"
+          href="https://app.oma.duyet.net/login"
           class="px-5 py-3 rounded-md border border-[var(--color-border)] font-medium"
           >Try the hosted version</a
         >
@@ -90,7 +90,7 @@ const schemas = [softwareApplicationSchema()];
       <FeatureCard title="Apache 2.0">
         Permissive license. Fork it, ship it inside your product, run a
         private fleet — no per-seat fee, no usage tax. The hosted service at
-        openma.dev is one deployment of the same code.
+        oma.duyet.net is one deployment of the same code.
       </FeatureCard>
     </div>
   </section>
@@ -122,7 +122,7 @@ const schemas = [softwareApplicationSchema()];
             Five-line quickstart. No SDK, no Cloudflare account needed for
             local dev — Docker spins up a fully working stack.
           </p>
-          <pre class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-4 text-xs leading-relaxed overflow-x-auto"><code>git clone https://github.com/openma-ai/open-managed-agents
+          <pre class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-4 text-xs leading-relaxed overflow-x-auto"><code>git clone https://github.com/duyet/oma
 cd open-managed-agents &amp;&amp; cp .env.example .env
 # Set ANTHROPIC_API_KEY in .env, then:
 docker compose up -d
@@ -140,7 +140,7 @@ curl localhost:8787/v1/agents -d '&#123;"name":"hello", \
       We track the public surface of the Claude Managed Agents API one-to-one.
       Resources, request shapes, response shapes, the SSE event stream — all
       the same. If your client code already speaks Managed Agents, point it at
-      <code class="font-mono text-sm">https://openma.dev</code> (hosted) or
+      <code class="font-mono text-sm">https://oma.duyet.net</code> (hosted) or
       <code class="font-mono text-sm">http://localhost:8787</code> (self-host)
       and it works.
     </p>
@@ -307,7 +307,7 @@ curl localhost:8787/v1/agents -d '&#123;"name":"hello", \
     <p class="text-xs text-[var(--color-fg-subtle)] mt-4">
       Comparison is structural — feature parity is an explicit roadmap item;
       see the
-      <a href="https://github.com/openma-ai/open-managed-agents">repo</a> for the
+      <a href="https://github.com/duyet/oma">repo</a> for the
       current matrix, or
       <a href="/blog/migrate-from-claude-managed-agents/">the migration
       guide</a> for the practical steps.
@@ -319,7 +319,7 @@ curl localhost:8787/v1/agents -d '&#123;"name":"hello", \
     <div class="max-w-5xl mx-auto px-4 py-16">
       <h2 class="font-display text-3xl font-bold text-center mb-2">Hosted pricing (optional)</h2>
       <p class="text-center text-[var(--color-fg-muted)] mb-12 max-w-2xl mx-auto">
-        Self-host is free forever. The hosted service at openma.dev is for
+        Self-host is free forever. The hosted service at oma.duyet.net is for
         teams who'd rather not run the infra themselves. BYOK for the LLM —
         we only charge for sandbox compute.
       </p>
@@ -390,18 +390,18 @@ curl localhost:8787/v1/agents -d '&#123;"name":"hello", \
       </p>
       <div class="flex items-center justify-center gap-3 flex-wrap">
         <a
-          href="https://github.com/openma-ai/open-managed-agents"
+          href="https://github.com/duyet/oma"
           target="_blank" rel="noopener noreferrer"
           class="px-5 py-3 rounded-md bg-[var(--color-fg)] text-[var(--color-bg)] font-medium"
           >Clone the repo</a
         >
         <a
-          href="https://docs.openma.dev"
+          href="https://docs.oma.duyet.net"
           class="px-5 py-3 rounded-md border border-[var(--color-border)] font-medium"
           >Read the docs</a
         >
         <a
-          href="https://app.openma.dev/login"
+          href="https://app.oma.duyet.net/login"
           class="px-5 py-3 rounded-md border border-[var(--color-border)] font-medium"
           >Try hosted</a
         >

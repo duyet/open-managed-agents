@@ -2,13 +2,13 @@
   "name": "open-managed-agents",
   "version": "0.1.1",
   "description": "Open-source Claude Managed Agents API implementation and self-hosted Claude Tag-style agent runtime.",
-  "homepage": "https://openma.dev",
+  "homepage": "https://oma.duyet.net",
   "repository": {
     "type": "git",
-    "url": "https://github.com/openma-ai/open-managed-agents"
+    "url": "https://github.com/duyet/oma"
   },
   "bugs": {
-    "url": "https://github.com/openma-ai/open-managed-agents/issues"
+    "url": "https://github.com/duyet/oma/issues"
   },
   "keywords": [
     "ai-agents",
@@ -47,13 +47,13 @@
     "dev:docs": "pnpm --filter open-managed-agents-docs dev",
     "build:docs": "pnpm --filter open-managed-agents-docs build",
     "deploy:docs": "pnpm --filter open-managed-agents-docs deploy",
-    "build:web": "pnpm --filter @open-managed-agents/web build",
-    "deploy:web": "pnpm --filter @open-managed-agents/web deploy",
+    "build:web": "pnpm --filter @duyet/oma-web build",
+    "deploy:web": "pnpm --filter @duyet/oma-web deploy",
     "deploy": "./scripts/deploy.sh",
     "typecheck": "tsc --noEmit && pnpm run typecheck:node",
-    "typecheck:node": "pnpm --filter @open-managed-agents/sandbox typecheck && pnpm --filter @open-managed-agents/main-node typecheck && pnpm --filter @open-managed-agents/oma-vault typecheck && pnpm --filter @open-managed-agents/cap typecheck",
+    "typecheck:node": "pnpm --filter @duyet/oma-sandbox typecheck && pnpm --filter @duyet/oma-main-node typecheck && pnpm --filter @duyet/oma-vault typecheck && pnpm --filter @duyet/oma-cap typecheck",
     "test": "vitest run && pnpm run test:packages && pnpm run test:console",
-    "test:packages": "pnpm --filter @open-managed-agents/session-runtime test && pnpm --filter @open-managed-agents/main-node test && pnpm --filter @open-managed-agents/cap test && pnpm --filter @open-managed-agents/integrations-adapters-node test && pnpm --filter @open-managed-agents/sandbox test",
+    "test:packages": "pnpm --filter @duyet/oma-session-runtime test && pnpm --filter @duyet/oma-main-node test && pnpm --filter @duyet/oma-cap test && pnpm --filter @duyet/oma-integrations-adapters-node test && pnpm --filter @duyet/oma-sandbox test",
     "test:console": "pnpm --filter managed-agents-console test",
     "test:e2e": "playwright test --config=playwright.config.ts",
     "db:generate:cf-auth": "drizzle-kit generate --config=drizzle.cf-auth.config.ts",
@@ -70,7 +70,7 @@
     "db:check": "pnpm db:check:cf-auth && pnpm db:check:cf-integrations && pnpm db:check:cf-router && pnpm db:check:node-pg && pnpm db:check:node-sqlite",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "pnpm -r --filter='@openma/*' build && changeset publish"
+    "release": "pnpm -r --filter='@duyet/oma-*' build && changeset publish"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "0.95.1",

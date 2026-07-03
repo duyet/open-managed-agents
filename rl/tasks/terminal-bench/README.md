@@ -48,7 +48,7 @@ npx tsx rl/tasks/terminal-bench/convert.ts \
 ### Single-task pilot (smoke)
 
 ```bash
-export OMA_API_URL=https://openma.dev
+export OMA_API_URL=https://oma.duyet.net
 export OMA_API_KEY=$(python3 -c "import json; d=json.load(open('$HOME/.config/oma/credentials.json')); print(d['tenants'][d['active_tenant_id']]['token'])")
 export RL_MODEL=<your-model>          # confirm against /v1/model_cards in your tenant
 export RL_CONCURRENCY=1

@@ -3,7 +3,7 @@
 // The canonical types live in `packages/eval-core/src/trajectory/types.ts`.
 // We keep a minimal mirror here so the console doesn't pull in the eval-core
 // workspace package (and its transitive deps) just to read four fields off a
-// JSON response. If the spec ever lands stable types in @open-managed-agents/
+// JSON response. If the spec ever lands stable types in @duyet/oma-
 // api-types, swap this import.
 //
 // See docs/trajectory-v1-spec.md for the authoritative shape.

@@ -8,7 +8,7 @@ import { SummarizeCompaction } from "../../apps/agent/src/harness/compaction";
 import { TestSandbox, createSandbox, CloudflareSandbox } from "../../apps/agent/src/runtime/sandbox";
 import { buildTools } from "../../apps/agent/src/harness/tools";
 import { InMemoryHistory, eventsToMessages } from "../../apps/agent/src/runtime/history";
-import type { AgentConfig, SessionEvent, SessionThreadCreatedEvent, SessionThreadIdleEvent, AgentThreadMessageEvent, AgentMessageEvent, UserMessageEvent } from "@open-managed-agents/shared";
+import type { AgentConfig, SessionEvent, SessionThreadCreatedEvent, SessionThreadIdleEvent, AgentThreadMessageEvent, AgentMessageEvent, UserMessageEvent } from "@duyet/oma-shared";
 
 // ============================================================
 // Helpers

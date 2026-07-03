@@ -1,8 +1,8 @@
 // @ts-nocheck
 import { describe, it, expect } from "vitest";
 import { recoverInterruptedState } from "../../apps/agent/src/runtime/recovery";
-import { InMemoryEventLog, InMemoryStreamRepo } from "@open-managed-agents/event-log/memory";
-import type { SessionEvent } from "@open-managed-agents/shared";
+import { InMemoryEventLog, InMemoryStreamRepo } from "@duyet/oma-event-log/memory";
+import type { SessionEvent } from "@duyet/oma-shared";
 
 // ============================================================
 // recoverInterruptedState — durability invariants

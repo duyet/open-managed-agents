@@ -5,7 +5,7 @@
 // workerd or a full process.
 //
 // Originally lived in apps/agent/src/runtime/recovery.ts; lifted into
-// @open-managed-agents/session-runtime so both the CF SessionDO shell
+// @duyet/oma-session-runtime so both the CF SessionDO shell
 // and the Node SessionRegistry shell call the same recovery logic.
 //
 // Two kinds of orphan state get cleaned up here:
@@ -30,8 +30,8 @@
 // Warnings are returned (not appended to the event log) so the caller
 // can broadcast them to live WS subscribers without polluting history.
 
-import type { SessionEvent } from "@open-managed-agents/shared";
-import type { StreamRepo, EventLogRepo } from "@open-managed-agents/event-log";
+import type { SessionEvent } from "@duyet/oma-shared";
+import type { StreamRepo, EventLogRepo } from "@duyet/oma-event-log";
 
 export interface RecoveryWarning {
   source: "stream_interrupted" | "tool_call_interrupted" | "custom_tool_call_interrupted";

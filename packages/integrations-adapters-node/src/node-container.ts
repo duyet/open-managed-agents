@@ -18,13 +18,13 @@
 // dependencies rather than building HTTP shims to mirror the CF
 // service-binding indirection.
 
-import type { SqlClient } from "@open-managed-agents/sql-client";
-import type { OmaDb } from "@open-managed-agents/db-schema";
+import type { SqlClient } from "@duyet/oma-sql-client";
+import type { OmaDb } from "@duyet/oma-db-schema";
 import type {
   Container,
   SessionCreator,
   VaultManager,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 import { SystemClock } from "./clock";
 import { WebCryptoAesGcm } from "./crypto";
 import { WebCryptoHmacVerifier } from "./hmac";
@@ -45,7 +45,7 @@ import {
   SqlLinearPublicationRepo,
   SqlLinearSetupLinkRepo,
   SqlSlackSessionScopeRepo,
-} from "@open-managed-agents/integrations-adapters-cf";
+} from "@duyet/oma-integrations-adapters-cf";
 import { SqlMembershipTenantResolver } from "./sql/membership-tenant-resolver";
 
 export interface NodeReposEnv {

@@ -1,7 +1,7 @@
 import { generateText } from "ai";
 import type { LanguageModel } from "ai";
-import type { Score } from "@open-managed-agents/shared";
-import { extractTextFromContent, parseJudgeJson } from "@open-managed-agents/shared";
+import type { Score } from "@duyet/oma-shared";
+import { extractTextFromContent, parseJudgeJson } from "@duyet/oma-shared";
 
 export interface EvaluationResult {
   result: "satisfied" | "needs_revision";
