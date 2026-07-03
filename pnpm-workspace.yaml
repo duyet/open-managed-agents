@@ -27,3 +27,9 @@ allowBuilds:
   protobufjs: true
   sharp: true
   workerd: true
+  # Native modules ship prebuilt binaries — the current image runs fine
+  # without running their gyp rebuilds, so explicitly skip (false) rather
+  # than pulling a build toolchain into the image just to satisfy the gate.
+  '@google/genai': false
+  '@mongodb-js/zstd': false
+  node-liblzma: false
