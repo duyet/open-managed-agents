@@ -943,7 +943,11 @@ export interface CredentialAuth {
   // via the integrations gateway (which holds the secrets needed to mint a
   // fresh token — e.g. GitHub App private key). Used to support short-lived
   // upstream tokens (GitHub installation tokens, ~1hr TTL).
-  provider?: "github" | "linear";
+  // "anyrouter": an `sk-ar-…` inference key minted via AnyRouter's MCP OAuth
+  // (PKCE) flow — see packages/anyrouter. Does not expire/refresh; the tag
+  // only identifies the credential's origin for the provider-cache loader
+  // in apps/main-node.
+  provider?: "github" | "linear" | "anyrouter";
   // cap_cli: inject credential when sandbox traffic matches a registered
   // cap CLI spec (gh, aws, kubectl, …). The token is held in main worker
   // and injected by the outbound proxy at HTTPS time — never enters the

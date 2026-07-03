@@ -554,6 +554,9 @@ importers:
       '@open-managed-agents/agents-store':
         specifier: workspace:*
         version: link:../../packages/agents-store
+      '@open-managed-agents/anyrouter':
+        specifier: workspace:*
+        version: link:../../packages/anyrouter
       '@open-managed-agents/api-types':
         specifier: workspace:*
         version: link:../../packages/api-types
@@ -814,6 +817,8 @@ importers:
         specifier: ^0.45.2
         version: 0.45.2(@cloudflare/workers-types@4.20260410.1)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(better-sqlite3@11.10.0)(kysely@0.28.16)(pg@8.20.0)(postgres@3.4.9)(sql.js@1.14.1)
 
+  packages/anyrouter: {}
+
   packages/api-types: {}
 
   packages/auth:
@@ -1055,6 +1060,9 @@ importers:
       '@open-managed-agents/agents-store':
         specifier: workspace:*
         version: link:../agents-store
+      '@open-managed-agents/anyrouter':
+        specifier: workspace:*
+        version: link:../anyrouter
       '@open-managed-agents/api-types':
         specifier: workspace:*
         version: link:../api-types

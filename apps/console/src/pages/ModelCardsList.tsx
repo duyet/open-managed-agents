@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useApi } from "../lib/api";
 import { useInfiniteApiQuery } from "../lib/useApiQuery";
 import { Modal } from "../components/Modal";
@@ -10,6 +10,87 @@ import { FilterChip, CreatedFilterChip } from "../components/FilterChip";
 import { TextInput, SecretInput } from "../components/Input";
 import { toast } from "sonner";
 import type { ModelCard } from "@open-managed-agents/api-types";
+
+// ─── AnyRouter — "Connect to AnyRouter" OAuth (PKCE) button ────────────
+//
+// Minimal integration: status check + a button that navigates the browser
+// into the backend-driven OAuth flow (GET /v1/providers/anyrouter/connect →
+// AnyRouter consent → GET .../callback mints an sk-ar-… key and hot-swaps
+// the node's active model provider — see apps/main-node/src/index.ts
+// buildModel + packages/http-routes/src/providers/anyrouter.ts). A real
+// top-level navigation is required (not a fetch) so the browser carries the
+// operator's AnyRouter session cookie through the consent screen.
+interface AnyRouterStatus {
+  connected: boolean;
+  connected_at?: string;
+  base_url?: string;
+}
+
+function AnyRouterConnectCard() {
+  const { api } = useApi();
+  const [status, setStatus] = useState<AnyRouterStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(() => {
+    api<AnyRouterStatus>("/v1/providers/anyrouter/status")
+      .then(setStatus)
+      .catch(() => setStatus({ connected: false }));
+  }, [api]);
+
+  useEffect(() => {
+    refresh();
+    // Surface the redirect back from /v1/providers/anyrouter/callback, then
+    // scrub the query string so a page refresh doesn't re-toast.
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get("anyrouter_connected");
+    const error = params.get("anyrouter_error");
+    if (connected) toast.success("Connected to AnyRouter — agents on this node now route through it.");
+    if (error) toast.error(`AnyRouter connect failed: ${error}`);
+    if (connected || error) {
+      params.delete("anyrouter_connected");
+      params.delete("anyrouter_error");
+      const qs = params.toString();
+      window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : ""));
+    }
+  }, [refresh]);
+
+  const disconnect = async () => {
+    setBusy(true);
+    try {
+      await api("/v1/providers/anyrouter/disconnect", { method: "POST" });
+      toast.success("Disconnected from AnyRouter.");
+      refresh();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to disconnect from AnyRouter");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (status === null) return null;
+
+  return (
+    <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-border bg-bg-surface px-4 py-3">
+      <div>
+        <div className="text-sm font-medium text-fg">AnyRouter</div>
+        <div className="text-xs text-fg-subtle">
+          {status.connected
+            ? "Connected — agents on this node route through AnyRouter's gateway (150+ models, unified billing)."
+            : "Connect once via OAuth to route agents through AnyRouter, without pasting an sk-ar-… key by hand."}
+        </div>
+      </div>
+      {status.connected ? (
+        <Button variant="ghost" onClick={disconnect} disabled={busy}>
+          Disconnect
+        </Button>
+      ) : (
+        <Button onClick={() => window.location.assign("/v1/providers/anyrouter/connect")}>
+          Connect to AnyRouter
+        </Button>
+      )}
+    </div>
+  );
+}
 
 // Provider enum — mirrors the whitelist on the server
 // (apps/main/src/routes/model-cards.ts GET handler). Anything outside
@@ -314,7 +395,9 @@ export function ModelCardsList() {
   );
 
   return (
-    <DataTable<ModelCard>
+    <>
+      <AnyRouterConnectCard />
+      <DataTable<ModelCard>
       createLabel="+ New model card"
       onCreate={() => { setShowCreate(true); setError(""); }}
       searchPlaceholder="Search model cards..."
@@ -484,6 +567,7 @@ export function ModelCardsList() {
           </label>
         </form>
       </Modal>
-    </DataTable>
+      </DataTable>
+    </>
   );
 }

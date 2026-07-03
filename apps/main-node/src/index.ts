@@ -76,6 +76,7 @@ import {
   buildEvalRoutes,
   buildIntegrationsRoutes,
   buildIntegrationsGatewayRoutes,
+  buildAnyRouterRoutes,
   type RouteServices,
   type ApiKeyStorage,
   type ApiKeyMeta,
@@ -84,6 +85,12 @@ import {
   mintApiKeyOnStorage,
   sha256Hex,
 } from "@open-managed-agents/http-routes";
+import {
+  getActiveAnyRouterProvider,
+  loadActiveAnyRouterProvider,
+  setActiveAnyRouterProvider,
+  clearActiveAnyRouterProvider,
+} from "./lib/anyrouter-provider.js";
 import {
   buildNodeRepos,
   SqlSlackInstallationRepo,
@@ -478,6 +485,25 @@ async function buildSandbox(
 
 // ─── Session registry ───────────────────────────────────────────────────
 
+// An OAuth-connected AnyRouter credential (Console "Connect to AnyRouter"
+// button → packages/http-routes providers/anyrouter.ts) takes priority over
+// the static env vars below — it's the same "one active provider for this
+// node" model, just populated at runtime instead of deploy time. Shared by
+// buildModel/buildTools/buildHarnessContext so all three agree on which
+// provider is active. Falls back to ANTHROPIC_API_KEY/ANTHROPIC_BASE_URL
+// when nothing is connected.
+function resolveProviderCreds(): { apiKey: string; baseUrl: string | undefined } {
+  const anyrouter = getActiveAnyRouterProvider();
+  if (anyrouter) return { apiKey: anyrouter.apiKey, baseUrl: anyrouter.baseUrl };
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "ANTHROPIC_API_KEY env var required for harness turns (or connect AnyRouter via the Console)",
+    );
+  }
+  return { apiKey, baseUrl: process.env.ANTHROPIC_BASE_URL };
+}
+
 const sessionRegistry = new SessionRegistry({
   sql,
   hub,
@@ -489,8 +515,11 @@ const sessionRegistry = new SessionRegistry({
   sandboxWorkdirRoot: process.env.SANDBOX_WORKDIR ?? "./data/sandboxes",
   sqlDialect: dialect,
   buildModel: (agent) => {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY env var required for harness turns");
+    const anyrouter = getActiveAnyRouterProvider();
+    if (anyrouter) {
+      return resolveModel(agent.model, anyrouter.apiKey, anyrouter.baseUrl, anyrouter.compat);
+    }
+    const { apiKey, baseUrl } = resolveProviderCreds();
     // OMA_API_COMPAT selects the wire format for every model on this node
     // self-host (which has no D1 model cards to choose per-model). Set it to
     // "oai"/"oai-compatible" to talk to an OpenAI-compatible gateway
@@ -505,17 +534,16 @@ const sessionRegistry = new SessionRegistry({
     return resolveModel(
       agent.model,
       apiKey,
-      process.env.ANTHROPIC_BASE_URL,
+      baseUrl,
       apiCompat,
       parseCustomHeaders(process.env.ANTHROPIC_CUSTOM_HEADERS),
     );
   },
   buildTools: async (agent, sandbox) => {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY env var required for harness turns");
+    const { apiKey, baseUrl } = resolveProviderCreds();
     return buildTools(agent, sandbox, {
       ANTHROPIC_API_KEY: apiKey,
-      ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL,
+      ANTHROPIC_BASE_URL: baseUrl,
       toMarkdown: toMarkdownProvider,
     });
   },
@@ -549,8 +577,7 @@ const sessionRegistry = new SessionRegistry({
     };
   },
   buildHarnessContext: async (input) => {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY env var required for harness turns");
+    const { apiKey, baseUrl } = resolveProviderCreds();
     const runtime = new NodeHarnessRuntime({
       sessionId: input.sessionId,
       log: input.eventLog,
@@ -569,7 +596,7 @@ const sessionRegistry = new SessionRegistry({
       rawSystemPrompt,
       env: {
         ANTHROPIC_API_KEY: apiKey,
-        ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL,
+        ANTHROPIC_BASE_URL: baseUrl,
       },
       runtime,
     } satisfies HarnessContext;
@@ -577,6 +604,11 @@ const sessionRegistry = new SessionRegistry({
 });
 
 await sessionRegistry.bootstrap();
+
+// Warm the AnyRouter provider cache from any credential a previous connect
+// already persisted, so a restart doesn't silently fall back to env vars
+// until the next OAuth round-trip.
+await loadActiveAnyRouterProvider({ sql, vaults: vaultService, credentials: credentialService });
 
 // ─── Services bundle ────────────────────────────────────────────────────
 
@@ -1132,6 +1164,33 @@ if (platformRootSecret) {
     }),
   );
 }
+
+// ─── AnyRouter upstream provider — OAuth (PKCE) connect ────────────────
+//
+// GET  /v1/providers/anyrouter/connect     — redirects the browser into
+//                                             AnyRouter's OAuth consent flow
+// GET  /v1/providers/anyrouter/callback    — AnyRouter's redirect target;
+//                                             mints + persists an sk-ar-…
+//                                             key and hot-swaps buildModel
+// GET  /v1/providers/anyrouter/status      — is this tenant connected?
+// POST /v1/providers/anyrouter/disconnect  — revoke the stored credential
+// GET  /v1/providers/anyrouter/models      — cached AnyRouter model catalog
+v1.route(
+  "/providers/anyrouter",
+  buildAnyRouterRoutes({
+    services,
+    publicOrigin: gatewayOrigin.replace(/\/+$/, ""),
+    returnUrl: `${gatewayOrigin.replace(/\/+$/, "")}/model-cards`,
+    hooks: {
+      onConnected: ({ apiKey }) => {
+        setActiveAnyRouterProvider(apiKey);
+      },
+      onDisconnected: () => {
+        clearActiveAnyRouterProvider();
+      },
+    },
+  }),
+);
 
 // ─── Integrations gateway (OAuth callbacks, setup pages, Linear MCP,
 // GitHub internal refresh, webhooks) — mounted on `app` (NOT under /v1)
