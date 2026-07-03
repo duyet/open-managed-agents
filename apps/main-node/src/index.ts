@@ -446,6 +446,8 @@ const SANDBOX_PROVIDER_PATHS: Record<string, string> = {
   boxrun: "@open-managed-agents/sandbox/adapters/boxrun",
   daytona: "@open-managed-agents/sandbox/adapters/daytona",
   e2b: "@open-managed-agents/sandbox/adapters/e2b",
+  k8s: "@open-managed-agents/sandbox/adapters/kubernetes",
+  kubernetes: "@open-managed-agents/sandbox/adapters/kubernetes",
 };
 
 async function buildSandbox(
