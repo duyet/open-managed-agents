@@ -5,16 +5,35 @@
 //
 //   1. AUTH_DISABLED → tenant_id="default", user_id undefined.
 //   2. x-api-key header → resolveApiKey() → {tenant_id, user_id?}.
-//   3. Cookie session → resolveSession() → {user_id} → tenant via
+//   3. Trusted reverse-proxy header (opt-in, deps.trustedProxy) → guard
+//      check → resolve() → {user_id} → same tenant resolution as below.
+//      No-op entirely unless the runtime passes deps.trustedProxy; see
+//      ./trusted-proxy.ts for the guard + threat model.
+//   4. Cookie session → resolveSession() → {user_id} → tenant via
 //      x-active-tenant (validated against membership) or
 //      defaultTenantForUser → ensureTenantForUser self-heal.
-//   4. Otherwise 401.
+//   5. Otherwise 401.
 //
 // Resolvers are runtime-injected: CF passes resolvers backed by D1
 // + better-auth + KV-hashed apikey lookup; Node passes the same shape
 // backed by SqlClient + a new api_keys table + better-auth on PG/sqlite.
 
 import { createMiddleware } from "hono/factory";
+import {
+  checkTrustedProxyGuard,
+  extractTrustedProxyIdentity,
+  isTrustedProxyAttempt,
+  type TrustedProxyGuardConfig,
+  type TrustedProxyIdentity,
+} from "./trusted-proxy";
+
+export {
+  checkTrustedProxyGuard,
+  extractTrustedProxyIdentity,
+  isTrustedProxyAttempt,
+  type TrustedProxyGuardConfig,
+  type TrustedProxyIdentity,
+} from "./trusted-proxy";
 
 export interface AuthSession {
   userId: string;
@@ -25,6 +44,24 @@ export interface AuthSession {
 export interface ApiKeyResolution {
   tenantId: string;
   userId?: string;
+}
+
+/**
+ * Opt-in trusted reverse-proxy / SSO-gateway header auth. See
+ * ./trusted-proxy.ts for the guard + threat model. Fully inert unless the
+ * runtime constructs and passes this on AuthMiddlewareDeps — omitting it
+ * (the default) is a true no-op: the middleware never inspects the
+ * identity header at all when this is undefined.
+ */
+export interface TrustedProxyAuthDeps {
+  /** Pure guard config — no I/O. */
+  config: TrustedProxyGuardConfig;
+  /** Resolve (typically find-or-create) a validated identity into an
+   *  AuthSession. Only ever called after checkTrustedProxyGuard has
+   *  passed for the current request. Runtime-specific (DB access) — see
+   *  @open-managed-agents/auth-config's resolveTrustedProxyUser for the
+   *  Node/self-host implementation. */
+  resolve(identity: TrustedProxyIdentity): Promise<AuthSession | null>;
 }
 
 export interface AuthMiddlewareDeps {
@@ -44,6 +81,9 @@ export interface AuthMiddlewareDeps {
    *  without auth. Default: /health and /auth/*.  Used for /v1/internal
    *  (header-secret) and /v1/mcp-proxy (Bearer-on-every-request). */
   bypassPath?(path: string): boolean;
+  /** Opt-in trusted reverse-proxy header auth. Omit for no behavior
+   *  change (default) — see TrustedProxyAuthDeps + ./trusted-proxy.ts. */
+  trustedProxy?: TrustedProxyAuthDeps;
 }
 
 const DEFAULT_BYPASS = (path: string) =>
@@ -71,7 +111,52 @@ export function createAuthMiddleware(deps: AuthMiddlewareDeps) {
       return next();
     }
 
-    // 2. Cookie session
+    // Shared tail: given a resolved identity (from cookie session OR
+    // trusted-proxy auth), resolve the tenant the same way for both paths.
+    const finishWithSession = async (session: AuthSession) => {
+      let tenantId: string | null = null;
+      const requested = c.req.header("x-active-tenant") || "";
+      if (requested) {
+        const ok = await deps.hasMembership(session.userId, requested);
+        if (!ok) {
+          return c.json(
+            {
+              type: "error",
+              error: { type: "not_a_member", message: "Not a member of the requested tenant" },
+            },
+            403,
+          );
+        }
+        tenantId = requested;
+      }
+      if (!tenantId) tenantId = await deps.defaultTenantForUser(session.userId);
+      if (!tenantId) tenantId = await deps.ensureTenantForUser(session);
+
+      c.set("tenant_id", tenantId);
+      c.set("user_id", session.userId);
+      return next();
+    };
+
+    // 2. Trusted reverse-proxy header (opt-in — no-op unless deps.trustedProxy
+    // is configured). When the configured identity header is present we
+    // treat this as an *attempted* trusted-proxy login: the shared-secret
+    // guard MUST pass or we reject outright (fail closed) rather than
+    // falling through to cookie auth, which would silently swallow a
+    // spoofing/misconfiguration signal behind an ordinary 401. See
+    // ./trusted-proxy.ts for the full threat model.
+    const tp = deps.trustedProxy;
+    if (tp && isTrustedProxyAttempt(tp.config, c.req.raw.headers)) {
+      if (!checkTrustedProxyGuard(tp.config, c.req.raw.headers)) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+      const identity = extractTrustedProxyIdentity(tp.config, c.req.raw.headers);
+      if (!identity) return c.json({ error: "Unauthorized" }, 401);
+      const tpSession = await tp.resolve(identity);
+      if (!tpSession) return c.json({ error: "Unauthorized" }, 401);
+      return finishWithSession(tpSession);
+    }
+
+    // 3. Cookie session
     let session: AuthSession | null = null;
     try {
       session = await deps.resolveSession(c.req.raw.headers);
@@ -80,27 +165,6 @@ export function createAuthMiddleware(deps: AuthMiddlewareDeps) {
     }
     if (!session) return c.json({ error: "Unauthorized" }, 401);
 
-    // 3. Tenant resolution.
-    let tenantId: string | null = null;
-    const requested = c.req.header("x-active-tenant") || "";
-    if (requested) {
-      const ok = await deps.hasMembership(session.userId, requested);
-      if (!ok) {
-        return c.json(
-          {
-            type: "error",
-            error: { type: "not_a_member", message: "Not a member of the requested tenant" },
-          },
-          403,
-        );
-      }
-      tenantId = requested;
-    }
-    if (!tenantId) tenantId = await deps.defaultTenantForUser(session.userId);
-    if (!tenantId) tenantId = await deps.ensureTenantForUser(session);
-
-    c.set("tenant_id", tenantId);
-    c.set("user_id", session.userId);
-    return next();
+    return finishWithSession(session);
   });
 }

@@ -110,11 +110,16 @@ import { nodeOutputsAdapter } from "./lib/node-outputs-adapter.js";
 import { nodeSessionLifecycle } from "./lib/node-session-lifecycle.js";
 import { NodeWorkspaceBackupService } from "./lib/node-workspace-backup.js";
 import { DefaultSandboxOrchestrator } from "@open-managed-agents/sandbox/orchestrator";
-import { createAuthMiddleware as buildAuthMw } from "@open-managed-agents/auth";
+import {
+  createAuthMiddleware as buildAuthMw,
+  type TrustedProxyGuardConfig,
+} from "@open-managed-agents/auth";
 import {
   buildBetterAuth,
   ensureTenantSqlite,
+  resolveTrustedProxyUser,
 } from "@open-managed-agents/auth-config";
+import { BetterSqlite3SqlClient } from "@open-managed-agents/sql-client/adapters/better-sqlite3";
 import { senderFromEnv } from "@open-managed-agents/email/adapters/nodemailer";
 import { SqlKvStore } from "@open-managed-agents/kv-store/adapters/sql";
 import {
@@ -228,12 +233,21 @@ const sender = senderFromEnv(process.env);
 
 let auth: ReturnType<typeof buildBetterAuth> | null = null;
 let authShutdown: (() => Promise<void>) | null = null;
+// SqlClient scoped to wherever the better-auth "user" table actually
+// lives: on Postgres that's the same physical database as the main `sql`
+// client (different driver, same DSN); on sqlite it's a SEPARATE file
+// (authDbPath) from the main store, so we need a client wired to that
+// specific connection. Used by trusted-proxy auth's find-or-create below —
+// stays null when auth is disabled (trusted-proxy auth is meaningless
+// without better-auth's user table to resolve into).
+let authUserSql: SqlClient | null = null;
 
 if (!authDisabled) {
   if (usePostgres) {
     const { Pool } = (await import("pg")) as typeof import("pg");
     const pgPool = new Pool({ connectionString: dbUrl });
     await applyBetterAuthSchema({ sql, dialect: "postgres" });
+    authUserSql = sql;
     auth = buildBetterAuth({
       database: pgPool,
       sender,
@@ -258,6 +272,14 @@ if (!authDisabled) {
       sql: betterSqliteAsSqlClient(authDb),
       dialect: "sqlite",
     });
+    // Structural cast: better-sqlite3's real `Database.transaction<T>` return
+    // type isn't structurally assignable to BetterSqlite3SqlClient's minimal
+    // BS3Database interface (generic method variance) even though the two
+    // are runtime-identical — same pattern createBetterSqlite3SqlClient
+    // itself relies on via its own narrowed BS3Module type.
+    authUserSql = new BetterSqlite3SqlClient(
+      authDb as unknown as ConstructorParameters<typeof BetterSqlite3SqlClient>[0],
+    );
     auth = buildBetterAuth({
       database: authDb,
       sender,
@@ -273,6 +295,50 @@ if (!authDisabled) {
       authDb.close();
     };
   }
+}
+
+// ─── Trusted reverse-proxy / SSO-gateway header auth (opt-in) ───────────
+//
+// Lets a reverse proxy / SSO gateway in front of this deployment (nginx,
+// oauth2-proxy, Envoy/Istio ingress, etc.) hand us an already-authenticated
+// identity via headers instead of making the user log in again. Default
+// OFF and a true no-op when TRUSTED_PROXY_AUTH_ENABLED is unset — the
+// `trustedProxy` dep below is simply never constructed, so the auth
+// middleware never inspects the identity header at all.
+//
+// Threat model (see @open-managed-agents/auth's trusted-proxy.ts for the
+// full writeup): a header alone is never proof of anything — anyone who
+// can reach this service directly could set it and impersonate any user.
+// TRUSTED_PROXY_SHARED_SECRET is the mitigation: a value known only to the
+// operator, injected by the trusted gateway on a second header on every
+// request, that this app verifies (constant-time) before trusting the
+// identity header. We fail closed and refuse to boot with the feature
+// half-configured (enabled but no secret) rather than silently running in
+// a permanently-rejecting state.
+const trustedProxyConfig: TrustedProxyGuardConfig | null =
+  process.env.TRUSTED_PROXY_AUTH_ENABLED === "1"
+    ? {
+        enabled: true,
+        userHeader: process.env.TRUSTED_PROXY_HEADER ?? "X-Forwarded-User",
+        emailHeader: process.env.TRUSTED_PROXY_EMAIL_HEADER,
+        sharedSecretHeader:
+          process.env.TRUSTED_PROXY_SHARED_SECRET_HEADER ?? "X-Trusted-Proxy-Secret",
+        sharedSecret: process.env.TRUSTED_PROXY_SHARED_SECRET,
+      }
+    : null;
+
+if (trustedProxyConfig && !trustedProxyConfig.sharedSecret) {
+  throw new Error(
+    "TRUSTED_PROXY_AUTH_ENABLED=1 requires TRUSTED_PROXY_SHARED_SECRET to be set " +
+      "(a value known only to your reverse proxy / SSO gateway — see docs/self-host.md#trusted-reverse-proxy--sso-gateway-auth-opt-in)",
+  );
+}
+if (trustedProxyConfig && authDisabled) {
+  throw new Error(
+    "TRUSTED_PROXY_AUTH_ENABLED=1 is incompatible with AUTH_DISABLED=1 " +
+      "(trusted-proxy auth resolves identities into better-auth's user table, " +
+      "which isn't provisioned when auth is disabled)",
+  );
 }
 
 // ─── Stores ─────────────────────────────────────────────────────────────
@@ -802,8 +868,9 @@ if (auth) {
   app.on(["GET", "POST"], "/auth/*", (c) => auth!.handler(c.req.raw));
 }
 
-// Auth middleware via packages/auth — same five-priority resolution as
-// apps/main on CF.
+// Auth middleware via packages/auth — same core resolution as apps/main on
+// CF (API key → cookie session), plus opt-in trusted-proxy header auth
+// (Node/self-host only for now — see the env var block above).
 const authMw = buildAuthMw({
   disabled: authDisabled,
   bypassPath: (path) => path === "/health" || path.startsWith("/auth/"),
@@ -844,6 +911,17 @@ const authMw = buildAuthMw({
     return row !== null;
   },
   ensureTenantForUser: (s) => ensureTenantSqlite(sql, s.userId, s.name, s.email),
+  ...(trustedProxyConfig && authUserSql
+    ? {
+        trustedProxy: {
+          config: trustedProxyConfig,
+          resolve: async (identity) => {
+            const resolved = await resolveTrustedProxyUser(authUserSql!, dialect, identity);
+            return { userId: resolved.userId, email: resolved.email, name: resolved.name };
+          },
+        },
+      }
+    : {}),
 });
 
 const v1 = new Hono<{

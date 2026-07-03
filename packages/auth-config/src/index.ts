@@ -235,3 +235,69 @@ function randomHex(bytes: number): string {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
+
+export interface TrustedProxyResolvedSession {
+  userId: string;
+  email: string;
+  name: string;
+}
+
+/**
+ * Resolve-or-create a better-auth "user" row for a trusted-proxy-verified
+ * identity. This function performs ZERO validation of the caller's
+ * authority to claim the identity — it must only ever be invoked after
+ * @open-managed-agents/auth's checkTrustedProxyGuard has already passed
+ * for the current request (see that package's trusted-proxy.ts for the
+ * full threat model). Lookup/creation key is `email`, the "user" table's
+ * unique column.
+ *
+ * `dialect` controls timestamp + boolean representation: Postgres columns
+ * are TIMESTAMPTZ/BOOLEAN (JS Date/boolean), sqlite columns are
+ * INTEGER ms-epoch / 0-1 (JS number) — see packages/schema's
+ * applyBetterAuthSchema for the DDL both branches target.
+ */
+export async function resolveTrustedProxyUser(
+  sql: SqlClient,
+  dialect: "sqlite" | "postgres",
+  identity: { subject: string; email: string; name: string },
+): Promise<TrustedProxyResolvedSession> {
+  const email = identity.email.trim().toLowerCase();
+  if (!email) {
+    throw new Error("resolveTrustedProxyUser: identity has no usable email");
+  }
+
+  const existing = await sql
+    .prepare(`SELECT "id", "email", "name" FROM "user" WHERE "email" = ?`)
+    .bind(email)
+    .first<{ id: string; email: string; name: string }>();
+  if (existing) {
+    return { userId: existing.id, email: existing.email, name: existing.name };
+  }
+
+  const userId = `usr_${randomHex(16)}`;
+  const name = identity.name.trim() || email.split("@")[0] || "User";
+  const now: number | Date = dialect === "postgres" ? new Date() : Date.now();
+  const emailVerified: boolean | number = dialect === "postgres" ? true : 1;
+
+  await sql
+    .prepare(
+      `INSERT INTO "user"
+         ("id", "email", "emailVerified", "name", "tenantId", "role", "createdAt", "updatedAt")
+       VALUES (?, ?, ?, ?, NULL, 'member', ?, ?)
+       ON CONFLICT ("email") DO NOTHING`,
+    )
+    .bind(userId, email, emailVerified, name, now, now)
+    .run();
+
+  // Re-read: either our own insert landed, or a concurrent request won a
+  // create-race for the same email — either way there is now exactly one
+  // "user" row for it.
+  const final = await sql
+    .prepare(`SELECT "id", "email", "name" FROM "user" WHERE "email" = ?`)
+    .bind(email)
+    .first<{ id: string; email: string; name: string }>();
+  if (!final) {
+    throw new Error(`resolveTrustedProxyUser: failed to create or find user for ${email}`);
+  }
+  return { userId: final.id, email: final.email, name: final.name };
+}
