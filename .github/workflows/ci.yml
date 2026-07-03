@@ -1,0 +1,44 @@
+name: CI
+
+# PR + main gate. typecheck is the blocking signal (fast, reliable).
+# The full test suite runs as a non-blocking diagnostic while the
+# workers-pool SessionDO test deadlock is being fixed (see fix/test-deadlock*
+# PR) — kept visible for the real Linux-runner signal, not required for merge
+# yet. Flip `continue-on-error` off once the suite is green.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    continue-on-error: true   # non-blocking until the DO test deadlock is fixed
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
