@@ -1,6 +1,6 @@
 {
   "name": "open-managed-agents",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Open-source Claude Managed Agents API implementation and self-hosted Claude Tag-style agent runtime.",
   "homepage": "https://openma.dev",
   "repository": {
