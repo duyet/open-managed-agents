@@ -16,9 +16,15 @@
   // OSS template defaults to www.openma.dev only — the hosted overlay
   // (openma-hosted/wrangler/web.jsonc) claims both apex + www and the
   // worker handles the redirect at runtime.
+  //
+  // oma.duyet.net is an additional custom domain for this fork's public
+  // deployment (see .github/workflows/deploy-website.yml); it requires
+  // duyet.net to be on the same Cloudflare account and the custom domain
+  // to be added manually first (see README "Deploying the website").
   "workers_dev": true,
   "routes": [
-    { "pattern": "www.openma.dev", "custom_domain": true }
+    { "pattern": "www.openma.dev", "custom_domain": true },
+    { "pattern": "oma.duyet.net", "custom_domain": true }
   ],
 
   "observability": { "enabled": true },
