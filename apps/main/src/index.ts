@@ -118,6 +118,9 @@ app.get("/auth-info", (c) => {
   if (c.env.GOOGLE_CLIENT_ID && c.env.GOOGLE_CLIENT_SECRET) {
     providers.push("google");
   }
+  if (c.env.GITHUB_CLIENT_ID && c.env.GITHUB_CLIENT_SECRET) {
+    providers.push("github");
+  }
   return c.json({
     providers,
     turnstile_site_key: c.env.TURNSTILE_SITE_KEY ?? null,

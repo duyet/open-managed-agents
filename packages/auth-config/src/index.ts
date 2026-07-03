@@ -33,6 +33,9 @@ export interface BuildBetterAuthOpts {
   /** Optional Google OAuth. */
   googleClientId?: string;
   googleClientSecret?: string;
+  /** Optional GitHub OAuth. */
+  githubClientId?: string;
+  githubClientSecret?: string;
   /** When true, sign-up requires email verification before the user is
    *  signed in. Default: false on self-host (no SMTP path), true on CF prod. */
   requireEmailVerify?: boolean;
@@ -71,6 +74,12 @@ export function buildBetterAuth(opts: BuildBetterAuthOpts) {
     socialProviders.google = {
       clientId: opts.googleClientId,
       clientSecret: opts.googleClientSecret,
+    };
+  }
+  if (opts.githubClientId && opts.githubClientSecret) {
+    socialProviders.github = {
+      clientId: opts.githubClientId,
+      clientSecret: opts.githubClientSecret,
     };
   }
 

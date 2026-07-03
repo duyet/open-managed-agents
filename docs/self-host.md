@@ -535,6 +535,31 @@ main-node's stdout — paste into the console verify-signup screen.
 Operators wiring real email replace the `sendVerificationOTP` callback
 in `apps/main-node/src/auth/config.ts` with a Resend / SES / SMTP call.
 
+### GitHub OAuth login (optional)
+
+The Console's Login page can show a "Continue with GitHub" button. It's
+opt-in — set both `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` and the
+button appears automatically (`/auth-info` starts advertising `"github"`
+in its `providers` list); leave them unset and nothing changes.
+
+1. Create a GitHub OAuth App: **github.com/settings/developers → OAuth
+   Apps → New OAuth App** (or, for an org, under the org's settings).
+2. **Homepage URL**: your `PUBLIC_BASE_URL` (e.g. `http://localhost:8787`
+   or `https://console.example.com`).
+3. **Authorization callback URL**: `${PUBLIC_BASE_URL}/auth/callback/github`
+   (e.g. `http://localhost:8787/auth/callback/github`) — better-auth
+   mounts the social-provider callback at `/auth/callback/:id` under the
+   `/auth` basePath.
+4. Copy the generated **Client ID** and **Client Secret** into
+   `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` (`.env` for Docker, or
+   your shell env for `pnpm --filter @open-managed-agents/main-node start`).
+5. Restart main-node (`docker compose up -d --force-recreate oma-server`,
+   or just re-run the process for bare `pnpm start`).
+
+Same env vars work unchanged on the Cloudflare deploy (`apps/main`) —
+set them as Worker secrets (`wrangler secret put GITHUB_CLIENT_ID`, etc.)
+instead of `.env`.
+
 Endpoints main-node implements for the console:
 - `/auth-info` (provider list)
 - `/auth/*` (better-auth: sign-up, sign-in, sign-out, get-session, OTP)
