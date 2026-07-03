@@ -65,3 +65,10 @@ export type {
   WebhookHandlers,
   RateLimitHooks,
 } from "./integrations/gateway";
+
+export { buildAnyRouterRoutes } from "./providers/anyrouter";
+export type {
+  AnyRouterRoutesDeps,
+  AnyRouterConnectHooks,
+  AnyRouterConnectedInfo,
+} from "./providers/anyrouter";
