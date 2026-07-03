@@ -7,20 +7,20 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
+} from "@duyet/oma-db-schema";
 import {
   agent_versions,
   agents,
-} from "@open-managed-agents/db-schema/cf-auth";
+} from "@duyet/oma-db-schema/cf-auth";
 import type {
   AgentConfig,
   PageCursor,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import {
   escapeLikePattern,
   fetchN,
   trimPage,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import { AgentNotFoundError } from "../errors";
 import type {
   AgentRepo,

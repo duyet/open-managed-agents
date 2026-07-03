@@ -1,5 +1,5 @@
-import { generateCredentialId } from "@open-managed-agents/shared";
-import type { CredentialAuth } from "@open-managed-agents/shared";
+import { generateCredentialId } from "@duyet/oma-shared";
+import type { CredentialAuth } from "@duyet/oma-shared";
 import {
   CredentialImmutableFieldError,
   CredentialMaxExceededError,

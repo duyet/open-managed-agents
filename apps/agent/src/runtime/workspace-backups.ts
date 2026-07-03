@@ -23,7 +23,7 @@
 //   - Branching/forking backups
 //   - Manual backup/restore via REST API for operator workflows
 
-import { logWarn } from "@open-managed-agents/shared";
+import { logWarn } from "@duyet/oma-shared";
 
 /**
  * Mirror of @cloudflare/sandbox `DirectoryBackup`. Kept local to avoid

@@ -42,8 +42,8 @@
  */
 
 import { DurableObject } from "cloudflare:workers";
-import type { Env } from "@open-managed-agents/shared";
-import { log, logWarn, logError } from "@open-managed-agents/shared";
+import type { Env } from "@duyet/oma-shared";
+import { log, logWarn, logError } from "@duyet/oma-shared";
 
 type Side = "daemon" | "harness";
 

@@ -23,7 +23,7 @@
 //   - controlPlaneDb : env.MAIN_DB. Used ONLY by the TenantResolver to look
 //                      up user.tenantId. The better-auth tables never move.
 
-import type { Container } from "@open-managed-agents/integrations-core";
+import type { Container } from "@duyet/oma-integrations-core";
 import { drizzle } from "drizzle-orm/d1";
 import { SystemClock } from "./clock";
 import { WebCryptoAesGcm } from "./crypto";

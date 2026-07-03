@@ -17,7 +17,7 @@
 //
 // Sandbox provisioning (memory mounts, /mnt/session/outputs, vault
 // outbound, optional workspace-restore) is delegated to the
-// SandboxOrchestrator from `@open-managed-agents/sandbox/orchestrator`
+// SandboxOrchestrator from `@duyet/oma-sandbox/orchestrator`
 // — same interface CF wires for the OmaSandbox path. Per-runtime
 // mounters were removed in P5.
 
@@ -25,23 +25,23 @@ import { join } from "node:path";
 import {
   RuntimeAdapterImpl,
   SessionStateMachine,
-} from "@open-managed-agents/session-runtime";
-import type { SqlClient } from "@open-managed-agents/sql-client";
-import { SqlStreamRepo, type SqlEventLog } from "@open-managed-agents/event-log/sql";
-import type { SandboxExecutor } from "@open-managed-agents/sandbox";
+} from "@duyet/oma-session-runtime";
+import type { SqlClient } from "@duyet/oma-sql-client";
+import { SqlStreamRepo, type SqlEventLog } from "@duyet/oma-event-log/sql";
+import type { SandboxExecutor } from "@duyet/oma-sandbox";
 import type {
   OrchestratorMemoryMount,
   SandboxOrchestrator,
-} from "@open-managed-agents/sandbox/orchestrator";
-import type { AgentService } from "@open-managed-agents/agents-store";
-import type { MemoryStoreService } from "@open-managed-agents/memory-store";
+} from "@duyet/oma-sandbox/orchestrator";
+import type { AgentService } from "@duyet/oma-agents-store";
+import type { MemoryStoreService } from "@duyet/oma-memory-store";
 import type {
   AgentConfig,
   SessionEvent,
   UserMessageEvent,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import type { LanguageModel } from "ai";
-import { getLogger } from "@open-managed-agents/observability";
+import { getLogger } from "@duyet/oma-observability";
 import type { EventStreamHub } from "./lib/event-stream-hub.js";
 
 const log = getLogger("session-registry");

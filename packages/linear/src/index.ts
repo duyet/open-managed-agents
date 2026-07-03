@@ -1,4 +1,4 @@
-// @open-managed-agents/linear
+// @duyet/oma-linear
 //
 // Linear-specific implementation of integrations-core's IntegrationProvider.
 // Pure logic only — no Cloudflare imports, no Hono, no D1. All runtime

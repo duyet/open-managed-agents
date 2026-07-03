@@ -3,7 +3,7 @@
 // Minimal implementation — no audience/issuer validation, no key rotation,
 // no kid header. Tokens are session-bounded so churn handles rotation.
 
-import type { JwtSigner } from "@open-managed-agents/integrations-core";
+import type { JwtSigner } from "@duyet/oma-integrations-core";
 
 const HEADER_B64 = base64UrlEncodeStr('{"alg":"HS256","typ":"JWT"}');
 

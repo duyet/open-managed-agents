@@ -1,15 +1,15 @@
 // Node SessionRouter — wraps the existing SessionRegistry + SqlEventLog +
 // EventStreamHub behind the runtime-agnostic SessionRouter contract.
-// Used by `@open-managed-agents/http-routes` to mount the same
+// Used by `@duyet/oma-http-routes` to mount the same
 // /v1/sessions/* paths the CF worker mounts, sharing one source of
 // route handlers across runtimes.
 
-import type { SqlClient } from "@open-managed-agents/sql-client";
-import { SqlEventLog } from "@open-managed-agents/event-log/sql";
-import type { SessionEvent, StoredEvent } from "@open-managed-agents/shared";
-import { buildTrajectory, type SessionRecord, type EnvironmentConfig } from "@open-managed-agents/shared";
-import { isSpecEvent } from "@open-managed-agents/api-types";
-import { getLogger } from "@open-managed-agents/observability";
+import type { SqlClient } from "@duyet/oma-sql-client";
+import { SqlEventLog } from "@duyet/oma-event-log/sql";
+import type { SessionEvent, StoredEvent } from "@duyet/oma-shared";
+import { buildTrajectory, type SessionRecord, type EnvironmentConfig } from "@duyet/oma-shared";
+import { isSpecEvent } from "@duyet/oma-api-types";
+import { getLogger } from "@duyet/oma-observability";
 
 const moduleLog = getLogger("node-session-router");
 import type {
@@ -22,7 +22,7 @@ import type {
   SessionAppendResult,
   SessionStreamFrame,
   SessionStreamHandle,
-} from "@open-managed-agents/session-runtime";
+} from "@duyet/oma-session-runtime";
 import type { SessionRegistry } from "../registry.js";
 import type { EventStreamHub } from "./event-stream-hub.js";
 
@@ -82,7 +82,7 @@ export class NodeSessionRouter implements SessionRouter {
         void entry.machine
           .runHarnessTurn(
             row.agent_id,
-            event as import("@open-managed-agents/shared").UserMessageEvent,
+            event as import("@duyet/oma-shared").UserMessageEvent,
           )
           .catch((err) => {
             moduleLog.error({ err, op: "node_session_router.harness_turn_failed", session_id: sessionId }, "harness turn failed");

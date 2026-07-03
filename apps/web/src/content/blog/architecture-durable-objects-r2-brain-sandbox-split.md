@@ -13,7 +13,7 @@ execution** happens, and how the two stay coordinated when a process
 dies mid-step.
 
 This post walks through the architecture decisions in
-[Open Managed Agents](https://github.com/openma-ai/open-managed-agents).
+[Open Managed Agents](https://github.com/duyet/oma).
 The mental model that ties it all together: a clean split between the
 **brain** (the harness — stateless code that calls the model) and the
 **body** (the sandbox — a real Linux process the agent can drive).
@@ -319,7 +319,7 @@ practical steps.
 
 ```bash
 # Self-host on Cloudflare
-git clone https://github.com/openma-ai/open-managed-agents
+git clone https://github.com/duyet/oma
 cd open-managed-agents
 pnpm install
 npx wrangler login

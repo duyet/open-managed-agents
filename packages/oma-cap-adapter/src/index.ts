@@ -1,6 +1,6 @@
-// @open-managed-agents/oma-cap-adapter
+// @duyet/oma-oma-cap-adapter
 //
-// L3 adapter wiring @open-managed-agents/cap into OMA's vault stack.
+// L3 adapter wiring @duyet/oma-cap into OMA's vault stack.
 // Used by:
 //   - apps/main mcp-proxy: resolves cap_cli credentials at outbound time
 //   - apps/main oauth routes: stores acquired tokens via Resolver.store

@@ -4,7 +4,7 @@ import { describe, it, expect } from "vitest";
 import { buildTools } from "../../apps/agent/src/harness/tools";
 import { TestSandbox } from "../../apps/agent/src/runtime/sandbox";
 import { InMemoryHistory, eventsToMessages } from "../../apps/agent/src/runtime/history";
-import type { AgentConfig } from "@open-managed-agents/shared";
+import type { AgentConfig } from "@duyet/oma-shared";
 
 // ============================================================
 // Helpers

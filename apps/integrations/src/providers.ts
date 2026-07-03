@@ -7,19 +7,19 @@
 // so the `installations`/`publications` slots resolve to the right backing
 // table (linear_*/github_*/slack_*). See wire.ts.
 
-import { LinearProvider, DEFAULT_LINEAR_SCOPES, ALL_CAPABILITIES } from "@open-managed-agents/linear";
+import { LinearProvider, DEFAULT_LINEAR_SCOPES, ALL_CAPABILITIES } from "@duyet/oma-linear";
 import {
   GitHubProvider,
   DEFAULT_GITHUB_CAPABILITIES,
   DEFAULT_GITHUB_MCP_URL,
-} from "@open-managed-agents/github";
+} from "@duyet/oma-github";
 import {
   SlackProvider,
   ALL_SLACK_CAPABILITIES,
   DEFAULT_SLACK_BOT_SCOPES,
   DEFAULT_SLACK_USER_SCOPES,
-} from "@open-managed-agents/slack";
-import type { LinearContainer } from "@open-managed-agents/linear";
+} from "@duyet/oma-slack";
+import type { LinearContainer } from "@duyet/oma-linear";
 import { buildContainer, buildGitHubContainer, buildSlackContainer } from "./wire";
 import type { Env } from "./env";
 

@@ -38,8 +38,8 @@
  */
 
 import { nanoid } from "nanoid";
-import type { SessionEvent } from "@open-managed-agents/shared";
-import type { RuntimeAdapter, TurnId } from "@open-managed-agents/session-runtime";
+import type { SessionEvent } from "@duyet/oma-shared";
+import type { RuntimeAdapter, TurnId } from "@duyet/oma-session-runtime";
 
 // ─── Adapter interface ──────────────────────────────────────────────────
 //

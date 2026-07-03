@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/shared",
+  "name": "@duyet/oma-shared",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,8 +7,8 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@open-managed-agents/api-types": "workspace:*",
-    "@open-managed-agents/eval-core": "workspace:*",
+    "@duyet/oma-api-types": "workspace:*",
+    "@duyet/oma-eval-core": "workspace:*",
     "nanoid": "^5.1.0"
   }
 }

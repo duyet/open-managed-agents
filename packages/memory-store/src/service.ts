@@ -2,7 +2,7 @@ import {
   generateMemoryId,
   generateMemoryStoreId,
   generateMemoryVersionId,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import {
   MemoryBlobStoreError,
   MemoryContentTooLargeError,

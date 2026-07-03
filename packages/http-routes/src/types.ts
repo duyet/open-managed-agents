@@ -8,20 +8,20 @@
 // (CF — services are per-request because of multi-tenant DB resolution).
 
 import type { Context } from "hono";
-import type { AgentService } from "@open-managed-agents/agents-store";
-import type { VaultService } from "@open-managed-agents/vaults-store";
-import type { CredentialService } from "@open-managed-agents/credentials-store";
-import type { MemoryStoreService } from "@open-managed-agents/memory-store";
-import type { SessionService } from "@open-managed-agents/sessions-store";
-import type { DreamService } from "@open-managed-agents/dreams-store";
-import type { SqlClient } from "@open-managed-agents/sql-client";
-import type { KvStore } from "@open-managed-agents/kv-store";
+import type { AgentService } from "@duyet/oma-agents-store";
+import type { VaultService } from "@duyet/oma-vaults-store";
+import type { CredentialService } from "@duyet/oma-credentials-store";
+import type { MemoryStoreService } from "@duyet/oma-memory-store";
+import type { SessionService } from "@duyet/oma-sessions-store";
+import type { DreamService } from "@duyet/oma-dreams-store";
+import type { SqlClient } from "@duyet/oma-sql-client";
+import type { KvStore } from "@duyet/oma-kv-store";
 import type {
   Logger,
   MetricsRecorder,
   Tracer,
-} from "@open-managed-agents/observability";
-import type { BrowserHarness } from "@open-managed-agents/browser-harness";
+} from "@duyet/oma-observability";
+import type { BrowserHarness } from "@duyet/oma-browser-harness";
 
 export interface BackgroundRunner {
   /** Fire-and-forget on Node (with logged error handler), waitUntil on CF. */

@@ -5,7 +5,7 @@
 //
 // All runtime concerns (HTTP, storage, crypto, JWT, sessions) are injected
 // via the Container. The provider itself is pure logic and unit-testable
-// with the in-memory fakes from @open-managed-agents/integrations-core/test-fakes.
+// with the in-memory fakes from @duyet/oma-integrations-core/test-fakes.
 
 import type {
   Container,
@@ -26,7 +26,7 @@ import type {
   CapabilityKey,
   Persona,
   Publication,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 
 import { ALL_CAPABILITIES, DEFAULT_LINEAR_SCOPES, type LinearConfig } from "./config";
 import { LinearGraphQLClient } from "./graphql/client";

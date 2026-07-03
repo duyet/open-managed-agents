@@ -1,9 +1,9 @@
 import { Hono } from "hono";
-import type { Env } from "@open-managed-agents/shared";
-import { logWarn } from "@open-managed-agents/shared";
-import type { Services } from "@open-managed-agents/services";
+import type { Env } from "@duyet/oma-shared";
+import { logWarn } from "@duyet/oma-shared";
+import type { Services } from "@duyet/oma-services";
 import { kvKey } from "../kv-helpers";
-import { generateId, skillFileR2Key } from "@open-managed-agents/shared";
+import { generateId, skillFileR2Key } from "@duyet/oma-shared";
 
 const app = new Hono<{ Bindings: Env; Variables: { tenant_id: string; services: Services } }>();
 

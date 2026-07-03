@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/acp-runtime",
+  "name": "@duyet/oma-acp-runtime",
   "version": "0.0.0",
   "private": true,
   "type": "module",

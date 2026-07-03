@@ -4,7 +4,7 @@
 // `linear-signature` header. Comparison is constant-time via Web Crypto's
 // verify() to avoid timing leaks.
 
-import type { HmacVerifier } from "@open-managed-agents/integrations-core";
+import type { HmacVerifier } from "@duyet/oma-integrations-core";
 
 export class WebCryptoHmacVerifier implements HmacVerifier {
   async verify(secret: string, body: string, signatureHex: string): Promise<boolean> {

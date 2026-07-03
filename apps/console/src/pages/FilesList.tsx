@@ -9,7 +9,7 @@ import { FilterChip } from "../components/FilterChip";
 import { RowActionsMenu } from "../components/RowActionsMenu";
 import { useApiQuery, useInfiniteApiQuery } from "../lib/useApiQuery";
 import { PopoverContent } from "@/components/ui/popover";
-import type { FileRecord } from "@open-managed-agents/api-types";
+import type { FileRecord } from "@duyet/oma-api-types";
 import type { SessionRecord as Session } from "../types/session";
 
 interface ListResponse {

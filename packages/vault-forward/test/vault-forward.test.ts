@@ -5,9 +5,9 @@ import {
   pickCredentialByHost,
   forwardWithRefresh,
 } from "../src/index";
-import type { CredentialAuth } from "@open-managed-agents/shared";
+import type { CredentialAuth } from "@duyet/oma-shared";
 
-describe("@open-managed-agents/vault-forward", () => {
+describe("@duyet/oma-vault-forward", () => {
   it("buildAuthHeader handles static_bearer", () => {
     const h = buildAuthHeader({ type: "static_bearer", token: "abc" } as CredentialAuth);
     expect(h).toEqual({ name: "authorization", value: "Bearer abc" });

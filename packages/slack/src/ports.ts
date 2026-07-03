@@ -10,7 +10,7 @@ import type {
   InstallationRepo,
   PublicationRepo,
   SessionScopeRepo,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 
 export interface SlackInstallationRepo extends InstallationRepo {
   /**
@@ -68,9 +68,9 @@ export interface SlackPublicationRepo extends PublicationRepo {
     agentId: string;
     environmentId: string;
     persona: { name: string; avatarUrl: string | null };
-    capabilities: ReadonlySet<import("@open-managed-agents/integrations-core").CapabilityKey>;
-    sessionGranularity: import("@open-managed-agents/integrations-core").SessionGranularity;
-  }): Promise<import("@open-managed-agents/integrations-core").Publication>;
+    capabilities: ReadonlySet<import("@duyet/oma-integrations-core").CapabilityKey>;
+    sessionGranularity: import("@duyet/oma-integrations-core").SessionGranularity;
+  }): Promise<import("@duyet/oma-integrations-core").Publication>;
 
   /**
    * PATCH the encrypted credentials onto a shell publication. Idempotent:
@@ -126,7 +126,7 @@ export interface SlackPublicationRepo extends PublicationRepo {
    * this Slack app yet.
    */
   findBySlackAppId(slackAppId: string): Promise<
-    import("@open-managed-agents/integrations-core").Publication | null
+    import("@duyet/oma-integrations-core").Publication | null
   >;
 }
 

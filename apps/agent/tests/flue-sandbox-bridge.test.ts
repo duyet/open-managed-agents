@@ -5,7 +5,7 @@
 // (readdir/stat/exists/mkdir/rm) plus the byte read/write fallbacks.
 
 import { describe, it, expect } from "vitest";
-import type { SandboxExecutor, ProcessHandle } from "@open-managed-agents/sandbox";
+import type { SandboxExecutor, ProcessHandle } from "@duyet/oma-sandbox";
 import {
   parseExecResult,
   shellQuote,

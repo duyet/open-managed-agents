@@ -1,4 +1,4 @@
-// @open-managed-agents/api-types
+// @duyet/oma-api-types
 //
 // Wire-format DTOs for the OMA platform: AgentConfig, SessionMeta, SessionEvent,
 // ContentBlock, MemoryItem, FileRecord, etc. Pure types — zero workspace

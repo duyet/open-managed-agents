@@ -6,14 +6,14 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { slack_setup_links } from "@open-managed-agents/db-schema/cf-integrations";
+} from "@duyet/oma-db-schema";
+import { slack_setup_links } from "@duyet/oma-db-schema/cf-integrations";
 import type {
   IdGenerator,
   NewSetupLink,
   SetupLink,
   SetupLinkRepo,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 
 export class SqlSlackSetupLinkRepo implements SetupLinkRepo {
   private readonly db: OmaDbBuilder;

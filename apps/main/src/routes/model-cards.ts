@@ -1,11 +1,11 @@
 import { Hono } from "hono";
-import type { Env } from "@open-managed-agents/shared";
+import type { Env } from "@duyet/oma-shared";
 import {
   ModelCardDuplicateModelIdError,
   ModelCardNotFoundError,
   type ModelCardRow,
-} from "@open-managed-agents/model-cards-store";
-import type { Services } from "@open-managed-agents/services";
+} from "@duyet/oma-model-cards-store";
+import type { Services } from "@duyet/oma-services";
 import { jsonPage, parsePageQuery } from "../lib/list-page";
 
 const app = new Hono<{

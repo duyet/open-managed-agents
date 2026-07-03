@@ -1,5 +1,5 @@
 /**
- * CF SessionDO browser entry — thin re-export over @open-managed-agents/
+ * CF SessionDO browser entry — thin re-export over @duyet/oma-
  * browser-harness so the workerd binding details (env.BROWSER) live in
  * the package, not in the harness.
  *
@@ -13,7 +13,7 @@ export {
   createBrowserSession,
   createCfBrowserHarness,
   type CfBrowserBinding,
-} from "@open-managed-agents/browser-harness/cf";
+} from "@duyet/oma-browser-harness/cf";
 export {
   buildBrowserTools,
   NotSupportedError,
@@ -22,4 +22,4 @@ export {
   type BrowserBillingHook,
   type BrowserSessionOpts,
   type BrowserPage,
-} from "@open-managed-agents/browser-harness";
+} from "@duyet/oma-browser-harness";

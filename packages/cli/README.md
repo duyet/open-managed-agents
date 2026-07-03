@@ -1,13 +1,13 @@
-# @openma/cli
+# @duyet/oma-cli
 
-Command-line client for [openma](https://openma.dev) managed agents.
+Command-line client for [openma](https://oma.duyet.net) managed agents.
 
 > **Beta.** API surface and command names may change before 0.1.0 final.
 
 ## Install
 
 ```bash
-npm i -g @openma/cli
+npm i -g @duyet/oma-cli
 ```
 
 This installs an `oma` binary on your `PATH`. (If a different `oma` is already installed, npm will overwrite or warn — both are safe.)
@@ -16,10 +16,10 @@ This installs an `oma` binary on your `PATH`. (If a different `oma` is already i
 
 ```bash
 export OMA_API_KEY=sk_...
-export OMA_BASE_URL=https://api.openma.dev   # default
+export OMA_BASE_URL=https://api.oma.duyet.net   # default
 ```
 
-Generate an API key from the [openma console](https://openma.dev) → API Keys.
+Generate an API key from the [openma console](https://oma.duyet.net) → API Keys.
 
 ## Usage
 

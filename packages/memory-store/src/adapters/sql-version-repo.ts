@@ -6,8 +6,8 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { memory_versions } from "@open-managed-agents/db-schema/cf-auth";
+} from "@duyet/oma-db-schema";
+import { memory_versions } from "@duyet/oma-db-schema/cf-auth";
 import type { MemoryVersionRepo } from "../ports";
 import type { Actor, MemoryVersionRow } from "../types";
 

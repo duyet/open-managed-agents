@@ -17,12 +17,12 @@ import { promises as fs } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { watch as chokidarWatch } from "chokidar";
-import type { R2EventMessage } from "@open-managed-agents/shared";
+import type { R2EventMessage } from "@duyet/oma-shared";
 import {
   type MemoryRepo,
   type BlobStore as MemoryBlobStore,
-} from "@open-managed-agents/memory-store";
-import type { SqlClient } from "@open-managed-agents/sql-client";
+} from "@duyet/oma-memory-store";
+import type { SqlClient } from "@duyet/oma-sql-client";
 import {
   createInMemoryQueue,
   createInMemoryDlq,
@@ -31,11 +31,11 @@ import {
   ensureQueueSchema,
   type Queue,
   type DeadLetterQueue,
-} from "@open-managed-agents/queue";
+} from "@duyet/oma-queue";
 import {
   processMemoryEvent,
   type MemoryEvent,
-} from "@open-managed-agents/queue/handlers/memory-events";
+} from "@duyet/oma-queue/handlers/memory-events";
 
 export interface NodeMemoryQueueDeps {
   /** "in-memory" for SQLite single-instance; "pg" for multi-replica.

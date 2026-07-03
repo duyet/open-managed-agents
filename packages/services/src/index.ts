@@ -33,60 +33,60 @@
 //   - Routes and business code don't change at all.
 
 import type { MiddlewareHandler } from "hono";
-import type { Env } from "@open-managed-agents/shared";
+import type { Env } from "@duyet/oma-shared";
 import {
   CredentialService,
   createCfCredentialService,
-} from "@open-managed-agents/credentials-store";
+} from "@duyet/oma-credentials-store";
 import {
   MemoryStoreService,
   createCfMemoryStoreService,
-} from "@open-managed-agents/memory-store";
+} from "@duyet/oma-memory-store";
 import {
   VaultService,
   createCfVaultService,
-} from "@open-managed-agents/vaults-store";
+} from "@duyet/oma-vaults-store";
 import {
   SessionService,
   createCfSessionService,
-} from "@open-managed-agents/sessions-store";
+} from "@duyet/oma-sessions-store";
 import {
   FileService,
   createCfFileService,
-} from "@open-managed-agents/files-store";
+} from "@duyet/oma-files-store";
 import {
   EvalRunService,
   createCfEvalRunService,
-} from "@open-managed-agents/evals-store";
+} from "@duyet/oma-evals-store";
 import {
   ModelCardService,
   createCfModelCardService,
-} from "@open-managed-agents/model-cards-store";
+} from "@duyet/oma-model-cards-store";
 import {
   AgentService,
   createCfAgentService,
-} from "@open-managed-agents/agents-store";
+} from "@duyet/oma-agents-store";
 import {
   EnvironmentService,
   createCfEnvironmentService,
-} from "@open-managed-agents/environments-store";
+} from "@duyet/oma-environments-store";
 import {
   DreamService,
   createCfDreamService,
-} from "@open-managed-agents/dreams-store";
+} from "@duyet/oma-dreams-store";
 import {
   OutboundSnapshotService,
   createCfOutboundSnapshotService,
-} from "@open-managed-agents/outbound-snapshots-store";
+} from "@duyet/oma-outbound-snapshots-store";
 import {
   SessionSecretService,
   createCfSessionSecretService,
-} from "@open-managed-agents/session-secrets-store";
+} from "@duyet/oma-session-secrets-store";
 import {
   CfSharedAuthDbProvider,
   MetaTableTenantDbProvider,
   type TenantDbProvider,
-} from "@open-managed-agents/tenant-db";
+} from "@duyet/oma-tenant-db";
 import {
   TenantShardDirectoryService,
   ShardPoolService,
@@ -94,12 +94,12 @@ import {
   createCfTenantShardDirectoryService,
   createCfShardPoolService,
   createCfMemoryStoreTenantIndexService,
-} from "@open-managed-agents/tenant-dbs-store";
+} from "@duyet/oma-tenant-dbs-store";
 import {
   WebCryptoAesGcm,
-} from "@open-managed-agents/integrations-adapters-cf";
-import { type BlobStore, blobStoreFromR2 } from "@open-managed-agents/blob-store";
-import { type KvStore, CfKvStore } from "@open-managed-agents/kv-store";
+} from "@duyet/oma-integrations-adapters-cf";
+import { type BlobStore, blobStoreFromR2 } from "@duyet/oma-blob-store";
+import { type KvStore, CfKvStore } from "@duyet/oma-kv-store";
 import { parseStoreBackends, pickBackend } from "./store-backends";
 import { type UsageStore, createCfUsageStore } from "./usage";
 
@@ -369,7 +369,7 @@ export const buildCfServices = buildServices;
  *    assume single-D1. Self-hosters omit the shard bindings from
  *    wrangler.jsonc and the mode kicks in without any flag.
  *
- * 2. **Multi-shard mode** (default for openma.dev's `--env production`).
+ * 2. **Multi-shard mode** (default for oma.duyet.net's `--env production`).
  *    Reads `tenant_shard` from `ROUTER_DB` (or MAIN_DB legacy fallback) and
  *    resolves to the named binding. MAIN_DB fallback for unmapped tenants.
  *    Per-isolate cache; no TTL (sharding is sticky).
@@ -379,7 +379,7 @@ export const buildCfServices = buildServices;
  *    breaks in production.
  *
  * Tests should construct their own StaticTenantDbProvider via
- * @open-managed-agents/tenant-db/test-fakes and bypass this factory.
+ * @duyet/oma-tenant-db/test-fakes and bypass this factory.
  */
 export function buildCfTenantDbProvider(env: Env): TenantDbProvider {
   const envBag = env as unknown as Record<string, unknown>;

@@ -24,13 +24,13 @@ import {
   type VerifierContext,
   type SessionRecord,
   type FullStatus,
-} from "@open-managed-agents/shared";
-import type { AgentService } from "@open-managed-agents/agents-store";
-import type { EnvironmentService } from "@open-managed-agents/environments-store";
-import type { SessionService } from "@open-managed-agents/sessions-store";
-import type { EvalRunService } from "@open-managed-agents/evals-store";
-import type { KvStore } from "@open-managed-agents/kv-store";
-import { toEnvironmentConfig } from "@open-managed-agents/environments-store";
+} from "@duyet/oma-shared";
+import type { AgentService } from "@duyet/oma-agents-store";
+import type { EnvironmentService } from "@duyet/oma-environments-store";
+import type { SessionService } from "@duyet/oma-sessions-store";
+import type { EvalRunService } from "@duyet/oma-evals-store";
+import type { KvStore } from "@duyet/oma-kv-store";
+import { toEnvironmentConfig } from "@duyet/oma-environments-store";
 import {
   type EvalRunRecord,
   type EvalTaskResult,

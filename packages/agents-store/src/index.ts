@@ -1,4 +1,4 @@
-// Public surface of @open-managed-agents/agents-store.
+// Public surface of @duyet/oma-agents-store.
 //
 //   - types       : AgentRow, AgentVersionRow
 //   - errors      : typed errors so HTTP handlers can map → status codes
@@ -7,9 +7,9 @@
 //   - adapters    : Cloudflare-specific implementations + factory
 //
 // Callers in apps/main and apps/agent normally only need:
-//   import { createCfAgentService } from "@open-managed-agents/agents-store";
+//   import { createCfAgentService } from "@duyet/oma-agents-store";
 // Tests use:
-//   import { createInMemoryAgentService } from "@open-managed-agents/agents-store/test-fakes";
+//   import { createInMemoryAgentService } from "@duyet/oma-agents-store/test-fakes";
 
 export * from "./types";
 export * from "./errors";

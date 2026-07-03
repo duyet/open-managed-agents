@@ -33,7 +33,7 @@ import {
   writeCuratedMemory,
 } from "./steps";
 import type { DreamCurator } from "./curator";
-import type { DreamRow } from "@open-managed-agents/dreams-store";
+import type { DreamRow } from "@duyet/oma-dreams-store";
 
 export interface DreamRunnerDeps {
   services: DreamPipelineServices;
@@ -173,7 +173,7 @@ import { AnthropicDreamCurator, DedupOnlyDreamCurator } from "./curator";
  * Minimal env shape the curator factory reads. The full `Env` (CF) and
  * a plain `process.env`-shaped object (Node) both satisfy this — keeping
  * the factory framework-agnostic so dreams-pipeline doesn't pull in
- * @open-managed-agents/shared's Cloudflare binding type tree.
+ * @duyet/oma-shared's Cloudflare binding type tree.
  */
 export interface DreamCuratorEnv {
   DREAM_CURATOR_MODE?: string;

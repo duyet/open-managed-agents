@@ -1,4 +1,4 @@
-import type { TenantResolver } from "@open-managed-agents/integrations-core";
+import type { TenantResolver } from "@duyet/oma-integrations-core";
 
 /**
  * D1 implementation of TenantResolver. Reads `user.tenantId` from the

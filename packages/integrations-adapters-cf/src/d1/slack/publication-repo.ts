@@ -6,8 +6,8 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { slack_publications } from "@open-managed-agents/db-schema/cf-integrations";
+} from "@duyet/oma-db-schema";
+import { slack_publications } from "@duyet/oma-db-schema/cf-integrations";
 import type {
   CapabilityKey,
   CapabilitySet,
@@ -19,11 +19,11 @@ import type {
   PublicationStatus,
   PublicationMode,
   SessionGranularity,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 import type {
   SlackPublicationRepo,
   SlackPublicationCredentialState,
-} from "@open-managed-agents/slack";
+} from "@duyet/oma-slack";
 
 export class SqlSlackPublicationRepo implements SlackPublicationRepo {
   private readonly db: OmaDbBuilder;

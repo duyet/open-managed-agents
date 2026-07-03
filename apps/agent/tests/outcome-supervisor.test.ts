@@ -23,7 +23,7 @@ import {
   type OutcomeEvaluationRecord,
   type OutcomeSupervisorDeps,
 } from "../src/runtime/outcome-supervisor";
-import type { JudgeFn } from "@open-managed-agents/shared";
+import type { JudgeFn } from "@duyet/oma-shared";
 
 // ---------- shared fake harness ----------
 

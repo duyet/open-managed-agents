@@ -6,7 +6,7 @@
 // in CF deployments and lets non-CF deployments (Postgres, in-memory
 // for tests) plug in alternative impls.
 
-import type { SessionEvent } from "@open-managed-agents/shared";
+import type { SessionEvent } from "@duyet/oma-shared";
 import type {
   EventLogRepo,
   PendingQueueRepo,

@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/linear",
+  "name": "@duyet/oma-linear",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,7 +7,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@open-managed-agents/integrations-core": "workspace:*",
-    "@open-managed-agents/shared": "workspace:*"
+    "@duyet/oma-integrations-core": "workspace:*",
+    "@duyet/oma-shared": "workspace:*"
   }
 }

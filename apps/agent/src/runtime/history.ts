@@ -1,7 +1,7 @@
 import type { ModelMessage, ToolModelMessage, AssistantModelMessage } from "ai";
 import type { HistoryStore } from "../harness/interface";
-import { CfDoEventLog, ensureSchema as ensureCfDoSchema } from "@open-managed-agents/event-log/cf-do";
-import { InMemoryEventLog } from "@open-managed-agents/event-log/memory";
+import { CfDoEventLog, ensureSchema as ensureCfDoSchema } from "@duyet/oma-event-log/cf-do";
+import { InMemoryEventLog } from "@duyet/oma-event-log/memory";
 import type {
   SessionEvent,
   AgentMessageEvent,
@@ -14,8 +14,8 @@ import type {
   AgentThreadContextCompactedEvent,
   ContentBlock,
   UserMessageEvent,
-} from "@open-managed-agents/shared";
-import { generateEventId } from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
+import { generateEventId } from "@duyet/oma-shared";
 
 /**
  * Resolve a `file_id` (Anthropic Managed Agents spec: ImageBlock/DocumentBlock
@@ -800,7 +800,7 @@ function stampEventImmediate(event: SessionEvent): SessionEvent {
 
 /**
  * SqliteHistory now composes the self-host `CfDoEventLog` adapter from
- * @open-managed-agents/event-log/cf-do — kept the class name for back-
+ * @duyet/oma-event-log/cf-do — kept the class name for back-
  * compat with existing call sites in SessionDO. To swap backends
  * (Postgres / in-memory / etc.) construct an `InMemoryHistory` or a
  * future `PgHistory` instead — they all expose the same `HistoryStore`

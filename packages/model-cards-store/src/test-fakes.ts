@@ -89,7 +89,7 @@ export class InMemoryModelCardRepo implements ModelCardRepo {
     tenantId: string,
     opts: {
       limit: number;
-      after?: import("@open-managed-agents/shared").PageCursor;
+      after?: import("@duyet/oma-shared").PageCursor;
       q?: string;
       provider?: string;
       createdAfter?: number;

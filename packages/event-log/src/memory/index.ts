@@ -3,7 +3,7 @@
 // SQLite adapter in tests because there's no SQL round-trip; same shape
 // so consumer code is identical.
 
-import type { SessionEvent } from "@open-managed-agents/shared";
+import type { SessionEvent } from "@duyet/oma-shared";
 import type {
   EventLogRepo,
   PendingQueueRepo,

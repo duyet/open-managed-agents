@@ -11,7 +11,7 @@
 // configured sweep hour+minute. CF + Node both schedule the same way,
 // so the gate logic lives here once.
 
-import type { MemoryStoreService } from "@open-managed-agents/memory-store";
+import type { MemoryStoreService } from "@duyet/oma-memory-store";
 
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 

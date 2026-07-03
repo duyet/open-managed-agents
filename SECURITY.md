@@ -7,7 +7,7 @@ report it privately. **Do not file a public GitHub issue for security
 issues.**
 
 Report via GitHub's private vulnerability reporting:
-https://github.com/openma-ai/open-managed-agents/security/advisories/new
+https://github.com/duyet/oma/security/advisories/new
 
 Please include:
 - A description of the issue and its potential impact
@@ -24,7 +24,7 @@ you in the advisory unless you prefer to remain anonymous.
 In scope:
 - The runtime (`apps/agent`, `apps/main`, `apps/main-node`,
   `apps/integrations`, `apps/oma-vault`)
-- Published packages (`@openma/cli`, `@openma/sdk`)
+- Published packages (`@duyet/oma-cli`, `@openma/sdk`)
 - Self-host deployment paths documented in `docs/self-host.md`
 
 Out of scope:
@@ -32,7 +32,7 @@ Out of scope:
   — please report to the respective vendor.
 - Self-inflicted misconfigurations (e.g. running with `AUTH_DISABLED=1`
   in production).
-- Issues only reproducible against the hosted instance at `openma.dev`
+- Issues only reproducible against the hosted instance at `oma.duyet.net`
   — those should go through the vendor's own channel.
 
 ## Supported Versions

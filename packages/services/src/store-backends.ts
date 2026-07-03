@@ -26,7 +26,7 @@
 // schema-per-tenant adapter would do schema search_path tricks. The Services
 // surface is uniform regardless.
 
-import type { Env } from "@open-managed-agents/shared";
+import type { Env } from "@duyet/oma-shared";
 
 export type StoreBackendName = "cf" | "pg" | "memory";
 

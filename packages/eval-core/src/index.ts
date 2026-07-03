@@ -1,4 +1,4 @@
-// @open-managed-agents/eval-core
+// @duyet/oma-eval-core
 //
 // Evaluation toolkit:
 //   - trajectory : OMA Trajectory v1 schema, builder, projections (Anthropic

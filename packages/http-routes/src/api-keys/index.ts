@@ -2,7 +2,7 @@
 //
 // Storage is pluggable: CF uses CONFIG_KV apikey:<sha256> + per-tenant
 // index lists; Node uses a SQL `api_keys` table (defined in
-// @open-managed-agents/schema). Both runtimes implement the
+// @duyet/oma-schema). Both runtimes implement the
 // ApiKeyStorage port and pass it in.
 //
 // auth-middleware looks up the same hash via storage.findByHash() — so

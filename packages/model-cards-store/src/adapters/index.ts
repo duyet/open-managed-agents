@@ -5,7 +5,7 @@ export { SqlModelCardRepo } from "./sql-model-card-repo";
 
 import { drizzle } from "drizzle-orm/d1";
 import { SqlModelCardRepo } from "./sql-model-card-repo";
-import type { OmaDb } from "@open-managed-agents/db-schema";
+import type { OmaDb } from "@duyet/oma-db-schema";
 import type { Crypto, Logger } from "../ports";
 import { ModelCardService } from "../service";
 

@@ -19,7 +19,7 @@
  * Tool calls become `agent.tool_use` + `agent.tool_result`.
  */
 
-import { generateEventId } from "@open-managed-agents/shared";
+import { generateEventId } from "@duyet/oma-shared";
 import type { FlueEvent } from "@flue/runtime";
 import type { HarnessRuntime } from "../interface";
 

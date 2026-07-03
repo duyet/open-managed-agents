@@ -1,11 +1,11 @@
-// Vitest config local to @open-managed-agents/browser-harness.
+// Vitest config local to @duyet/oma-browser-harness.
 //
 // Runs in plain Node thread pool (not the workerd pool the rest of OMA
 // uses) — these tests exercise the Disabled impl + env-driven dispatch
 // shape via duck-typed fakes; no playwright peer is needed at test time.
 //
 // Run with:
-//   pnpm --filter @open-managed-agents/browser-harness test
+//   pnpm --filter @duyet/oma-browser-harness test
 
 import { defineConfig } from "vitest/config";
 

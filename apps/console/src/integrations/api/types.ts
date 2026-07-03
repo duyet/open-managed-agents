@@ -274,7 +274,7 @@ export interface GitHubA1InstallLink {
 
 // ─── Sessions (subset, used by activity timeline) ────────────────────────
 //
-// Mirrors a slice of @open-managed-agents/shared SessionMeta. Kept inline
+// Mirrors a slice of @duyet/oma-shared SessionMeta. Kept inline
 // here so the console UI stays decoupled from the host server's type
 // package — snake-case shapes match the wire format.
 

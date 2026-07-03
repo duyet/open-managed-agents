@@ -40,7 +40,7 @@
  * `#emittedToolUses`.
  */
 
-import { generateEventId } from "@open-managed-agents/shared";
+import { generateEventId } from "@duyet/oma-shared";
 import type { HarnessRuntime } from "./interface";
 
 interface AcpSessionUpdate {

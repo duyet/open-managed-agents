@@ -20,7 +20,7 @@
 // DO SQLite, Postgres, in-memory for tests). Same Ports/Adapters pattern
 // as packages/sessions-store, packages/agents-store, etc.
 
-import type { SessionEvent } from "@open-managed-agents/shared";
+import type { SessionEvent } from "@duyet/oma-shared";
 
 export interface EventLogRepo {
   /** Append a SessionEvent to the canonical events log. Implementation

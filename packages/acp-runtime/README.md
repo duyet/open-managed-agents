@@ -1,4 +1,4 @@
-# @open-managed-agents/acp-runtime
+# @duyet/oma-acp-runtime
 
 Spawn and drive [ACP](https://agentclientprotocol.com/)-compatible agents (Claude Code, Codex CLI, Gemini CLI, Hermes, …) from any host that can produce a `ChildHandle`.
 
@@ -77,9 +77,9 @@ Skeleton — interfaces and structure agreed. Implementation lands as separate P
 ### clash-bridge (local)
 
 ```ts
-import { AcpRuntime } from "@open-managed-agents/acp-runtime";
-import { NodeSpawner } from "@open-managed-agents/acp-runtime/node-spawner";
-import { detect } from "@open-managed-agents/acp-runtime/registry";
+import { AcpRuntime } from "@duyet/oma-acp-runtime";
+import { NodeSpawner } from "@duyet/oma-acp-runtime/node-spawner";
+import { detect } from "@duyet/oma-acp-runtime/registry";
 
 const runtime: AcpRuntime = new AcpRuntime(new NodeSpawner());
 
@@ -101,8 +101,8 @@ for await (const event of session.prompt(userMessage)) {
 ### openma session DO (cloud)
 
 ```ts
-import { AcpRuntime } from "@open-managed-agents/acp-runtime";
-import { CfSandboxSpawner } from "@open-managed-agents/acp-runtime/cf-sandbox";
+import { AcpRuntime } from "@duyet/oma-acp-runtime";
+import { CfSandboxSpawner } from "@duyet/oma-acp-runtime/cf-sandbox";
 
 // Inside SessionDO, where `this.sandbox` is the existing openma sandbox handle.
 const runtime = new AcpRuntime(new CfSandboxSpawner(this.sandbox));

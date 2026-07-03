@@ -5,7 +5,7 @@
 // same key — rotating the secret would orphan stored data, so introduce a
 // new instance with a versioned prefix if rotation is ever needed.
 
-import type { Crypto } from "@open-managed-agents/integrations-core";
+import type { Crypto } from "@duyet/oma-integrations-core";
 
 const IV_BYTES = 12; // GCM standard
 const KEY_BYTES = 32; // AES-256

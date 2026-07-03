@@ -16,11 +16,11 @@
 import { Hono } from "hono";
 import type {
   AgentConfig,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import {
   AgentNotFoundError,
   AgentVersionMismatchError,
-} from "@open-managed-agents/agents-store";
+} from "@duyet/oma-agents-store";
 import type { RouteServicesArg } from "../types";
 import { resolveServices } from "../types";
 

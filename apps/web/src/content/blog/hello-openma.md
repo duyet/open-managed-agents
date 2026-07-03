@@ -33,6 +33,6 @@ forever. Cloud sandbox is $0.005/min, billed in 1-minute increments.
 
 ## What's next
 
-We're publishing the cloud-runtime + Console at openma.dev now (early access)
+We're publishing the cloud-runtime + Console at oma.duyet.net now (early access)
 and the self-host story (Docker + SQLite or Postgres) shortly after. Star
-[the repo](https://github.com/openma-ai/open-managed-agents) to follow along.
+[the repo](https://github.com/duyet/oma) to follow along.

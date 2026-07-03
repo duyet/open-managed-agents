@@ -1,4 +1,4 @@
-// Public surface of @open-managed-agents/credentials-store.
+// Public surface of @duyet/oma-credentials-store.
 //
 //   - types       : CredentialRow, MAX_CREDENTIALS_PER_VAULT, SECRET_AUTH_FIELDS
 //   - errors      : typed errors so HTTP handlers can map → status codes
@@ -7,9 +7,9 @@
 //   - adapters    : Cloudflare-specific implementations + factory
 //
 // Callers in apps/main and apps/agent normally only need:
-//   import { createCfCredentialService, stripSecrets } from "@open-managed-agents/credentials-store";
+//   import { createCfCredentialService, stripSecrets } from "@duyet/oma-credentials-store";
 // Tests use:
-//   import { createInMemoryCredentialService } from "@open-managed-agents/credentials-store/test-fakes";
+//   import { createInMemoryCredentialService } from "@duyet/oma-credentials-store/test-fakes";
 
 export * from "./types";
 export * from "./errors";

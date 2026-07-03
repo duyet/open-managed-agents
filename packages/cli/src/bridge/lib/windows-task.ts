@@ -3,7 +3,7 @@
  *
  * Why Task Scheduler instead of Windows Service Control Manager (SCM):
  *   - SCM requires admin to install services (`sc create` needs an
- *     elevated console). For an `npm i -g @openma/cli`-installed tool
+ *     elevated console). For an `npm i -g @duyet/oma-cli`-installed tool
  *     that's a hard wall — the user is not in an admin shell, and we
  *     don't want a UAC prompt mid-`oma bridge setup`.
  *   - Task Scheduler with /sc onlogon and /rl limited runs at user

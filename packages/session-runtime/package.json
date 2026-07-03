@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/session-runtime",
+  "name": "@duyet/oma-session-runtime",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,10 +15,10 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@open-managed-agents/event-log": "workspace:*",
-    "@open-managed-agents/sandbox": "workspace:*",
-    "@open-managed-agents/shared": "workspace:*",
-    "@open-managed-agents/sql-client": "workspace:*",
+    "@duyet/oma-event-log": "workspace:*",
+    "@duyet/oma-sandbox": "workspace:*",
+    "@duyet/oma-shared": "workspace:*",
+    "@duyet/oma-sql-client": "workspace:*",
     "ai": "^6.0.158",
     "nanoid": "^5.1.0"
   },

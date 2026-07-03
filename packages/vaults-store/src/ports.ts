@@ -5,7 +5,7 @@
 // language. Pass plain data + return plain data.
 
 import type { VaultRow } from "./types";
-import type { PageCursor } from "@open-managed-agents/shared";
+import type { PageCursor } from "@duyet/oma-shared";
 
 export interface NewVaultInput {
   id: string;

@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/event-log",
+  "name": "@duyet/oma-event-log",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "./sql": "./src/sql/index.ts"
   },
   "dependencies": {
-    "@open-managed-agents/shared": "workspace:*",
-    "@open-managed-agents/sql-client": "workspace:*"
+    "@duyet/oma-shared": "workspace:*",
+    "@duyet/oma-sql-client": "workspace:*"
   }
 }

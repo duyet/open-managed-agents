@@ -1,10 +1,10 @@
-# @openma/cli
+# @duyet/oma-cli
 
 ## 0.5.0
 
 ### Minor Changes
 
-- [#103](https://github.com/openma-ai/open-managed-agents/pull/103) [`85c2e1c`](https://github.com/openma-ai/open-managed-agents/commit/85c2e1c359f774a3dbafcc45a6e7875ebba55ff2) Thanks [@hrhrng](https://github.com/hrhrng)! - `oma bridge` daemon now serves multiple tenants from a single process.
+- [#103](https://github.com/duyet/oma/pull/103) [`85c2e1c`](https://github.com/duyet/oma/commit/85c2e1c359f774a3dbafcc45a6e7875ebba55ff2) Thanks [@hrhrng](https://github.com/hrhrng)! - `oma bridge` daemon now serves multiple tenants from a single process.
   One daemon is authorized for every workspace the user is a member of;
   each spawned ACP child gets the per-tenant `oma_*` key matching the
   session's workspace.
@@ -31,7 +31,7 @@
 
 ### Patch Changes
 
-- [`31f7fbf`](https://github.com/openma-ai/open-managed-agents/commit/31f7fbf67305f44831a379d9149bcf0c6a8d9c00) Thanks [@hrhrng](https://github.com/hrhrng)! - `oma bridge setup` now exits cleanly after "Done." instead of hanging
+- [`31f7fbf`](https://github.com/duyet/oma/commit/31f7fbf67305f44831a379d9149bcf0c6a8d9c00) Thanks [@hrhrng](https://github.com/hrhrng)! - `oma bridge setup` now exits cleanly after "Done." instead of hanging
   for ~5 minutes on idle keep-alive HTTP sockets from the registry CDN
   fetch and the runtime-token probe. Daemon was already started by
   launchd / systemd / Task Scheduler — only the foreground setup process
@@ -47,7 +47,7 @@
 
 ### Patch Changes
 
-- [#41](https://github.com/openma-ai/open-managed-agents/pull/41) [`e370a4a`](https://github.com/openma-ai/open-managed-agents/commit/e370a4ab550ca18a37e27761695fb9bbd2e8bdb7) Thanks [@hrhrng](https://github.com/hrhrng)! - `oma bridge setup` now exits cleanly after "Done." instead of hanging
+- [#41](https://github.com/duyet/oma/pull/41) [`e370a4a`](https://github.com/duyet/oma/commit/e370a4ab550ca18a37e27761695fb9bbd2e8bdb7) Thanks [@hrhrng](https://github.com/hrhrng)! - `oma bridge setup` now exits cleanly after "Done." instead of hanging
   for ~5 minutes on idle keep-alive HTTP sockets from the registry CDN
   fetch and the runtime-token probe. Daemon was already started by
   launchd / systemd / Task Scheduler — only the foreground setup process
@@ -63,7 +63,7 @@
 
 ### Minor Changes
 
-- [`4df9a0e`](https://github.com/openma-ai/open-managed-agents/commit/4df9a0e677eb1712688134fc140edb6d0db3969a) Thanks [@hrhrng](https://github.com/hrhrng)! - Bridge: expand local ACP agent support to the full official registry,
+- [`4df9a0e`](https://github.com/duyet/oma/commit/4df9a0e677eb1712688134fc140edb6d0db3969a) Thanks [@hrhrng](https://github.com/hrhrng)! - Bridge: expand local ACP agent support to the full official registry,
   add cross-platform service install (launchd / systemd / Task Scheduler,
   all no-admin), and wire end-to-end conversation recovery so daemon
   restarts no longer drop context. `oma bridge setup` is now the single
@@ -80,5 +80,5 @@
 
 ### Patch Changes
 
-- [`018b647`](https://github.com/openma-ai/open-managed-agents/commit/018b647536eb5d1398510fcc37f6c65447a801fd) Thanks [@hrhrng](https://github.com/hrhrng)! - Add Bridge subcommand section to top-level `oma` help so `setup`, `daemon`,
+- [`018b647`](https://github.com/duyet/oma/commit/018b647536eb5d1398510fcc37f6c65447a801fd) Thanks [@hrhrng](https://github.com/hrhrng)! - Add Bridge subcommand section to top-level `oma` help so `setup`, `daemon`,
   `status`, `uninstall` are discoverable without grepping or guessing.

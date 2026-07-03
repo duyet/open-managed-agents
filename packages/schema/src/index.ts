@@ -6,8 +6,8 @@
 // push history. From now on, both runtimes also call applySchema() on
 // boot so the inline DDL stays in one place.
 
-import type { SqlClient } from "@open-managed-agents/sql-client";
-import { ensureSchema as ensureEventLogSchema } from "@open-managed-agents/event-log/sql";
+import type { SqlClient } from "@duyet/oma-sql-client";
+import { ensureSchema as ensureEventLogSchema } from "@duyet/oma-event-log/sql";
 
 export type SqlDialect = "sqlite" | "postgres";
 

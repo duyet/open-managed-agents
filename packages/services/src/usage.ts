@@ -21,8 +21,8 @@
 // runaway bills. Cron sweep follow-up (slicing long-running sessions
 // every 24h) is TODO — see SessionDO TODO.
 
-import type { SqlClient } from "@open-managed-agents/sql-client";
-import { CfD1SqlClient } from "@open-managed-agents/sql-client/adapters/cf-d1";
+import type { SqlClient } from "@duyet/oma-sql-client";
+import { CfD1SqlClient } from "@duyet/oma-sql-client/adapters/cf-d1";
 
 export type UsageKind =
   | "session_alive_seconds"

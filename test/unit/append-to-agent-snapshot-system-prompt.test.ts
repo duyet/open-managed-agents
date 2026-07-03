@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from "vitest";
 import { appendToAgentSnapshotSystemPrompt } from "../../apps/main/src/routes/internal";
-import type { AgentConfig } from "@open-managed-agents/shared";
+import type { AgentConfig } from "@duyet/oma-shared";
 
 function baseAgent(overrides: Partial<AgentConfig> = {}): AgentConfig {
   return {

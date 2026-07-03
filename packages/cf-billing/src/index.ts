@@ -1,4 +1,4 @@
-// @open-managed-agents/cf-billing
+// @duyet/oma-cf-billing
 //
 // Cloudflare-side billing & deployment helpers used by apps/main:
 //   - cf-api    : Worker script-settings mutations (add/remove service bindings)

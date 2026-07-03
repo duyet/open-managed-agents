@@ -14,7 +14,7 @@
 //   - `downloadable` is a boolean stored as INTEGER (SQLite has no BOOL).
 //     Adapter does the 0/1 ↔ false/true conversion.
 
-import type { FileRecord } from "@open-managed-agents/shared";
+import type { FileRecord } from "@duyet/oma-shared";
 
 export type FileScope = "session" | "tenant";
 

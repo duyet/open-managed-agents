@@ -12,7 +12,7 @@
 // `@cloudflare/workers-types` (KVNamespace etc.). Everything else stays
 // runtime-agnostic.
 
-import type { Env } from "@open-managed-agents/shared";
+import type { Env } from "@duyet/oma-shared";
 import type { SessionSecretRepo } from "../ports";
 import { SessionSecretService } from "../service";
 

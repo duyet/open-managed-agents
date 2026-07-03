@@ -1,8 +1,8 @@
 // EvalRunRecord / EvalTaskSpec / EvalTrialResult — the wire shape returned
 // by /v1/evals/runs. Stored opaquely inside EvalRunRow.results JSON.
 
-import type { RewardSpec } from "@open-managed-agents/shared";
-import type { EvalRunStatus } from "@open-managed-agents/evals-store";
+import type { RewardSpec } from "@duyet/oma-shared";
+import type { EvalRunStatus } from "@duyet/oma-evals-store";
 
 export interface EvalTaskSpec {
   id: string;
@@ -61,7 +61,7 @@ export interface EvalRunRecord {
  * (route + advanceRun consumer shape). The mutable per-tick state lives
  * in the opaque `results` JSON column.
  */
-export function rowToRecord(row: import("@open-managed-agents/evals-store").EvalRunRow): EvalRunRecord {
+export function rowToRecord(row: import("@duyet/oma-evals-store").EvalRunRow): EvalRunRecord {
   const partial = (row.results ?? {}) as Partial<EvalRunRecord>;
   return {
     id: row.id,

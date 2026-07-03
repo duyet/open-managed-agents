@@ -6,7 +6,7 @@
 // better-sqlite3.
 //
 // Run with:
-//   pnpm --filter @open-managed-agents/main-node test
+//   pnpm --filter @duyet/oma-main-node test
 
 import { defineConfig } from "vitest/config";
 

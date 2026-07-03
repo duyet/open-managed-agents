@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/observability",
+  "name": "@duyet/oma-observability",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,7 +17,7 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@open-managed-agents/shared": "workspace:*",
+    "@duyet/oma-shared": "workspace:*",
     "hono": "^4.7.0"
   },
   "peerDependencies": {

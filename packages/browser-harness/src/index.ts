@@ -1,4 +1,4 @@
-// @open-managed-agents/browser-harness — runtime-agnostic browser tool surface.
+// @duyet/oma-browser-harness — runtime-agnostic browser tool surface.
 //
 // Three impls live in sibling files:
 //   - cf.ts      → wraps @cloudflare/playwright + the BROWSER binding

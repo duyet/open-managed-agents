@@ -1,4 +1,4 @@
-// Public surface of @open-managed-agents/session-secrets-store.
+// Public surface of @duyet/oma-session-secrets-store.
 //
 //   - types       : SecretValue type alias
 //   - errors      : (currently empty — kept for symmetry with credentials-store)
@@ -7,9 +7,9 @@
 //   - adapters    : Cloudflare-specific implementations + factory
 //
 // Callers in apps/main and apps/agent normally only need:
-//   import { createCfSessionSecretService } from "@open-managed-agents/session-secrets-store";
+//   import { createCfSessionSecretService } from "@duyet/oma-session-secrets-store";
 // Tests use:
-//   import { createInMemorySessionSecretService } from "@open-managed-agents/session-secrets-store/test-fakes";
+//   import { createInMemorySessionSecretService } from "@duyet/oma-session-secrets-store/test-fakes";
 
 export * from "./types";
 export * from "./errors";

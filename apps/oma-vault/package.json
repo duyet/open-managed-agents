@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/oma-vault",
+  "name": "@duyet/oma-oma-vault",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,9 +13,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@open-managed-agents/observability": "workspace:*",
-    "@open-managed-agents/shared": "workspace:*",
-    "@open-managed-agents/sql-client": "workspace:*",
+    "@duyet/oma-observability": "workspace:*",
+    "@duyet/oma-shared": "workspace:*",
+    "@duyet/oma-sql-client": "workspace:*",
     "better-sqlite3": "^11.5.0",
     "mockttp": "4.3.1",
     "pino": "^9.5.0",

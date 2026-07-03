@@ -2,7 +2,7 @@
 // adapter semantics — same NOT-NULL / nullable behavior, same archived-row
 // handling — so unit tests catch the same bugs the integration suite would.
 
-import type { EnvironmentConfig } from "@open-managed-agents/shared";
+import type { EnvironmentConfig } from "@duyet/oma-shared";
 import { EnvironmentNotFoundError } from "./errors";
 import type {
   Clock,
@@ -84,7 +84,7 @@ export class InMemoryEnvironmentRepo implements EnvironmentRepo {
       createdAfter?: number;
       createdBefore?: number;
       limit: number;
-      after?: import("@open-managed-agents/shared").PageCursor;
+      after?: import("@duyet/oma-shared").PageCursor;
       q?: string;
     },
   ): Promise<{ items: EnvironmentRow[]; hasMore: boolean }> {

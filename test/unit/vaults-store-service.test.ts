@@ -5,11 +5,11 @@
 import { describe, it, expect } from "vitest";
 import {
   VaultNotFoundError,
-} from "@open-managed-agents/vaults-store";
+} from "@duyet/oma-vaults-store";
 import {
   ManualClock,
   createInMemoryVaultService,
-} from "@open-managed-agents/vaults-store/test-fakes";
+} from "@duyet/oma-vaults-store/test-fakes";
 
 const TENANT = "tn_test_vaults";
 

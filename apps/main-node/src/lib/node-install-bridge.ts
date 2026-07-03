@@ -26,13 +26,13 @@ import type {
   SessionId,
   VaultManager,
   UserId,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 import {
   ALL_CAPABILITIES as ALL_LINEAR_CAPS,
   DEFAULT_LINEAR_SCOPES,
   LinearProvider,
   type LinearContainer,
-} from "@open-managed-agents/linear";
+} from "@duyet/oma-linear";
 import {
   DEFAULT_GITHUB_CAPABILITIES,
   DEFAULT_GITHUB_MCP_URL,
@@ -41,14 +41,14 @@ import {
   mintAppJwt,
   buildInstallationTokenRequest,
   parseInstallationTokenResponse,
-} from "@open-managed-agents/github";
+} from "@duyet/oma-github";
 import {
   ALL_SLACK_CAPABILITIES,
   DEFAULT_SLACK_BOT_SCOPES,
   DEFAULT_SLACK_USER_SCOPES,
   SlackProvider,
   type SlackContainer,
-} from "@open-managed-agents/slack";
+} from "@duyet/oma-slack";
 import {
   buildNodeRepos,
   WebCryptoAesGcm,
@@ -58,18 +58,18 @@ import {
   SqlSlackAppRepo,
   SqlSlackWebhookEventStore,
   SqlSlackSetupLinkRepo,
-} from "@open-managed-agents/integrations-adapters-node";
-import type { SqlClient } from "@open-managed-agents/sql-client";
-import type { OmaDb } from "@open-managed-agents/db-schema";
-import type { VaultService } from "@open-managed-agents/vaults-store";
-import type { CredentialService } from "@open-managed-agents/credentials-store";
-import type { SessionService } from "@open-managed-agents/sessions-store";
-import type { AgentService } from "@open-managed-agents/agents-store";
+} from "@duyet/oma-integrations-adapters-node";
+import type { SqlClient } from "@duyet/oma-sql-client";
+import type { OmaDb } from "@duyet/oma-db-schema";
+import type { VaultService } from "@duyet/oma-vaults-store";
+import type { CredentialService } from "@duyet/oma-credentials-store";
+import type { SessionService } from "@duyet/oma-sessions-store";
+import type { AgentService } from "@duyet/oma-agents-store";
 import type {
   SessionEvent,
   UserMessageEvent,
-} from "@open-managed-agents/shared";
-import { getLogger } from "@open-managed-agents/observability";
+} from "@duyet/oma-shared";
+import { getLogger } from "@duyet/oma-observability";
 
 const log = getLogger("apps.main-node.install-bridge");
 

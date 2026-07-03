@@ -1,5 +1,5 @@
 // SessionRouter — uniform contract over the per-runtime session routing
-// layer. Lets `@open-managed-agents/http-routes` mount /v1/sessions/*
+// layer. Lets `@duyet/oma-http-routes` mount /v1/sessions/*
 // once and dispatch to either the CF SessionDO (apps/main) or the Node
 // SessionRegistry (apps/main-node) without the routes touching env
 // bindings or sandbox internals.
@@ -28,7 +28,7 @@ import type {
   StoredEvent,
   AgentConfig,
   EnvironmentConfig,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 
 export interface SessionInitParams {
   agentId: string;

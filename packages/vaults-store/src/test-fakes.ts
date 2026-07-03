@@ -67,7 +67,7 @@ export class InMemoryVaultRepo implements VaultRepo {
       createdAfter?: number;
       createdBefore?: number;
       limit: number;
-      after?: import("@open-managed-agents/shared").PageCursor;
+      after?: import("@duyet/oma-shared").PageCursor;
       q?: string;
     },
   ): Promise<{ items: VaultRow[]; hasMore: boolean }> {

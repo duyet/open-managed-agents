@@ -1,4 +1,4 @@
-// @open-managed-agents/integrations-adapters-node
+// @duyet/oma-integrations-adapters-node
 //
 // Node sibling of integrations-adapters-cf. Same port shapes; storage moves
 // from D1Database to SqlClient, so the adapters work against better-sqlite3
@@ -28,7 +28,7 @@ export {
   SqlGitHubPublicationRepo,
   SqlGitHubWebhookEventStore,
   SqlGitHubIssueSessionRepo,
-} from "@open-managed-agents/integrations-adapters-cf";
+} from "@duyet/oma-integrations-adapters-cf";
 
 // Linear adapter classes are dialect-blind (Drizzle on top of OmaDb), so the
 // CF and Node packages share one canonical impl in -cf. Keep these as
@@ -41,7 +41,7 @@ export {
   SqlLinearIssueSessionRepo,
   SqlLinearSetupLinkRepo,
   SqlLinearDispatchRuleRepo,
-} from "@open-managed-agents/integrations-adapters-cf";
+} from "@duyet/oma-integrations-adapters-cf";
 
 // Slack adapter classes are dialect-blind (Drizzle on top of OmaDb), so the
 // CF and Node packages share one canonical impl in -cf. Keep these as
@@ -53,7 +53,7 @@ export {
   SqlSlackWebhookEventStore,
   SqlSlackSessionScopeRepo,
   SqlSlackSetupLinkRepo,
-} from "@open-managed-agents/integrations-adapters-cf";
+} from "@duyet/oma-integrations-adapters-cf";
 
 export { buildNodeRepos, buildNodeContainer } from "./node-container";
 export type { NodeReposEnv, NodeContainerEnv } from "./node-container";

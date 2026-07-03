@@ -239,7 +239,7 @@ export function useApi() {
       //
       // Default endpoint behavior is Anthropic-spec — third-party clients
       // using @anthropic-ai/sdk against an OMA server get a clean stream
-      // without these flags. See SPEC_EVENT_TYPES in @open-managed-agents/api-types.
+      // without these flags. See SPEC_EVENT_TYPES in @duyet/oma-api-types.
       const path = `/v1/sessions/${sessionId}/events/stream?include=chunks&replay=1`;
 
       // Reconnect schedule for transient failures (network blip, 5xx, EOF).

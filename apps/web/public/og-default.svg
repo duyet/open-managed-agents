@@ -68,14 +68,14 @@
       font-family="'JetBrains Mono','Menlo','Monaco',monospace"
       font-weight="500"
       font-size="22"
-      fill="#16181d">openma.dev</text>
+      fill="#16181d">oma.duyet.net</text>
   </g>
   <g transform="translate(1120, 560)" text-anchor="end">
     <text x="0" y="0"
       font-family="'JetBrains Mono','Menlo','Monaco',monospace"
       font-weight="500"
       font-size="22"
-      fill="#4a4f5a">github.com/openma-ai/open-managed-agents</text>
+      fill="#4a4f5a">github.com/duyet/oma</text>
   </g>
 
   <!-- Brand accent bar bottom -->

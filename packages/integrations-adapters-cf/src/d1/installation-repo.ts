@@ -6,8 +6,8 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { linear_installations } from "@open-managed-agents/db-schema/cf-integrations";
+} from "@duyet/oma-db-schema";
+import { linear_installations } from "@duyet/oma-db-schema/cf-integrations";
 import type {
   Crypto,
   IdGenerator,
@@ -17,7 +17,7 @@ import type {
   NewInstallation,
   ProviderId,
   WorkspaceId,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 
 /**
  * SQL installation repo for Linear. Targets `linear_installations`. Mirrors

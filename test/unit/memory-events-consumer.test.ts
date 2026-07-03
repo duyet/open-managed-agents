@@ -10,14 +10,14 @@ import {
   InMemoryBlobStore,
   InMemoryMemoryRepo,
   InMemoryStoreRepo,
-} from "@open-managed-agents/memory-store/test-fakes";
+} from "@duyet/oma-memory-store/test-fakes";
 import {
   parseR2Key,
   r2Key,
   sha256Hex,
-} from "@open-managed-agents/memory-store";
-import { generateMemoryVersionId } from "@open-managed-agents/shared";
-import type { R2EventMessage } from "@open-managed-agents/shared";
+} from "@duyet/oma-memory-store";
+import { generateMemoryVersionId } from "@duyet/oma-shared";
+import type { R2EventMessage } from "@duyet/oma-shared";
 
 const TENANT = "tn_test_consumer";
 

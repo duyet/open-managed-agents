@@ -1,5 +1,5 @@
 // Route-layer helpers for cursor pagination. Pairs with the cursor mechanics
-// in @open-managed-agents/shared/pagination — that side does the encode /
+// in @duyet/oma-shared/pagination — that side does the encode /
 // decode / SQL fragments; this side maps Hono's request/response idiom onto
 // the service.listPage call shape.
 //

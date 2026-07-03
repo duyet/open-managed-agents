@@ -29,8 +29,8 @@
  * Documented follow-up; turn-level events are fully correct without it.
  */
 
-import { generateEventId } from "@open-managed-agents/shared";
-import type { ContentBlock, SessionEvent } from "@open-managed-agents/shared";
+import { generateEventId } from "@duyet/oma-shared";
+import type { ContentBlock, SessionEvent } from "@duyet/oma-shared";
 import type { SDKMessage, SDKAssistantMessage, SDKUserMessage, SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { HarnessRuntime } from "../interface";
 

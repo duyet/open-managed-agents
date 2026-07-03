@@ -24,7 +24,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { paths, currentProfile } from "../lib/platform.js";
-import { detectAll, loadRegistry } from "@open-managed-agents/acp-runtime/registry";
+import { detectAll, loadRegistry } from "@duyet/oma-acp-runtime/registry";
 import { auditAndOfferWrappers } from "../lib/wrapper-audit.js";
 import { log, c } from "../lib/style.js";
 

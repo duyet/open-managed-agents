@@ -1,5 +1,5 @@
 {
-  "name": "@openma/cli",
+  "name": "@duyet/oma-cli",
   "version": "0.5.0",
   "description": "CLI for the openma managed agents platform",
   "type": "module",
@@ -30,20 +30,20 @@
     "llm"
   ],
   "license": "Apache-2.0",
-  "homepage": "https://openma.dev",
+  "homepage": "https://oma.duyet.net",
   "repository": {
     "type": "git",
-    "url": "https://github.com/openma-ai/open-managed-agents",
+    "url": "https://github.com/duyet/oma",
     "directory": "packages/cli"
   },
   "bugs": {
-    "url": "https://github.com/openma-ai/open-managed-agents/issues"
+    "url": "https://github.com/duyet/oma/issues"
   },
   "devDependencies": {
     "@agentclientprotocol/sdk": "^0.20.0",
     "@inquirer/checkbox": "^5.1.4",
-    "@open-managed-agents/acp-runtime": "workspace:*",
-    "@open-managed-agents/api-types": "workspace:*",
+    "@duyet/oma-acp-runtime": "workspace:*",
+    "@duyet/oma-api-types": "workspace:*",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.5.0",
     "esbuild": "^0.25.0",

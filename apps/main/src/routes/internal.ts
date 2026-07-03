@@ -1,10 +1,10 @@
 import { Hono } from "hono";
-import type { Env } from "@open-managed-agents/shared";
-import type { AgentConfig, EnvironmentConfig, VaultConfig, CredentialConfig } from "@open-managed-agents/shared";
-import { generateVaultId } from "@open-managed-agents/shared";
-import type { Services } from "@open-managed-agents/services";
-import { forEachShardServices } from "@open-managed-agents/services";
-import { toEnvironmentConfig } from "@open-managed-agents/environments-store";
+import type { Env } from "@duyet/oma-shared";
+import type { AgentConfig, EnvironmentConfig, VaultConfig, CredentialConfig } from "@duyet/oma-shared";
+import { generateVaultId } from "@duyet/oma-shared";
+import type { Services } from "@duyet/oma-services";
+import { forEachShardServices } from "@duyet/oma-services";
+import { toEnvironmentConfig } from "@duyet/oma-environments-store";
 
 // Internal endpoints, called only by the integrations gateway worker via the
 // `MAIN` service binding. Auth is a shared header secret — no better-auth
@@ -335,7 +335,7 @@ app.post("/sessions", async (c) => {
     };
 
     // Inject the per-session bearer into vaultCredentials so SessionDO's
-    // outbound handler matches integrations.openma.dev hostname and attaches
+    // outbound handler matches integrations.oma.duyet.net hostname and attaches
     // Authorization: Bearer <mcp_token>. We attach to the first vault if any
     // (so cred lifecycle ties to the Linear vault); otherwise create a
     // synthetic vault entry just for this MCP cred.

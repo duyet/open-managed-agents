@@ -108,7 +108,7 @@ curl -N -b cookies.txt localhost:8787/v1/sessions/$SID/events/stream
 ```bash
 pnpm install
 ANTHROPIC_API_KEY=sk-... BETTER_AUTH_SECRET=$(openssl rand -hex 32) \
-  pnpm --filter @open-managed-agents/main-node start
+  pnpm --filter @duyet/oma-main-node start
 # Same curl flow as above against localhost:8787.
 ```
 
@@ -203,7 +203,7 @@ curl localhost:8787/health
 each with its own bindings, deployed via `wrangler deploy`.
 
 ```
-                     ┌──── *.openma.dev (CF Anycast) ────┐
+                     ┌──── *.oma.duyet.net (CF Anycast) ────┐
                      │                                     │
                      ▼                                     ▼
        ┌────────────────────────────┐         ┌─────────────────────────┐
@@ -235,7 +235,7 @@ each with its own bindings, deployed via `wrangler deploy`.
 
 | Concern | Implementation |
 |---|---|
-| HTTP server | Cloudflare Workers, anycast at openma.dev |
+| HTTP server | Cloudflare Workers, anycast at oma.duyet.net |
 | SQL store | D1 (`openma-auth` DB; `staging` env has `openma-auth-staging`) |
 | KV | `CONFIG_KV` — agent config snapshots, outbound URL→cred map, session secrets |
 | Blob store | R2 — `managed-agents-files`, `managed-agents-memory`, `managed-agents-workspace`, `managed-agents-backups` |
@@ -301,8 +301,8 @@ pnpm deploy
 | Browser tool | not supported | wrangler dev BROWSER sim (limited) | @cloudflare/playwright |
 | Email | nodemailer (set SMTP_HOST/PORT/USER/PASS) — null sender mounts no email-bearing better-auth flows | wrangler dev SEND_EMAIL sim | CF Email Workers |
 | Console | embedded in main-node image, served by `serveStatic` on `:8787` (or `vite dev` proxy mode for live-reload) | served by main worker ASSETS | served by main worker ASSETS |
-| Rate limit | in-process token bucket via `@open-managed-agents/rate-limit/adapters/memory` (5-bucket bundle) | wrangler dev ratelimits sim | CF Rate Limiting binding |
-| HTTP routes (CRUD) | `@open-managed-agents/http-routes` mount factories | (CF mounts existing per-app files; package mount migration is staged) | (same) |
+| Rate limit | in-process token bucket via `@duyet/oma-rate-limit/adapters/memory` (5-bucket bundle) | wrangler dev ratelimits sim | CF Rate Limiting binding |
+| HTTP routes (CRUD) | `@duyet/oma-http-routes` mount factories | (CF mounts existing per-app files; package mount migration is staged) | (same) |
 | Observability | stdout (pino) | wrangler tail stdout | Analytics Engine + wrangler tail |
 | Start cmd | `docker compose up` | `pnpm dev` | n/a (run-as-deployed) |
 | Deploy cmd | `docker compose up -d` | n/a (dev only) | `pnpm deploy` |

@@ -12,8 +12,8 @@
 
 import { betterAuth } from "better-auth";
 import { emailOTP } from "better-auth/plugins";
-import type { EmailSender } from "@open-managed-agents/email";
-import type { SqlClient } from "@open-managed-agents/sql-client";
+import type { EmailSender } from "@duyet/oma-email";
+import type { SqlClient } from "@duyet/oma-sql-client";
 
 export interface BuildBetterAuthOpts {
   /** Driver handle. better-sqlite3 Database, pg.Pool, or a drizzle adapter
@@ -36,7 +36,7 @@ export interface BuildBetterAuthOpts {
   /** When true, sign-up requires email verification before the user is
    *  signed in. Default: false on self-host (no SMTP path), true on CF prod. */
   requireEmailVerify?: boolean;
-  /** Cross-subdomain cookie domain (e.g. ".openma.dev"). Skip for default
+  /** Cross-subdomain cookie domain (e.g. ".oma.duyet.net"). Skip for default
    *  per-host scoping. */
   cookieDomain?: string;
   /** Idempotent ensure-tenant; called from databaseHooks.user.create.after.

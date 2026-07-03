@@ -1,7 +1,7 @@
 // GitHubProvider configuration. Cleanly separated from runtime ports so the
 // provider stays pure and testable.
 
-import type { CapabilityKey } from "@open-managed-agents/integrations-core";
+import type { CapabilityKey } from "@duyet/oma-integrations-core";
 
 export interface GitHubConfig {
   /**
@@ -27,7 +27,7 @@ export interface GitHubConfig {
   /**
    * Public homepage URL embedded in manifests as the GitHub App's `url` field.
    * Shown on the App's GitHub-side page; informational only. Defaults to
-   * `https://openma.dev` if not overridden.
+   * `https://oma.duyet.net` if not overridden.
    */
   homepageUrl?: string;
 }

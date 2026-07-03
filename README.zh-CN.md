@@ -14,7 +14,7 @@
 
 **Claude Managed Agents 的开源替代品** —— 一个你可以自部署的 AI 智能体元框架（meta-harness）。
 
-🌐 **[openma.dev](https://openma.dev)** · 📖 **[docs.openma.dev](https://docs.openma.dev)** · 💬 **[github.com/openma-ai/open-managed-agents](https://github.com/openma-ai/open-managed-agents)**
+🌐 **[oma.duyet.net](https://oma.duyet.net)** · 📖 **[docs.oma.duyet.net](https://docs.oma.duyet.net)** · 💬 **[github.com/duyet/oma](https://github.com/duyet/oma)**
 
 写一个 harness，部署它。平台负责运行 —— 内置会话、沙箱、工具、记忆、保险库和崩溃恢复。API 与 Claude Managed Agents 兼容；可以跑在 Cloudflare Workers + Durable Objects 上，或者直接 `docker compose up` 在你自己的机器上。
 
@@ -39,8 +39,8 @@
 ## 快速开始：自部署（Docker）
 
 ```bash
-git clone https://github.com/openma-ai/open-managed-agents.git
-cd open-managed-agents
+git clone https://github.com/duyet/oma.git
+cd oma
 cp .env.example .env
 
 # 首次启动前必须设置两个密钥（都在本地生成）：
@@ -79,7 +79,7 @@ curl -s -X POST localhost:8787/v1/sessions/$SID/events -H 'content-type: applica
   -d '{"events":[{"type":"user.message","content":[{"type":"text","text":"Run: uname -a"}]}]}'
 ```
 
-完整的自部署指南（沙箱模式、Postgres、BoxRun、vault sidecar、Console UI、运维注意事项）：**[docs.openma.dev/self-host/overview](https://docs.openma.dev/self-host/overview/)**
+完整的自部署指南（沙箱模式、Postgres、BoxRun、vault sidecar、Console UI、运维注意事项）：**[docs.oma.duyet.net/self-host/overview](https://docs.oma.duyet.net/self-host/overview/)**
 
 ---
 
@@ -88,8 +88,8 @@ curl -s -X POST localhost:8787/v1/sessions/$SID/events -H 'content-type: applica
 需要 [Workers 付费计划](https://developers.cloudflare.com/workers/platform/pricing/)（用于 Durable Objects + Containers）。
 
 ```bash
-git clone https://github.com/openma-ai/open-managed-agents.git
-cd open-managed-agents
+git clone https://github.com/duyet/oma.git
+cd oma
 pnpm install
 
 # 本地开发（不需要 CF 账户）—— wrangler dev + 模拟器
@@ -112,7 +112,7 @@ npx wrangler secret put API_KEY               # REST API 初始引导密钥
 # npx wrangler secret put ANTHROPIC_API_KEY
 
 npm run deploy
-# → https://openma.dev（或个人部署：https://managed-agents.<your-subdomain>.workers.dev）
+# → https://oma.duyet.net（或个人部署：https://managed-agents.<your-subdomain>.workers.dev）
 ```
 
 部署内容：
@@ -126,7 +126,7 @@ npm run deploy
 
 ### 创建你的第一个智能体
 
-上面的冒烟测试对任意部署都适用。完整的 Console 流程（Model Card、保险库、集成）见 **[docs.openma.dev/quickstart](https://docs.openma.dev/quickstart)**。API 等价的最小版本：
+上面的冒烟测试对任意部署都适用。完整的 Console 流程（Model Card、保险库、集成）见 **[docs.oma.duyet.net/quickstart](https://docs.oma.duyet.net/quickstart)**。API 等价的最小版本：
 
 ```bash
 BASE=http://localhost:8787   # 或者你的部署 URL
@@ -198,7 +198,7 @@ curl -N -X POST $BASE/v1/sessions/$SESSION/messages \
 
 ```typescript
 // my-harness.ts
-import { defineHarness, generateText, stepCountIs } from "@open-managed-agents/sdk";
+import { defineHarness, generateText, stepCountIs } from "@duyet/oma-sdk";
 
 export default defineHarness({
   name: "research",
@@ -414,7 +414,7 @@ curl -X PUT $BASE/v1/agents/$AGENT -H "x-api-key: $KEY" -H "content-type: applic
 oma connect linear --vault $VAULT_ID
 ```
 
-每个 server 的工具发现超时 15 秒；一个坏掉的 server 会日志记录后跳过，其它继续。完整设计见 [docs.openma.dev/build/vault-and-mcp](https://docs.openma.dev/build/vault-and-mcp/)。
+每个 server 的工具发现超时 15 秒；一个坏掉的 server 会日志记录后跳过，其它继续。完整设计见 [docs.oma.duyet.net/build/vault-and-mcp](https://docs.oma.duyet.net/build/vault-and-mcp/)。
 
 ---
 
@@ -491,7 +491,7 @@ curl -sX POST $BASE/v1/sessions -H "x-api-key: $KEY" \
 | `mcp_oauth` | 请求 host 匹配 `mcp_server_url` | 401 / 403 时用 `token_endpoint` 刷新，CAS 写回 D1 |
 | `cap_cli` | 沙箱里 CLI 调用按 `cli_id` 在 cap registry 里查（`gh`、`glab`、`aws` ……）| 按每个 CLI 处理 |
 
-每个 vault 最多 20 条凭证。每次转发会发一条结构化的 `op:"mcp_proxy.forward"` 日志。完整设计：[`docs/mcp-credential-architecture.md`](docs/mcp-credential-architecture.md)、[docs.openma.dev/build/vault-and-mcp](https://docs.openma.dev/build/vault-and-mcp/)。
+每个 vault 最多 20 条凭证。每次转发会发一条结构化的 `op:"mcp_proxy.forward"` 日志。完整设计：[`docs/mcp-credential-architecture.md`](docs/mcp-credential-architecture.md)、[docs.oma.duyet.net/build/vault-and-mcp](https://docs.oma.duyet.net/build/vault-and-mcp/)。
 
 ---
 
@@ -621,8 +621,8 @@ open-managed-agents/
 │   ├── integrations/      # 集成网关 —— Linear / GitHub / Slack OAuth + webhook
 │   ├── oma-vault/         # 保险库 sidecar —— 出站请求按 host 注入鉴权头
 │   ├── console/           # Web 控制台 —— React + Vite + Tailwind v4
-│   ├── docs/              # 文档站点（Astro Starlight） —— 发布到 docs.openma.dev
-│   └── web/               # 营销站点（Astro） —— 发布到 openma.dev
+│   ├── docs/              # 文档站点（Astro Starlight） —— 发布到 docs.oma.duyet.net
+│   └── web/               # 营销站点（Astro） —— 发布到 oma.duyet.net
 ├── packages/
 │   ├── cli/                       # `oma` CLI —— 智能体 / 会话 / 集成命令
 │   ├── sdk/                       # Harness SDK —— defineHarness、generateText 等
@@ -659,7 +659,7 @@ open-managed-agents/
 | `SANDBOX_PROVIDER` | 否 | `subprocess`（默认，无隔离）、`litebox`（Firecracker）、`daytona`、`e2b`、`boxrun`。运行不可信 agent 请用带隔离的后端。 |
 | `TAVILY_API_KEY` | 否 | `web_search` 内置工具的后端。 |
 
-完整变量列表（集成 OAuth 凭证、Postgres URL、沙箱调参、记忆桶配置、Google 登录等）：**[docs.openma.dev/reference/configuration](https://docs.openma.dev/reference/configuration/)** 以及 `.env.example` / `.dev.vars.example`。
+完整变量列表（集成 OAuth 凭证、Postgres URL、沙箱调参、记忆桶配置、Google 登录等）：**[docs.oma.duyet.net/reference/configuration](https://docs.oma.duyet.net/reference/configuration/)** 以及 `.env.example` / `.dev.vars.example`。
 
 ---
 
@@ -704,7 +704,7 @@ npm run typecheck # 零错误
 
 ## 文档
 
-面向用户的文档站点位于 [`apps/docs`](apps/docs/)（Astro Starlight），发布到 **[docs.openma.dev](https://docs.openma.dev)**。
+面向用户的文档站点位于 [`apps/docs`](apps/docs/)（Astro Starlight），发布到 **[docs.oma.duyet.net](https://docs.oma.duyet.net)**。
 
 ```bash
 pnpm dev:docs       # 本地预览在 http://localhost:4321

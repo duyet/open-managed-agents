@@ -14,8 +14,8 @@ import {
   createCfUsageStore,
   clampUsageValue,
   MAX_VALUE_PER_EMIT_SEC,
-} from "@open-managed-agents/services";
-import { CfD1SqlClient } from "@open-managed-agents/sql-client/adapters/cf-d1";
+} from "@duyet/oma-services";
+import { CfD1SqlClient } from "@duyet/oma-sql-client/adapters/cf-d1";
 
 const TENANT_A = "t_a";
 const TENANT_B = "t_b";

@@ -7,7 +7,7 @@
 //  header. The SDK sets these automatically."
 //
 // Until OMA grows broader beta-flag support this lives in apps/main/src/lib
-// instead of @open-managed-agents/services. When other endpoints adopt
+// instead of @duyet/oma-services. When other endpoints adopt
 // beta headers we can move the helpers + middleware into the services
 // package without touching callers.
 

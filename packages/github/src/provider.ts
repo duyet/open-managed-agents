@@ -47,7 +47,7 @@ import type {
   CapabilityKey,
   Persona,
   Publication,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 
 import {
   DEFAULT_GITHUB_CAPABILITIES,
@@ -683,7 +683,7 @@ export class GitHubProvider implements IntegrationProvider {
 
     const manifest = buildManifest({
       name: pub.persona.name,
-      url: this.config.homepageUrl ?? "https://openma.dev",
+      url: this.config.homepageUrl ?? "https://oma.duyet.net",
       webhookUrl: this.dedicatedWebhookUri(form.appOmaId),
       redirectUrl: this.manifestRedirectUri(),
       // Setup URL = our publication-first OAuth callback. After the user

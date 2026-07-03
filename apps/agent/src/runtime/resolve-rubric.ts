@@ -12,8 +12,8 @@
 // failure as `span.outcome_evaluation_end.result = "failed"` with the
 // error string in `explanation`.
 
-import type { RubricSpec } from "@open-managed-agents/shared";
-import { fileR2Key } from "@open-managed-agents/shared";
+import type { RubricSpec } from "@duyet/oma-shared";
+import { fileR2Key } from "@duyet/oma-shared";
 
 export type RubricResolution =
   | { ok: true; content: string }

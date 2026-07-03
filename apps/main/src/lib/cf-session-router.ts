@@ -1,6 +1,6 @@
 // CF SessionRouter — wraps the SessionDO RPC surface declared in
 // apps/agent/src/runtime/session-do.ts behind the runtime-agnostic
-// `SessionRouter` contract used by `@open-managed-agents/http-routes`.
+// `SessionRouter` contract used by `@duyet/oma-http-routes`.
 // Produces the same wire output the legacy apps/main/src/routes/sessions.ts
 // did, just via SessionRouter.* method calls instead of inline
 // `forwardToSandbox` / `binding.fetch` boilerplate.
@@ -10,16 +10,16 @@
 // or the SESSION_DO local DO binding (combined-worker test mode). This
 // adapter encapsulates the fan-out so routes never see env bindings.
 
-import { LOCAL_RUNTIME_ENV_ID, buildTrajectory } from "@open-managed-agents/shared";
+import { LOCAL_RUNTIME_ENV_ID, buildTrajectory } from "@duyet/oma-shared";
 import type {
   Env,
   EnvironmentConfig,
   SessionEvent,
   SessionRecord,
   StoredEvent,
-} from "@open-managed-agents/shared";
-import type { Services } from "@open-managed-agents/services";
-import { getCfServicesForTenant } from "@open-managed-agents/services";
+} from "@duyet/oma-shared";
+import type { Services } from "@duyet/oma-services";
+import { getCfServicesForTenant } from "@duyet/oma-services";
 import type {
   SessionRouter,
   SessionInitParams,
@@ -30,7 +30,7 @@ import type {
   SessionAppendResult,
   SessionStreamFrame,
   SessionStreamHandle,
-} from "@open-managed-agents/session-runtime";
+} from "@duyet/oma-session-runtime";
 
 /** Inputs handed to every CF router request — closure-bound at construction. */
 export interface CfSessionRouterDeps {

@@ -13,9 +13,9 @@
 // See nifty-prancing-flamingo.md → "RuntimeAdapter interface" for the
 // design rationale (one adapter, two thin shells).
 
-import type { SqlClient } from "@open-managed-agents/sql-client";
-import type { EventLogRepo, StreamRepo } from "@open-managed-agents/event-log";
-import type { SandboxExecutor } from "@open-managed-agents/sandbox";
+import type { SqlClient } from "@duyet/oma-sql-client";
+import type { EventLogRepo, StreamRepo } from "@duyet/oma-event-log";
+import type { SandboxExecutor } from "@duyet/oma-sandbox";
 
 /** Opaque per-turn id (nanoid). Stored on the sessions row while a turn is
  *  in flight so cold starts can detect orphans. */

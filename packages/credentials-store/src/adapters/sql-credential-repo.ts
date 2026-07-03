@@ -6,9 +6,9 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { credentials } from "@open-managed-agents/db-schema/cf-auth";
-import type { CredentialAuth } from "@open-managed-agents/shared";
+} from "@duyet/oma-db-schema";
+import { credentials } from "@duyet/oma-db-schema/cf-auth";
+import type { CredentialAuth } from "@duyet/oma-shared";
 import { CredentialDuplicateMcpUrlError, CredentialNotFoundError } from "../errors";
 import type {
   CredentialRepo,

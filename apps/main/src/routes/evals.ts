@@ -1,4 +1,4 @@
-// CF eval routes — wires buildEvalRoutes from @open-managed-agents/http-routes
+// CF eval routes — wires buildEvalRoutes from @duyet/oma-http-routes
 // against the per-request Services bundle. Same wire shape as before.
 //
 // Route bodies live in packages/http-routes/src/evals. We re-build the
@@ -7,9 +7,9 @@
 // uses for buildAgentRoutes (see invokePackage).
 
 import { Hono } from "hono";
-import type { Env } from "@open-managed-agents/shared";
-import type { Services } from "@open-managed-agents/services";
-import { buildEvalRoutes } from "@open-managed-agents/http-routes";
+import type { Env } from "@duyet/oma-shared";
+import type { Services } from "@duyet/oma-services";
+import { buildEvalRoutes } from "@duyet/oma-http-routes";
 
 const app = new Hono<{
   Bindings: Env;

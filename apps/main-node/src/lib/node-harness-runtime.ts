@@ -12,11 +12,11 @@ import type {
   HarnessRuntime,
   HistoryStore,
   SandboxExecutor,
-} from "@open-managed-agents/agent/harness/interface";
-import type { SessionEvent } from "@open-managed-agents/shared";
-import type { SqlEventLog } from "@open-managed-agents/event-log/sql";
-import { eventsToMessages } from "@open-managed-agents/agent/runtime/history";
-import { getLogger } from "@open-managed-agents/observability";
+} from "@duyet/oma-agent/harness/interface";
+import type { SessionEvent } from "@duyet/oma-shared";
+import type { SqlEventLog } from "@duyet/oma-event-log/sql";
+import { eventsToMessages } from "@duyet/oma-agent/runtime/history";
+import { getLogger } from "@duyet/oma-observability";
 import type { EventStreamHub } from "./event-stream-hub";
 
 const log = getLogger("node-harness");

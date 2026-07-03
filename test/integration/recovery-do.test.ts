@@ -4,7 +4,7 @@ import { runInDurableObject, runDurableObjectAlarm } from "cloudflare:test";
 import { describe, it, expect, beforeAll } from "vitest";
 import { registerHarness } from "../../apps/agent/src/harness/registry";
 import type { HarnessInterface, HarnessContext } from "../../apps/agent/src/harness/interface";
-import { CfDoStreamRepo, ensureSchema as ensureEventLogSchema } from "@open-managed-agents/event-log/cf-do";
+import { CfDoStreamRepo, ensureSchema as ensureEventLogSchema } from "@duyet/oma-event-log/cf-do";
 import { SqliteHistory } from "../../apps/agent/src/runtime/history";
 
 // ============================================================

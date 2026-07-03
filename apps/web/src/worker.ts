@@ -2,8 +2,8 @@
 //   - http://*  → 301 → https://*  (HTTPS is canonical, kills the
 //     "Alternate page with proper canonical tag" GSC noise we'd
 //     otherwise rack up on every URL)
-//   - www.openma.dev/* → 301 → openma.dev/*  (apex is canonical)
-//   - openma.dev/{login,sessions,agents,...} → 301 → app.openma.dev/...
+//   - oma.duyet.net/* → 301 → oma.duyet.net/*  (apex is canonical)
+//   - oma.duyet.net/{login,sessions,agents,...} → 301 → app.oma.duyet.net/...
 //     (old bookmarks from when apex was the Console SPA)
 //   - everything else: pass through to env.ASSETS (Astro static)
 //
@@ -15,7 +15,7 @@ interface Env {
   ASSETS: { fetch: typeof fetch };
 }
 
-// Top-level paths that belong to the Console SPA at app.openma.dev. Old
+// Top-level paths that belong to the Console SPA at app.oma.duyet.net. Old
 // bookmarks, accidentally-shared apex links, and external backlinks
 // (forums, Twitter, our own historical CLI versions) all 301 to app.*
 // instead of 404'ing against the marketing site.
@@ -63,8 +63,8 @@ function isConsolePath(pathname: string): boolean {
 }
 
 // www → apex: drop the leading "www." subdomain. Works for both prod
-// (www.openma.dev → openma.dev) and staging (www.staging.openma.dev →
-// staging.openma.dev). Keeps the path + query intact.
+// (oma.duyet.net → oma.duyet.net) and staging (www.staging.oma.duyet.net →
+// staging.oma.duyet.net). Keeps the path + query intact.
 function wwwToApex(url: URL): URL {
   const out = new URL(url.toString());
   out.hostname = out.hostname.replace(/^www\./, "");

@@ -1,7 +1,7 @@
 // Public types for the credentials store service. Mirrors the D1 schema in
 // apps/main/migrations/0009_credentials_table.sql.
 
-import type { CredentialAuth } from "@open-managed-agents/shared";
+import type { CredentialAuth } from "@duyet/oma-shared";
 
 export interface CredentialRow {
   id: string;

@@ -8,7 +8,7 @@
 // hasActiveByAgent / hasActiveByEnvironment safety checks.
 //
 // NOTE: imports use relative paths because vitest.config.ts has not yet been
-// updated with the @open-managed-agents/sessions-store alias (that's done at
+// updated with the @duyet/oma-sessions-store alias (that's done at
 // integration time per packages/sessions-store/INTEGRATION_GUIDE.md). After
 // the alias lands, these can be swapped to the package import to match the
 // credentials-store test style.
@@ -18,7 +18,7 @@ import type {
   AgentConfig,
   EnvironmentConfig,
   SessionResource,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import {
   MAX_MEMORY_STORE_RESOURCES_PER_SESSION,
   MAX_RESOURCES_PER_SESSION,

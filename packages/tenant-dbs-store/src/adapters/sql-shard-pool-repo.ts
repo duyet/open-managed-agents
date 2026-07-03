@@ -1,5 +1,5 @@
 import { asc, eq, sql } from "drizzle-orm";
-import { shard_pool } from "@open-managed-agents/db-schema/cf-router";
+import { shard_pool } from "@duyet/oma-db-schema/cf-router";
 import {
   asBuilder,
   getAll,
@@ -7,7 +7,7 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
+} from "@duyet/oma-db-schema";
 import type {
   NewShardPool,
   ShardPoolRepo,

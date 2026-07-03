@@ -1,4 +1,4 @@
-import { generateEvalRunId } from "@open-managed-agents/shared";
+import { generateEvalRunId } from "@duyet/oma-shared";
 import { EvalRunNotFoundError } from "./errors";
 import type {
   Clock,

@@ -1,6 +1,6 @@
 import type { SandboxExecutor } from "../harness/interface";
-import { fileR2Key } from "@open-managed-agents/shared";
-import { logWarn } from "@open-managed-agents/shared";
+import { fileR2Key } from "@duyet/oma-shared";
+import { logWarn } from "@duyet/oma-shared";
 
 /**
  * Mount session resources into the sandbox during warmup.

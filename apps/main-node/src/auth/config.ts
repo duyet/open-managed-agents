@@ -1,15 +1,15 @@
 // Thin shim — exposes the legacy `createAuth(opts)` signature backed by
-// @open-managed-agents/auth-config + a logger-backed sender. The
+// @duyet/oma-auth-config + a logger-backed sender. The
 // pg-better-auth.test.ts file imports from this path; keep it stable for
 // the test surface even after main-node's runtime moved to package mounts.
 
 import {
   buildBetterAuth,
   ensureTenantSqlite,
-} from "@open-managed-agents/auth-config";
-import type { EmailSender } from "@open-managed-agents/email";
-import type { SqlClient } from "@open-managed-agents/sql-client";
-import { getLogger } from "@open-managed-agents/observability";
+} from "@duyet/oma-auth-config";
+import type { EmailSender } from "@duyet/oma-email";
+import type { SqlClient } from "@duyet/oma-sql-client";
+import { getLogger } from "@duyet/oma-observability";
 
 const log = getLogger("auth-otp");
 

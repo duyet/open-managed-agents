@@ -8,8 +8,8 @@
 // is intentional — it makes tenantId a routing key, so a future per-tenant-D1
 // adapter can pick a database per call without any port changes.
 
-import type { EnvironmentConfig } from "@open-managed-agents/shared";
-import type { PageCursor } from "@open-managed-agents/shared";
+import type { EnvironmentConfig } from "@duyet/oma-shared";
+import type { PageCursor } from "@duyet/oma-shared";
 import type { EnvironmentRow, EnvironmentStatus } from "./types";
 
 export interface NewEnvironmentInput {

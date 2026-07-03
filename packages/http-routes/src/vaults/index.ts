@@ -9,17 +9,17 @@ import {
   CredentialMaxExceededError,
   CredentialNotFoundError,
   stripSecrets,
-} from "@open-managed-agents/credentials-store";
-import { VaultNotFoundError } from "@open-managed-agents/vaults-store";
+} from "@duyet/oma-credentials-store";
+import { VaultNotFoundError } from "@duyet/oma-vaults-store";
 import {
   buildAuthHeader,
   refreshMetadataOf,
   refreshMcpOAuth,
-} from "@open-managed-agents/vault-forward";
+} from "@duyet/oma-vault-forward";
 import type {
   CredentialAuth,
   CredentialConfig,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import type { RouteServicesArg } from "../types";
 import { resolveServices } from "../types";
 

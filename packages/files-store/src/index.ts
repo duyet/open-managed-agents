@@ -1,4 +1,4 @@
-// Public surface of @open-managed-agents/files-store.
+// Public surface of @duyet/oma-files-store.
 //
 //   - types       : FileRow, FileScope, toFileRecord, DEFAULT/MAX_LIST_LIMIT
 //   - errors      : typed errors so HTTP handlers can map → status codes
@@ -7,9 +7,9 @@
 //   - adapters    : Cloudflare-specific implementations + factory
 //
 // Callers in apps/main and apps/agent normally only need:
-//   import { createCfFileService } from "@open-managed-agents/files-store";
+//   import { createCfFileService } from "@duyet/oma-files-store";
 // Tests use:
-//   import { createInMemoryFileService } from "@open-managed-agents/files-store/test-fakes";
+//   import { createInMemoryFileService } from "@duyet/oma-files-store/test-fakes";
 
 export * from "./types";
 export * from "./errors";

@@ -84,7 +84,7 @@ docker compose -f docker-compose.yml down -v    # stop, wipe volumes
 
 ```bash
 pnpm install
-ANTHROPIC_API_KEY=sk-... pnpm --filter @open-managed-agents/main-node start
+ANTHROPIC_API_KEY=sk-... pnpm --filter @duyet/oma-main-node start
 # Same curl flow as above against localhost:8787.
 ```
 
@@ -327,8 +327,8 @@ The same demo works on the Postgres compose unchanged.
 
 | Feature | Status |
 |---|---|
-| `/v1/agents` full CRUD with AMA `_oma:` envelope, versions, archive, delete | ✓ via `@open-managed-agents/http-routes` |
-| `/v1/sessions` create + list + get + archive + delete + threads | ✓ via `@open-managed-agents/http-routes` (NodeSessionRouter wraps SessionRegistry + SqlEventLog) |
+| `/v1/agents` full CRUD with AMA `_oma:` envelope, versions, archive, delete | ✓ via `@duyet/oma-http-routes` |
+| `/v1/sessions` create + list + get + archive + delete + threads | ✓ via `@duyet/oma-http-routes` (NodeSessionRouter wraps SessionRegistry + SqlEventLog) |
 | `POST /v1/sessions/:id/events` (5-type whitelist + harness dispatch) | ✓ via SessionRouter.appendEvent |
 | `POST /v1/sessions/:id/messages` one-shot user.message | ✓ |
 | `GET /v1/sessions/:id/events/stream` SSE w/ Last-Event-ID resume | ✓ via SessionRouter.streamEvents |
@@ -344,7 +344,7 @@ The same demo works on the Postgres compose unchanged.
 | `browser` tool | ✗  CF-only (uses @cloudflare/playwright) |
 | Memory stores (mount + agent fs writes → SQL index) | ✓ symlink + chokidar watcher |
 | `/v1/vaults` + `/v1/vaults/:id/credentials` full CRUD + `mcp_oauth_validate` | ✓ via package |
-| Vault credential injection for outbound MCP / API calls | ✓ via `oma-vault` sidecar (uses `@open-managed-agents/vault-forward`) |
+| Vault credential injection for outbound MCP / API calls | ✓ via `oma-vault` sidecar (uses `@duyet/oma-vault-forward`) |
 | `/v1/api_keys` mint / list / revoke (SHA-256 hashed in `api_keys` table) | ✓ |
 | `/v1/me` + `/v1/me/tenants` + `/v1/me/cli-tokens` | ✓ |
 | `/v1/tenants` create workspace + membership | ✓ (no shard assign — CF-only) |
@@ -353,8 +353,8 @@ The same demo works on the Postgres compose unchanged.
 | Multi-instance oma-server (PG mode) | ✓ PG `LISTEN/NOTIFY`-backed SSE fanout; better-auth on shared PG; `oma-vault` is stateless and replicable; needs shared `MEMORY_BLOB_DIR` or `MEMORY_S3_*` |
 | Multi-tenant authentication (better-auth) | ✓ email+password + OTP, AUTH_DISABLED=1 escape |
 | Console UI (vite dev or built `dist`) | ✓ talks to main-node via `/auth/*` + `/v1/*` |
-| Integrations (linear / github / slack) — read-side CRUD on publications, installations, dispatch rules | ✓ wired via `@open-managed-agents/integrations-adapters-node` (set `PLATFORM_ROOT_SECRET`). |
-| Integrations write-side OAuth callbacks + setup pages + webhook ingest + publication-create | ✓ wired via `@open-managed-agents/http-routes` `buildIntegrationsGatewayRoutes` + `NodeInstallBridge`. Linear / GitHub / Slack OAuth callbacks land on main-node directly. Webhook receivers (with synthesized `user.message` resume into the bound session), GitHub `refresh-by-vault`, the Linear MCP `/linear/mcp/:sessionId` route, and publication-create endpoints (`start-a1` / `credentials` / `handoff-link` / `personal-token`) all run in-process. |
+| Integrations (linear / github / slack) — read-side CRUD on publications, installations, dispatch rules | ✓ wired via `@duyet/oma-integrations-adapters-node` (set `PLATFORM_ROOT_SECRET`). |
+| Integrations write-side OAuth callbacks + setup pages + webhook ingest + publication-create | ✓ wired via `@duyet/oma-http-routes` `buildIntegrationsGatewayRoutes` + `NodeInstallBridge`. Linear / GitHub / Slack OAuth callbacks land on main-node directly. Webhook receivers (with synthesized `user.message` resume into the bound session), GitHub `refresh-by-vault`, the Linear MCP `/linear/mcp/:sessionId` route, and publication-create endpoints (`start-a1` / `credentials` / `handoff-link` / `personal-token`) all run in-process. |
 | `/billing-api/*`, `/v1/internal/usage_events` | ✗  CF-only by design. Talks to a `USAGE_METER` worker not in this repo. Self-host operators bring their own metering or skip. |
 | `/v1/runtimes` (RuntimeRoom DO) | ✗  CF-only (DO + WebSocket-backed) |
 | Cron / queue handlers | ✗  CF-only (P3 will land scheduler abstraction) |
@@ -518,7 +518,7 @@ on 8787; vite proxies `/v1` + `/auth` to it.
 # Terminal 1: main-node
 ANTHROPIC_API_KEY=sk-... BETTER_AUTH_SECRET=$(openssl rand -hex 32) \
   PUBLIC_BASE_URL=http://localhost:5173 \
-  pnpm --filter @open-managed-agents/main-node start
+  pnpm --filter @duyet/oma-main-node start
 
 # Terminal 2: console (Vite dev server, proxies /v1 + /auth → :8787)
 VITE_API_TARGET=http://localhost:8787 pnpm dev:console
@@ -526,7 +526,7 @@ VITE_API_TARGET=http://localhost:8787 pnpm dev:console
 
 # Terminal 3 (optional): oma-vault — outbound credential injection
 DATABASE_PATH=$(pwd)/data/oma.db OMA_VAULT_CA_DIR=$(pwd)/data/oma-vault-ca \
-  pnpm --filter @open-managed-agents/oma-vault start
+  pnpm --filter @duyet/oma-oma-vault start
 ```
 
 Open `http://localhost:5173` (dev) or `http://localhost:8787` (docker),
@@ -583,7 +583,7 @@ What this gets you:
   + cap_cli vault credentials in place.
 - Linear cron dispatch (auto-pickup of issues) is exposed to the Node
   scheduler via `linearDispatchTick` from
-  `@open-managed-agents/scheduler/jobs/linear-dispatch`.
+  `@duyet/oma-scheduler/jobs/linear-dispatch`.
 
 Required env on the Node side: `PLATFORM_ROOT_SECRET` (at-rest encryption
 for OAuth tokens), `INTEGRATIONS_INTERNAL_TOKEN` (gates

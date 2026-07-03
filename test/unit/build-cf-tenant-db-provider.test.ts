@@ -3,15 +3,15 @@
 //
 // Goal: a self-host deployment that omits AUTH_DB_01 from wrangler.jsonc
 // should silently land in single-D1 mode (no tenant_shard reads), and
-// openma.dev's --env production deployment with all 4 shards should
+// oma.duyet.net's --env production deployment with all 4 shards should
 // continue to use the meta-table router.
 
 import { describe, expect, it } from "vitest";
 import {
   CfSharedAuthDbProvider,
   MetaTableTenantDbProvider,
-} from "@open-managed-agents/tenant-db";
-import { buildCfTenantDbProvider } from "@open-managed-agents/services";
+} from "@duyet/oma-tenant-db";
+import { buildCfTenantDbProvider } from "@duyet/oma-services";
 
 const fakeDb = (label: string) => ({ __label: label }) as unknown as D1Database;
 

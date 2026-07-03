@@ -7,7 +7,7 @@ import {
   resolveCompactionStrategy,
   stripImagesFromMessages,
 } from "../../apps/agent/src/harness/compaction";
-import type { SessionEvent } from "@open-managed-agents/shared";
+import type { SessionEvent } from "@duyet/oma-shared";
 
 // Mock ai-sdk's generateText so iterative-compaction tests can drive the
 // strategy's full code path without hitting a real LLM. Spread original

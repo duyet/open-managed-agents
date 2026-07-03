@@ -33,10 +33,10 @@
  */
 
 import { spawn as childSpawn } from "node:child_process";
-import { AcpRuntimeImpl } from "@open-managed-agents/acp-runtime";
-import { NodeSpawner } from "@open-managed-agents/acp-runtime/node-spawner";
-import { resolveKnownAgent } from "@open-managed-agents/acp-runtime/registry";
-import type { AcpSession } from "@open-managed-agents/acp-runtime";
+import { AcpRuntimeImpl } from "@duyet/oma-acp-runtime";
+import { NodeSpawner } from "@duyet/oma-acp-runtime/node-spawner";
+import { resolveKnownAgent } from "@duyet/oma-acp-runtime/registry";
+import type { AcpSession } from "@duyet/oma-acp-runtime";
 import { ensureSessionCwd, removeSessionCwd, writeBundle } from "./session-cwd.js";
 import { setupClaudeConfigDir } from "./claude-config-dir.js";
 
@@ -83,7 +83,7 @@ interface ActiveSession {
 }
 
 export interface SessionManagerEnv {
-  /** OMA server URL, e.g. https://app.openma.dev. Used to fetch session
+  /** OMA server URL, e.g. https://app.oma.duyet.net. Used to fetch session
    *  bundle and as the base for mcp-proxy URLs we send into mcpServers. */
   apiUrl: string;
   /** Runtime token (`sk_machine_*`) — daemon's bearer for /agents/runtime/*

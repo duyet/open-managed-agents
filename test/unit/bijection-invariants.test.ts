@@ -7,7 +7,7 @@ import type {
   SessionEvent,
   AgentToolUseEvent,
   AgentToolResultEvent,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 
 // ============================================================
 // Bijection / determinism — write/read invariants for prompt cache

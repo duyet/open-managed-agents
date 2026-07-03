@@ -2,7 +2,7 @@
 // cascade-on-delete behavior + history-snapshot atomicity of the D1 adapter
 // so tests catch the same integrity violations.
 
-import type { AgentConfig } from "@open-managed-agents/shared";
+import type { AgentConfig } from "@duyet/oma-shared";
 import { AgentNotFoundError } from "./errors";
 import type {
   AgentRepo,
@@ -82,7 +82,7 @@ export class InMemoryAgentRepo implements AgentRepo {
       createdAfter?: number;
       createdBefore?: number;
       limit: number;
-      after?: import("@open-managed-agents/shared").PageCursor;
+      after?: import("@duyet/oma-shared").PageCursor;
       q?: string;
     },
   ): Promise<{ items: AgentRow[]; hasMore: boolean }> {

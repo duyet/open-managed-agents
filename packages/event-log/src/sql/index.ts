@@ -9,8 +9,8 @@
 // every read/write is filtered by it. The repo instance is bound to one
 // session_id at construction.
 
-import type { SessionEvent } from "@open-managed-agents/shared";
-import type { SqlClient } from "@open-managed-agents/sql-client";
+import type { SessionEvent } from "@duyet/oma-shared";
+import type { SqlClient } from "@duyet/oma-sql-client";
 import type { EventLogRepo, StreamRepo, StreamRow } from "../ports";
 
 export type SqlDialect = "sqlite" | "postgres";

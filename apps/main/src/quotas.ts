@@ -20,9 +20,9 @@
 // All three soft-pass when the binding / env is absent. None of them
 // touch the agent / session core: they live entirely on the route edge.
 
-import type { Env } from "@open-managed-agents/shared";
-import { logWarn } from "@open-managed-agents/shared";
-import type { KvStore } from "@open-managed-agents/kv-store";
+import type { Env } from "@duyet/oma-shared";
+import { logWarn } from "@duyet/oma-shared";
+import type { KvStore } from "@duyet/oma-kv-store";
 
 const DEFAULT_UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
 

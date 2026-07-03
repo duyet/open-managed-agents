@@ -5,9 +5,9 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { slack_webhook_events } from "@open-managed-agents/db-schema/cf-integrations";
-import type { WebhookEventStore } from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-db-schema";
+import { slack_webhook_events } from "@duyet/oma-db-schema/cf-integrations";
+import type { WebhookEventStore } from "@duyet/oma-integrations-core";
 
 export class SqlSlackWebhookEventStore implements WebhookEventStore {
   private readonly db: OmaDbBuilder;

@@ -4,7 +4,7 @@ export { SqlCredentialRepo } from "./sql-credential-repo";
 
 import { drizzle } from "drizzle-orm/d1";
 import { SqlCredentialRepo } from "./sql-credential-repo";
-import type { OmaDb } from "@open-managed-agents/db-schema";
+import type { OmaDb } from "@duyet/oma-db-schema";
 import type { Crypto, Logger } from "../ports";
 import { CredentialService } from "../service";
 

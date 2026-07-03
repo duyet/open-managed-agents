@@ -41,7 +41,7 @@ interface Credential {
   archived_at?: string | null;
 }
 
-// First-wave cap CLI list. Mirrors @open-managed-agents/cap builtinSpecs.
+// First-wave cap CLI list. Mirrors @duyet/oma-cap builtinSpecs.
 // Lifted verbatim from VaultsList — kept here because the Add-credential
 // flow now lives on this page.
 const CAP_CLIS: Array<{ cli_id: string; label: string; helper: string; oauth?: boolean }> = [

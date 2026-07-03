@@ -17,7 +17,7 @@ export interface SkillFilesResult {
   files: SkillFile[];
 }
 
-import { skillFileR2Key } from "@open-managed-agents/shared";
+import { skillFileR2Key } from "@duyet/oma-shared";
 
 const skillRegistry = new Map<string, Skill>();
 

@@ -14,7 +14,7 @@
 > import Anthropic from "@anthropic-ai/sdk";
 >
 > const client = new Anthropic({
->   baseURL: "https://openma.dev",
+>   baseURL: "https://oma.duyet.net",
 >   apiKey: process.env.OMA_API_KEY!,
 > });
 >
@@ -39,7 +39,7 @@
 
 ---
 
-Official TypeScript SDK for the [openma](https://openma.dev) managed agents platform — typed REST + SSE streaming, runs anywhere `fetch` exists (Node ≥ 20, Bun, Deno, browsers, Cloudflare Workers).
+Official TypeScript SDK for the [openma](https://oma.duyet.net) managed agents platform — typed REST + SSE streaming, runs anywhere `fetch` exists (Node ≥ 20, Bun, Deno, browsers, Cloudflare Workers).
 
 ## Install
 
@@ -173,4 +173,4 @@ new OpenMA({ bearer: cookieToken, activeTenantId: "tn_..." });
 
 ## License
 
-MIT — see [LICENSE](https://github.com/openma-ai/open-managed-agents/blob/main/LICENSE).
+MIT — see [LICENSE](https://github.com/duyet/oma/blob/main/LICENSE).

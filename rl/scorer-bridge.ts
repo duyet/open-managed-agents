@@ -144,7 +144,7 @@ export function scoreToReward(score: Score, name = "scorer"): RewardResult {
  * Usage:
  *   import { registerVerifier } from "./verifier-registry";
  *   import { asReward } from "./scorer-bridge";
- *   import { bashOutputMarker } from "@open-managed-agents/shared";
+ *   import { bashOutputMarker } from "@duyet/oma-shared";
  *
  *   registerVerifier("scorer:test_pass", asReward(bashOutputMarker("ALL_TESTS_PASSED")));
  */

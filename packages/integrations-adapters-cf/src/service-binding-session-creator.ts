@@ -11,7 +11,7 @@ import type {
   SessionCreator,
   SessionEventInput,
   SessionId,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 
 export interface ServiceBindingSessionCreatorOptions {
   /** Secret shared with apps/main for the /v1/internal/* path family. */

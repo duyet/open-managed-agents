@@ -1,4 +1,4 @@
-// @open-managed-agents/tenant-dbs-store
+// @duyet/oma-tenant-dbs-store
 //
 // Control-plane shard router tables. Two responsibilities:
 //

@@ -6,14 +6,14 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { linear_issue_sessions } from "@open-managed-agents/db-schema/cf-integrations";
-import type { SessionId } from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-db-schema";
+import { linear_issue_sessions } from "@duyet/oma-db-schema/cf-integrations";
+import type { SessionId } from "@duyet/oma-integrations-core";
 import type {
   LinearIssueSession,
   LinearIssueSessionRepo,
   LinearIssueSessionStatus,
-} from "@open-managed-agents/linear";
+} from "@duyet/oma-linear";
 
 /** Pending claims older than this are eligible for reassignIfInactive
  *  takeover. Live claims fulfill in <1s typically (just one sessions.create

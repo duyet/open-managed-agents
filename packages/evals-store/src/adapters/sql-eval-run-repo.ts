@@ -6,8 +6,8 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { eval_runs } from "@open-managed-agents/db-schema/cf-auth";
+} from "@duyet/oma-db-schema";
+import { eval_runs } from "@duyet/oma-db-schema/cf-auth";
 import { EvalRunNotFoundError } from "../errors";
 import type {
   EvalRunListOptions,

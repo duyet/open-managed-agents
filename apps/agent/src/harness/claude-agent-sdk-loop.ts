@@ -50,8 +50,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { HarnessInterface, HarnessContext, HarnessRuntime } from "./interface";
-import type { SessionEvent, UserMessageEvent } from "@open-managed-agents/shared";
-import { generateEventId, log, logError } from "@open-managed-agents/shared";
+import type { SessionEvent, UserMessageEvent } from "@duyet/oma-shared";
+import { generateEventId, log, logError } from "@duyet/oma-shared";
 import { buildOmaSandboxMcpServer } from "./claude-agent-sdk/sandbox-tools";
 import { ClaudeAgentSdkEventTranslator } from "./claude-agent-sdk/translate";
 

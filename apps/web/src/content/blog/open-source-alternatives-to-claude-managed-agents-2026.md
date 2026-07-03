@@ -38,7 +38,7 @@ By that bar, the list is short.
 
 ## Open Managed Agents
 
-[github.com/openma-ai/open-managed-agents](https://github.com/openma-ai/open-managed-agents)
+[github.com/duyet/oma](https://github.com/duyet/oma)
 · Apache 2.0 · 2026-04 first release
 
 The most direct alternative — built explicitly to mirror Anthropic's
@@ -53,7 +53,7 @@ deployment under your control.
 | BYOK | Yes — Anthropic, OpenAI, OpenRouter, custom OpenAI-compatible |
 | Custom harness | Yes — write your own loop |
 | Integrations | Linear, Slack, GitHub, Lark |
-| Hosted option | openma.dev (subscription, BYOK) |
+| Hosted option | oma.duyet.net (subscription, BYOK) |
 | Self-host | `docker compose up`, or `wrangler deploy` |
 
 What it's good at: feature parity with the closed product on the
@@ -211,7 +211,7 @@ framework I'll wrap myself," LangGraph and AutoGen are mature picks.
 ## Try Open Managed Agents
 
 ```bash
-git clone https://github.com/openma-ai/open-managed-agents
+git clone https://github.com/duyet/oma
 cd open-managed-agents
 cp .env.example .env
 docker compose up -d

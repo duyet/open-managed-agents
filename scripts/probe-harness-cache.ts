@@ -70,7 +70,7 @@ import type {
   SpanModelRequestEndEvent,
   AgentConfig,
   ContentBlock,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 
 // ---- mode ----
 type ProbeMode = "text" | "sub-agent" | "multimodal" | "all";

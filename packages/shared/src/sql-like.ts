@@ -1,6 +1,6 @@
 // Small SQL helpers shared by adapter implementations.
 //
-// Kept in @open-managed-agents/shared so all *-store packages can import a
+// Kept in @duyet/oma-shared so all *-store packages can import a
 // single canonical version instead of each one copying the same 4 lines.
 
 /**

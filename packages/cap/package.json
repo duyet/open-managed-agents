@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/cap",
+  "name": "@duyet/oma-cap",
   "version": "0.1.0",
   "private": true,
   "description": "CLI Auth Protocol — declarative spec + pure-function enforcement for injecting credentials into common CLIs.",

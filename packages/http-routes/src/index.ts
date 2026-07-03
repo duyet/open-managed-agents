@@ -1,7 +1,7 @@
 // Public surface — every mount factory and the shared types.
 //
 // CF + Node both `import { buildXxxRoutes, type RouteServices } from
-// "@open-managed-agents/http-routes"`, build their services bundle, and
+// "@duyet/oma-http-routes"`, build their services bundle, and
 // mount the routes under the same paths.
 
 export type {

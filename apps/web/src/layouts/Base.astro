@@ -5,7 +5,7 @@ import { organizationSchema, websiteSchema } from "../lib/seo";
 export interface Props {
   title: string;
   description?: string;
-  /** Canonical path under https://openma.dev — leading slash. */
+  /** Canonical path under https://oma.duyet.net — leading slash. */
   canonical?: string;
   /** og:type. Default "website"; "article" for blog posts. */
   ogType?: "website" | "article";
@@ -31,7 +31,7 @@ const {
   keywords,
 } = Astro.props;
 
-const SITE = "https://openma.dev";
+const SITE = "https://oma.duyet.net";
 // Append " — Open Managed Agents" only when the title doesn't already
 // contain the full brand. We deliberately don't match on "openma"
 // alone, so a post like "Hello, openma" still gets the suffix for
@@ -172,9 +172,9 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
         <nav class="hidden md:flex items-center gap-1 text-sm" aria-label="Primary">
           <a href="/claude-tag-alternative/" class="px-3 py-2 rounded-md text-[var(--color-fg)] hover:text-[var(--color-brand)]">Claude Tag</a>
           <a href="/blog/" class="px-3 py-2 rounded-md text-[var(--color-fg)] hover:text-[var(--color-brand)]">Blog</a>
-          <a href="https://docs.openma.dev" class="px-3 py-2 rounded-md text-[var(--color-fg)] hover:text-[var(--color-brand)]">Docs</a>
+          <a href="https://docs.oma.duyet.net" class="px-3 py-2 rounded-md text-[var(--color-fg)] hover:text-[var(--color-brand)]">Docs</a>
           <a
-            href="https://github.com/openma-ai/open-managed-agents"
+            href="https://github.com/duyet/oma"
             target="_blank"
             rel="noopener noreferrer"
             class="px-3 py-2 rounded-md text-[var(--color-fg)] hover:text-[var(--color-brand)]"
@@ -220,7 +220,7 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
             </svg>
           </button>
           <a
-            href="https://app.openma.dev/login"
+            href="https://app.oma.duyet.net/login"
             class="ml-2 px-3 py-2 rounded-md bg-[var(--color-fg)] text-[var(--color-bg)] font-medium"
             >Sign in</a
           >
@@ -261,16 +261,16 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
             >
               <a href="/claude-tag-alternative/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Claude Tag</a>
               <a href="/blog/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Blog</a>
-              <a href="https://docs.openma.dev" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Docs</a>
+              <a href="https://docs.oma.duyet.net" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Docs</a>
               <a
-                href="https://github.com/openma-ai/open-managed-agents"
+                href="https://github.com/duyet/oma"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]"
                 >GitHub</a
               >
               <a
-                href="https://app.openma.dev/login"
+                href="https://app.oma.duyet.net/login"
                 class="block mx-2 mt-1 px-3 py-3 rounded-md text-center bg-[var(--color-fg)] text-[var(--color-bg)] font-medium"
                 >Sign in</a
               >
@@ -292,9 +292,9 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
           <a href="/claude-tag-open-source/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Open Source Tag</a>
           <a href="/self-hosted-claude-tag/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Self-hosted Tag</a>
           <a href="/blog/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Blog</a>
-          <a href="https://docs.openma.dev" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Docs</a>
+          <a href="https://docs.oma.duyet.net" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Docs</a>
           <a
-            href="https://github.com/openma-ai/open-managed-agents"
+            href="https://github.com/duyet/oma"
             target="_blank"
             rel="noopener noreferrer"
             class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]"

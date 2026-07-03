@@ -7,10 +7,10 @@
 //
 // All three soft-pass when their underlying primitive is null/absent.
 // Same shape as apps/main/src/quotas.ts pre-extract; CF gets KV-backed,
-// Node gets SQL-backed via @open-managed-agents/kv-store/adapters/sql.
+// Node gets SQL-backed via @duyet/oma-kv-store/adapters/sql.
 
-import type { KvStore } from "@open-managed-agents/kv-store";
-import type { RateLimitGate } from "@open-managed-agents/rate-limit";
+import type { KvStore } from "@duyet/oma-kv-store";
+import type { RateLimitGate } from "@duyet/oma-rate-limit";
 
 const DEFAULT_UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
 

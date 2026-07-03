@@ -1,6 +1,6 @@
-import type { SqlClient } from "@open-managed-agents/sql-client";
+import type { SqlClient } from "@duyet/oma-sql-client";
 
-import type { TenantResolver } from "@open-managed-agents/integrations-core";
+import type { TenantResolver } from "@duyet/oma-integrations-core";
 
 /**
  * D1 implementation of TenantResolver. Reads `user.tenantId` from the

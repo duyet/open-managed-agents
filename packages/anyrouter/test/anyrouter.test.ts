@@ -16,7 +16,7 @@ import {
   parseTokenResponse,
 } from "../src/index";
 
-describe("@open-managed-agents/anyrouter — pkce", () => {
+describe("@duyet/oma-anyrouter — pkce", () => {
   it("generatePkcePair returns a 43-char verifier and its S256 challenge", async () => {
     const { verifier, challenge } = await generatePkcePair();
     expect(verifier).toHaveLength(43);
@@ -45,7 +45,7 @@ describe("@open-managed-agents/anyrouter — pkce", () => {
   });
 });
 
-describe("@open-managed-agents/anyrouter — dynamic client registration", () => {
+describe("@duyet/oma-anyrouter — dynamic client registration", () => {
   it("buildRegisterRequest is a PKCE-only public-client DCR POST", () => {
     const req = buildRegisterRequest({
       clientName: "Open Managed Agents",
@@ -81,7 +81,7 @@ describe("@open-managed-agents/anyrouter — dynamic client registration", () =>
   });
 });
 
-describe("@open-managed-agents/anyrouter — authorize redirect", () => {
+describe("@duyet/oma-anyrouter — authorize redirect", () => {
   it("buildAuthorizeUrl sets every required PKCE + OAuth param", () => {
     const url = new URL(
       buildAuthorizeUrl({
@@ -115,7 +115,7 @@ describe("@open-managed-agents/anyrouter — authorize redirect", () => {
   });
 });
 
-describe("@open-managed-agents/anyrouter — token exchange", () => {
+describe("@duyet/oma-anyrouter — token exchange", () => {
   it("buildTokenRequest sends the authorization_code grant with the PKCE verifier", () => {
     const req = buildTokenRequest({
       clientId: "mcpc_abc123",
@@ -158,7 +158,7 @@ describe("@open-managed-agents/anyrouter — token exchange", () => {
   });
 });
 
-describe("@open-managed-agents/anyrouter — model catalog", () => {
+describe("@duyet/oma-anyrouter — model catalog", () => {
   it("buildModelsRequest sends the key as a bearer token", () => {
     const req = buildModelsRequest("sk-ar-v1-abcdef");
     expect(req.method).toBe("GET");

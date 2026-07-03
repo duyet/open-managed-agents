@@ -1,4 +1,4 @@
-// @open-managed-agents/db-schema
+// @duyet/oma-db-schema
 //
 // All table definitions live here, organized by which physical database
 // they target on Cloudflare. Node-PG re-exports the union of CF schemas

@@ -5,15 +5,15 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { linear_apps } from "@open-managed-agents/db-schema/cf-integrations";
+} from "@duyet/oma-db-schema";
+import { linear_apps } from "@duyet/oma-db-schema/cf-integrations";
 import type {
   AppCredentials,
   AppRepo,
   Crypto,
   IdGenerator,
   NewAppCredentials,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 
 /**
  * SQL app repo for Linear. Targets `linear_apps`. Stores per-publication

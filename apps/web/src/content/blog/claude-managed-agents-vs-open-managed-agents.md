@@ -39,7 +39,7 @@ Agents, switching to Open Managed Agents is a base-URL swap.**
 
 ```diff
 - const client = new Anthropic({ baseURL: "https://api.anthropic.com" });
-+ const client = new Anthropic({ baseURL: "https://openma.dev" });
++ const client = new Anthropic({ baseURL: "https://oma.duyet.net" });
 ```
 
 Or, self-hosted:
@@ -246,7 +246,7 @@ that lets you change them.
 ## Try it
 
 ```bash
-git clone https://github.com/openma-ai/open-managed-agents
+git clone https://github.com/duyet/oma
 cd open-managed-agents
 cp .env.example .env  # set ANTHROPIC_API_KEY
 docker compose up -d

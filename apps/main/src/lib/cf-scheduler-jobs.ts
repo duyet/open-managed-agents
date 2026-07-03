@@ -6,13 +6,13 @@
 // scheduled() entry below calls `dispatch(controller.cron)` to look up
 // and invoke registered jobs whose cron expression matches.
 
-import type { Env } from "@open-managed-agents/shared";
-import { log, logError, recordEvent, errFields } from "@open-managed-agents/shared";
-import { forEachShardServices } from "@open-managed-agents/services";
-import { CfD1SqlClient } from "@open-managed-agents/sql-client/adapters/cf-d1";
-import { createCfScheduler, type CfScheduler } from "@open-managed-agents/scheduler/cf";
-import { memoryRetentionTick } from "@open-managed-agents/scheduler/jobs/memory-retention";
-import { webhookEventsRetentionTick } from "@open-managed-agents/scheduler/jobs/webhook-events-retention";
+import type { Env } from "@duyet/oma-shared";
+import { log, logError, recordEvent, errFields } from "@duyet/oma-shared";
+import { forEachShardServices } from "@duyet/oma-services";
+import { CfD1SqlClient } from "@duyet/oma-sql-client/adapters/cf-d1";
+import { createCfScheduler, type CfScheduler } from "@duyet/oma-scheduler/cf";
+import { memoryRetentionTick } from "@duyet/oma-scheduler/jobs/memory-retention";
+import { webhookEventsRetentionTick } from "@duyet/oma-scheduler/jobs/webhook-events-retention";
 import { tickEvalRuns } from "../eval-runner";
 import { dreamRecoveryTick } from "../cron/dream-recovery";
 

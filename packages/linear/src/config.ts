@@ -1,7 +1,7 @@
 // LinearProvider configuration. Cleanly separated from runtime ports so the
 // provider remains pure and testable.
 
-import type { CapabilityKey } from "@open-managed-agents/integrations-core";
+import type { CapabilityKey } from "@duyet/oma-integrations-core";
 
 export interface LinearConfig {
   /**

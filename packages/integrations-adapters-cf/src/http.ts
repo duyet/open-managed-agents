@@ -8,7 +8,7 @@ import type {
   HttpClient,
   HttpRequest,
   HttpResponse,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 
 export interface WorkerHttpClientOptions {
   /** Max retries on 5xx/429. Default 2 (so up to 3 attempts). */

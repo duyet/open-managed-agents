@@ -24,14 +24,14 @@ import { promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
-import type { SqlClient } from "@open-managed-agents/sql-client";
-import type { BlobStore } from "@open-managed-agents/blob-store";
+import type { SqlClient } from "@duyet/oma-sql-client";
+import type { BlobStore } from "@duyet/oma-blob-store";
 import type {
   OrchestratorBackupHandle,
   WorkspaceBackupService,
-} from "@open-managed-agents/sandbox/orchestrator";
-import type { SandboxExecutor } from "@open-managed-agents/sandbox";
-import { getLogger } from "@open-managed-agents/observability";
+} from "@duyet/oma-sandbox/orchestrator";
+import type { SandboxExecutor } from "@duyet/oma-sandbox";
+import { getLogger } from "@duyet/oma-observability";
 
 const moduleLogger = getLogger("node-workspace-backup");
 

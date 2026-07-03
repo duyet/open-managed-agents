@@ -17,7 +17,7 @@ import { join } from "node:path";
 import { mkdirSync, writeFileSync, unlinkSync } from "node:fs";
 import { readCreds } from "../lib/config.js";
 import { osTag, currentProfile, paths } from "../lib/platform.js";
-import { detectAll, loadRegistry } from "@open-managed-agents/acp-runtime/registry";
+import { detectAll, loadRegistry } from "@duyet/oma-acp-runtime/registry";
 import { SessionManager } from "../lib/session-manager.js";
 import { detectLocalSkills } from "../lib/local-skills.js";
 import { printBanner, log, c } from "../lib/style.js";

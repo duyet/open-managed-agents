@@ -7,12 +7,12 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
+} from "@duyet/oma-db-schema";
 import {
   memories,
   memory_versions,
-} from "@open-managed-agents/db-schema/cf-auth";
-import { generateMemoryId } from "@open-managed-agents/shared";
+} from "@duyet/oma-db-schema/cf-auth";
+import { generateMemoryId } from "@duyet/oma-shared";
 import type {
   MemoryRepo,
   MemoryUpdateFields,

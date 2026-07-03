@@ -6,15 +6,15 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { linear_dispatch_rules } from "@open-managed-agents/db-schema/cf-integrations";
+} from "@duyet/oma-db-schema";
+import { linear_dispatch_rules } from "@duyet/oma-db-schema/cf-integrations";
 import type {
   DispatchRule,
   DispatchRulePatch,
   DispatchRuleRepo,
   IdGenerator,
   NewDispatchRule,
-} from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-integrations-core";
 
 /**
  * SQL dispatch-rule repo for Linear. Targets `linear_dispatch_rules`. Carries

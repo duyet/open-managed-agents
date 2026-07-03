@@ -5,14 +5,14 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { github_issue_sessions } from "@open-managed-agents/db-schema/cf-integrations";
-import type { SessionId } from "@open-managed-agents/integrations-core";
+} from "@duyet/oma-db-schema";
+import { github_issue_sessions } from "@duyet/oma-db-schema/cf-integrations";
+import type { SessionId } from "@duyet/oma-integrations-core";
 import type {
   GitHubIssueSession,
   GitHubIssueSessionRepo,
   GitHubIssueSessionStatus,
-} from "@open-managed-agents/github";
+} from "@duyet/oma-github";
 
 /**
  * GitHub's per-issue session bookkeeping. One row per (publication, "<owner/

@@ -1,21 +1,21 @@
 {
-  "name": "@open-managed-agents/integrations",
+  "name": "@duyet/oma-integrations",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "src/index.ts",
   "dependencies": {
-    "@open-managed-agents/github": "workspace:*",
-    "@open-managed-agents/http-routes": "workspace:*",
-    "@open-managed-agents/integrations-adapters-cf": "workspace:*",
-    "@open-managed-agents/integrations-core": "workspace:*",
-    "@open-managed-agents/linear": "workspace:*",
-    "@open-managed-agents/observability": "workspace:*",
-    "@open-managed-agents/scheduler": "workspace:*",
-    "@open-managed-agents/shared": "workspace:*",
-    "@open-managed-agents/slack": "workspace:*",
-    "@open-managed-agents/tenant-db": "workspace:*",
-    "@open-managed-agents/tenant-dbs-store": "workspace:*",
+    "@duyet/oma-github": "workspace:*",
+    "@duyet/oma-http-routes": "workspace:*",
+    "@duyet/oma-integrations-adapters-cf": "workspace:*",
+    "@duyet/oma-integrations-core": "workspace:*",
+    "@duyet/oma-linear": "workspace:*",
+    "@duyet/oma-observability": "workspace:*",
+    "@duyet/oma-scheduler": "workspace:*",
+    "@duyet/oma-shared": "workspace:*",
+    "@duyet/oma-slack": "workspace:*",
+    "@duyet/oma-tenant-db": "workspace:*",
+    "@duyet/oma-tenant-dbs-store": "workspace:*",
     "hono": "^4.7.0"
   }
 }

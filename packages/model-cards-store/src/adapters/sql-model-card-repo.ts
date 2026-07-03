@@ -7,14 +7,14 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { model_cards } from "@open-managed-agents/db-schema/cf-auth";
+} from "@duyet/oma-db-schema";
+import { model_cards } from "@duyet/oma-db-schema/cf-auth";
 import {
   escapeLikePattern,
   fetchN,
   trimPage,
   type PageCursor,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import {
   ModelCardDefaultConflictError,
   ModelCardDuplicateModelIdError,

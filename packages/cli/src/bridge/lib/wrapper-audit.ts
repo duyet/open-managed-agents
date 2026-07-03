@@ -27,7 +27,7 @@
 
 import { spawn } from "node:child_process";
 import checkbox, { Separator } from "@inquirer/checkbox";
-import { detectAll, getKnownAgents, type KnownAgentEntry } from "@open-managed-agents/acp-runtime/registry";
+import { detectAll, getKnownAgents, type KnownAgentEntry } from "@duyet/oma-acp-runtime/registry";
 import { log, c } from "./style.js";
 import { installBinaryWrapper, platformKey, binDir } from "./binary-installer.js";
 

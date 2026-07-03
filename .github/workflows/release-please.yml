@@ -4,7 +4,7 @@ name: Release Please
 # per release-please-config.json `always-bump-patch`) and updates CHANGELOG.md
 # from Conventional Commits. Merging that PR tags the release. This governs the
 # self-host / deployment version; npm package publishing stays on changesets
-# (release.yml) for @openma/cli and @openma/sdk.
+# (release.yml) for @duyet/oma-cli and @openma/sdk.
 #
 # NOTE: requires the repo setting "Allow GitHub Actions to create and approve
 # pull requests" (Settings → Actions → General → Workflow permissions).

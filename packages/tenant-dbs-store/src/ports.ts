@@ -12,7 +12,7 @@
 //                   Drives "which shard should the next new tenant land on".
 //                   Updated by the capacity monitor + admin scripts.
 //
-// Used by MetaTableTenantDbProvider (in @open-managed-agents/tenant-db) for
+// Used by MetaTableTenantDbProvider (in @duyet/oma-tenant-db) for
 // the per-request `tenantId → D1Database` resolution. Cached per-isolate.
 
 export interface TenantShardRow {

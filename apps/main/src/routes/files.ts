@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import type { Env } from "@open-managed-agents/shared";
-import { generateFileId, fileR2Key, sessionOutputsPrefix } from "@open-managed-agents/shared";
-import { toFileRecord, FileNotFoundError } from "@open-managed-agents/files-store";
-import type { Services } from "@open-managed-agents/services";
+import type { Env } from "@duyet/oma-shared";
+import { generateFileId, fileR2Key, sessionOutputsPrefix } from "@duyet/oma-shared";
+import { toFileRecord, FileNotFoundError } from "@duyet/oma-files-store";
+import type { Services } from "@duyet/oma-services";
 import { checkUploadFreq, checkUploadSize } from "../quotas";
 
 const app = new Hono<{

@@ -27,7 +27,7 @@ This document describes the end-to-end test steps for the openma console UI. An 
 2. **Assert**: Heading changes to "Create your account"
 3. Fill in:
    - Name: `Test User`
-   - Email: `test-<timestamp>@openma.dev`
+   - Email: `test-<timestamp>@oma.duyet.net`
    - Password: `testpass123`
 4. Click **"Create account"**
 5. **Assert**: Redirected to `/` (dashboard)

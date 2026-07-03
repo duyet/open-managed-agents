@@ -6,7 +6,7 @@
 // any other operations the bot performs at runtime go through `mcp.slack.com`
 // via vault outbound injection rather than this client.
 
-import type { HttpClient } from "@open-managed-agents/integrations-core";
+import type { HttpClient } from "@duyet/oma-integrations-core";
 
 const SLACK_API_BASE = "https://slack.com/api";
 

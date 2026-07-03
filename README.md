@@ -14,7 +14,7 @@
 
 **Open-source alternative to Claude Managed Agents** — and a foundation for open-source, self-hosted Claude Tag-style agents.
 
-🌐 **[openma.dev](https://openma.dev)** · 📖 **[docs.openma.dev](https://docs.openma.dev)** · 💬 **[github.com/openma-ai/open-managed-agents](https://github.com/openma-ai/open-managed-agents)**
+🌐 **[oma.duyet.net](https://oma.duyet.net)** · 📖 **[docs.oma.duyet.net](https://docs.oma.duyet.net)** · 💬 **[github.com/duyet/oma](https://github.com/duyet/oma)**
 
 Write a harness. Deploy. The platform runs it — with sessions, sandboxes, tools, memory, vaults, Slack/GitHub/Linear integrations, and crash recovery out of the box. Drop-in compatible with the Claude Managed Agents API; runs on Cloudflare Workers + Durable Objects, or `docker compose up` on your own box.
 
@@ -24,7 +24,7 @@ Use Open Managed Agents when you want:
 - An open-source, self-hosted Claude Tag-style workflow with BYOK model credentials.
 - MCP, private tools, encrypted vaults, and durable sessions under your own deployment boundary.
 
-Compare: [Claude Tag alternative](https://openma.dev/claude-tag-alternative/) · [Open-source Claude Tag](https://openma.dev/claude-tag-open-source/) · [Self-hosted Claude Tag](https://openma.dev/self-hosted-claude-tag/)
+Compare: [Claude Tag alternative](https://oma.duyet.net/claude-tag-alternative/) · [Open-source Claude Tag](https://oma.duyet.net/claude-tag-open-source/) · [Self-hosted Claude Tag](https://oma.duyet.net/self-hosted-claude-tag/)
 
 ---
 
@@ -49,8 +49,8 @@ crash-recovery semantics. Switch between them by changing env vars, not code.
 ## Quick start: self-host (Docker)
 
 ```bash
-git clone https://github.com/openma-ai/open-managed-agents.git
-cd open-managed-agents
+git clone https://github.com/duyet/oma.git
+cd oma
 cp .env.example .env
 
 # Two secrets are required before first boot — both generated locally:
@@ -90,7 +90,7 @@ curl -s -X POST localhost:8787/v1/sessions/$SID/events -H 'content-type: applica
 ```
 
 Full self-host guide (sandbox modes, Postgres, BoxRun, vault sidecar,
-Console UI, operator gotchas): **[docs.openma.dev/self-host/overview](https://docs.openma.dev/self-host/overview/)**
+Console UI, operator gotchas): **[docs.oma.duyet.net/self-host/overview](https://docs.oma.duyet.net/self-host/overview/)**
 
 ---
 
@@ -99,8 +99,8 @@ Console UI, operator gotchas): **[docs.openma.dev/self-host/overview](https://do
 Requires [Workers Paid plan](https://developers.cloudflare.com/workers/platform/pricing/) (for Durable Objects + Containers).
 
 ```bash
-git clone https://github.com/openma-ai/open-managed-agents.git
-cd open-managed-agents
+git clone https://github.com/duyet/oma.git
+cd oma
 pnpm install
 
 # Local dev (no CF account needed) — wrangler dev with simulators
@@ -123,7 +123,7 @@ npx wrangler secret put API_KEY               # initial bootstrap key for the RE
 # npx wrangler secret put ANTHROPIC_API_KEY
 
 npm run deploy
-# → https://openma.dev (or https://managed-agents.<your-subdomain>.workers.dev for a personal deploy)
+# → https://oma.duyet.net (or https://managed-agents.<your-subdomain>.workers.dev for a personal deploy)
 ```
 
 What gets deployed:
@@ -137,7 +137,7 @@ What gets deployed:
 
 ### Create your first agent
 
-The smoke test above works against any deployment. For the Console-driven flow (Model Cards, vaults, integrations) see **[docs.openma.dev/quickstart](https://docs.openma.dev/quickstart)**. The minimal API equivalent:
+The smoke test above works against any deployment. For the Console-driven flow (Model Cards, vaults, integrations) see **[docs.oma.duyet.net/quickstart](https://docs.oma.duyet.net/quickstart)**. The minimal API equivalent:
 
 ```bash
 BASE=http://localhost:8787   # or your deployed URL
@@ -209,7 +209,7 @@ The default harness works out of the box. When you need custom behavior — diff
 
 ```typescript
 // my-harness.ts
-import { defineHarness, generateText, stepCountIs } from "@open-managed-agents/sdk";
+import { defineHarness, generateText, stepCountIs } from "@duyet/oma-sdk";
 
 export default defineHarness({
   name: "research",
@@ -434,7 +434,7 @@ curl -X PUT $BASE/v1/agents/$AGENT -H "x-api-key: $KEY" -H "content-type: applic
 oma connect linear --vault $VAULT_ID
 ```
 
-Tool discovery is bounded at 15 s per server; one bad server logs and skips, the rest stay live. Full design: [docs.openma.dev/build/vault-and-mcp](https://docs.openma.dev/build/vault-and-mcp/).
+Tool discovery is bounded at 15 s per server; one bad server logs and skips, the rest stay live. Full design: [docs.oma.duyet.net/build/vault-and-mcp](https://docs.oma.duyet.net/build/vault-and-mcp/).
 
 ---
 
@@ -511,7 +511,7 @@ Three credential types share one resolver:
 | `mcp_oauth` | request host matches `mcp_server_url` | on 401 / 403 via `token_endpoint`, CAS-writes new token to D1 |
 | `cap_cli` | sandbox CLI invocations match `cli_id` in the cap registry (`gh`, `glab`, `aws`, …) | per-CLI |
 
-Max 20 credentials per vault. Each forward emits a structured `op:"mcp_proxy.forward"` log. Full design: [`docs/mcp-credential-architecture.md`](docs/mcp-credential-architecture.md), [docs.openma.dev/build/vault-and-mcp](https://docs.openma.dev/build/vault-and-mcp/).
+Max 20 credentials per vault. Each forward emits a structured `op:"mcp_proxy.forward"` log. Full design: [`docs/mcp-credential-architecture.md`](docs/mcp-credential-architecture.md), [docs.oma.duyet.net/build/vault-and-mcp](https://docs.oma.duyet.net/build/vault-and-mcp/).
 
 ---
 
@@ -641,8 +641,8 @@ open-managed-agents/
 │   ├── integrations/      # Integrations gateway — Linear / GitHub / Slack OAuth + webhooks
 │   ├── oma-vault/         # Vault sidecar — outbound auth-header injection (per-host secrets)
 │   ├── console/           # Web dashboard — React + Vite + Tailwind v4
-│   ├── docs/              # Docs site (Astro Starlight) — published to docs.openma.dev
-│   └── web/               # Marketing site (Astro) — published to openma.dev
+│   ├── docs/              # Docs site (Astro Starlight) — published to docs.oma.duyet.net
+│   └── web/               # Marketing site (Astro) — published to oma.duyet.net
 ├── packages/
 │   ├── cli/                       # `oma` CLI — agent / session / integration commands
 │   ├── sdk/                       # Harness SDK — defineHarness, generateText helpers
@@ -679,7 +679,7 @@ The variables that gate boot and at-rest safety:
 | `SANDBOX_PROVIDER` | No | `subprocess` (default, no isolation), `litebox` (Firecracker), `daytona`, `e2b`, or `boxrun`. Use an isolated backend for untrusted agents. |
 | `TAVILY_API_KEY` | No | Backend for the `web_search` built-in tool. |
 
-Full list (integrations OAuth credentials, Postgres URL, sandbox tunables, memory-bucket config, Google sign-in, etc.) — see **[docs.openma.dev/reference/configuration](https://docs.openma.dev/reference/configuration/)** and `.env.example` / `.dev.vars.example`.
+Full list (integrations OAuth credentials, Postgres URL, sandbox tunables, memory-bucket config, Google sign-in, etc.) — see **[docs.oma.duyet.net/reference/configuration](https://docs.oma.duyet.net/reference/configuration/)** and `.env.example` / `.dev.vars.example`.
 
 ---
 
@@ -724,7 +724,7 @@ npm run typecheck # zero errors
 
 ## Documentation
 
-The user-facing docs site lives at [`apps/docs`](apps/docs/) (Astro Starlight) and is published to **[docs.openma.dev](https://docs.openma.dev)**.
+The user-facing docs site lives at [`apps/docs`](apps/docs/) (Astro Starlight) and is published to **[docs.oma.duyet.net](https://docs.oma.duyet.net)**.
 
 ```bash
 pnpm dev:docs       # local preview at http://localhost:4321
@@ -749,3 +749,5 @@ The `docs/` folder at the repo root contains **internal design RFCs** — not th
 ## License
 
 [Apache 2.0](LICENSE)
+
+> Forked from [openma-ai/open-managed-agents](https://github.com/openma-ai/open-managed-agents).

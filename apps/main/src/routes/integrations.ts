@@ -6,7 +6,7 @@
 // packages/http-routes/src/integrations.
 
 import { Hono } from "hono";
-import type { Env } from "@open-managed-agents/shared";
+import type { Env } from "@duyet/oma-shared";
 import {
   buildCfRepos,
   CryptoIdGenerator,
@@ -17,13 +17,13 @@ import {
   SqlSlackInstallationRepo,
   SqlSlackPublicationRepo,
   WebCryptoAesGcm,
-} from "@open-managed-agents/integrations-adapters-cf";
+} from "@duyet/oma-integrations-adapters-cf";
 import { drizzle } from "drizzle-orm/d1";
 import {
   buildIntegrationsRoutes,
   type IntegrationsBags,
   type InstallProxyForwarder,
-} from "@open-managed-agents/http-routes";
+} from "@duyet/oma-http-routes";
 
 interface Vars {
   Variables: { tenant_id: string; user_id?: string };

@@ -9,7 +9,7 @@
 // and on 401 with mcp_oauth refresh and retry once. Pulling the logic
 // here means each caller is ~20 lines of "fetch credentials, call us".
 
-import type { CredentialAuth, CredentialConfig } from "@open-managed-agents/shared";
+import type { CredentialAuth, CredentialConfig } from "@duyet/oma-shared";
 
 export interface ResolvedCredential {
   /** Internal id for log correlation; never sent on the wire. */

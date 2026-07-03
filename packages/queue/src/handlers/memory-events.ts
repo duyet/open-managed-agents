@@ -16,13 +16,13 @@
 import {
   generateMemoryVersionId,
   type R2EventMessage,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import {
   type MemoryRepo,
   type Actor,
   parseR2Key,
   sha256Hex,
-} from "@open-managed-agents/memory-store";
+} from "@duyet/oma-memory-store";
 import type { QueueHandler, QueueMessage } from "../ports";
 
 export interface MemoryEventsDeps {

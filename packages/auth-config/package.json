@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/auth-config",
+  "name": "@duyet/oma-auth-config",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,8 +7,8 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@open-managed-agents/email": "workspace:*",
-    "@open-managed-agents/sql-client": "workspace:*",
+    "@duyet/oma-email": "workspace:*",
+    "@duyet/oma-sql-client": "workspace:*",
     "better-auth": "^1.6.3"
   }
 }

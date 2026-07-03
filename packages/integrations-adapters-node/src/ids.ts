@@ -1,7 +1,7 @@
 // Random id generator backed by Web Crypto. 32 bytes of entropy → base64url
 // (43 chars) by default; callers can configure prefixes for log readability.
 
-import type { IdGenerator } from "@open-managed-agents/integrations-core";
+import type { IdGenerator } from "@duyet/oma-integrations-core";
 
 export class CryptoIdGenerator implements IdGenerator {
   /**

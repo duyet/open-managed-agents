@@ -24,9 +24,9 @@ import {
   type DreamRow,
   type DreamUsage,
   type DreamService,
-} from "@open-managed-agents/dreams-store";
-import type { MemoryStoreService } from "@open-managed-agents/memory-store";
-import type { SessionService } from "@open-managed-agents/sessions-store";
+} from "@duyet/oma-dreams-store";
+import type { MemoryStoreService } from "@duyet/oma-memory-store";
+import type { SessionService } from "@duyet/oma-sessions-store";
 
 /**
  * Minimum service surface the dream pipeline needs. CF's `Services` container
@@ -39,7 +39,7 @@ import type { SessionService } from "@open-managed-agents/sessions-store";
  *     store_id → tenant_id for the R2 events queue consumer; Node has no
  *     such consumer.
  *
- * Defined here (not imported from @open-managed-agents/services) so this
+ * Defined here (not imported from @duyet/oma-services) so this
  * package stays out of the CF service-container dependency tree — Node
  * self-host pulls in only what the pipeline needs.
  */

@@ -14,7 +14,7 @@
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-const API_URL = process.env.OMA_API_URL || "https://openma.dev";
+const API_URL = process.env.OMA_API_URL || "https://oma.duyet.net";
 const API_KEY = process.env.OMA_API_KEY || "";
 const AGENT_ID = process.env.OMA_AGENT_ID || "";
 const ENV_ID = process.env.OMA_ENV_ID || "";

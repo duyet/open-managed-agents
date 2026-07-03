@@ -18,13 +18,13 @@
 //   - Tenant scoping
 
 import { Hono } from "hono";
-import type { Env } from "@open-managed-agents/shared";
-import type { EnvironmentConfig } from "@open-managed-agents/shared";
-import type { Services } from "@open-managed-agents/services";
+import type { Env } from "@duyet/oma-shared";
+import type { EnvironmentConfig } from "@duyet/oma-shared";
+import type { Services } from "@duyet/oma-services";
 import {
   toEnvironmentConfig,
   EnvironmentNotFoundError,
-} from "@open-managed-agents/environments-store";
+} from "@duyet/oma-environments-store";
 import { jsonPage, parsePageQuery } from "../lib/list-page";
 import { validateEnvironmentLimits } from "../lib/limits";
 

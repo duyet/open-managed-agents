@@ -46,11 +46,11 @@
  */
 
 import { Hono } from "hono";
-import type { Env, AgentConfig, CredentialConfig } from "@open-managed-agents/shared";
-import { log, logWarn } from "@open-managed-agents/shared";
-import type { Services } from "@open-managed-agents/services";
-import type { KvStore } from "@open-managed-agents/kv-store";
-import { builtinSpecs, createSpecRegistry } from "@open-managed-agents/cap";
+import type { Env, AgentConfig, CredentialConfig } from "@duyet/oma-shared";
+import { log, logWarn } from "@duyet/oma-shared";
+import type { Services } from "@duyet/oma-services";
+import type { KvStore } from "@duyet/oma-kv-store";
+import { builtinSpecs, createSpecRegistry } from "@duyet/oma-cap";
 
 // Module-level: the cap spec registry is pure data + immutable. Building
 // once amortises validation across every outbound request.
@@ -59,7 +59,7 @@ const capRegistry = createSpecRegistry(builtinSpecs);
 const app = new Hono<{ Bindings: Env; Variables: { services: Services } }>();
 
 export interface ProxyTarget {
-  /** Real upstream MCP server URL (e.g. https://integrations.openma.dev/.../mcp). */
+  /** Real upstream MCP server URL (e.g. https://integrations.oma.duyet.net/.../mcp). */
   upstreamUrl: string;
   /** Bearer token to inject on the upstream request. */
   upstreamToken: string;
@@ -651,7 +651,7 @@ async function tryRefreshOauth(
           expires_at: tokens.expires_in
             ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
             : undefined,
-        } as Partial<import("@open-managed-agents/shared").CredentialAuth>,
+        } as Partial<import("@duyet/oma-shared").CredentialAuth>,
       })
       .catch(() => null);
     if (!updated) {
@@ -685,7 +685,7 @@ async function tryRefreshOauth(
           expires_at: tokens.expires_in
             ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
             : undefined,
-        } as Partial<import("@open-managed-agents/shared").CredentialAuth>,
+        } as Partial<import("@duyet/oma-shared").CredentialAuth>,
       });
     } catch {
       /* best-effort */

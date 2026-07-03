@@ -1,4 +1,4 @@
-import { generateDreamId } from "@open-managed-agents/shared";
+import { generateDreamId } from "@duyet/oma-shared";
 import {
   DreamInputMemoryStoreMissingError,
   DreamInputSessionMissingError,

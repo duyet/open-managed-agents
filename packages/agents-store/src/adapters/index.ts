@@ -6,7 +6,7 @@ export { SqlAgentRepo } from "./sql-agent-repo";
 
 import { SqlAgentRepo } from "./sql-agent-repo";
 import { drizzle } from "drizzle-orm/d1";
-import type { OmaDb } from "@open-managed-agents/db-schema";
+import type { OmaDb } from "@duyet/oma-db-schema";
 import type { Logger } from "../ports";
 import { AgentService } from "../service";
 
@@ -16,7 +16,7 @@ import { AgentService } from "../service";
  * unchanged — the Drizzle wrapping is an internal detail.
  *
  * The Drizzle client is constructed with no schema dictionary — adapters
- * import table refs directly from `@open-managed-agents/db-schema/cf-auth`
+ * import table refs directly from `@duyet/oma-db-schema/cf-auth`
  * and don't use the relational-query API, so the schema generic stays empty.
  */
 export function createCfAgentService(

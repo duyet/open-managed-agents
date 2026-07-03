@@ -1,4 +1,4 @@
-// Vitest config local to @open-managed-agents/session-runtime.
+// Vitest config local to @duyet/oma-session-runtime.
 //
 // The root vitest.config.ts pins everything to @cloudflare/vitest-pool-
 // workers, which runs in workerd — fine for code that lives in apps/agent
@@ -8,7 +8,7 @@
 // any I/O, so they need to run in the Node thread pool instead.
 //
 // Run with:
-//   pnpm --filter @open-managed-agents/session-runtime test
+//   pnpm --filter @duyet/oma-session-runtime test
 
 import { defineConfig } from "vitest/config";
 

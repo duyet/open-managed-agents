@@ -7,12 +7,12 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
+} from "@duyet/oma-db-schema";
 import {
   memories,
   memory_stores,
   memory_versions,
-} from "@open-managed-agents/db-schema/cf-auth";
+} from "@duyet/oma-db-schema/cf-auth";
 import type { MemoryStoreRepo, NewMemoryStoreInput } from "../ports";
 import type { MemoryStoreRow } from "../types";
 
@@ -22,7 +22,7 @@ import type { MemoryStoreRow } from "../types";
  * memory_stores table.
  *
  * Backend-agnostic: takes an {@link OmaDb} (Drizzle wrapper around D1 /
- * better-sqlite3 / postgres-js). Helpers in `@open-managed-agents/db-schema`
+ * better-sqlite3 / postgres-js). Helpers in `@duyet/oma-db-schema`
  * paper over the SQLite vs PG terminator differences.
  */
 export class SqlMemoryStoreRepo implements MemoryStoreRepo {

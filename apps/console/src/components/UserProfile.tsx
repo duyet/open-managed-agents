@@ -102,7 +102,7 @@ export function UserProfile() {
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
             <a
-              href="https://docs.openma.dev"
+              href="https://docs.oma.duyet.net"
               target="_blank"
               rel="noopener noreferrer"
             >

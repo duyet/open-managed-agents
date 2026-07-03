@@ -1,4 +1,4 @@
-// Public surface of @open-managed-agents/session-runtime.
+// Public surface of @duyet/oma-session-runtime.
 //
 // Phase 2 of the unified-runtime refactor: SessionStateMachine + the
 // shared RuntimeAdapterImpl land here so apps/main-node (Node) can

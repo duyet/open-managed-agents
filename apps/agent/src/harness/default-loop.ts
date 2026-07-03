@@ -1,8 +1,8 @@
 import { streamText, stepCountIs, wrapLanguageModel } from "ai";
 import type { ContentPart, ModelMessage, LanguageModel, SystemModelMessage } from "ai";
 import type { HarnessInterface, HarnessContext, HarnessRuntime, FileResolver } from "./interface";
-import type { SessionEvent, ContentBlock, AgentToolUseEvent } from "@open-managed-agents/shared";
-import { generateEventId, classifyExternalError, ModelError } from "@open-managed-agents/shared";
+import type { SessionEvent, ContentBlock, AgentToolUseEvent } from "@duyet/oma-shared";
+import { generateEventId, classifyExternalError, ModelError } from "@duyet/oma-shared";
 import { eventsToMessagesAsync } from "../runtime/history";
 import { SummarizeCompactionStrategy, resolveCompactionStrategy } from "./compaction";
 import type { CompactionStrategy } from "./compaction";

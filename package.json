@@ -2,13 +2,13 @@
   "name": "open-managed-agents",
   "version": "0.1.1",
   "description": "Open-source Claude Managed Agents API implementation and self-hosted Claude Tag-style agent runtime.",
-  "homepage": "https://openma.dev",
+  "homepage": "https://oma.duyet.net",
   "repository": {
     "type": "git",
-    "url": "https://github.com/openma-ai/open-managed-agents"
+    "url": "https://github.com/duyet/oma"
   },
   "bugs": {
-    "url": "https://github.com/openma-ai/open-managed-agents/issues"
+    "url": "https://github.com/duyet/oma/issues"
   },
   "keywords": [
     "ai-agents",
@@ -49,9 +49,9 @@
     "deploy:docs": "pnpm --filter open-managed-agents-docs deploy",
     "deploy": "./scripts/deploy.sh",
     "typecheck": "tsc --noEmit && pnpm run typecheck:node",
-    "typecheck:node": "pnpm --filter @open-managed-agents/sandbox typecheck && pnpm --filter @open-managed-agents/main-node typecheck && pnpm --filter @open-managed-agents/oma-vault typecheck && pnpm --filter @open-managed-agents/cap typecheck",
+    "typecheck:node": "pnpm --filter @duyet/oma-sandbox typecheck && pnpm --filter @duyet/oma-main-node typecheck && pnpm --filter @duyet/oma-oma-vault typecheck && pnpm --filter @duyet/oma-cap typecheck",
     "test": "vitest run && pnpm run test:packages && pnpm run test:console",
-    "test:packages": "pnpm --filter @open-managed-agents/session-runtime test && pnpm --filter @open-managed-agents/main-node test && pnpm --filter @open-managed-agents/cap test && pnpm --filter @open-managed-agents/integrations-adapters-node test && pnpm --filter @open-managed-agents/sandbox test",
+    "test:packages": "pnpm --filter @duyet/oma-session-runtime test && pnpm --filter @duyet/oma-main-node test && pnpm --filter @duyet/oma-cap test && pnpm --filter @duyet/oma-integrations-adapters-node test && pnpm --filter @duyet/oma-sandbox test",
     "test:console": "pnpm --filter managed-agents-console test",
     "test:e2e": "playwright test --config=playwright.config.ts",
     "db:generate:cf-auth": "drizzle-kit generate --config=drizzle.cf-auth.config.ts",

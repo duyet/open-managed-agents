@@ -7,7 +7,7 @@
 // patch shape, delete + getDefault edge cases.
 //
 // NOTE: imports use relative paths because vitest.config.ts has not yet been
-// updated with the @open-managed-agents/model-cards-store alias (that's done
+// updated with the @duyet/oma-model-cards-store alias (that's done
 // at integration time per packages/model-cards-store/INTEGRATION_GUIDE.md).
 // After the alias lands, these can be swapped to the package import.
 

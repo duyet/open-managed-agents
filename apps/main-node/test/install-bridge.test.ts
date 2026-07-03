@@ -10,13 +10,13 @@
 
 import { describe, it, expect, beforeAll } from "vitest";
 import { bootstrapTestDb } from "./_helpers/bootstrap-test-db";
-import { createSqliteAgentService } from "@open-managed-agents/agents-store";
-import { createSqliteVaultService } from "@open-managed-agents/vaults-store";
-import { createSqliteCredentialService } from "@open-managed-agents/credentials-store";
-import { createSqliteSessionService } from "@open-managed-agents/sessions-store";
+import { createSqliteAgentService } from "@duyet/oma-agents-store";
+import { createSqliteVaultService } from "@duyet/oma-vaults-store";
+import { createSqliteCredentialService } from "@duyet/oma-credentials-store";
+import { createSqliteSessionService } from "@duyet/oma-sessions-store";
 import {
   buildIntegrationsGatewayRoutes,
-} from "@open-managed-agents/http-routes";
+} from "@duyet/oma-http-routes";
 import { NodeInstallBridge, buildNodeProvidersForRequest } from "../src/lib/node-install-bridge.js";
 
 const SECRET = "test-platform-root-secret-padded-to-thirtytwo";

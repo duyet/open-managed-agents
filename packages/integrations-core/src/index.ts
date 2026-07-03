@@ -1,4 +1,4 @@
-// @open-managed-agents/integrations-core
+// @duyet/oma-integrations-core
 //
 // Abstract interfaces for the integration layer. No runtime dependencies —
 // this package must be instantiable in pure Node, browser, or workerd alike.

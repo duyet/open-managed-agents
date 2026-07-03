@@ -70,7 +70,7 @@ function checkSandboxExec(_trajectory: Trajectory, _check: VerifyCheck): number 
 
 /**
  * @deprecated Phase 2 (trajectory-v1) replaced this with the canonical
- * `ScriptVerifier` from `@open-managed-agents/eval-core`, which executes
+ * `ScriptVerifier` from `@duyet/oma-eval-core`, which executes
  * `verify_script` directly in the sandbox via the `/exec` endpoint
  * (deterministic, no model token cost, hard timeout). Kept exported only
  * to avoid breaking external imports during the deprecation window;

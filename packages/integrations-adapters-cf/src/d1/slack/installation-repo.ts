@@ -6,8 +6,8 @@ import {
   type OmaDb,
   type OmaDbBuilder,
   runOnce,
-} from "@open-managed-agents/db-schema";
-import { slack_installations } from "@open-managed-agents/db-schema/cf-integrations";
+} from "@duyet/oma-db-schema";
+import { slack_installations } from "@duyet/oma-db-schema/cf-integrations";
 import type {
   Crypto,
   IdGenerator,
@@ -16,8 +16,8 @@ import type {
   NewInstallation,
   ProviderId,
   WorkspaceId,
-} from "@open-managed-agents/integrations-core";
-import type { SlackInstallationRepo } from "@open-managed-agents/slack";
+} from "@duyet/oma-integrations-core";
+import type { SlackInstallationRepo } from "@duyet/oma-slack";
 
 /**
  * SQL installation repo for Slack. Mirrors SqlLinearInstallationRepo but uses

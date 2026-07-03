@@ -20,8 +20,8 @@
 // echo is filtered out by the lastForwarded watermark (we bump it
 // before NOTIFY, so the LISTEN callback's getEventsAfter returns []).
 
-import type { SessionEvent } from "@open-managed-agents/shared";
-import { getLogger } from "@open-managed-agents/observability";
+import type { SessionEvent } from "@duyet/oma-shared";
+import { getLogger } from "@duyet/oma-observability";
 import type { EventStreamHub, EventWriter } from "./event-stream-hub";
 
 const log = getLogger("pg-hub");

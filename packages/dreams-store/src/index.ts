@@ -1,4 +1,4 @@
-// Public surface of @open-managed-agents/dreams-store.
+// Public surface of @duyet/oma-dreams-store.
 //
 //   - types       : domain DTOs + model/status enums
 //   - errors      : typed errors for the route layer to map → HTTP status

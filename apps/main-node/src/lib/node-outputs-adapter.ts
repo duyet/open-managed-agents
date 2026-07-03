@@ -1,6 +1,6 @@
 // Node OutputsAdapter — wraps a local outputs root (default
 // `./data/session-outputs`) as the per-session outputs surface that
-// `@open-managed-agents/http-routes`'s sessions package consumes.
+// `@duyet/oma-http-routes`'s sessions package consumes.
 // CF wires its R2-backed equivalent in apps/main; this is the
 // Node-side companion.
 
@@ -8,7 +8,7 @@ import { createReadStream } from "node:fs";
 import { stat as fsStat, readdir as fsReaddir, rm as fsRm } from "node:fs/promises";
 import { join, resolve as resolvePath } from "node:path";
 import { Readable } from "node:stream";
-import { guessSessionOutputMime } from "@open-managed-agents/shared";
+import { guessSessionOutputMime } from "@duyet/oma-shared";
 
 export function nodeOutputsAdapter(outputsRoot: string) {
   return {

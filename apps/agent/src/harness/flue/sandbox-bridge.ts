@@ -25,7 +25,7 @@
  * `readFileBytes`/`writeFileBytes` when the underlying adapter provides them.
  */
 
-import type { SandboxExecutor } from "@open-managed-agents/sandbox";
+import type { SandboxExecutor } from "@duyet/oma-sandbox";
 import type { SandboxApi, FileStat, ShellResult } from "@flue/runtime";
 
 /**

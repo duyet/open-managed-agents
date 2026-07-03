@@ -13,7 +13,7 @@
 
 import {
   generateMemoryId,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import type {
   BlobMetadata,
   BlobReadResult,

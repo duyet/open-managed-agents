@@ -1,11 +1,11 @@
-import type { SqlClient } from "@open-managed-agents/sql-client";
+import type { SqlClient } from "@duyet/oma-sql-client";
 
-import type { SessionId } from "@open-managed-agents/integrations-core";
+import type { SessionId } from "@duyet/oma-integrations-core";
 import type {
   GitHubIssueSession,
   GitHubIssueSessionRepo,
   GitHubIssueSessionStatus,
-} from "@open-managed-agents/github";
+} from "@duyet/oma-github";
 
 interface Row {
   tenant_id: string;

@@ -1,14 +1,14 @@
 import {
   generateResourceId,
   generateSessionId,
-} from "@open-managed-agents/shared";
-import { paginateVia } from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
+import { paginateVia } from "@duyet/oma-shared";
 import type {
   AgentConfig,
   EnvironmentConfig,
   SessionResource,
   SessionStatus,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import {
   SessionArchivedError,
   SessionMemoryStoreMaxExceededError,

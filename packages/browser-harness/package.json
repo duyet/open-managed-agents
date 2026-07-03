@@ -1,5 +1,5 @@
 {
-  "name": "@open-managed-agents/browser-harness",
+  "name": "@duyet/oma-browser-harness",
   "version": "0.1.0",
   "private": true,
   "type": "module",

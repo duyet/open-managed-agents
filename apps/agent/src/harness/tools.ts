@@ -3,14 +3,14 @@ import { experimental_createMCPClient } from "@ai-sdk/mcp";
 import { z } from "zod";
 import { anthropic } from "@ai-sdk/anthropic";
 import type { LanguageModel } from "ai";
-import type { AgentConfig, ToolsetConfig, CustomToolConfig, SessionEvent } from "@open-managed-agents/shared";
-import type { ToMarkdownProvider } from "@open-managed-agents/markdown";
+import type { AgentConfig, ToolsetConfig, CustomToolConfig, SessionEvent } from "@duyet/oma-shared";
+import type { ToMarkdownProvider } from "@duyet/oma-markdown";
 import type { SandboxExecutor, ProcessHandle } from "./interface";
 import { nanoid } from "nanoid";
 // Browser tools depend on the runtime-agnostic BrowserHarness interface.
 // Concrete adapters (CF / Node / CDP / Disabled) live in the package and
 // dynamic-import their workerd / Node peers only at first launch().
-import type { BrowserHarness, BrowserBillingHook } from "@open-managed-agents/browser-harness";
+import type { BrowserHarness, BrowserBillingHook } from "@duyet/oma-browser-harness";
 
 // Source of truth for which tool names are part of the agent_toolset_20260401
 // built-in suite. Used by buildTools() below to decide which tool entries to
@@ -421,7 +421,7 @@ export async function buildTools(
   // in its toolset; the Disabled adapter throws at first launch() with
   // an LLM-readable install-instructions message.
   if (env?.browser && enabled.has("browser")) {
-    const { buildBrowserTools } = await import("@open-managed-agents/browser-harness");
+    const { buildBrowserTools } = await import("@duyet/oma-browser-harness");
     Object.assign(tools, buildBrowserTools(env.browser, env.browserBillingHook ?? null));
   }
 

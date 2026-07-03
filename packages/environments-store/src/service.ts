@@ -1,8 +1,8 @@
 import {
   generateEnvId,
   type EnvironmentConfig,
-} from "@open-managed-agents/shared";
-import { paginateVia } from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
+import { paginateVia } from "@duyet/oma-shared";
 import { EnvironmentNotFoundError } from "./errors";
 import type {
   Clock,

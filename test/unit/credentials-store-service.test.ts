@@ -14,11 +14,11 @@ import {
   CredentialNotFoundError,
   MAX_CREDENTIALS_PER_VAULT,
   stripSecrets,
-} from "@open-managed-agents/credentials-store";
+} from "@duyet/oma-credentials-store";
 import {
   ManualClock,
   createInMemoryCredentialService,
-} from "@open-managed-agents/credentials-store/test-fakes";
+} from "@duyet/oma-credentials-store/test-fakes";
 
 const TENANT = "tn_test_creds";
 const VAULT = "vlt_test_a";

@@ -3,9 +3,9 @@
 export { SqlVaultRepo } from "./sql-vault-repo";
 
 import { drizzle } from "drizzle-orm/d1";
-import * as cfAuthSchema from "@open-managed-agents/db-schema/cf-auth";
-import type { OmaDb } from "@open-managed-agents/db-schema";
-import type { SqlClient } from "@open-managed-agents/sql-client";
+import * as cfAuthSchema from "@duyet/oma-db-schema/cf-auth";
+import type { OmaDb } from "@duyet/oma-db-schema";
+import type { SqlClient } from "@duyet/oma-sql-client";
 import { SqlVaultRepo } from "./sql-vault-repo";
 import type { Logger } from "../ports";
 import { VaultService } from "../service";

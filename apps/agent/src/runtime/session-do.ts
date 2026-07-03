@@ -10,7 +10,7 @@ import {
   type RecoveryDecision,
   type PartialStream,
 } from "./turn-runtime";
-import type { Env } from "@open-managed-agents/shared";
+import type { Env } from "@duyet/oma-shared";
 import {
   logWarn,
   log,
@@ -23,27 +23,27 @@ import {
   ModelError,
   TransientInfraError,
   fileR2Key,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import {
   CfDoStreamRepo,
   CfDoEventLog,
   CfDoPendingQueue,
   ensureSchema as ensureEventLogSchema,
-} from "@open-managed-agents/event-log/cf-do";
+} from "@duyet/oma-event-log/cf-do";
 import type {
   EventLogRepo,
   PendingQueueRepo,
   PendingRow,
   StreamRepo,
-} from "@open-managed-agents/event-log";
+} from "@duyet/oma-event-log";
 import { recoverInterruptedState as runRecovery } from "./recovery";
 import {
   RuntimeAdapterImpl,
   type RuntimeAdapter,
-} from "@open-managed-agents/session-runtime";
-import { CfD1SqlClient } from "@open-managed-agents/sql-client/adapters/cf-d1";
-import { cfWorkersAiToMarkdown } from "@open-managed-agents/markdown";
-import { isSpecEvent } from "@open-managed-agents/api-types";
+} from "@duyet/oma-session-runtime";
+import { CfD1SqlClient } from "@duyet/oma-sql-client/adapters/cf-d1";
+import { cfWorkersAiToMarkdown } from "@duyet/oma-markdown";
+import { isSpecEvent } from "@duyet/oma-api-types";
 import type {
   AgentConfig,
   EnvironmentConfig,
@@ -59,7 +59,7 @@ import type {
   SystemUserMessagePendingEvent,
   SystemUserMessagePromotedEvent,
   SystemUserMessageCancelledEvent,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import type { HarnessContext, HarnessInterface, HistoryStore, SandboxExecutor, ProcessHandle, FileResolver } from "../harness/interface";
 import { resolveHarness } from "../harness/registry";
 import { composeSystemPrompt } from "../harness/platform-guidance";
@@ -67,21 +67,21 @@ import { resolveModel } from "../harness/provider";
 import type { ApiCompat } from "../harness/provider";
 import type { LanguageModel } from "ai";
 import { generateText } from "ai";
-import { extractTextFromContent } from "@open-managed-agents/shared";
+import { extractTextFromContent } from "@duyet/oma-shared";
 import {
   runOutcomeSupervisor,
   type ActiveOutcomeState,
   type OutcomeEvaluationRecord,
 } from "./outcome-supervisor";
 import { buildTools } from "../harness/tools";
-import { MemoryStoreService } from "@open-managed-agents/memory-store";
-import { buildCfServices, buildCfTenantDbProvider, getCfServicesForTenant } from "@open-managed-agents/services";
-import { toEnvironmentConfig } from "@open-managed-agents/environments-store";
+import { MemoryStoreService } from "@duyet/oma-memory-store";
+import { buildCfServices, buildCfTenantDbProvider, getCfServicesForTenant } from "@duyet/oma-services";
+import { toEnvironmentConfig } from "@duyet/oma-environments-store";
 import { ensureSetupApplied } from "./setup-on-warmup";
 import { resolveSkills, resolveCustomSkills, getSkillFiles } from "../harness/skills";
 import { resolveAppendablePrompts } from "./appendable-prompts";
-import { createCfBrowserHarness } from "@open-managed-agents/browser-harness/cf";
-import type { BrowserHarness, BrowserBillingHook, BrowserSession } from "@open-managed-agents/browser-harness";
+import { createCfBrowserHarness } from "@duyet/oma-browser-harness/cf";
+import type { BrowserHarness, BrowserBillingHook, BrowserSession } from "@duyet/oma-browser-harness";
 import { SqliteHistory, InMemoryHistory } from "./history";
 import { createSandbox, CloudflareSandbox } from "./sandbox";
 import { mountResources } from "./resource-mounter";
@@ -2730,7 +2730,7 @@ export class SessionDO extends DurableObject<Env> {
             agentId,
             onClose: async (elapsedSeconds: number) => {
               try {
-                const { getCfServicesForTenant } = await import("@open-managed-agents/services");
+                const { getCfServicesForTenant } = await import("@duyet/oma-services");
                 const services = await getCfServicesForTenant(this.env, tenantId);
                 await services.usage.recordUsage({
                   tenantId,
@@ -3147,7 +3147,7 @@ export class SessionDO extends DurableObject<Env> {
       const vaultIds = this.state.vault_ids;
       if (vaultIds.length && sandbox.setEnvVars) {
         try {
-          const { builtinSpecs, createSpecRegistry } = await import("@open-managed-agents/cap");
+          const { builtinSpecs, createSpecRegistry } = await import("@duyet/oma-cap");
           const registry = createSpecRegistry(builtinSpecs);
           const sentinelEnv: Record<string, string> = {};
           const creds = await this.getVaultCredentials(vaultIds);
@@ -4330,7 +4330,7 @@ export class SessionDO extends DurableObject<Env> {
     // Build system prompt: agent.system + platform guidance + skill /
     // memory_store / appendable_prompt content (the latter passed in as
     // platformReminders, see collection below). Shared with the self-host
-    // Node path via @open-managed-agents/agent/harness/platform-guidance
+    // Node path via @duyet/oma-agent/harness/platform-guidance
     // so the two surfaces stay byte-identical (prompt-cache prefix
     // invariant). Pre-2026-05-17: skill/memory content was broadcast as
     // <system-reminder> user.message events by harness.onSessionInit;
@@ -4616,7 +4616,7 @@ export class SessionDO extends DurableObject<Env> {
               return (e as AgentToolUseEvent).id === eventId;
             }
             if (e.type === "agent.custom_tool_use") {
-              return (e as import("@open-managed-agents/shared").AgentCustomToolUseEvent).id === eventId;
+              return (e as import("@duyet/oma-shared").AgentCustomToolUseEvent).id === eventId;
             }
             return false;
           });
@@ -4625,7 +4625,7 @@ export class SessionDO extends DurableObject<Env> {
               const tue = toolUseEvent as AgentToolUseEvent;
               pendingCalls.push({ toolCallId: tue.id, toolName: tue.name, args: tue.input });
             } else if (toolUseEvent.type === "agent.custom_tool_use") {
-              const cte = toolUseEvent as import("@open-managed-agents/shared").AgentCustomToolUseEvent;
+              const cte = toolUseEvent as import("@duyet/oma-shared").AgentCustomToolUseEvent;
               pendingCalls.push({ toolCallId: cte.id, toolName: cte.name, args: cte.input });
             }
           }
@@ -4755,7 +4755,7 @@ export class SessionDO extends DurableObject<Env> {
         !p.toolName.startsWith("memory_")
       );
 
-      let stopReason: import("@open-managed-agents/shared").SessionStatusEvent["stop_reason"];
+      let stopReason: import("@duyet/oma-shared").SessionStatusEvent["stop_reason"];
       if (hasCustomToolPending) {
         stopReason = {
           type: "requires_action" as const,
@@ -5046,7 +5046,7 @@ export class SessionDO extends DurableObject<Env> {
       }
       // getCfServicesForTenant resolves the per-tenant DB then builds
       // the Services container — the same path used for backup writes.
-      const { getCfServicesForTenant } = await import("@open-managed-agents/services");
+      const { getCfServicesForTenant } = await import("@duyet/oma-services");
       const services = await getCfServicesForTenant(this.env, tenantId);
       await services.usage.recordUsage({
         tenantId,

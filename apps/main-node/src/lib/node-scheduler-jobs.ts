@@ -6,29 +6,29 @@
 // multiple replicas later the worst case is "two replicas DELETE the
 // same rows in the same minute" — both succeed harmlessly.
 
-import type { SqlClient } from "@open-managed-agents/sql-client";
-import type { AgentService } from "@open-managed-agents/agents-store";
-import type { EnvironmentService } from "@open-managed-agents/environments-store";
-import type { SessionService } from "@open-managed-agents/sessions-store";
-import type { EvalRunService } from "@open-managed-agents/evals-store";
-import type { MemoryStoreService } from "@open-managed-agents/memory-store";
-import type { KvStore } from "@open-managed-agents/kv-store";
-import { getLogger } from "@open-managed-agents/observability";
+import type { SqlClient } from "@duyet/oma-sql-client";
+import type { AgentService } from "@duyet/oma-agents-store";
+import type { EnvironmentService } from "@duyet/oma-environments-store";
+import type { SessionService } from "@duyet/oma-sessions-store";
+import type { EvalRunService } from "@duyet/oma-evals-store";
+import type { MemoryStoreService } from "@duyet/oma-memory-store";
+import type { KvStore } from "@duyet/oma-kv-store";
+import { getLogger } from "@duyet/oma-observability";
 
 const log = getLogger("node-scheduler");
-import { createNodeScheduler } from "@open-managed-agents/scheduler/node";
-import { memoryRetentionTick } from "@open-managed-agents/scheduler/jobs/memory-retention";
-import { webhookEventsRetentionTick } from "@open-managed-agents/scheduler/jobs/webhook-events-retention";
+import { createNodeScheduler } from "@duyet/oma-scheduler/node";
+import { memoryRetentionTick } from "@duyet/oma-scheduler/jobs/memory-retention";
+import { webhookEventsRetentionTick } from "@duyet/oma-scheduler/jobs/webhook-events-retention";
 import {
   linearDispatchTick,
   type LinearDispatchSweeper,
-} from "@open-managed-agents/scheduler/jobs/linear-dispatch";
+} from "@duyet/oma-scheduler/jobs/linear-dispatch";
 import {
   tickEvalRuns,
   type EvalRunnerContext,
   type EvalRunnerServices,
   type SandboxFetcher,
-} from "@open-managed-agents/evals-runner";
+} from "@duyet/oma-evals-runner";
 
 export interface NodeSchedulerDeps {
   evalServices: EvalRunnerServices;

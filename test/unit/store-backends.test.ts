@@ -10,8 +10,8 @@ import {
   parseStoreBackends,
   pickBackend,
   type StoreBackendName,
-} from "@open-managed-agents/services";
-import type { Env } from "@open-managed-agents/shared";
+} from "@duyet/oma-services";
+import type { Env } from "@duyet/oma-shared";
 
 function envWith(STORE_BACKENDS?: string): Env {
   return { STORE_BACKENDS } as unknown as Env;

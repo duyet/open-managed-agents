@@ -9,7 +9,7 @@
   // SELF-HOST BASELINE (sandbox/agent worker)
   // ─────────────────────────────────────────────────────────────────────
   // Top-level config = single-D1 self-host shape. Multi-shard prod
-  // for openma.dev lives in env.production overlay below.
+  // for oma.duyet.net lives in env.production overlay below.
   // ─────────────────────────────────────────────────────────────────────
 
   "containers": [

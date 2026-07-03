@@ -1,5 +1,5 @@
 // CF entry shim — builds the EvalRunnerContext from the worker `env`
-// and forwards to @open-managed-agents/evals-runner.
+// and forwards to @duyet/oma-evals-runner.
 //
 // All business logic lives in the package; this file only exists because
 // (a) the integration test test/integration/evals-route.test.ts imports
@@ -7,17 +7,17 @@
 // (`SANDBOX_*`, `SESSION_DO`) are CF-specific plumbing that doesn't
 // belong in a shared package.
 
-import type { Env } from "@open-managed-agents/shared";
+import type { Env } from "@duyet/oma-shared";
 import {
   forEachShardServices,
   getCfServicesForTenant,
   type Services,
-} from "@open-managed-agents/services";
+} from "@duyet/oma-services";
 import {
   tickEvalRuns as tickRunsImpl,
   type EvalRunnerContext,
   type SandboxFetcher,
-} from "@open-managed-agents/evals-runner";
+} from "@duyet/oma-evals-runner";
 
 const servicesCache = new Map<string, Services>();
 

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { Env } from "@open-managed-agents/shared";
+import type { Env } from "@duyet/oma-shared";
 
 const app = new Hono<{ Bindings: Env; Variables: { tenant_id: string } }>();
 

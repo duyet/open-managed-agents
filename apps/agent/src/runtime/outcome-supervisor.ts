@@ -34,8 +34,8 @@ import type {
   SpanOutcomeEvaluationStartEvent,
   StoredEvent,
   UserMessageEvent,
-} from "@open-managed-agents/shared";
-import { generateEventId } from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
+import { generateEventId } from "@duyet/oma-shared";
 import {
   createLlmJudgeVerifier,
   verifierForSpec,
@@ -45,7 +45,7 @@ import {
   type Trajectory,
   type Verifier,
   type VerifierContext,
-} from "@open-managed-agents/shared";
+} from "@duyet/oma-shared";
 import { resolveRubric } from "./resolve-rubric";
 
 /** AMA `span.outcome_evaluation_end.usage` shape. */

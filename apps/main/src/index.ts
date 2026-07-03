@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { WorkerEntrypoint } from "cloudflare:workers";
-import type { Env } from "@open-managed-agents/shared";
-import { servicesMiddleware, tenantDbMiddleware, getCfServicesForTenant } from "@open-managed-agents/services";
+import type { Env } from "@duyet/oma-shared";
+import { servicesMiddleware, tenantDbMiddleware, getCfServicesForTenant } from "@duyet/oma-services";
 import {
   buildAgentRoutes,
   buildVaultRoutes,
@@ -10,13 +10,13 @@ import {
   buildMeRoutes,
   buildTenantRoutes,
   mintApiKeyOnStorage,
-} from "@open-managed-agents/http-routes";
+} from "@duyet/oma-http-routes";
 import {
   createCfShardPoolService,
   createCfTenantShardDirectoryService,
-} from "@open-managed-agents/tenant-dbs-store";
-import { LOCAL_RUNTIME_ENV_ID } from "@open-managed-agents/shared";
-import { toEnvironmentConfig } from "@open-managed-agents/environments-store";
+} from "@duyet/oma-tenant-dbs-store";
+import { LOCAL_RUNTIME_ENV_ID } from "@duyet/oma-shared";
+import { toEnvironmentConfig } from "@duyet/oma-environments-store";
 import { authMiddleware } from "./auth";
 import { rateLimitMiddleware, authRateLimitMiddleware } from "./rate-limit";
 import { cfRouteServices } from "./lib/cf-route-services";
@@ -53,10 +53,10 @@ import mcpProxyRoutes, {
 import { resolveGithubCredentials } from "./lib/github-creds";
 import { buildCfScheduler } from "./lib/cf-scheduler-jobs";
 import { buildCfMemoryQueue, dispatchCfMemoryQueueBatch } from "./lib/cf-queue-handlers";
-import { logError, recordEvent, errFields } from "@open-managed-agents/shared";
+import { logError, recordEvent, errFields } from "@duyet/oma-shared";
 import { globalErrorHandler, requestMetricsMiddleware } from "./lib/observability";
 import { errorEnvelopeMiddleware } from "./lib/error-envelope";
-import type { R2EventMessage } from "@open-managed-agents/shared";
+import type { R2EventMessage } from "@duyet/oma-shared";
 
 // Main worker: CRUD + routing layer.
 // SessionDO and Sandbox are in per-environment sandbox workers.
@@ -137,7 +137,7 @@ app.use("/v1/*", tenantDbMiddleware);
 app.use("/v1/*", servicesMiddleware);
 
 // Build agent / vault / api-keys / me / tenants from
-// `@open-managed-agents/http-routes`. Per-request `RouteServices` is
+// `@duyet/oma-http-routes`. Per-request `RouteServices` is
 // resolved off `c.var.services` so the per-tenant D1 binding flows
 // through; CF-only callbacks (model card validation, field-size limits,
 // shard assignment, KV-backed api-key storage, MAIN_DB membership reads)
@@ -147,7 +147,7 @@ app.use("/v1/*", servicesMiddleware);
 // without leaking globals.
 
 // Build agent / vault / api-keys / me / tenants / sessions from
-// `@open-managed-agents/http-routes`. Per-request `RouteServices` is
+// `@duyet/oma-http-routes`. Per-request `RouteServices` is
 // resolved off `c.var.services` so the per-tenant D1 binding flows
 // through; CF-only callbacks (model card validation, field-size limits,
 // shard assignment, KV-backed api-key storage, MAIN_DB membership reads,
@@ -160,7 +160,7 @@ type AppCtx = import("hono").Context<{
   Variables: {
     tenant_id: string;
     user_id?: string;
-    services: import("@open-managed-agents/services").Services;
+    services: import("@duyet/oma-services").Services;
     tenantDb: D1Database;
   };
 }>;
@@ -399,8 +399,8 @@ app.use("/billing-api/*", rateLimitMiddleware);
 
 // Billing-API proxy — same-origin escape hatch for hosted plugins.
 //
-// Hosted Console (apps/console plugins/billing/) lives on app.openma.dev
-// while the billing worker lives on billing.openma.dev. Direct browser
+// Hosted Console (apps/console plugins/billing/) lives on app.oma.duyet.net
+// while the billing worker lives on billing.oma.duyet.net. Direct browser
 // → billing-worker calls would need CORS + a spoofable tenant header,
 // since better-auth cookies don't cross subdomain boundaries by default
 // and the billing worker has no auth middleware.

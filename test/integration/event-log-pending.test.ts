@@ -23,7 +23,7 @@ import {
   CfDoEventLog,
   CfDoPendingQueue,
   ensureSchema as ensureEventLogSchema,
-} from "@open-managed-agents/event-log/cf-do";
+} from "@duyet/oma-event-log/cf-do";
 import { eventsToMessages } from "../../apps/agent/src/runtime/history";
 
 function stamp(e: any): void {
