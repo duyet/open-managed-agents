@@ -526,7 +526,7 @@ VITE_API_TARGET=http://localhost:8787 pnpm dev:console
 
 # Terminal 3 (optional): oma-vault — outbound credential injection
 DATABASE_PATH=$(pwd)/data/oma.db OMA_VAULT_CA_DIR=$(pwd)/data/oma-vault-ca \
-  pnpm --filter @duyet/oma-oma-vault start
+  pnpm --filter @duyet/oma-vault start
 ```
 
 Open `http://localhost:5173` (dev) or `http://localhost:8787` (docker),

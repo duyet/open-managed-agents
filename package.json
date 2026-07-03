@@ -49,7 +49,7 @@
     "deploy:docs": "pnpm --filter open-managed-agents-docs deploy",
     "deploy": "./scripts/deploy.sh",
     "typecheck": "tsc --noEmit && pnpm run typecheck:node",
-    "typecheck:node": "pnpm --filter @duyet/oma-sandbox typecheck && pnpm --filter @duyet/oma-main-node typecheck && pnpm --filter @duyet/oma-oma-vault typecheck && pnpm --filter @duyet/oma-cap typecheck",
+    "typecheck:node": "pnpm --filter @duyet/oma-sandbox typecheck && pnpm --filter @duyet/oma-main-node typecheck && pnpm --filter @duyet/oma-vault typecheck && pnpm --filter @duyet/oma-cap typecheck",
     "test": "vitest run && pnpm run test:packages && pnpm run test:console",
     "test:packages": "pnpm --filter @duyet/oma-session-runtime test && pnpm --filter @duyet/oma-main-node test && pnpm --filter @duyet/oma-cap test && pnpm --filter @duyet/oma-integrations-adapters-node test && pnpm --filter @duyet/oma-sandbox test",
     "test:console": "pnpm --filter managed-agents-console test",
@@ -68,7 +68,7 @@
     "db:check": "pnpm db:check:cf-auth && pnpm db:check:cf-integrations && pnpm db:check:cf-router && pnpm db:check:node-pg && pnpm db:check:node-sqlite",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "pnpm -r --filter='@openma/*' build && changeset publish"
+    "release": "pnpm -r --filter='@duyet/oma-*' build && changeset publish"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "0.95.1",

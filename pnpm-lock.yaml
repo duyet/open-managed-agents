@@ -573,6 +573,9 @@ importers:
       '@duyet/oma-browser-harness':
         specifier: workspace:*
         version: link:../../packages/browser-harness
+      '@duyet/oma-cap-adapter':
+        specifier: workspace:*
+        version: link:../../packages/oma-cap-adapter
       '@duyet/oma-credentials-store':
         specifier: workspace:*
         version: link:../../packages/credentials-store
@@ -627,9 +630,6 @@ importers:
       '@duyet/oma-observability':
         specifier: workspace:*
         version: link:../../packages/observability
-      '@duyet/oma-oma-cap-adapter':
-        specifier: workspace:*
-        version: link:../../packages/oma-cap-adapter
       '@duyet/oma-queue':
         specifier: workspace:*
         version: link:../../packages/queue

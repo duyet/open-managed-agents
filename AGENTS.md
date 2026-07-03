@@ -729,7 +729,7 @@ When investigating platform or agent issues, follow this loop. **Do not skip ste
 
 ---
 
-## Releasing `@duyet/oma-cli` and `@openma/sdk`
+## Releasing `@duyet/oma-cli` and `@duyet/oma-sdk`
 
 We use [changesets](https://github.com/changesets/changesets) for the two
 public npm packages. Internal `@duyet/oma-*` packages never publish.

@@ -1,4 +1,4 @@
-# @openma/sdk
+# @duyet/oma-sdk
 
 > ## ⚠️ Deprecated — use `@anthropic-ai/sdk` instead
 >
@@ -33,7 +33,7 @@
 > endpoints (tenants, OAuth, evals, cost reports, …) live under `/v1/oma/*` and
 > can be invoked via `client._client.post('/v1/oma/...', ...)`.
 >
-> No new versions of `@openma/sdk` will be published. The source remains in the
+> No new versions of `@duyet/oma-sdk` will be published. The source remains in the
 > repo for reference. Existing users continue to work; please migrate at your
 > convenience.
 
@@ -44,17 +44,17 @@ Official TypeScript SDK for the [openma](https://oma.duyet.net) managed agents p
 ## Install
 
 ```bash
-npm i @openma/sdk
+npm i @duyet/oma-sdk
 # or
-pnpm add @openma/sdk
+pnpm add @duyet/oma-sdk
 # or
-bun add @openma/sdk
+bun add @duyet/oma-sdk
 ```
 
 ## Quick start
 
 ```ts
-import { OpenMA } from "@openma/sdk";
+import { OpenMA } from "@duyet/oma-sdk";
 
 const oma = new OpenMA({ apiKey: process.env.OMA_API_KEY! });
 
@@ -143,7 +143,7 @@ More resources land per release — file an issue if something you need is missi
 Every non-2xx throws an `OpenMAError`:
 
 ```ts
-import { OpenMAError } from "@openma/sdk";
+import { OpenMAError } from "@duyet/oma-sdk";
 
 try {
   await oma.sessions.get("sess-bogus");

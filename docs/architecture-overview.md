@@ -75,7 +75,7 @@ open-managed-agents/
 │   ├── cf-billing/                # 用量计费
 │   ├── acp-runtime/               # ACP（Agent Client Protocol）本地 daemon
 │   ├── cli/                       # `oma` 命令行
-│   └── sdk/                       # `@openma/sdk` 公网 TS SDK
+│   └── sdk/                       # `@duyet/oma-sdk` 公网 TS SDK
 ├── docs/                          # 内部 RFC / 设计文档（本文亦在此）
 ├── apps/docs/                     # 用户文档（Astro Starlight，docs.oma.duyet.net）
 ├── skills/                        # 内置技能（openma SOP、create-agent）
@@ -336,7 +336,7 @@ apps/integrations (HTTP 网关)
 
 | 包 | 给谁 | 关键点 |
 |---|---|---|
-| [`packages/sdk`](packages/sdk) `@openma/sdk` | 业务集成方（Node/Bun/Deno/Browser/Workers） | typed REST + SSE，三类流（text/thinking/tool_input）通过 correlation id 收敛到 canonical event；提供 `chat` / `chatComplete` / `tail` 三档抽象 |
+| [`packages/sdk`](packages/sdk) `@duyet/oma-sdk` | 业务集成方（Node/Bun/Deno/Browser/Workers） | typed REST + SSE，三类流（text/thinking/tool_input）通过 correlation id 收敛到 canonical event；提供 `chat` / `chatComplete` / `tail` 三档抽象 |
 | [`packages/cli`](packages/cli) `oma` | 终端用户 / agent 自己 | `oma agents/sessions/memory/linear/bridge/...`；其中 `bridge daemon` 以 launchd plist 在用户 Mac 启动，并维持到 `apps/main` 的 WS 长连接 |
 | [`packages/cf-billing`](packages/cf-billing) | 平台运营 | 把 token 用量翻成 CF Workers 计费抽象 |
 | [`packages/acp-runtime`](packages/acp-runtime) | 本地 daemon | 实现 [Agent Client Protocol](https://github.com/anthropics/agent-client-protocol)；侦测本机 Claude Code/Codex 等是否安装并暴露给 daemon |

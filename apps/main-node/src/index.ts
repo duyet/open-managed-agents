@@ -104,7 +104,7 @@ import {
   NodeInstallBridge,
   buildNodeProvidersForRequest,
 } from "./lib/node-install-bridge.js";
-import { OmaVaultResolver } from "@duyet/oma-oma-cap-adapter";
+import { OmaVaultResolver } from "@duyet/oma-cap-adapter";
 import { NodeSessionRouter } from "./lib/node-session-router.js";
 import { nodeOutputsAdapter } from "./lib/node-outputs-adapter.js";
 import { nodeSessionLifecycle } from "./lib/node-session-lifecycle.js";

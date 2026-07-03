@@ -1,4 +1,4 @@
-// @duyet/oma-oma-cap-adapter
+// @duyet/oma-cap-adapter
 //
 // L3 adapter wiring @duyet/oma-cap into OMA's vault stack.
 // Used by:

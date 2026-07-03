@@ -139,7 +139,7 @@
 * **sandbox:** add Kubernetes agent-sandbox executor ([#10](https://github.com/duyet/open-managed-agents/issues/10)) ([9200af9](https://github.com/duyet/open-managed-agents/commit/9200af99cd1f6782c5668a86ec3b1676af734eca))
 * schedule tool + lane CI + console UI overhaul (timeline / integrations / memory fixes) ([#20](https://github.com/duyet/open-managed-agents/issues/20)) ([465c1aa](https://github.com/duyet/open-managed-agents/commit/465c1aa3c93ad6d9a90cfc2fb2a454c118dd5d66))
 * **sdk,cli:** auto-retry on 503 + Retry-After ([a9efa1f](https://github.com/duyet/open-managed-agents/commit/a9efa1fa8ee3174731e5c401af6c9390d89fd53a))
-* **sdk:** @openma/sdk — typed TS client with first-class streaming ([6ec28bf](https://github.com/duyet/open-managed-agents/commit/6ec28bfd0747f8d561ac27e9bb5b13d2767c4a56))
+* **sdk:** @duyet/oma-sdk — typed TS client with first-class streaming ([6ec28bf](https://github.com/duyet/open-managed-agents/commit/6ec28bfd0747f8d561ac27e9bb5b13d2767c4a56))
 * **secrets:** encrypt credentials.auth + model_cards api keys; rename MCP_SIGNING_KEY → PLATFORM_ROOT_SECRET ([#71](https://github.com/duyet/open-managed-agents/issues/71)) ([7118ef0](https://github.com/duyet/open-managed-agents/commit/7118ef085e9d36612ee94a450c016ceac798b8b3))
 * **security:** Cloudflare Turnstile in front of OTP send ([609585d](https://github.com/duyet/open-managed-agents/commit/609585ddab0d86d68a780b06a83c0aeed851f81a))
 * **security:** migrate rate limiting to CF Workers bindings ([1ba2d65](https://github.com/duyet/open-managed-agents/commit/1ba2d65147e8050cb800faab372ee20beb9bd611))

@@ -83,8 +83,8 @@ Run `oma --help` or `oma <command> --help` for the full surface.
 
 The openma API is **wire-compatible with the [Claude Managed Agents API](https://docs.anthropic.com/)**, so the recommended client is one of Anthropic's official SDKs pointed at our `baseURL`. One SDK, two providers — moving between them is a config line.
 
-<Aside type="caution" title="@openma/sdk is deprecated">
-  The standalone `@openma/sdk` package is no longer maintained. Existing installs keep working, but new projects should use the official Anthropic SDKs as shown below.
+<Aside type="caution" title="@duyet/oma-sdk is deprecated">
+  The standalone `@duyet/oma-sdk` package is no longer maintained. Existing installs keep working, but new projects should use the official Anthropic SDKs as shown below.
 </Aside>
 
 ### Install
@@ -237,7 +237,7 @@ A small set of OMA-specific agent fields (auxiliary model, harness selector, san
 | `harness` | Selects the agent loop harness implementation. Reserved for OMA-managed runtimes. |
 | `runtime_binding` | Selects which sandbox runtime services the agent's sessions. Reserved for OMA-managed runtimes. |
 
-The Stainless-generated SDKs in every language pass unknown body fields through unchanged — there is no separate `@openma/sdk` to install. Use the SDK's standard escape hatch:
+The Stainless-generated SDKs in every language pass unknown body fields through unchanged — there is no separate `@duyet/oma-sdk` to install. Use the SDK's standard escape hatch:
 
 <Tabs syncKey="lang">
   <TabItem label="TypeScript">

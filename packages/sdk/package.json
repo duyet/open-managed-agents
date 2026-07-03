@@ -1,8 +1,8 @@
 {
-  "name": "@openma/sdk",
+  "name": "@duyet/oma-sdk",
   "version": "0.1.0-beta.2",
   "description": "[Deprecated — use @anthropic-ai/sdk with baseURL=https://oma.duyet.net] Official TypeScript SDK for the openma managed agents platform.",
-  "deprecated": "@openma/sdk is deprecated. The openma API is wire-compatible with Anthropic's Managed Agents API — use `@anthropic-ai/sdk` with `baseURL: 'https://oma.duyet.net'`. See https://oma.duyet.net/docs/cli-sdk for migration.",
+  "deprecated": "@duyet/oma-sdk is deprecated. The openma API is wire-compatible with Anthropic's Managed Agents API — use `@anthropic-ai/sdk` with `baseURL: 'https://oma.duyet.net'`. See https://oma.duyet.net/docs/cli-sdk for migration.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

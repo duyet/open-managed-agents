@@ -42,7 +42,7 @@
     "@duyet/oma-markdown": "workspace:*",
     "@duyet/oma-memory-store": "workspace:*",
     "@duyet/oma-observability": "workspace:*",
-    "@duyet/oma-oma-cap-adapter": "workspace:*",
+    "@duyet/oma-cap-adapter": "workspace:*",
     "@duyet/oma-queue": "workspace:*",
     "@duyet/oma-quotas": "workspace:*",
     "@duyet/oma-rate-limit": "workspace:*",

@@ -10,7 +10,7 @@ import { createSqliteAgentService } from "@duyet/oma-agents-store";
 import { createSqliteVaultService } from "@duyet/oma-vaults-store";
 import { createSqliteCredentialService } from "@duyet/oma-credentials-store";
 import { createSqliteSessionService } from "@duyet/oma-sessions-store";
-import { OmaVaultResolver, encodePrincipal } from "@duyet/oma-oma-cap-adapter";
+import { OmaVaultResolver, encodePrincipal } from "@duyet/oma-cap-adapter";
 
 const TENANT = "tn_cap";
 

@@ -21,7 +21,7 @@ The domain model, tool catalog, event types, harness API, and release process li
 
 - **Nothing gates PRs.** There is no test/lint/typecheck CI workflow. Run `pnpm typecheck && pnpm test` locally before every push (or use `/preflight`).
 - **The vitest suite is split by pool.** Root `vitest run` uses `@cloudflare/vitest-pool-workers`. Node-native packages (`session-runtime`, `cap`, `main-node`, `integrations-adapters-node`) ship their own `vitest.config.ts` with `pool: "threads"` and run **only** via `pnpm --filter <pkg> test` — the root run excludes them. That is why `pnpm test` chains three commands.
-- **Internal `@duyet/oma-*` packages have no build step** — they ship raw `.ts` (`main`/`exports` point at `src/*.ts`), resolved via workspace links plus a hand-maintained alias wall in `vitest.config.ts`. Adding a new package **subpath** may need a new alias entry there, or workers-pool tests won't resolve it. Only `@duyet/oma-cli` and `@openma/sdk` have a build.
+- **Internal `@duyet/oma-*` packages have no build step** — they ship raw `.ts` (`main`/`exports` point at `src/*.ts`), resolved via workspace links plus a hand-maintained alias wall in `vitest.config.ts`. Adding a new package **subpath** may need a new alias entry there, or workers-pool tests won't resolve it. Only `@duyet/oma-cli` and `@duyet/oma-sdk` have a build.
 - **Harnesses register by name** in `apps/agent/src/index.ts` (`registerHarness("default", …)`); an agent selects one via `harness: "<name>"`. The seam is `apps/agent/src/harness/interface.ts`. Use `/new-harness` to add one.
 - **The prompt cache is byte-sensitive.** `deriveModelContext` output must be byte-deterministic and `<system-reminder>` injections must sit in the cached prefix — any drift silently invalidates Anthropic's cache. See the contract comments in `harness/interface.ts`.
 - **Model provider resolution** is in `apps/agent/src/harness/provider.ts` — branches on `ApiCompat` (`ant` / `ant-compatible` / `oai` / `oai-compatible`); the OpenAI-compat path uses `/chat/completions`, never the Responses API.
@@ -40,7 +40,7 @@ No linter or formatter is configured — match surrounding code: 2-space indent,
 
 ## Commits
 
-Conventional Commits with a scope: `feat(agent):`, `fix(harness):`, `ci:`, `test:`, `docs:`. PRs squash-merge with a `(#NNN)` suffix. A changeset is needed **only** when `@duyet/oma-cli` or `@openma/sdk` changed — use `/changeset`.
+Conventional Commits with a scope: `feat(agent):`, `fix(harness):`, `ci:`, `test:`, `docs:`. PRs squash-merge with a `(#NNN)` suffix. A changeset is needed **only** when `@duyet/oma-cli` or `@duyet/oma-sdk` changed — use `/changeset`.
 
 ---
 

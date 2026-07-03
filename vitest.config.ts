@@ -101,7 +101,7 @@ export default defineConfig({
       { find: "@duyet/oma-event-log", replacement: "./packages/event-log/src/index.ts" },
       { find: "@duyet/oma-cap/test-fakes", replacement: "./packages/cap/src/test-fakes.ts" },
       { find: "@duyet/oma-cap", replacement: "./packages/cap/src/index.ts" },
-      { find: "@duyet/oma-oma-cap-adapter", replacement: "./packages/oma-cap-adapter/src/index.ts" },
+      { find: "@duyet/oma-cap-adapter", replacement: "./packages/oma-cap-adapter/src/index.ts" },
 
       // ─── environment-images (irregular subpath layout) ────────────────
       { find: "@duyet/oma-environment-images/memory", replacement: "./packages/environment-images/src/adapters/memory/index.ts" },

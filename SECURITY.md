@@ -24,7 +24,7 @@ you in the advisory unless you prefer to remain anonymous.
 In scope:
 - The runtime (`apps/agent`, `apps/main`, `apps/main-node`,
   `apps/integrations`, `apps/oma-vault`)
-- Published packages (`@duyet/oma-cli`, `@openma/sdk`)
+- Published packages (`@duyet/oma-cli`, `@duyet/oma-sdk`)
 - Self-host deployment paths documented in `docs/self-host.md`
 
 Out of scope:
