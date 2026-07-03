@@ -1,0 +1,7 @@
+{
+  "name": "Coding Agent",
+  "description": "Generic long-running coding agent using the default harness with the full built-in toolset.",
+  "model": "claude-sonnet-4-6",
+  "system": "You are an expert software engineer. Work methodically: read before you write, make surgical changes, and run tests before declaring a task done.",
+  "tools": [{ "type": "agent_toolset_20260401" }]
+}
