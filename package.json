@@ -50,6 +50,8 @@
     "build:web": "pnpm --filter @duyet/oma-web build",
     "deploy:web": "pnpm --filter @duyet/oma-web deploy",
     "deploy": "./scripts/deploy.sh",
+    "publish:npm": "bash scripts/publish-npm.sh",
+    "publish:npm:dry": "bash scripts/publish-npm.sh --dry-run",
     "typecheck": "tsc --noEmit && pnpm run typecheck:node",
     "typecheck:node": "pnpm --filter @duyet/oma-sandbox typecheck && pnpm --filter @duyet/oma-main-node typecheck && pnpm --filter @duyet/oma-vault typecheck && pnpm --filter @duyet/oma-cap typecheck",
     "test": "vitest run && pnpm run test:packages && pnpm run test:console",
