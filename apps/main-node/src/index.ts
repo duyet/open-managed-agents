@@ -56,6 +56,7 @@ import type { SessionEvent } from "@open-managed-agents/shared";
 import { generateEventId } from "@open-managed-agents/shared";
 import { DefaultHarness } from "@open-managed-agents/agent/harness/default-loop";
 import { FlueHarness } from "@open-managed-agents/agent/harness/flue-loop";
+import { ClaudeAgentSdkHarness } from "@open-managed-agents/agent/harness/claude-agent-sdk-loop";
 import { buildTools } from "@open-managed-agents/agent/harness/tools";
 import { resolveModel } from "@open-managed-agents/agent/harness/provider";
 import { composeSystemPrompt } from "@open-managed-agents/agent/harness/platform-guidance";
@@ -517,19 +518,31 @@ const sessionRegistry = new SessionRegistry({
     });
   },
   buildHarness: () => {
-    // Route per-turn by the agent marker so OMA can manage Flue agents as a
-    // harness (metadata.harness === "flue" or _oma.harness). HarnessContext
-    // carries the agent, so selection happens at run() time with no
-    // registry/interface change. Node only invokes run() (compaction etc.
-    // are the harness's own concern), so a {run} wrapper is sufficient.
+    // Route per-turn by the agent marker so OMA can manage Flue / Claude
+    // Agent SDK agents as a harness (metadata.harness === "flue" |
+    // "claude-agent-sdk" or _oma.harness). HarnessContext carries the
+    // agent, so selection happens at run() time with no registry/interface
+    // change. Node only invokes run() (compaction etc. are the harness's
+    // own concern), so a {run} wrapper is sufficient.
+    //
+    // ClaudeAgentSdkHarness is wired here — and ONLY here, not in
+    // apps/agent/src/index.ts's CF-worker harness registry — because
+    // @anthropic-ai/claude-agent-sdk spawns Claude Code's CLI as a native
+    // subprocess, which requires child_process spawning and a real
+    // filesystem unavailable inside a Cloudflare Workers isolate. See the
+    // module-level jsdoc on claude-agent-sdk-loop.ts for the full
+    // rationale.
     const def = new DefaultHarness();
     const flue = new FlueHarness();
+    const claudeAgentSdk = new ClaudeAgentSdkHarness();
     return {
       run: (ctx: unknown) => {
         const c = ctx as HarnessContext;
         const meta = (c.agent as { metadata?: Record<string, unknown> })?.metadata;
-        const useFlue = meta?.harness === "flue";
-        return (useFlue ? flue : def).run(c);
+        const harnessName = meta?.harness;
+        if (harnessName === "flue") return flue.run(c);
+        if (harnessName === "claude-agent-sdk") return claudeAgentSdk.run(c);
+        return def.run(c);
       },
     };
   },
