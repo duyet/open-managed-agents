@@ -233,6 +233,18 @@ describe("eventsToMessages — ignored event types", () => {
     expect(messages).toHaveLength(0);
   });
 
+  it("agent.status event ignored — never enters model context (byte-determinism contract)", () => {
+    const events: SessionEvent[] = [
+      { type: "user.message", content: [{ type: "text", text: "hi" }] },
+      { type: "agent.status", state: "working", summary: "Working on step 1", step: 1 } as SessionEvent,
+      { type: "agent.message", content: [{ type: "text", text: "hello" }] },
+    ];
+    const messages = eventsToMessages(events);
+    expect(messages).toHaveLength(2);
+    expect(messages[0].role).toBe("user");
+    expect(messages[1].role).toBe("assistant");
+  });
+
   it("agent.thinking event ignored", () => {
     const events: SessionEvent[] = [
       { type: "agent.thinking" } as SessionEvent,

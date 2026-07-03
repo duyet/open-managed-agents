@@ -374,6 +374,10 @@ export class DefaultHarness implements HarnessInterface {
       // per-step latch; reset on each onStepStart.
       let stepStartId: string | null = null;
       let stepSawFirstChunk = false;
+      // 1-indexed count of model turns taken this run() call. Feeds the
+      // agent.status heartbeat below — purely observational, not part of
+      // any persisted step-numbering contract.
+      let stepNumber = 0;
 
       const streamStartedAt = Date.now();
       console.log(`[stream] streamText START model=${modelId} messages=${finalMessages.length} tools=${Object.keys(cached.tools ?? {}).length}`);
@@ -495,10 +499,19 @@ export class DefaultHarness implements HarnessInterface {
       experimental_onStepStart: () => {
         stepStartId = generateEventId();
         stepSawFirstChunk = false;
+        stepNumber += 1;
         runtime.broadcast({
           type: "span.model_request_start",
           id: stepStartId,
           model: modelId,
+        });
+        // Long-running-agent progress heartbeat: one per model turn. Guarded
+        // since reportStatus is optional on HarnessRuntime (older test
+        // harnesses / NodeHarnessRuntime pre-adoption).
+        runtime.reportStatus?.({
+          state: "working",
+          summary: `Working on step ${stepNumber}`,
+          step: stepNumber,
         });
       },
 

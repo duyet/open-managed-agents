@@ -377,6 +377,29 @@ export interface AgentCustomToolUseEvent extends EventBase {
   input: Record<string, unknown>;
 }
 
+// OMA extension (not in Anthropic's wire spec — like AuxModelCallEvent).
+// Long-running coding-agent progress reporting: a harness can emit this at
+// any point (e.g. the start of each model turn) to give observers a
+// human-readable heartbeat without waiting for the next agent.message /
+// agent.tool_use. Purely observational — NOT part of the model context
+// (eventsToMessages / eventsToMessagesAsync skip it, same as span.* and
+// other lifecycle events), so emitting it has no effect on the
+// deriveModelContext cached prefix or Anthropic's prompt cache.
+export interface AgentStatusEvent extends EventBase {
+  type: "agent.status";
+  /** High-level state of the agent's current activity. */
+  state: "working" | "blocked" | "waiting";
+  /** Short human-readable summary of what the agent is currently doing
+   *  (e.g. "Running test suite", "Waiting for tool confirmation"). */
+  summary: string;
+  /** 1-indexed current step, when the harness tracks a bounded plan. */
+  step?: number;
+  /** Total expected steps, when known. */
+  total_steps?: number;
+  /** Optional additional detail beyond `summary` (e.g. the command being run). */
+  detail?: string;
+}
+
 export interface AgentToolUseEvent extends EventBase {
   type: "agent.tool_use";
   id: string;
@@ -822,6 +845,7 @@ export type SessionEvent =
   | AgentToolUseInputStreamEndEvent
   | AgentThinkingEvent
   | AgentCustomToolUseEvent
+  | AgentStatusEvent
   | AgentToolUseEvent
   | AgentToolResultEvent
   | AgentMcpToolUseEvent

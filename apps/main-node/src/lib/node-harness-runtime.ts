@@ -201,4 +201,18 @@ export class NodeHarnessRuntime implements HarnessRuntime {
       status,
     } as unknown as SessionEvent);
   };
+
+  // agent.status is a canonical persisted record (like agent.message /
+  // agent.tool_use), not a stream-lifecycle event — reuse the same
+  // broadcast() write path (persist + publish) rather than the
+  // publish-only helpers above.
+  reportStatus = (status: {
+    state: "working" | "blocked" | "waiting";
+    summary: string;
+    step?: number;
+    total_steps?: number;
+    detail?: string;
+  }): void => {
+    this.broadcast({ type: "agent.status", ...status } as unknown as SessionEvent);
+  };
 }

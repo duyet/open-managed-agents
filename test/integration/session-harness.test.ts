@@ -85,6 +85,31 @@ registerHarness("usage-reporter", () => ({
 
 registerHarness("sh-noop", () => ({ async run() {} }));
 
+// Long-running-agent progress reporting (agent.status). Emits a couple of
+// heartbeats via runtime.reportStatus before the final agent.message, so
+// tests can assert shape, ordering, and persistence in the event log.
+registerHarness("status-reporter", () => ({
+  async run(ctx) {
+    ctx.runtime.reportStatus?.({
+      state: "working",
+      summary: "Working on step 1",
+      step: 1,
+      total_steps: 2,
+    });
+    ctx.runtime.reportStatus?.({
+      state: "blocked",
+      summary: "Waiting on tool confirmation",
+      step: 2,
+      total_steps: 2,
+      detail: "bash: rm -rf /tmp/scratch",
+    });
+    ctx.runtime.broadcast({
+      type: "agent.message",
+      content: [{ type: "text", text: "done" }],
+    });
+  },
+}));
+
 // ---------- Helpers ----------
 const H = { "x-api-key": "test-key", "Content-Type": "application/json" };
 function api(path: string, init?: RequestInit) {
@@ -290,6 +315,72 @@ describe("Harness execution flow", () => {
       .map((t: string) => parseInt(t.split("=")[1], 10));
     expect(counts.length).toBe(2);
     expect(counts[1]).toBeGreaterThan(counts[0]);
+  });
+});
+
+// ============================================================
+// Harness runtime — reportStatus (agent.status progress reporting)
+// ============================================================
+describe("Harness runtime — reportStatus (agent.status)", () => {
+  it("emits agent.status events with the right shape, persisted + replayed in order", async () => {
+    const sessionId = await createSessionWith("status-reporter");
+    await postAndWait(sessionId, "go", 500);
+    await waitForIdle(sessionId);
+    const events = await collectReplayedEvents(sessionId);
+
+    const statusEvents = events.filter((e) => e.type === "agent.status");
+    expect(statusEvents.length).toBe(2);
+
+    expect(statusEvents[0]).toMatchObject({
+      type: "agent.status",
+      state: "working",
+      summary: "Working on step 1",
+      step: 1,
+      total_steps: 2,
+    });
+    expect(statusEvents[1]).toMatchObject({
+      type: "agent.status",
+      state: "blocked",
+      summary: "Waiting on tool confirmation",
+      step: 2,
+      total_steps: 2,
+      detail: "bash: rm -rf /tmp/scratch",
+    });
+
+    // Persisted in event-log order ahead of the final agent.message —
+    // reportStatus shares the same broadcast+persist write path as
+    // runtime.broadcast, so ordering across the two is preserved.
+    const types = events.map((e) => e.type);
+    const lastStatusIdx = types.lastIndexOf("agent.status");
+    const msgIdx = types.indexOf("agent.message");
+    expect(lastStatusIdx).toBeLessThan(msgIdx);
+  });
+
+  it("agent.status is an OMA-extension event — absent from the spec-default replay", async () => {
+    const sessionId = await createSessionWith("status-reporter");
+    await postAndWait(sessionId, "go", 500);
+    await waitForIdle(sessionId);
+
+    // No x-oma-include header → spec-only wire contract (matches the
+    // official Anthropic Managed Agents SDK against an OMA server).
+    const doId = env.SESSION_DO!.idFromName(sessionId);
+    const stub = env.SESSION_DO!.get(doId);
+    const wsRes = await stub.fetch(
+      new Request("http://internal/ws", { headers: { Upgrade: "websocket", "x-oma-replay": "1" } }),
+    );
+    const ws = wsRes.webSocket!;
+    ws.accept();
+    const events: any[] = await new Promise((resolve) => {
+      const collected: any[] = [];
+      ws.addEventListener("message", (e) => collected.push(JSON.parse(e.data as string)));
+      setTimeout(() => {
+        ws.close();
+        resolve(collected);
+      }, 300);
+    });
+
+    expect(events.some((e) => e.type === "agent.status")).toBe(false);
+    expect(events.some((e) => e.type === "agent.message")).toBe(true);
   });
 });
 
