@@ -34,8 +34,10 @@ cat > "$NPMRC" <<EOF
 EOF
 export NPM_CONFIG_USERCONFIG="$NPMRC"
 
-echo "==> Verifying token"
-npm whoami >/dev/null || { echo "ERROR: NPM_TOKEN invalid / no npm identity" >&2; exit 1; }
+# Ping only checks registry reachability — granular access tokens (the only
+# npm token type since Nov 2025) 403 on whoami. An invalid token surfaces at publish.
+echo "==> Verifying registry connectivity"
+pnpm ping >/dev/null || { echo "ERROR: cannot reach npm registry" >&2; exit 1; }
 
 echo "==> Installing deps (frozen)"
 pnpm install --frozen-lockfile
@@ -57,7 +59,7 @@ for pkg in "${PKGS[@]}"; do
 
   if [[ -n "$DRY_RUN" ]]; then
     echo "    dry-run: packing"
-    ( cd "$dir" && npm pack --dry-run )
+    pnpm --filter "$pkg" pack --dry-run
   else
     echo "    publishing (tag=$TAG, access=public)"
     pnpm --filter "$pkg" publish --no-git-checks --access public --tag "$TAG"
