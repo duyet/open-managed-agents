@@ -142,7 +142,11 @@ export function resolveModel(
     //     orgs with Zero Data Retention enabled get "Item with id 'fc_...' not
     //     found" errors mid-loop
     //   - chat/completions is the de-facto standard contract for OpenAI-compat
-    return openai.chat(modelId);
+    // Keep the FULL model string (e.g. "google/gemini-2.5-flash") for
+    // OpenAI-compatible gateways — AnyRouter/OpenRouter address models as
+    // "provider/model", so stripping the prefix yields "model_unavailable".
+    // Bare ids (direct OpenAI) have no "/" and are unaffected.
+    return openai.chat(modelString);
   }
 
   // ant / ant-compatible
