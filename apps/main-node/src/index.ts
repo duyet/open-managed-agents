@@ -241,6 +241,8 @@ if (!authDisabled) {
       baseURL: process.env.PUBLIC_BASE_URL,
       googleClientId: process.env.GOOGLE_CLIENT_ID,
       googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      githubClientId: process.env.GITHUB_CLIENT_ID,
+      githubClientSecret: process.env.GITHUB_CLIENT_SECRET,
       requireEmailVerify: process.env.AUTH_REQUIRE_EMAIL_VERIFY === "1",
       cookieDomain: process.env.AUTH_COOKIE_DOMAIN,
       ensureTenant: (u) => ensureTenantSqlite(sql, u.id, u.name, u.email),
@@ -265,6 +267,8 @@ if (!authDisabled) {
       baseURL: process.env.PUBLIC_BASE_URL,
       googleClientId: process.env.GOOGLE_CLIENT_ID,
       googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      githubClientId: process.env.GITHUB_CLIENT_ID,
+      githubClientSecret: process.env.GITHUB_CLIENT_SECRET,
       requireEmailVerify: process.env.AUTH_REQUIRE_EMAIL_VERIFY === "1",
       cookieDomain: process.env.AUTH_COOKIE_DOMAIN,
       ensureTenant: (u) => ensureTenantSqlite(sql, u.id, u.name, u.email),
@@ -792,6 +796,9 @@ app.get("/auth-info", (c) =>
           ...(process.env.AUTH_REQUIRE_EMAIL_VERIFY === "1" ? ["email-otp"] : []),
           ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
             ? ["google"]
+            : []),
+          ...(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
+            ? ["github"]
             : []),
         ],
     turnstile_site_key: null,

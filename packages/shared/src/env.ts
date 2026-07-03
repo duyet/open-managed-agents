@@ -86,6 +86,11 @@ export interface Env {
   AUTH_COOKIE_NAME?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  // Console "Sign in with GitHub" — distinct from GITHUB_OAUTH_CLIENT_ID
+  // below (that pair is for MCP-server / integration OAuth, not Console
+  // login). Both set → better-auth registers github as a social provider.
+  GITHUB_CLIENT_ID?: string;
+  GITHUB_CLIENT_SECRET?: string;
   // Pre-registered OAuth client_id/secret per provider, for MCP servers
   // whose authorization server doesn't expose a working DCR endpoint.
   // Operator workflow: register an OAuth App with the provider, set
