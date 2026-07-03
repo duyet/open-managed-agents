@@ -1,0 +1,8 @@
+{
+  "name": "Claude Agent SDK Example",
+  "description": "Runs turns through @anthropic-ai/claude-agent-sdk (Claude Code's CLI as a subprocess) instead of the default in-process model loop.",
+  "model": "claude-sonnet-4-6",
+  "system": "You are a helpful coding assistant running under the Claude Agent SDK harness.",
+  "tools": [{ "type": "agent_toolset_20260401" }],
+  "harness": "claude-agent-sdk"
+}
