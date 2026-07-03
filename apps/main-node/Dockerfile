@@ -117,11 +117,22 @@ FROM node:22-slim AS runtime
 # corepack is needed at runtime so `pnpm start` resolves; alternatively we
 # could invoke tsx directly via node_modules/.bin but corepack matches the
 # dev workflow exactly.
+#
+# `corepack prepare` bakes pnpm@<version> into the image at BUILD time under a
+# shared COREPACK_HOME. Without it, corepack downloads pnpm from
+# registry.npmjs.org on the FIRST `pnpm start` — a transient DNS/network blip
+# (EAI_AGAIN registry.npmjs.org) then crashes the container (exit 1) and
+# restarts it, orphaning in-flight session sandboxes. COREPACK_HOME lives
+# outside /app so the later `COPY --from=deps /app /app` can't clobber it, and
+# is world-readable so the unprivileged `node` user resolves the cached pnpm.
+ENV COREPACK_HOME=/opt/corepack
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
        curl ca-certificates git python3 \
   && rm -rf /var/lib/apt/lists/* \
-  && corepack enable
+  && corepack enable \
+  && corepack prepare pnpm@11.0.8 --activate \
+  && chmod -R a+rX /opt/corepack
 WORKDIR /app
 
 # Copy the whole monorepo from deps (includes node_modules, source, schemas
