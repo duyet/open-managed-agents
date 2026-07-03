@@ -47,6 +47,8 @@
     "dev:docs": "pnpm --filter open-managed-agents-docs dev",
     "build:docs": "pnpm --filter open-managed-agents-docs build",
     "deploy:docs": "pnpm --filter open-managed-agents-docs deploy",
+    "build:web": "pnpm --filter @duyet/oma-web build",
+    "deploy:web": "pnpm --filter @duyet/oma-web deploy",
     "deploy": "./scripts/deploy.sh",
     "typecheck": "tsc --noEmit && pnpm run typecheck:node",
     "typecheck:node": "pnpm --filter @duyet/oma-sandbox typecheck && pnpm --filter @duyet/oma-main-node typecheck && pnpm --filter @duyet/oma-vault typecheck && pnpm --filter @duyet/oma-cap typecheck",

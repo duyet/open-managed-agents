@@ -49,6 +49,12 @@ export function createAuth(env: Env) {
       clientSecret: env.GOOGLE_CLIENT_SECRET,
     };
   }
+  if (env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET) {
+    socialProviders.github = {
+      clientId: env.GITHUB_CLIENT_ID,
+      clientSecret: env.GITHUB_CLIENT_SECRET,
+    };
+  }
 
   return betterAuth({
     basePath: "/auth",

@@ -63,7 +63,7 @@ optional sidecar (`oma-vault`) for outbound credential injection.
 | Blob store | `LocalFsBlobStore` (`./data/memory-blobs/<storeId>/<path>`); operator can swap in an S3 adapter when scaling |
 | Event log | `SqlEventLog` (per-session events in shared `session_events` table) + `InProcessEventStreamHub` (sqlite mode) or `PgEventStreamHub` (pg mode, LISTEN/NOTIFY-backed) for SSE fan-out |
 | Sandbox | `SANDBOX_PROVIDER=subprocess` (default, no isolation), `litebox` (Firecracker μVM), `daytona`, `e2b` |
-| Auth | `better-auth` on a separate `./data/auth.db` (sqlite). Email + password by default; Google OAuth optional. `AUTH_DISABLED=1` bypasses for single-user demos |
+| Auth | `better-auth` on a separate `./data/auth.db` (sqlite). Email + password by default; Google/GitHub OAuth optional. `AUTH_DISABLED=1` bypasses for single-user demos |
 | Vault credential injection | `apps/oma-vault` sidecar — mockttp HTTPS MITM proxy with self-signed CA. Reads vault credentials from the same sqlite db |
 | Memory mount | sandbox symlinks `/mnt/memory/<storeName>` → `<MEMORY_BLOB_DIR>/<storeId>/`. chokidar watcher reflects fs writes back into the SQL `memories` index |
 | Cron | not wired yet (TODO: `node-cron` adapter for the per-tenant memory retention pass) |
@@ -241,7 +241,7 @@ each with its own bindings, deployed via `wrangler deploy`.
 | Blob store | R2 — `managed-agents-files`, `managed-agents-memory`, `managed-agents-workspace`, `managed-agents-backups` |
 | Event log | SessionDO sqlite (per-DO) |
 | Sandbox | `@cloudflare/sandbox` Container DO — Firecracker on CF Containers |
-| Auth | `better-auth` on D1, email + password + Google OAuth + email OTP. Email via CF Email Workers (`SEND_EMAIL` binding) |
+| Auth | `better-auth` on D1, email + password + Google/GitHub OAuth + email OTP. Email via CF Email Workers (`SEND_EMAIL` binding) |
 | Vault credential injection | `MAIN_MCP.outboundForward` RPC. agent's container HTTPS goes through main worker via `outboundByHost` callback. Zero-trust: agent never sees secret |
 | Memory mount | R2-FUSE via `@cloudflare/sandbox` `mountBucket()`. R2 Event Notifications → `managed-agents-memory-events` queue → consumer in main worker → D1 audit |
 | Cron | `* * * * *` cron in main worker (env-image build poll, base-snapshot maintenance) |
