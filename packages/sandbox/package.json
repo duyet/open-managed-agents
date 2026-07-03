@@ -10,19 +10,25 @@
     "./adapters/daytona": "./src/adapters/daytona.ts",
     "./adapters/litebox": "./src/adapters/litebox.ts",
     "./adapters/boxrun": "./src/adapters/boxrun.ts",
+    "./adapters/kubernetes": "./src/adapters/kubernetes.ts",
     "./orchestrator": "./src/orchestrator.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
     "@open-managed-agents/observability": "workspace:*",
     "@open-managed-agents/shared": "workspace:*"
   },
+  "devDependencies": {
+    "@kubernetes/client-node": "^1.0.0"
+  },
   "peerDependencies": {
     "e2b": "^1.0.0",
     "@daytonaio/sdk": "^0.171.0",
-    "@boxlite-ai/boxlite": "^0.9.0"
+    "@boxlite-ai/boxlite": "^0.9.0",
+    "@kubernetes/client-node": "^1.0.0"
   },
   "peerDependenciesMeta": {
     "e2b": {
@@ -32,6 +38,9 @@
       "optional": true
     },
     "@boxlite-ai/boxlite": {
+      "optional": true
+    },
+    "@kubernetes/client-node": {
       "optional": true
     }
   }

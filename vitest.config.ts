@@ -131,6 +131,7 @@ export default defineConfig({
       { find: "@open-managed-agents/sandbox/adapters/daytona", replacement: "./packages/sandbox/src/adapters/daytona.ts" },
       { find: "@open-managed-agents/sandbox/adapters/e2b", replacement: "./packages/sandbox/src/adapters/e2b.ts" },
       { find: "@open-managed-agents/sandbox/adapters/boxrun", replacement: "./packages/sandbox/src/adapters/boxrun.ts" },
+      { find: "@open-managed-agents/sandbox/adapters/kubernetes", replacement: "./packages/sandbox/src/adapters/kubernetes.ts" },
       { find: "@open-managed-agents/sandbox", replacement: "./packages/sandbox/src/index.ts" },
       { find: "@open-managed-agents/blob-store/adapters/local-fs", replacement: "./packages/blob-store/src/adapters/local-fs.ts" },
       { find: "@open-managed-agents/blob-store/adapters/s3", replacement: "./packages/blob-store/src/adapters/s3.ts" },

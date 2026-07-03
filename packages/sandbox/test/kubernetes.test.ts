@@ -1,0 +1,246 @@
+// Unit tests for KubernetesSandboxExecutor with `@kubernetes/client-node`
+// fully mocked — no real cluster involved. Exercises:
+//   - Sandbox object creation + naming
+//   - Ready-condition polling -> pod resolution -> pods/exec exit codes
+//   - env/secret shell-prefixing
+//   - readFile/writeFileBytes via the base64-over-exec channel
+//   - destroy() independent of whether the pod ever became ready
+//   - mountMemoryStore's clear error when no S3 bucket config is present
+//
+// The mock mirrors the real @kubernetes/client-node v1.x shapes the
+// adapter depends on: object-parameter CustomObjectsApi/CoreV1Api methods,
+// and Exec.exec()'s positional-args + statusCallback(V1Status) contract.
+
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+interface FakeExecStatus {
+  status?: string;
+  details?: { causes?: Array<{ reason?: string; message?: string }> };
+}
+type StatusCallback = (status: FakeExecStatus) => void;
+
+interface FakeSandboxObject {
+  metadata: { name: string; namespace: string; annotations?: Record<string, string> };
+  status: { conditions: Array<{ type: string; status: string }>; selector?: string };
+}
+
+// Shared mutable test state the mocked module + assertions both reach into.
+const world = {
+  sandboxObjects: new Map<string, FakeSandboxObject>(),
+  /** Controls what the next exec() call returns. Overridable per-test. */
+  execResult: { stdout: "", stderr: "", exitCode: 0 } as {
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+  },
+  /** Captures every argv passed to Exec.exec, in call order. */
+  execCalls: [] as string[][],
+  createCalls: [] as Array<{ namespace: string; name: string; body: unknown }>,
+  deleteCalls: [] as Array<{ namespace: string; name: string }>,
+  /** When true, newly created Sandbox objects report Ready=False so
+   *  waitForReady's poll loop never matches — used to exercise the
+   *  ready-timeout error path. Reset in beforeEach. */
+  forceNotReady: false,
+};
+
+vi.mock("@kubernetes/client-node", () => {
+  class KubeConfig {
+    loadFromCluster(): void {}
+    loadFromDefault(): void {}
+    makeApiClient<T>(Ctor: new () => T): T {
+      return new Ctor();
+    }
+  }
+
+  class CustomObjectsApi {
+    async createNamespacedCustomObject(args: {
+      namespace: string;
+      body: { metadata: { name: string; namespace: string } };
+    }) {
+      const { namespace, body } = args;
+      world.createCalls.push({ namespace, name: body.metadata.name, body });
+      world.sandboxObjects.set(`${namespace}/${body.metadata.name}`, {
+        metadata: body.metadata,
+        status: {
+          conditions: [{ type: "Ready", status: world.forceNotReady ? "False" : "True" }],
+          selector: "",
+        },
+      });
+      return {};
+    }
+    async getNamespacedCustomObject(args: { namespace: string; name: string }) {
+      const obj = world.sandboxObjects.get(`${args.namespace}/${args.name}`);
+      if (!obj) throw new Error(`Sandbox ${args.namespace}/${args.name} not found`);
+      return obj;
+    }
+    async deleteNamespacedCustomObject(args: { namespace: string; name: string }) {
+      world.deleteCalls.push({ namespace: args.namespace, name: args.name });
+      world.sandboxObjects.delete(`${args.namespace}/${args.name}`);
+      return {};
+    }
+  }
+
+  class CoreV1Api {
+    async listNamespacedPod() {
+      return { items: [] };
+    }
+  }
+
+  class Exec {
+    async exec(
+      _namespace: string,
+      _podName: string,
+      _containerName: string,
+      argv: string[],
+      stdout: NodeJS.WritableStream | null,
+      stderr: NodeJS.WritableStream | null,
+      _stdin: unknown,
+      _tty: boolean,
+      statusCallback?: StatusCallback,
+    ) {
+      world.execCalls.push(argv);
+      const { stdout: out, stderr: err, exitCode } = world.execResult;
+      await new Promise<void>((resolve) => {
+        if (out && stdout) stdout.write(Buffer.from(out), () => resolve());
+        else resolve();
+      });
+      await new Promise<void>((resolve) => {
+        if (err && stderr) stderr.write(Buffer.from(err), () => resolve());
+        else resolve();
+      });
+      if (exitCode === 0) {
+        statusCallback?.({ status: "Success" });
+      } else {
+        statusCallback?.({
+          status: "Failure",
+          details: { causes: [{ reason: "ExitCode", message: String(exitCode) }] },
+        });
+      }
+      return {};
+    }
+  }
+
+  return { KubeConfig, CustomObjectsApi, CoreV1Api, Exec };
+});
+
+import { KubernetesSandboxExecutor } from "../src/adapters/kubernetes";
+
+beforeEach(() => {
+  world.sandboxObjects.clear();
+  world.execCalls = [];
+  world.createCalls = [];
+  world.deleteCalls = [];
+  world.execResult = { stdout: "", stderr: "", exitCode: 0 };
+  world.forceNotReady = false;
+});
+
+describe("KubernetesSandboxExecutor", () => {
+  it("creates a Sandbox object with a valid DNS-1123 name derived from the session id", async () => {
+    const sandbox = new KubernetesSandboxExecutor({
+      sessionId: "Sess_ABC!!123",
+      namespace: "oma-tenants",
+    });
+    world.execResult = { stdout: "ok\n", stderr: "", exitCode: 0 };
+
+    await sandbox.exec("echo ok");
+
+    expect(world.createCalls).toHaveLength(1);
+    const { namespace, name } = world.createCalls[0];
+    expect(namespace).toBe("oma-tenants");
+    expect(name).toMatch(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/);
+    expect(name.length).toBeLessThanOrEqual(63);
+    expect(name.startsWith("oma-")).toBe(true);
+  });
+
+  it("exec() returns combined stdout+stderr with no exit suffix on success", async () => {
+    const sandbox = new KubernetesSandboxExecutor({ sessionId: "s1" });
+    world.execResult = { stdout: "hello\n", stderr: "", exitCode: 0 };
+
+    const result = await sandbox.exec("echo hello");
+
+    expect(result).toBe("hello");
+    expect(result).not.toContain("[exit");
+  });
+
+  it("exec() appends an [exit N] suffix on non-zero exit", async () => {
+    const sandbox = new KubernetesSandboxExecutor({ sessionId: "s2" });
+    world.execResult = { stdout: "", stderr: "boom", exitCode: 3 };
+
+    const result = await sandbox.exec("false");
+
+    expect(result).toContain("boom");
+    expect(result).toContain("[exit 3]");
+  });
+
+  it("exec() surfaces transport errors as [error: ...] instead of throwing", async () => {
+    const sandbox = new KubernetesSandboxExecutor({
+      sessionId: "s3",
+      readyTimeoutMs: 50,
+    });
+    // Force the created Sandbox to report Ready=False forever, so
+    // waitForReady's poll loop exhausts its (short) timeout budget and
+    // exec() converts the thrown error into the "[error: ...]" shape
+    // instead of rejecting — matching the other adapters' exec() contract.
+    world.forceNotReady = true;
+
+    const result = await sandbox.exec("echo hi");
+
+    expect(result).toContain("[error:");
+    expect(result.toLowerCase()).toContain("ready");
+  });
+
+  it("prefixes exported env vars and command-scoped secrets onto the command", async () => {
+    const sandbox = new KubernetesSandboxExecutor({ sessionId: "s4" });
+    await sandbox.setEnvVars({ FOO: "bar" });
+    sandbox.registerCommandSecrets("git", { GIT_TOKEN: "secret-token" });
+    world.execResult = { stdout: "", stderr: "", exitCode: 0 };
+
+    await sandbox.exec("git push");
+
+    const argv = world.execCalls.at(-1)!;
+    const shellCommand = argv[argv.length - 1];
+    expect(shellCommand).toContain("export FOO='bar';");
+    expect(shellCommand).toContain("export GIT_TOKEN='secret-token';");
+    expect(shellCommand).toContain("git push");
+  });
+
+  it("readFile/writeFileBytes round-trip through the base64-over-exec channel", async () => {
+    const sandbox = new KubernetesSandboxExecutor({ sessionId: "s5" });
+    const payload = new TextEncoder().encode("hello world");
+    const b64 = Buffer.from(payload).toString("base64");
+
+    // writeFileBytes: the mock just needs to succeed (exit 0); it doesn't
+    // persist a real filesystem, so we assert the exec'd command shape.
+    world.execResult = { stdout: "", stderr: "", exitCode: 0 };
+    await sandbox.writeFileBytes("/workspace/out.txt", payload);
+    const writeArgv = world.execCalls.at(-1)!;
+    expect(writeArgv[writeArgv.length - 1]).toContain(`base64 -d > '/workspace/out.txt'`);
+
+    // readFile: mock returns the base64 payload as stdout.
+    world.execResult = { stdout: `${b64}\n`, stderr: "", exitCode: 0 };
+    const text = await sandbox.readFile("/workspace/out.txt");
+    expect(text).toBe("hello world");
+  });
+
+  it("destroy() deletes the Sandbox object even if the pod was never exec'd", async () => {
+    const sandbox = new KubernetesSandboxExecutor({ sessionId: "s6", namespace: "ns-x" });
+
+    await sandbox.destroy();
+
+    expect(world.deleteCalls).toHaveLength(1);
+    expect(world.deleteCalls[0].namespace).toBe("ns-x");
+  });
+
+  it("mountMemoryStore throws a clear, actionable error without S3 bucket config", async () => {
+    const sandbox = new KubernetesSandboxExecutor({ sessionId: "s7" });
+
+    await expect(
+      sandbox.mountMemoryStore({ storeName: "notes", storeId: "store-1", readOnly: false }),
+    ).rejects.toThrow(/MEMORY_S3_/);
+  });
+
+  it("startProcess returns null (no detach primitive over pods/exec)", async () => {
+    const sandbox = new KubernetesSandboxExecutor({ sessionId: "s8" });
+    await expect(sandbox.startProcess("sleep 100")).resolves.toBeNull();
+  });
+});
