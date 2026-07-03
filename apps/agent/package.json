@@ -52,5 +52,8 @@
     "hono": "^4.7.0",
     "nanoid": "^5.1.0",
     "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "^0.80.2"
   }
 }

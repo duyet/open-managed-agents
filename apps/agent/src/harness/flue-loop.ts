@@ -15,26 +15,18 @@
  *   4. Subscribe to Flue's event stream via `observe(...)`, scope events to
  *      this interaction, and translate them into OMA `SessionEvent`s (see
  *      `./flue/translate.ts`).
- *   5. Deliver the user message with `dispatch(...)` and resolve when the
- *      submission settles.
+ *   5. Deliver the user message via `runFlueAgentTurn(...)` (see
+ *      `./flue/runtime-bridge.ts`) and await the turn's settlement.
  *
  * ── End-to-end status ────────────────────────────────────────────────────
- * The two bridges (sandbox + provider) and the event translator are pure and
- * unit-tested. Driving a real turn additionally needs Flue's app runtime to be
- * configured inside the agent worker (`configureFlueRuntime(...)`, the wiring
- * the Flue CLI generates for a standalone deployment). Until that lands,
- * `dispatch(...)` throws "runtime not configured" and we surface it as a
- * `session.error`. Wiring that runtime is the documented follow-up for a live
- * end-to-end run.
+ * The two bridges (sandbox + provider), the event translator, and the
+ * runtime bridge are unit-tested. `runtime-bridge.ts` lazily configures
+ * Flue's app runtime (`configureFlueRuntime(...)`, the wiring the Flue CLI
+ * generates for a standalone deployment) with Workers-safe in-memory stores,
+ * so `run()` below drives a real end-to-end turn.
  */
 
-import {
-  defineAgent,
-  createSandboxSessionEnv,
-  registerProvider,
-  observe,
-  dispatch,
-} from "@flue/runtime";
+import { defineAgent, createSandboxSessionEnv, registerProvider, observe } from "@flue/runtime";
 import type { SandboxFactory, FlueEvent } from "@flue/runtime";
 import type { HarnessInterface, HarnessContext, HarnessRuntime } from "./interface";
 import type { SessionEvent, UserMessageEvent } from "@open-managed-agents/shared";
@@ -42,6 +34,7 @@ import { generateEventId, log, logError } from "@open-managed-agents/shared";
 import { createFlueSandboxApi } from "./flue/sandbox-bridge";
 import { buildFlueProvider, type FlueProviderApi } from "./flue/provider-bridge";
 import { FlueEventTranslator } from "./flue/translate";
+import { runFlueAgentTurn } from "./flue/runtime-bridge";
 
 /**
  * Default working directory the Flue `SessionEnv` resolves relative paths
@@ -128,11 +121,11 @@ export class FlueHarness implements HarnessInterface {
     const instanceId = ctx.session_id || generateEventId();
     const translator = new FlueEventTranslator(runtime);
 
-    let settle: (() => void) | null = null;
-    const done = new Promise<void>((resolve) => {
-      settle = resolve;
-    });
     let aborted = false;
+    let settleAbort: (() => void) | null = null;
+    const abortedSignal = new Promise<void>((resolve) => {
+      settleAbort = resolve;
+    });
 
     const unobserve = observe((event: FlueEvent) => {
       // Scope to THIS interaction — observe() sees every event in the isolate.
@@ -140,23 +133,19 @@ export class FlueHarness implements HarnessInterface {
       void translator.consume(event).catch((e) =>
         logError({ op: "flue.translate_failed", err: errMessage(e) }, "event translate failed"),
       );
-      if (event.type === "submission_settled") {
-        if (event.outcome === "failed") {
-          this.#emitError(runtime, `Flue submission failed: ${event.error?.message ?? "unknown"}`);
-        }
-        settle?.();
-      }
     });
 
     const abortHandler = () => {
       aborted = true;
-      settle?.();
+      settleAbort?.();
     };
     runtime.abortSignal?.addEventListener("abort", abortHandler);
 
+    // Races the turn against an abort: on abort we stop awaiting (and mark
+    // the stream aborted below) but — same as before this bridge existed —
+    // do not cancel the in-flight Flue submission itself.
     const drive = async () => {
-      await dispatch(agent, { id: instanceId, input: userText });
-      await done;
+      await Promise.race([runFlueAgentTurn({ agent, instanceId, message: userText }), abortedSignal]);
     };
 
     try {
