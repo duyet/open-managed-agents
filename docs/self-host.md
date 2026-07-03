@@ -291,6 +291,56 @@ Things I'd document if I were the on-call who got paged:
   start; existing dbs upgrade in place. If you see `no such column:
   turn_id`, you're on a pre-migration build — pull a newer image.
 
+## Trusted reverse-proxy / SSO-gateway auth (opt-in)
+
+If you already terminate auth at a reverse proxy or SSO gateway (nginx,
+oauth2-proxy, Envoy/Istio ingress, Cloudflare Access, etc.), you can let
+main-node trust the identity that gateway forwards instead of making users
+log in a second time. **Default off — a no-op unless you set the env
+vars below.**
+
+```bash
+# .env
+TRUSTED_PROXY_AUTH_ENABLED=1
+TRUSTED_PROXY_HEADER=X-Forwarded-User          # default shown
+TRUSTED_PROXY_EMAIL_HEADER=X-Forwarded-Email   # optional — see below
+TRUSTED_PROXY_SHARED_SECRET=<32+ random bytes>  # REQUIRED — see threat model
+TRUSTED_PROXY_SHARED_SECRET_HEADER=X-Trusted-Proxy-Secret  # default shown
+```
+
+| Env var | Required | Default | Meaning |
+|---|---|---|---|
+| `TRUSTED_PROXY_AUTH_ENABLED` | no | off | Master switch. Anything else below is inert unless this is `1`. |
+| `TRUSTED_PROXY_HEADER` | when enabled | `X-Forwarded-User` | Header carrying the authenticated identity (used as the account email unless `TRUSTED_PROXY_EMAIL_HEADER` is also set). |
+| `TRUSTED_PROXY_EMAIL_HEADER` | no | — | Separate header for the email, when `TRUSTED_PROXY_HEADER` carries a non-email login/subject instead. |
+| `TRUSTED_PROXY_SHARED_SECRET` | **yes, when enabled** | — | Secret known only to you and your gateway. main-node refuses to boot with the feature enabled and this unset. |
+| `TRUSTED_PROXY_SHARED_SECRET_HEADER` | no | `X-Trusted-Proxy-Secret` | Header carrying the shared secret above. |
+
+**Threat model.** A header is never proof of anything by itself — if this
+app is reachable directly (a common k8s misconfiguration: a `Service`
+that's cluster-internally reachable, or a gateway that forgets to strip
+client-supplied copies of these headers), anyone could set
+`X-Forwarded-User: admin@yourco.com` and impersonate that user. The
+`TRUSTED_PROXY_SHARED_SECRET` is the mitigation: configure your gateway to
+inject it on every forwarded request (and to strip/overwrite any
+client-supplied copy of both this header and the identity header before
+proxying). main-node verifies the secret with a constant-time comparison
+before trusting the identity header at all, and **fails closed**: if the
+guard doesn't pass on a request that's attempting trusted-proxy auth (the
+identity header is present but the secret is missing/wrong), that request
+is rejected outright with `401` — it never silently falls back to
+password/cookie login, which could mask an active spoofing attempt or a
+misconfigured gateway behind an ordinary "not logged in" response.
+
+Trusted-proxy identities are resolved per-request against better-auth's
+`user` table (find-or-create by email) — no better-auth cookie/session is
+minted, matching how header-based reverse-proxy auth works elsewhere
+(Grafana's `auth.proxy`, Gitea, etc.): the gateway is the actual session
+authority, and every request is re-validated against the guard.
+
+This is currently wired for the self-host/Node runtime only (`apps/main-node`);
+the Cloudflare Workers deployment (`apps/main`) doesn't have this yet.
+
 ## Crash recovery demo
 
 OMA's self-host mode persists session state to SQLite + the event log on
