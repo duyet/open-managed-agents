@@ -4058,6 +4058,19 @@ export class SessionDO extends DurableObject<Env> {
     const abortController = new AbortController();
     this._threadAbortControllers.set(threadId, abortController);
 
+    // Single write path for the sub-agent's runtime.broadcast AND
+    // runtime.reportStatus (which just wraps this with the agent.status
+    // event shape) — extracted so both properties share identical
+    // persist + fan-out behavior.
+    const subAgentBroadcast = (event: SessionEvent) => {
+      subHistory.append(event);
+      const taggedEvent = { ...event, session_thread_id: threadId };
+      parentHistory.append(taggedEvent);
+      this.broadcastEvent(taggedEvent);
+      this.fanOutToHooks(taggedEvent);
+      this.maybeCreditCacheTokens(threadId, taggedEvent);
+    };
+
     // Build sub-agent context: own history, shared sandbox, parent event log
     const subCtx: HarnessContext = {
       agent: subAgent,
@@ -4103,18 +4116,14 @@ export class SessionDO extends DurableObject<Env> {
       runtime: {
         history: subHistory,
         sandbox,
-        broadcast: (event) => {
-          subHistory.append(event);
-          const taggedEvent = { ...event, session_thread_id: threadId };
-          parentHistory.append(taggedEvent);
-          this.broadcastEvent(taggedEvent);
-          this.fanOutToHooks(taggedEvent);
-          this.maybeCreditCacheTokens(threadId, taggedEvent);
-        },
+        broadcast: subAgentBroadcast,
         ...this.buildStreamRuntimeMethods(threadId),
         reportUsage: async (input_tokens: number, output_tokens: number) => {
           this.creditUsageToThread(threadId, { input_tokens, output_tokens });
         },
+        // See reportStatus doc comment on HarnessRuntime — same write path
+        // as `broadcast`, this just builds the agent.status event shape.
+        reportStatus: (status) => subAgentBroadcast({ type: "agent.status", ...status }),
         abortSignal: abortController.signal,
         // Sub-agent runs inside supervisor's harness.run, which is
         // wrapped by adapter.beginTurn → sessions.status='running' for
@@ -4495,6 +4504,17 @@ export class SessionDO extends DurableObject<Env> {
     // prefix (turn N + 1 reuses the same prompt as turn N).
     const systemPrompt = composeSystemPrompt(rawSystemPrompt, platformReminders);
 
+    // Single write path for the primary runtime's broadcast AND
+    // reportStatus (a thin wrapper that builds the agent.status event
+    // shape) — extracted so both share identical persist + fan-out
+    // behavior. See reportStatus doc comment on HarnessRuntime.
+    const primaryBroadcast = (event: SessionEvent) => {
+      history.append(event);
+      this.broadcastEvent(event);
+      this.fanOutToHooks(event);
+      this.maybeCreditCacheTokens(turnThreadId, event);
+    };
+
     // --- Harness receives a fully-prepared context ---
     const ctx: HarnessContext = {
       agent,
@@ -4551,16 +4571,12 @@ export class SessionDO extends DurableObject<Env> {
       runtime: {
         history,
         sandbox,
-        broadcast: (event) => {
-          history.append(event);
-          this.broadcastEvent(event);
-          this.fanOutToHooks(event);
-          this.maybeCreditCacheTokens(turnThreadId, event);
-        },
+        broadcast: primaryBroadcast,
         ...this.buildStreamRuntimeMethods(),
         reportUsage: async (input_tokens: number, output_tokens: number) => {
           this.creditUsageToThread(turnThreadId, { input_tokens, output_tokens });
         },
+        reportStatus: (status) => primaryBroadcast({ type: "agent.status", ...status }),
         pendingConfirmations: [],
         abortSignal: effectiveAbortSignal,
         keepAliveWhile: <T>(fn: () => Promise<T>) => fn(),

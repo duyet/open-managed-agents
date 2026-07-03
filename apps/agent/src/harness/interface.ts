@@ -142,6 +142,27 @@ export interface HarnessRuntime {
     status: "completed" | "aborted",
   ) => Promise<void>;
   reportUsage?: (input_tokens: number, output_tokens: number) => Promise<void>;
+  /**
+   * Emit an `agent.status` event — a broadcast+persisted heartbeat for
+   * long-running agent progress ("working" / "blocked" / "waiting" +
+   * a short summary, optional step/total_steps/detail). Mirrors the
+   * `broadcast` write path (history.append + WS fan-out); the only
+   * difference is this method builds the event shape for the caller.
+   *
+   * Purely observational: `agent.status` is intentionally NOT handled by
+   * eventsToMessages/eventsToMessagesAsync, so calling this can never
+   * perturb deriveModelContext's byte-deterministic output or bust
+   * Anthropic's prompt cache. Optional so existing runtimes (tests,
+   * NodeHarnessRuntime pre-adoption) keep compiling without it; harnesses
+   * should guard with `runtime.reportStatus?.(...)`.
+   */
+  reportStatus?: (status: {
+    state: "working" | "blocked" | "waiting";
+    summary: string;
+    step?: number;
+    total_steps?: number;
+    detail?: string;
+  }) => void;
   pendingConfirmations?: string[];
   abortSignal?: AbortSignal;
   /**
