@@ -1,0 +1,17 @@
+# Keep the Docker build context to source + lockfiles only. Without this,
+# `docker build .` sends every local node_modules, dist, and .git object to
+# the daemon — slow, and on cross-arch builds it also means a host-platform
+# apps/console/dist or node_modules could get pulled into the context and
+# shadow what the Dockerfile installs/builds fresh inside the image.
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.wrangler
+**/.wrangler
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
