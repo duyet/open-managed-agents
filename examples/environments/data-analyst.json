@@ -1,0 +1,14 @@
+{
+  "name": "data-analyst",
+  "description": "Pairs with examples/agents/data-analyst.json. Mirrors the data-science environment example in AGENTS.md — adds matplotlib/scikit-learn (numpy/pandas already ship in the default sandbox base image, see apps/agent/Dockerfile) and ffmpeg on top of the default sandbox.",
+  "config": {
+    "type": "cloud",
+    "packages": {
+      "pip": ["numpy", "pandas", "matplotlib", "scikit-learn"],
+      "apt": ["ffmpeg"]
+    },
+    "networking": {
+      "type": "unrestricted"
+    }
+  }
+}
