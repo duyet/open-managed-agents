@@ -184,6 +184,44 @@ export class GitHubApiClient {
   }
 
   /**
+   * `POST /repos/{owner}/{repo}/issues/{issue_number}/comments` — post a
+   * comment on an issue or PR (GitHub's REST API treats PRs as issues for
+   * comments). Auth: installation token. Used by notify.ts to post
+   * session-status updates; not part of the webhook/install flow.
+   */
+  async createIssueComment(
+    installationToken: string,
+    owner: string,
+    repo: string,
+    issueNumber: number,
+    body: string,
+  ): Promise<{ id: number; htmlUrl: string }> {
+    const res = await this.http.fetch({
+      method: "POST",
+      url: `${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments`,
+      headers: {
+        ...this.installationHeaders(installationToken),
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ body }),
+    });
+    if (res.status !== 201) {
+      throw new GitHubApiError(
+        `POST /repos/${owner}/${repo}/issues/${issueNumber}/comments: HTTP ${res.status} ${res.body.slice(0, 200)}`,
+        res.status,
+      );
+    }
+    const parsed = JSON.parse(res.body) as { id?: number; html_url?: string };
+    if (typeof parsed.id !== "number") {
+      throw new GitHubApiError(
+        `POST /repos/${owner}/${repo}/issues/${issueNumber}/comments: missing id in response: ${res.body.slice(0, 200)}`,
+        res.status,
+      );
+    }
+    return { id: parsed.id, htmlUrl: parsed.html_url ?? "" };
+  }
+
+  /**
    * List repos this installation has access to. Returns up to `per_page`
    * (default 100) repos in a single call — for installs with >100 repos
    * the caller iterates pages. Used by the install-hook to enumerate

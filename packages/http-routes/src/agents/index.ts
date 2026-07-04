@@ -48,6 +48,9 @@ function formatAgent(agent: AgentConfig) {
   if (agent.appendable_prompts && agent.appendable_prompts.length > 0) {
     oma.appendable_prompts = agent.appendable_prompts;
   }
+  if (agent.notify && agent.notify.length > 0) {
+    oma.notify = agent.notify;
+  }
 
   const callable = agent.callable_agents ?? [];
   const multiagent =
@@ -67,6 +70,7 @@ function formatAgent(agent: AgentConfig) {
     harness: _harness,
     runtime_binding: _rb,
     appendable_prompts: _ap,
+    notify: _notify,
     callable_agents: _ca,
     ...rest
   } = agent;
@@ -175,6 +179,7 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
         harness?: string;
         runtime_binding?: AgentConfig["runtime_binding"];
         appendable_prompts?: string[];
+        notify?: AgentConfig["notify"];
       };
     }>();
 
@@ -188,6 +193,7 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
       harness: raw._oma?.harness ?? raw.harness,
       runtime_binding: raw._oma?.runtime_binding,
       appendable_prompts: raw._oma?.appendable_prompts,
+      notify: raw._oma?.notify,
     };
 
     if (!body.name) return c.json({ error: "name is required" }, 400);
@@ -230,6 +236,7 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
         runtime_binding: body.runtime_binding,
         enable_general_subagent: (body as { enable_general_subagent?: boolean })
           .enable_general_subagent,
+        notify: body.notify,
       },
     });
     return c.json(toApiAgent(row), 201);
@@ -374,6 +381,7 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
         harness?: string;
         runtime_binding?: AgentConfig["runtime_binding"] | null;
         appendable_prompts?: string[] | null;
+        notify?: AgentConfig["notify"] | null;
       };
     };
 
@@ -395,6 +403,7 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
       harness: raw._oma?.harness ?? raw.harness,
       runtime_binding: raw._oma?.runtime_binding,
       appendable_prompts: raw._oma?.appendable_prompts,
+      notify: raw._oma?.notify,
     };
 
     if (deps.validateAgentLimits) {
@@ -443,6 +452,7 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
           runtime_binding: body.runtime_binding,
           enable_general_subagent: (body as { enable_general_subagent?: boolean })
             .enable_general_subagent,
+          notify: body.notify,
         },
       });
       return c.json(toApiAgent(row));

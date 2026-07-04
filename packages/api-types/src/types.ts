@@ -40,6 +40,38 @@ export interface CustomToolConfig {
 
 export type ToolConfig = ToolsetConfig | CustomToolConfig;
 
+/**
+ * A place to send session-status notifications (issue/PR comments, chat
+ * messages) when a session needs attention, completes, or errors. Attached
+ * at the agent level — every session created from the agent inherits the
+ * targets via its `agent_snapshot`, the same way `mcp_servers` is agent-
+ * scoped rather than per-session.
+ *
+ * `credential_id` references a vault credential (`static_bearer`) holding
+ * the bot/PAT token used to authenticate the outbound call. Resolving that
+ * id to a live token is the caller's responsibility — these target shapes
+ * only describe *where* to post, not how the token is fetched.
+ */
+export type NotificationTarget =
+  | {
+      type: "github_comment";
+      credential_id: string;
+      owner: string;
+      repo: string;
+      issue_number: number;
+    }
+  | {
+      type: "slack_message";
+      credential_id: string;
+      channel: string;
+    }
+  | {
+      type: "matrix_message";
+      credential_id: string;
+      homeserver_url: string;
+      room_id: string;
+    };
+
 export interface AgentConfig {
   id: string;
   name: string;
@@ -113,6 +145,12 @@ export interface AgentConfig {
    * dedicated sub-agent definition.
    */
   enable_general_subagent?: boolean;
+  /**
+   * Notification targets to post session-status updates to (issue/PR
+   * comments, chat messages) — see `NotificationTarget`. Empty/missing =
+   * no outbound notifications.
+   */
+  notify?: NotificationTarget[];
   version: number;
   created_at: string;
   updated_at?: string;
