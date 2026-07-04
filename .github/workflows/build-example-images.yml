@@ -39,6 +39,9 @@ jobs:
           - name: coding-agent
             image: oma-example-coding-agent
             context: examples/coding-agent
+          - name: self-improvement-agent
+            image: oma-example-self-improvement-agent
+            context: examples/self-improvement-agent
 
     steps:
       - name: Checkout

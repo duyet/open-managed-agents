@@ -7,6 +7,8 @@ image. **It does NOT deploy any worker to a Cloudflare account.**
 |---|---|
 | `release.yml` | changeset-driven npm publish for the SDK / CLI packages |
 | `build-sandbox-image.yml` | builds the agent sandbox container image and pushes to GHCR for OSS users to pull |
+| `build-example-images.yml` | builds/pushes the `examples/**` demo images to GHCR |
+| `self-improvement-agent.yml` | opt-in cron that calls an already-running OMA instance's REST API to run the `examples/self-improvement-agent` scan (see [#24](https://github.com/duyet/open-managed-agents/issues/24)); no-ops unless an operator sets `OMA_API_KEY` as a repo secret. It's a scheduled *client* of the API, not a deploy workflow — no Cloudflare account involved. |
 
 ## Why no deploy workflows?
 

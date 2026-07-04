@@ -408,7 +408,7 @@ curl -s $BASE/v1/vaults/$VAULT_ID/credentials \
 |---|---|---|
 | `static_bearer` | API tokens (GitHub, etc.) | `Authorization: Bearer` header on matching URLs |
 | `mcp_oauth` | OAuth-authenticated MCP servers | Token refresh + injection via outbound proxy |
-| `command_secret` | CLI tools (wrangler, aws) | Environment variable injection for matching commands |
+| `cap_cli` | CLI tools (gh, aws, kubectl, wrangler, ...) | `Authorization` header injected at the outbound-proxy/network layer for a registered CLI's endpoints (`cap.builtinSpecs`), matched by `cli_id` — replaces the older `command_secret` type, which injected tokens straight into the subprocess env (leaky) |
 
 ### How It Works
 

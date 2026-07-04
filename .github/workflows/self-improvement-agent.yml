@@ -1,0 +1,55 @@
+name: Self-Improvement Agent Scan
+
+# Periodically runs the self-improvement agent (examples/self-improvement-agent,
+# implements #24): scans repo health (typecheck/tests/CI run history) and
+# files a GitHub issue for each new failure class not already tracked.
+#
+# This workflow only ever talks to an already-running OMA instance's REST
+# API over curl (via the published example image) — it does not deploy
+# anything to Cloudflare, per .github/workflows/README.md (this repo's CI
+# doesn't own any operator's deployment).
+#
+# No-ops on forks/clones that haven't opted in: the run step is gated on
+# OMA_API_KEY being set, so this never fails CI for anyone who hasn't
+# configured it. (The `secrets` context isn't readable from a job-level
+# `if:` — only `github, needs, vars, inputs` are — so secrets are bounced
+# through job `env` first and the guard lives on the step, where `env` is
+# available. https://docs.github.com/en/actions/learn-github-actions/contexts)
+#
+# Required repo secrets to enable:
+#   OMA_BASE_URL     - e.g. https://your-instance
+#   OMA_API_KEY      - OMA API key
+#   OMA_ENV_ID       - environment id with pnpm/Node + github.com/api.github.com
+#                      network access (see examples/self-improvement-agent/README.md)
+#   OMA_VAULT_ID     - existing vault id holding a cap_cli/gh credential
+#                      scoped to Issues:write + Actions:read + Contents:read
+#                      (preferred — avoids minting a new credential every run)
+#   GH_ISSUES_TOKEN  - alternative to OMA_VAULT_ID: a fine-grained GitHub PAT
+#                      with the same scopes; run.sh mints a fresh vault +
+#                      credential from it each run if OMA_VAULT_ID is unset
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *' # daily, 06:00 UTC
+
+concurrency:
+  group: self-improvement-agent
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    env:
+      OMA_BASE_URL: ${{ secrets.OMA_BASE_URL }}
+      OMA_API_KEY: ${{ secrets.OMA_API_KEY }}
+      OMA_ENV_ID: ${{ secrets.OMA_ENV_ID }}
+      OMA_VAULT_ID: ${{ secrets.OMA_VAULT_ID }}
+      GH_ISSUES_TOKEN: ${{ secrets.GH_ISSUES_TOKEN }}
+    steps:
+      - name: Run self-improvement agent scan
+        if: ${{ env.OMA_API_KEY != '' }}
+        run: |
+          docker run --rm \
+            -e OMA_BASE_URL -e OMA_API_KEY -e OMA_ENV_ID -e OMA_VAULT_ID -e GH_ISSUES_TOKEN \
+            "ghcr.io/${{ github.repository_owner }}/oma-example-self-improvement-agent:latest"
