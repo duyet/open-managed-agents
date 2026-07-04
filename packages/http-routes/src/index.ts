@@ -19,6 +19,9 @@ export type { AgentRoutesDeps } from "./agents";
 export { buildVaultRoutes } from "./vaults";
 export type { VaultRoutesDeps } from "./vaults";
 
+export { buildEnvironmentRoutes } from "./environments";
+export type { EnvironmentRoutesDeps } from "./environments";
+
 export { buildSessionRoutes } from "./sessions";
 export type {
   SessionRoutesDeps,

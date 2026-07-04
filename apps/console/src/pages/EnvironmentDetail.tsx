@@ -191,7 +191,7 @@ export function EnvironmentDetail() {
   return (
     <Page>
       <div className="max-w-3xl space-y-6">
-        {/* Header: name input + Cloud badge + status */}
+        {/* Header: name input + hosting-type badge + status */}
         <section className="space-y-3">
           <h1 className="sr-only">{env.name || "Environment"}</h1>
           <div className="flex items-center gap-3 flex-wrap">
@@ -204,7 +204,7 @@ export function EnvironmentDetail() {
               placeholder="environment name"
             />
             <span className="text-[11px] px-2 py-0.5 rounded border border-border bg-bg-surface text-fg-muted font-medium uppercase tracking-wider">
-              Cloud
+              {env.config.type || "cloud"}
             </span>
             <span className="text-fg-subtle" aria-hidden="true">
               <GlobeIcon />
