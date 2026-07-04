@@ -66,8 +66,8 @@
   // to CfSharedAuthDbProvider when AUTH_DB_01 isn't bound, so signup
   // and routing work without any shard tables.
   "d1_databases": [
-    { "binding": "MAIN_DB",         "database_name": "openma-auth",         "database_id": "<set-by-setup-cf-sh>" },
-    { "binding": "INTEGRATIONS_DB", "database_name": "openma-integrations", "database_id": "<set-by-setup-cf-sh>", "migrations_dir": "migrations-integrations" }
+    { "binding": "MAIN_DB",         "database_name": "oma-auth",         "database_id": "<set-by-setup-cf-sh>" },
+    { "binding": "INTEGRATIONS_DB", "database_name": "oma-integrations", "database_id": "<set-by-setup-cf-sh>", "migrations_dir": "migrations-integrations" }
   ],
 
   "durable_objects": {
@@ -216,15 +216,15 @@
       // tables (tenant_shard / shard_pool / memory_store_tenant) are now folded
       // into apps/main/migrations itself (see 0001_router_tables.sql) via the
       // ROUTER_DB ?? MAIN_DB fallback — setup-cf-production.sh applies only
-      // apps/main/migrations to openma-auth; migrations-router/ is reserved for
+      // apps/main/migrations to oma-auth; migrations-router/ is reserved for
       // a genuinely separate ROUTER_DB in real multi-shard mode.
       // AUTH_DB_01 is deliberately absent, so buildCfTenantDbProvider() selects
       // the non-sharded CfSharedAuthDbProvider. INTEGRATIONS_DB stays its own
-      // database (openma-integrations). To scale out later, re-add ROUTER_DB +
+      // database (oma-integrations). To scale out later, re-add ROUTER_DB +
       // AUTH_DB_00..03 (see git history / env.staging) and split the shards.
       "d1_databases": [
-        { "binding": "MAIN_DB",         "database_name": "openma-auth",         "database_id": "dbb5f01c-7016-4157-945d-f8ff9fbda967" },
-        { "binding": "INTEGRATIONS_DB", "database_name": "openma-integrations", "database_id": "36f67512-b0d7-4300-9d57-f265cd9d3075", "migrations_dir": "migrations-integrations" }
+        { "binding": "MAIN_DB",         "database_name": "oma-auth",         "database_id": "dbb5f01c-7016-4157-945d-f8ff9fbda967" },
+        { "binding": "INTEGRATIONS_DB", "database_name": "oma-integrations", "database_id": "36f67512-b0d7-4300-9d57-f265cd9d3075", "migrations_dir": "migrations-integrations" }
       ],
       "durable_objects": {
         "bindings": [
@@ -293,12 +293,12 @@
         { "binding": "CONFIG_KV", "id": "f91ddab8abe64941bd3ef398b0c187a7" }
       ],
       "d1_databases": [
-        { "binding": "MAIN_DB",    "database_name": "openma-auth-staging",          "database_id": "aff5dbb7-36f9-46b7-b82f-4513e5603ac6" },
-        { "binding": "ROUTER_DB",  "database_name": "openma-router-staging",        "database_id": "c238a338-9b6e-40c5-aaaa-48d4fe6dc63d" },
-        { "binding": "AUTH_DB_00", "database_name": "openma-auth-staging",          "database_id": "aff5dbb7-36f9-46b7-b82f-4513e5603ac6" },
-        { "binding": "AUTH_DB_01", "database_name": "openma-auth-shard-01-staging", "database_id": "fe6a34d1-cd8a-48a1-bff1-29032026d006" },
-        { "binding": "AUTH_DB_02", "database_name": "openma-auth-shard-02-staging", "database_id": "8636a018-8ac6-48c2-ae95-2f70919c8aab" },
-        { "binding": "AUTH_DB_03", "database_name": "openma-auth-shard-03-staging", "database_id": "8ce8f17d-7527-4a5a-b097-ce73251be55a" }
+        { "binding": "MAIN_DB",    "database_name": "oma-auth-staging",          "database_id": "aff5dbb7-36f9-46b7-b82f-4513e5603ac6" },
+        { "binding": "ROUTER_DB",  "database_name": "oma-router-staging",        "database_id": "c238a338-9b6e-40c5-aaaa-48d4fe6dc63d" },
+        { "binding": "AUTH_DB_00", "database_name": "oma-auth-staging",          "database_id": "aff5dbb7-36f9-46b7-b82f-4513e5603ac6" },
+        { "binding": "AUTH_DB_01", "database_name": "oma-auth-shard-01-staging", "database_id": "fe6a34d1-cd8a-48a1-bff1-29032026d006" },
+        { "binding": "AUTH_DB_02", "database_name": "oma-auth-shard-02-staging", "database_id": "8636a018-8ac6-48c2-ae95-2f70919c8aab" },
+        { "binding": "AUTH_DB_03", "database_name": "oma-auth-shard-03-staging", "database_id": "8ce8f17d-7527-4a5a-b097-ce73251be55a" }
       ],
       "r2_buckets": [
         { "binding": "FILES_BUCKET", "bucket_name": "managed-agents-files" },
