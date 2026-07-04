@@ -14,6 +14,7 @@ import type { CredentialService } from "@duyet/oma-credentials-store";
 import type { MemoryStoreService } from "@duyet/oma-memory-store";
 import type { SessionService } from "@duyet/oma-sessions-store";
 import type { DreamService } from "@duyet/oma-dreams-store";
+import type { EnvironmentService } from "@duyet/oma-environments-store";
 import type { SqlClient } from "@duyet/oma-sql-client";
 import type { KvStore } from "@duyet/oma-kv-store";
 import type {
@@ -65,6 +66,11 @@ export interface RouteServices {
   /** Dreams is optional because older route fixtures only exercise
    * non-dream resources. buildDreamRoutes requires it at runtime. */
   dreams?: DreamService;
+  /** Environments store. Optional because CF (apps/main) mounts its own
+   * local environments route file and never reads this field, and legacy
+   * fixtures don't wire it. buildEnvironmentRoutes requires it at runtime
+   * (returns 500 when unset). */
+  environments?: EnvironmentService;
   kv: KvStore;
   /** Per-session event log writer. Bound to a sessionId at the call site. */
   newEventLog: (sessionId: string) => {

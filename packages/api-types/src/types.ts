@@ -130,7 +130,15 @@ export interface EnvironmentConfig {
   name: string;
   description?: string;
   config: {
-    type: string; // "cloud"
+    // Hosting type — selects the sandbox backend, immutable after create.
+    // On the Cloudflare host only "cloud" is meaningful. Self-hosted
+    // (main-node) additionally accepts the sandbox-adapter ids resolved by
+    // buildSandbox: "subprocess" (local child_process, no isolation),
+    // "litebox"/"boxlite" (local Firecracker micro-VM), "boxrun" (remote
+    // BoxLite control plane), "daytona" (Daytona SaaS VM), "e2b" (E2B
+    // Firecracker microVM), "k8s"/"kubernetes" (agent-sandbox pod). "cloud"
+    // or unset falls back to the node's global SANDBOX_PROVIDER.
+    type: string;
     packages?: {
       pip?: string[];
       npm?: string[];

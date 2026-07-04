@@ -67,6 +67,7 @@ import { ensureSchema as ensureEventLogSchema } from "@duyet/oma-event-log/sql";
 import {
   buildAgentRoutes,
   buildVaultRoutes,
+  buildEnvironmentRoutes,
   buildSessionRoutes,
   buildMemoryRoutes,
   buildDreamRoutes,
@@ -528,11 +529,50 @@ const SANDBOX_PROVIDER_PATHS: Record<string, string> = {
   kubernetes: "@duyet/oma-sandbox/adapters/kubernetes",
 };
 
+// Resolve the sandbox provider for a session from its environment's
+// `config.type` ("Hosting Type"). Returns a provider key ONLY when the
+// environment explicitly selects a non-cloud backend that this node knows
+// how to launch; otherwise returns null so the caller keeps the global
+// SANDBOX_PROVIDER default. "cloud"/unset, an unknown session, a missing
+// environment, or an unrecognized type all degrade to null (with a warning
+// for the unrecognized case) rather than throwing — a misconfigured env
+// must not hard-fail a session.
+async function resolveEnvProvider(sessionId: string): Promise<string | null> {
+  try {
+    const row = await sql
+      .prepare(`SELECT tenant_id, environment_id FROM sessions WHERE id = ?`)
+      .bind(sessionId)
+      .first<{ tenant_id: string; environment_id: string | null }>();
+    if (!row?.environment_id) return null;
+    const env = await environmentsService.get({
+      tenantId: row.tenant_id,
+      environmentId: row.environment_id,
+    });
+    const type = env?.config?.type?.toLowerCase();
+    if (!type || type === "cloud") return null;
+    if (SANDBOX_PROVIDER_PATHS[type]) return type;
+    logger.warn(
+      { op: "main-node.sandbox.unknown_env_type", session_id: sessionId, config_type: type },
+      `environment config.type=${type} is not a known sandbox provider; falling back to SANDBOX_PROVIDER`,
+    );
+    return null;
+  } catch (err) {
+    logger.warn(
+      { err, op: "main-node.sandbox.env_provider_resolve_failed", session_id: sessionId },
+      "failed to resolve per-environment sandbox provider; falling back to SANDBOX_PROVIDER",
+    );
+    return null;
+  }
+}
+
 async function buildSandbox(
   sessionId: string,
   workdir: string,
 ): Promise<import("@duyet/oma-sandbox").SandboxExecutor> {
-  const provider = (process.env.SANDBOX_PROVIDER ?? "subprocess").toLowerCase();
+  const envProvider = await resolveEnvProvider(sessionId);
+  const provider = (
+    envProvider ?? process.env.SANDBOX_PROVIDER ?? "subprocess"
+  ).toLowerCase();
   const path = SANDBOX_PROVIDER_PATHS[provider];
   if (!path) {
     throw new Error(
@@ -692,6 +732,7 @@ const services: RouteServices = {
   memory: memoryService,
   sessions: sessionsService,
   dreams: dreamsService,
+  environments: environmentsService,
   kv,
   newEventLog,
   hub: {
@@ -1012,8 +1053,61 @@ v1.route("/evals", buildEvalRoutes({
   // dep undefined so the route accepts any environment_id without 404ing.
 }));
 
+// Environments — full CRUD via the shared bundle. Replaces the old
+// `{ data: [] }` stub (which also 404'd POST /v1/environments — the bug
+// this route fixes). Backed by the SQLite environments service assembled
+// above and wired into the `services` bundle.
+v1.route("/environments", buildEnvironmentRoutes({ services }));
+
+// Supported hosting types for this host. main-node-only — the CF app does
+// not expose this route, so the Console treats a 404 here as "cloud only"
+// and hides the multi-provider picker. Descriptions are one-liners drawn
+// from each sandbox adapter's header comment (packages/sandbox/src/adapters).
+// `cloud` maps to the global SANDBOX_PROVIDER default; the others select a
+// per-environment sandbox backend at session warmup (see buildSandbox).
+v1.get("/hosting_types", (c) =>
+  c.json({
+    data: [
+      {
+        id: "cloud",
+        label: "Cloud",
+        description: "Managed sandbox — uses this node's default SANDBOX_PROVIDER.",
+      },
+      {
+        id: "subprocess",
+        label: "Local subprocess",
+        description: "Node child_process on the host. Zero isolation — trusted local dev only.",
+      },
+      {
+        id: "litebox",
+        label: "LiteBox (local micro-VM)",
+        description: "Local Firecracker micro-VM per box. Hardware isolation, no daemon.",
+      },
+      {
+        id: "boxrun",
+        label: "BoxRun (remote micro-VM)",
+        description: "Talks to a remote BoxLite HTTP control plane — hardware isolation without local KVM.",
+      },
+      {
+        id: "daytona",
+        label: "Daytona",
+        description: "Daytona SaaS — a managed Linux VM per session.",
+      },
+      {
+        id: "e2b",
+        label: "E2B",
+        description: "E2B Firecracker microVM per session (~250ms cold from a warm pool).",
+      },
+      {
+        id: "k8s",
+        label: "Kubernetes",
+        description: "Pod provisioned via the kubernetes-sigs agent-sandbox controller.",
+      },
+    ],
+  }),
+);
+
 // Stubs for routes the console hits but main-node doesn't yet implement.
-v1.get("/environments", (c) => c.json({ data: [] }));
 v1.get("/runtimes", (c) => c.json({ data: [] }));
 v1.get("/skills", (c) => c.json({ data: [] }));
 v1.get("/model_cards", (c) => c.json({ data: [] }));
