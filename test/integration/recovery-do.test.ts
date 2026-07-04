@@ -123,6 +123,9 @@ async function ensureTurnIdColumnsForTest() {
     `ALTER TABLE sessions ADD COLUMN metadata TEXT`,
     `ALTER TABLE sessions ADD COLUMN archived_at INTEGER`,
     `ALTER TABLE sessions ADD COLUMN terminated_at INTEGER`,
+    `ALTER TABLE sessions ADD COLUMN stop_reason TEXT`,
+    `ALTER TABLE sessions ADD COLUMN tool_call_count INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE sessions ADD COLUMN message_count INTEGER NOT NULL DEFAULT 0`,
   ]) {
     try {
       await env.AUTH_DB.prepare(stmt).run();
