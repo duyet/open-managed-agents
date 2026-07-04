@@ -17,18 +17,25 @@
 #   Que (2): managed-agents-memory-events, managed-agents-memory-events-dlq
 #
 # Migrations (fresh deploy — do NOT run stamp-baseline-existing-deploy.sh):
-#   apps/main/migrations              → openma-auth  (tenant/auth schema)
-#   apps/main/migrations-router       → openma-auth  (tenant_shard / shard_pool /
-#                                                      memory_store_tenant)
+#   apps/main/migrations              → openma-auth  (tenant/auth schema, INCLUDING
+#                                                      tenant_shard / shard_pool /
+#                                                      memory_store_tenant — see
+#                                                      0001_router_tables.sql)
 #   apps/main/migrations-integrations → openma-integrations
 #
-# Why migrations-router lands on openma-auth (not a separate ROUTER_DB): even in
-# single-D1 mode, signup writes a tenant_shard row (apps/main/src/auth-config.ts)
-# and control-plane services (memory_store_tenant index) read via the
-# ROUTER_DB ?? MAIN_DB fallback — i.e. openma-auth here. The auth consolidated
-# migration no longer carries those tables, so they must be applied explicitly.
-# (Note: scripts/setup-cf.sh skips migrations-router for self-host, relying on a
-#  now-stale "carry-over" comment — self-host has the same latent gap. See PR.)
+# Why the router tables are in apps/main/migrations (not applied from
+# migrations-router/ separately): even in single-D1 mode, signup writes a
+# tenant_shard row (apps/main/src/auth-config.ts) and control-plane services
+# (memory_store_tenant index) read via the ROUTER_DB ?? MAIN_DB fallback — i.e.
+# openma-auth here. The tables used to exist ONLY in migrations-router/ (applied
+# to a real standalone ROUTER_DB in true multi-shard mode), which meant every
+# single-D1 deployment — self-host AND this launch — was missing them and every
+# signup would throw. Fixed at the schema level: packages/db-schema/src/cf-auth/
+# sharding.ts now mirrors packages/db-schema/src/cf-router/sharding.ts, and
+# `pnpm db:generate:cf-auth` emitted apps/main/migrations/0001_router_tables.sql
+# (byte-identical CREATE TABLE/INDEX statements to migrations-router's version).
+# `migrations-router/` is now applied ONLY when ROUTER_DB is a genuinely separate
+# D1 (real multi-shard mode, not this launch) — see operations.mdx.
 #
 # Usage
 # ─────
@@ -299,9 +306,9 @@ if [ "$SKIP_MIGRATIONS" = "0" ]; then
       | grep -E '(Applied|No migrations|already)' || true
   }
 
-  # Tenant/auth schema + control-plane routing tables → the single auth DB.
+  # Tenant/auth schema (now includes tenant_shard/shard_pool/memory_store_tenant
+  # via 0001_router_tables.sql — see header comment) → the single auth DB.
   apply_migrations "openma-auth"         "apps/main/migrations"
-  apply_migrations "openma-auth"         "apps/main/migrations-router"
   # Integration subsystem tables (linear_* / github_* / slack_*).
   apply_migrations "openma-integrations" "apps/main/migrations-integrations"
 else

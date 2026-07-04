@@ -252,10 +252,12 @@ apply_migrations "openma-auth"         "apps/main/migrations"
 apply_migrations "openma-integrations" "apps/main/migrations-integrations"
 # ROUTER_DB is the same physical DB as AUTH_DB in single-D1 mode (the
 # code falls back via env.ROUTER_DB ?? env.AUTH_DB). The router tables
-# (tenant_shard, shard_pool, memory_store_tenant) are also in the AUTH_DB
-# consolidated migration as a back-compat carry-over, so we don't apply
-# migrations-router/ in single-D1 mode. For multi-shard prod, the
-# operator runs `wrangler d1 migrations apply openma-router` separately.
+# (tenant_shard, shard_pool, memory_store_tenant) are created by
+# apps/main/migrations/0001_router_tables.sql — part of the regular
+# apps/main/migrations dir applied above, NOT a separate step — so we don't
+# apply migrations-router/ in single-D1 mode. For multi-shard prod, the
+# operator runs `wrangler d1 migrations apply openma-router` separately
+# against a genuinely standalone ROUTER_DB.
 
 # ── 4. set secrets ──────────────────────────────────────────────────────
 if [ "$SKIP_SECRETS" = "0" ]; then

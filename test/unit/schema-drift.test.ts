@@ -17,7 +17,7 @@
 // vitest pool.
 
 import { describe, it, expect } from "vitest";
-import cfAuthSnap from "../../apps/main/migrations/meta/0000_consolidated_snapshot.json";
+import cfAuthSnap from "../../apps/main/migrations/meta/0001_snapshot.json";
 import cfIntegrationsSnap from "../../apps/main/migrations-integrations/meta/0001_snapshot.json";
 import cfRouterSnap from "../../apps/main/migrations-router/meta/0001_snapshot.json";
 import nodePgSnap from "../../apps/main-node/migrations/meta/0000_consolidated_snapshot.json";
