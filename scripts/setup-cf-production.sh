@@ -9,25 +9,25 @@
 # script is the `--env production` sibling of setup-cf.sh: same idempotent
 # "check-before-create, patch IDs in place, deploy in order" pattern.
 #
-#   D1  (2): openma-auth          — all tenant + control-plane data
-#            openma-integrations  — linear/github/slack tables
+#   D1  (2): oma-auth          — all tenant + control-plane data
+#            oma-integrations  — linear/github/slack tables
 #   KV  (1): CONFIG_KV
 #   R2  (4): managed-agents-files, managed-agents-memory,
 #            managed-agents-workspace, managed-agents-backups
 #   Que (2): managed-agents-memory-events, managed-agents-memory-events-dlq
 #
 # Migrations (fresh deploy — do NOT run stamp-baseline-existing-deploy.sh):
-#   apps/main/migrations              → openma-auth  (tenant/auth schema, INCLUDING
+#   apps/main/migrations              → oma-auth  (tenant/auth schema, INCLUDING
 #                                                      tenant_shard / shard_pool /
 #                                                      memory_store_tenant — see
 #                                                      0001_router_tables.sql)
-#   apps/main/migrations-integrations → openma-integrations
+#   apps/main/migrations-integrations → oma-integrations
 #
 # Why the router tables are in apps/main/migrations (not applied from
 # migrations-router/ separately): even in single-D1 mode, signup writes a
 # tenant_shard row (apps/main/src/auth-config.ts) and control-plane services
 # (memory_store_tenant index) read via the ROUTER_DB ?? MAIN_DB fallback — i.e.
-# openma-auth here. The tables used to exist ONLY in migrations-router/ (applied
+# oma-auth here. The tables used to exist ONLY in migrations-router/ (applied
 # to a real standalone ROUTER_DB in true multi-shard mode), which meant every
 # single-D1 deployment — self-host AND this launch — was missing them and every
 # signup would throw. Fixed at the schema level: packages/db-schema/src/cf-auth/
@@ -249,8 +249,8 @@ create_queue() {
 }
 
 # D1 databases — create-or-lookup by name (single-D1 layout).
-AUTH_DB_ID=$(create_d1 "openma-auth");                 ok "D1 openma-auth         → $AUTH_DB_ID"
-INTEGRATIONS_DB_ID=$(create_d1 "openma-integrations"); ok "D1 openma-integrations → $INTEGRATIONS_DB_ID"
+AUTH_DB_ID=$(create_d1 "oma-auth");                 ok "D1 oma-auth         → $AUTH_DB_ID"
+INTEGRATIONS_DB_ID=$(create_d1 "oma-integrations"); ok "D1 oma-integrations → $INTEGRATIONS_DB_ID"
 
 # KV — the env.production overlays hardcode id EXPECTED_KV_ID. Verify it exists
 # in this account; only create + patch a new one if it's truly missing.
@@ -282,8 +282,8 @@ say "2. Patch env.production overlays with resolved resource ids"
 # D1 — patch by database_name across all three configs. Configs that don't bind
 # a given database (e.g. agent has no INTEGRATIONS_DB) are skipped harmlessly.
 for cfg in "$MAIN_CFG" "$AGENT_CFG" "$INTEGRATIONS_CFG"; do
-  patch_prod_id "$cfg" d1_databases database_name "openma-auth"         database_id "$AUTH_DB_ID"
-  patch_prod_id "$cfg" d1_databases database_name "openma-integrations" database_id "$INTEGRATIONS_DB_ID"
+  patch_prod_id "$cfg" d1_databases database_name "oma-auth"         database_id "$AUTH_DB_ID"
+  patch_prod_id "$cfg" d1_databases database_name "oma-integrations" database_id "$INTEGRATIONS_DB_ID"
 done
 
 # KV — main + agent bind CONFIG_KV.
@@ -318,9 +318,9 @@ if [ "$SKIP_MIGRATIONS" = "0" ]; then
 
   # Tenant/auth schema (now includes tenant_shard/shard_pool/memory_store_tenant
   # via 0001_router_tables.sql — see header comment) → the single auth DB.
-  apply_migrations "openma-auth"         "apps/main/migrations"
+  apply_migrations "oma-auth"         "apps/main/migrations"
   # Integration subsystem tables (linear_* / github_* / slack_*).
-  apply_migrations "openma-integrations" "apps/main/migrations-integrations"
+  apply_migrations "oma-integrations" "apps/main/migrations-integrations"
 else
   warn "3. Skipping migrations (--skip-migrations)"
 fi
@@ -494,5 +494,5 @@ Post-deploy checklist / known gaps:
 
   6. Single-D1 launch: no sharding. To scale out later, re-add ROUTER_DB +
      AUTH_DB_00..03 to the env.production overlays (git history / env.staging),
-     provision the shard DBs + openma-router, and migrate tenants.
+     provision the shard DBs + oma-router, and migrate tenants.
 EOF
