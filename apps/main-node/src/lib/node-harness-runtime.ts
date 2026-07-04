@@ -212,6 +212,7 @@ export class NodeHarnessRuntime implements HarnessRuntime {
     step?: number;
     total_steps?: number;
     detail?: string;
+    blocked_on?: string;
   }): void => {
     this.broadcast({ type: "agent.status", ...status } as unknown as SessionEvent);
   };

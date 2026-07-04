@@ -162,6 +162,7 @@ export interface HarnessRuntime {
     step?: number;
     total_steps?: number;
     detail?: string;
+    blocked_on?: string;
   }) => void;
   pendingConfirmations?: string[];
   abortSignal?: AbortSignal;

@@ -409,10 +409,16 @@ export interface AgentStatusEvent extends EventBase {
   summary: string;
   /** 1-indexed current step, when the harness tracks a bounded plan. */
   step?: number;
-  /** Total expected steps, when known. */
+  /** Total expected steps, when known. When emitted by the `long-running`
+   *  harness this carries the agent's `metadata.total_steps_estimate`. */
   total_steps?: number;
   /** Optional additional detail beyond `summary` (e.g. the command being run). */
   detail?: string;
+  /** What the agent is blocked on, when `state === "blocked"` (e.g.
+   *  "3 tool calls awaiting confirmation"). A structured "blocked on what"
+   *  signal for manager UIs. Emitted by the `long-running` harness; optional
+   *  so other emitters can omit it. */
+  blocked_on?: string;
 }
 
 export interface AgentToolUseEvent extends EventBase {
