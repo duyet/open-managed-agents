@@ -30,8 +30,8 @@ export interface InstallOptions {
 export interface InstallResult {
   kind: ServiceKind;
   /** Per-platform path the user can inspect:
-   *    - launchd  → ~/Library/LaunchAgents/dev.openma.bridge.plist
-   *    - systemd  → ~/.config/systemd/user/dev.openma.bridge.service
+   *    - launchd  → ~/Library/LaunchAgents/dev.oma.bridge.plist
+   *    - systemd  → ~/.config/systemd/user/dev.oma.bridge.service
    *    - windows  → %LOCALAPPDATA%/.../daemon.cmd shim path
    *    - unsupported → null */
   installedAt: string | null;

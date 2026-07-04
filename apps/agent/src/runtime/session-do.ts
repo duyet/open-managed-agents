@@ -3898,6 +3898,14 @@ export class SessionDO extends DurableObject<Env> {
     parentHistory: HistoryStore,
     sandbox: SandboxExecutor,
     parentThreadId: string = "sthr_primary",
+    // Fired once the thread is durably registered (threads table row +
+    // session.thread_created broadcast) — before the sub-agent harness
+    // actually runs. Lets delegateToAgentDetailed (tools.ts
+    // call_agents_parallel) capture this thread's id without changing
+    // this method's return contract (still plain response text, so the
+    // existing single-child delegateToAgent callers are untouched).
+    // Never fires if agent lookup fails (no thread was created).
+    onThreadStarted?: (threadId: string) => void,
   ): Promise<string> {
     // Generate a unique thread ID. Prefix `sthr_` matches AMA spec
     // (BetaManagedAgentsSessionThread.id is `sthr_*`); previous prefix
@@ -3994,6 +4002,7 @@ export class SessionDO extends DurableObject<Env> {
     } as SessionEvent;
     parentHistory.append(threadCreatedEvent);
     this.broadcastEvent(threadCreatedEvent);
+    onThreadStarted?.(threadId);
 
     // Create sub-agent's isolated history
     const subHistory = new InMemoryHistory();
@@ -4043,6 +4052,14 @@ export class SessionDO extends DurableObject<Env> {
         // Nested delegate: this sub-agent's threadId becomes the new
         // child's parent. Lineage chain matches what Console renders.
         return this.runSubAgent(nestedAgentId, nestedMessage, parentHistory, sandbox, threadId);
+      },
+      delegateToAgentDetailed: async (nestedAgentId: string, nestedMessage: string) => {
+        let nestedThreadId: string | undefined;
+        const text = await this.runSubAgent(
+          nestedAgentId, nestedMessage, parentHistory, sandbox, threadId,
+          (id) => { nestedThreadId = id; },
+        );
+        return { text, threadId: nestedThreadId };
       },
     });
     const subModelId = typeof subAgent.model === "string" ? subAgent.model : subAgent.model?.id;
@@ -4111,6 +4128,14 @@ export class SessionDO extends DurableObject<Env> {
           // Nested delegate inside the env block; see runtime block
           // above for the same lineage rule.
           return this.runSubAgent(nestedAgentId, nestedMessage, parentHistory, sandbox, threadId);
+        },
+        delegateToAgentDetailed: async (nestedAgentId: string, nestedMessage: string) => {
+          let nestedThreadId: string | undefined;
+          const text = await this.runSubAgent(
+            nestedAgentId, nestedMessage, parentHistory, sandbox, threadId,
+            (id) => { nestedThreadId = id; },
+          );
+          return { text, threadId: nestedThreadId };
         },
       },
       runtime: {
@@ -4303,6 +4328,14 @@ export class SessionDO extends DurableObject<Env> {
         // scope (declared at the top of the function) — closure evals
         // lazily at harness.run time, so TDZ isn't a concern.
         return this.runSubAgent(agentId, message, history, sandbox, turnThreadId);
+      },
+      delegateToAgentDetailed: async (agentId: string, message: string) => {
+        let childThreadId: string | undefined;
+        const text = await this.runSubAgent(
+          agentId, message, history, sandbox, turnThreadId,
+          (id) => { childThreadId = id; },
+        );
+        return { text, threadId: childThreadId };
       },
       watchBackgroundTask: (taskId: string, pid: string, outputFile: string, proc: ProcessHandle | null) => {
         this.watchBackgroundTask(taskId, pid, outputFile, proc, sandbox);
@@ -4563,6 +4596,14 @@ export class SessionDO extends DurableObject<Env> {
             }),
         delegateToAgent: async (agentId: string, message: string) => {
           return this.runSubAgent(agentId, message, history, sandbox, turnThreadId);
+        },
+        delegateToAgentDetailed: async (agentId: string, message: string) => {
+          let childThreadId: string | undefined;
+          const text = await this.runSubAgent(
+            agentId, message, history, sandbox, turnThreadId,
+            (id) => { childThreadId = id; },
+          );
+          return { text, threadId: childThreadId };
         },
         watchBackgroundTask: (taskId: string, pid: string, outputFile: string, proc: ProcessHandle | null) => {
           this.watchBackgroundTask(taskId, pid, outputFile, proc, sandbox);

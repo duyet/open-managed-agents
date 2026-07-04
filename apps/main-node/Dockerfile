@@ -3,12 +3,12 @@
 # Self-host OMA — Node-side single-process image.
 #
 # Build:
-#   docker build -f apps/main-node/Dockerfile -t openma/main-node:dev .
+#   docker build -f apps/main-node/Dockerfile -t oma/main-node:dev .
 # Run (standalone):
 #   docker run --rm -p 8787:8787 \
 #     -v $(pwd)/data:/app/data \
 #     -e ANTHROPIC_API_KEY=sk-... \
-#     openma/main-node:dev
+#     oma/main-node:dev
 # Run (compose): see docker-compose.yml at repo root.
 #
 # What's intentionally NOT here yet (Phase G+ work):

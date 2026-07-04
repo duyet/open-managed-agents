@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { ArchiveIcon, TrashIcon } from "lucide-react";
 import { useApi } from "../lib/api";
@@ -29,11 +29,50 @@ const STATUS_OPTIONS: { value: StatusValue; label: string }[] = [
   { value: "archived", label: "Archived" },
 ];
 
+interface HostingType {
+  id: string;
+  label: string;
+  description?: string;
+}
+
+// Fallback when the host doesn't expose /v1/hosting_types (e.g. the
+// Cloudflare host, which only supports the managed "cloud" sandbox). Keeps
+// the picker showing a single, immutable "Cloud" option — the historical
+// behavior — so nothing regresses there.
+const CLOUD_ONLY: HostingType[] = [
+  { id: "cloud", label: "Cloud", description: "Managed sandbox." },
+];
+
 export function EnvironmentsList() {
   const { api } = useApi();
   const nav = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "" });
+  const [form, setForm] = useState({ name: "", description: "", type: "cloud" });
+
+  // Hosting types are host-dependent: self-hosted (main-node) advertises the
+  // full sandbox-provider list at /v1/hosting_types; the Cloudflare host has
+  // no such route (404) → we fall back to cloud-only. This is the feature
+  // gate that keeps non-cloud options from appearing on a host that would
+  // silently ignore them.
+  const [hostingTypes, setHostingTypes] = useState<HostingType[]>(CLOUD_ONLY);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api<{ data: HostingType[] }>("/v1/hosting_types");
+        if (!cancelled && Array.isArray(res.data) && res.data.length > 0) {
+          setHostingTypes(res.data);
+        }
+      } catch {
+        // 404 on the CF host (or any failure) → keep cloud-only.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
+
+  const selectedType = hostingTypes.find((t) => t.id === form.type) ?? hostingTypes[0];
 
   // Server-driven filter state. Each piece flows into envsParams below
   // → useInfiniteApiQuery resets to page 1 on params change → the list
@@ -68,9 +107,9 @@ export function EnvironmentsList() {
   const create = async () => {
     await api("/v1/environments", {
       method: "POST",
-      body: JSON.stringify({ name: form.name, config: { type: "cloud" }, description: form.description || undefined }),
+      body: JSON.stringify({ name: form.name, config: { type: form.type }, description: form.description || undefined }),
     });
-    setShowCreate(false); setForm({ name: "", description: "" }); load();
+    setShowCreate(false); setForm({ name: "", description: "", type: "cloud" }); load();
   };
 
   // TanStack column defs. Order, filtering, and search all flow through
@@ -264,9 +303,20 @@ export function EnvironmentsList() {
           </div>
           <div>
             <span className="text-sm text-fg-muted block mb-1">Hosting Type</span>
-            <Select value="cloud" onValueChange={() => {}} disabled>
-              <SelectOption value="cloud">Cloud</SelectOption>
+            <Select
+              value={form.type}
+              onValueChange={(v) => setForm({ ...form, type: v })}
+              disabled={hostingTypes.length <= 1}
+            >
+              {hostingTypes.map((t) => (
+                <SelectOption key={t.id} value={t.id}>
+                  {t.label}
+                </SelectOption>
+              ))}
             </Select>
+            {selectedType?.description && (
+              <p className="text-xs text-fg-subtle mt-1">{selectedType.description}</p>
+            )}
             <p className="text-xs text-fg-subtle mt-1">This cannot be changed after creation.</p>
           </div>
           <div>

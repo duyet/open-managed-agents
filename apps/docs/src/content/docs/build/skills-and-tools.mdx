@@ -29,7 +29,7 @@ The `agent_toolset_20260401` toolset ships with: `bash`, `read`, `write`, `edit`
 }
 ```
 
-`web_fetch` and `web_search` route through openma's outbound proxy, so they work without the sandbox having direct internet access.
+`web_fetch` and `web_search` route through oma's outbound proxy, so they work without the sandbox having direct internet access.
 
 ## Custom tools
 
@@ -145,7 +145,7 @@ Four ship out of the box (`type: "anthropic"`): `xlsx`, `pdf`, `docx`, `pptx`. R
 
 ## MCP servers
 
-Connect any [Model Context Protocol](https://modelcontextprotocol.io) server and openma auto-generates an `mcp__<server>__<tool>` (double underscore) for every capability the server exposes.
+Connect any [Model Context Protocol](https://modelcontextprotocol.io) server and oma auto-generates an `mcp__<server>__<tool>` (double underscore) for every capability the server exposes.
 
 ```json
 {

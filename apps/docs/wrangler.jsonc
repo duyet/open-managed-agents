@@ -1,6 +1,6 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "openma-docs",
+  "name": "oma-docs",
   "compatibility_date": "2025-04-01",
 
   // Keep the *.workers.dev URL alive alongside the custom domain — useful
@@ -24,7 +24,7 @@
 
   "env": {
     "staging": {
-      "name": "openma-docs-staging",
+      "name": "oma-docs-staging",
       "routes": [
         { "pattern": "docs.staging.oma.duyet.net", "custom_domain": true }
       ],

@@ -237,6 +237,8 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
         enable_general_subagent: (body as { enable_general_subagent?: boolean })
           .enable_general_subagent,
         notify: body.notify,
+        max_parallel_subagents: (body as { max_parallel_subagents?: number })
+          .max_parallel_subagents,
       },
     });
     return c.json(toApiAgent(row), 201);
@@ -453,6 +455,8 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
           enable_general_subagent: (body as { enable_general_subagent?: boolean })
             .enable_general_subagent,
           notify: body.notify,
+          max_parallel_subagents: (body as { max_parallel_subagents?: number | null })
+            .max_parallel_subagents,
         },
       });
       return c.json(toApiAgent(row));

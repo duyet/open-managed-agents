@@ -5,7 +5,7 @@ description: Publish your agent into Linear, GitHub, or Slack from the Console �
 
 import { Tabs, TabItem, Steps, Aside, LinkCard } from '@astrojs/starlight/components';
 
-Integrations let your agent live where your users already are. openma ships three out of the box; each follows the same shape: **install the app**, **grant scopes**, **publish an agent**.
+Integrations let your agent live where your users already are. oma ships three out of the box; each follows the same shape: **install the app**, **grant scopes**, **publish an agent**.
 
 This page is for the **hosted product**. If you self-host, the OAuth apps are yours to register — see [Self-host → OAuth Apps](/self-host/oauth-apps/).
 
@@ -13,7 +13,7 @@ This page is for the **hosted product**. If you self-host, the OAuth apps are yo
 
 For every connected workspace, the platform stores OAuth credentials in a Vault, listens to the platform's webhooks, and exposes a set of MCP tools to the agent. When a triggering event happens (a Linear issue is assigned to your agent, a Slack `@mention`, a GitHub PR comment), the platform creates a new session and dispatches it.
 
-Webhooks are signed by the platform; openma verifies them. Outbound calls back to the third-party use the OAuth token — never exposed to the model directly.
+Webhooks are signed by the platform; oma verifies them. Outbound calls back to the third-party use the OAuth token — never exposed to the model directly.
 
 ## Connect Linear
 
@@ -23,7 +23,7 @@ Webhooks are signed by the platform; openma verifies them. Outbound calls back t
 <Steps>
 
 1. **Integrations → Linear → Install**.
-2. Authorize openma in the Linear OAuth screen (you must be a Linear workspace admin).
+2. Authorize oma in the Linear OAuth screen (you must be a Linear workspace admin).
 3. Pick which agent serves this workspace.
 4. Choose capabilities: comment on issues, change status, create issues, etc.
 
@@ -133,7 +133,7 @@ Slack installs are **per-agent dedicated Slack Apps** — each publication owns 
   </TabItem>
   <TabItem label="Self-host">
 
-The publication-first install flow is the same — you point the wizard at your self-host gateway. The wizard's Step 2 manifest links to `api.slack.com/apps` regardless of where openma is running (Slack's app config is always on Slack's side). See [Self-host → OAuth Apps → Slack](/self-host/oauth-apps/#slack) for the manifest-flow caveats.
+The publication-first install flow is the same — you point the wizard at your self-host gateway. The wizard's Step 2 manifest links to `api.slack.com/apps` regardless of where oma is running (Slack's app config is always on Slack's side). See [Self-host → OAuth Apps → Slack](/self-host/oauth-apps/#slack) for the manifest-flow caveats.
 
   </TabItem>
 </Tabs>
@@ -182,7 +182,7 @@ Each integration lets you scope what the agent can do. These are enforced at the
 
 ## Generic MCP
 
-Beyond the three shipped integrations, any MCP-compatible server works. Add it on the **Agent → MCP servers** field; openma generates `mcp__<server>__<tool>` (double underscore) for each capability the server exposes.
+Beyond the three shipped integrations, any MCP-compatible server works. Add it on the **Agent → MCP servers** field; oma generates `mcp__<server>__<tool>` (double underscore) for each capability the server exposes.
 
 ## Where to go next
 

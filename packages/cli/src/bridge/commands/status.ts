@@ -6,8 +6,8 @@
  * or `launchctl list` parsing). Status is "do you have a creds file" +
  * "does the server still know about you" — for "is the daemon process
  * actually running" the user can check `launchctl list | grep oma`
- * (macOS), `systemctl --user status dev.openma.bridge` (Linux),
- * `schtasks /query /tn dev.openma.bridge` (Windows), or look at the logs.
+ * (macOS), `systemctl --user status dev.oma.bridge` (Linux),
+ * `schtasks /query /tn dev.oma.bridge` (Windows), or look at the logs.
  */
 
 import { readCreds } from "../lib/config.js";

@@ -1,4 +1,4 @@
-# apps/web — openma marketing + blog
+# apps/web — oma marketing + blog
 
 Astro 5 static site. Lives at **oma.duyet.net** (apex `oma.duyet.net` is
 currently the Console SPA on the main worker; merging this site with
@@ -54,7 +54,7 @@ pnpm --filter @duyet/oma-web deploy
    title: "Post title"
    description: "One-sentence description (max 280 chars)"
    publishedAt: 2026-05-08
-   author: openma                # optional, defaults to "openma"
+   author: oma                    # optional, defaults to "oma"
    tags: ["intro", "byok"]       # optional
    draft: true                   # optional, hides from /blog index
    ---

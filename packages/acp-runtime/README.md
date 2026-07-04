@@ -9,7 +9,7 @@ The protocol layer is delegated to [`@agentclientprotocol/sdk`](https://github.c
 Two unrelated systems in this monorepo need the same capability:
 
 1. **clash-bridge** (clash repo) — runs locally on a user's machine, spawns an ACP agent for the user's BYO chat session, relays JSON-RPC over a reverse WebSocket back to clash's web UI.
-2. **openma session DO** — spawns an ACP agent (e.g. Claude Code) inside its sandbox container and uses the agent's reasoning loop in place of openma's own default loop. Lets openma "outsource" agent runtime to a battle-tested implementation.
+2. **oma session DO** — spawns an ACP agent (e.g. Claude Code) inside its sandbox container and uses the agent's reasoning loop in place of oma's own default loop. Lets oma "outsource" agent runtime to a battle-tested implementation.
 
 Both want: `spec → live process → typed conversation → clean shutdown`. This package is that.
 
@@ -45,7 +45,7 @@ Both want: `spec → live process → typed conversation → clean shutdown`. Th
               ┌──────────────┴───────────────┐
               ▼                              ▼
      NodeSpawner                    CfSandboxSpawner
-     (clash-bridge,                 (openma session DO,
+     (clash-bridge,                 (oma session DO,
       desktop, dev)                  multi-tenant cloud)
 ```
 
@@ -62,7 +62,7 @@ src/
   registry.ts         KNOWN_ACP_AGENTS catalog + detect()
   spawners/
     node.ts           NodeSpawner — child_process.spawn
-    cf-sandbox.ts     CfSandboxSpawner — adapts openma's sandbox.exec
+    cf-sandbox.ts     CfSandboxSpawner — adapts oma's sandbox.exec
     types.ts          (re-export of Spawner from ../types)
 ```
 
@@ -98,13 +98,13 @@ for await (const event of session.prompt(userMessage)) {
 }
 ```
 
-### openma session DO (cloud)
+### oma session DO (cloud)
 
 ```ts
 import { AcpRuntime } from "@duyet/oma-acp-runtime";
 import { CfSandboxSpawner } from "@duyet/oma-acp-runtime/cf-sandbox";
 
-// Inside SessionDO, where `this.sandbox` is the existing openma sandbox handle.
+// Inside SessionDO, where `this.sandbox` is the existing oma sandbox handle.
 const runtime = new AcpRuntime(new CfSandboxSpawner(this.sandbox));
 
 const session = await runtime.start({
@@ -127,10 +127,10 @@ for await (const event of session.prompt(userMessage)) {
 
 - **Tool-result return path under restart**: if a child crashes between `tools/request` and `provideToolResult`, the new child has no memory of the request. ACP itself doesn't support "resume mid-tool" — caller will need to surface this as a turn failure. Considering an explicit `restartLost` event so the host can handle gracefully.
 - **stderr discipline**: `CfSandboxSpawner` currently merges stderr into the container log stream rather than exposing it. `NodeSpawner` exposes it directly. Sufficient for now but means downstream tooling that reads `stderr` for diagnostics behaves differently per host.
-- **Multiple in-flight prompts**: ACP allows it; we currently serialize per session. Revisit once openma sub-agent multiplex needs it.
+- **Multiple in-flight prompts**: ACP allows it; we currently serialize per session. Revisit once oma sub-agent multiplex needs it.
 
 ## Non-goals
 
 - **Implementing the ACP protocol itself.** Use [`@agentclientprotocol/sdk`](https://github.com/agentclientprotocol/typescript-sdk) directly if you don't need the spawner / lifecycle layer. We track its version closely.
-- **Discovery of remote ACP servers.** This package is for local subprocess agents. Remote ACP-over-HTTP is a separate concern (clash uses CF Worker reverse-relay; openma uses HTTPS calls — neither fits in a "spawn a process" abstraction).
-- **Pairing / auth.** clash-bridge handles its own pairing token flow because it's clash-product-specific. openma uses its existing vault. Both are above this layer.
+- **Discovery of remote ACP servers.** This package is for local subprocess agents. Remote ACP-over-HTTP is a separate concern (clash uses CF Worker reverse-relay; oma uses HTTPS calls — neither fits in a "spawn a process" abstraction).
+- **Pairing / auth.** clash-bridge handles its own pairing token flow because it's clash-product-specific. oma uses its existing vault. Both are above this layer.

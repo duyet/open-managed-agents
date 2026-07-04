@@ -8,6 +8,13 @@
       "when": 1779351194565,
       "tag": "0000_consolidated",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1783151047680,
+      "tag": "0001_router_tables",
+      "breakpoints": true
     }
   ]
 }

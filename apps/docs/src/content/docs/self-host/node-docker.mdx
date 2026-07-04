@@ -1,11 +1,11 @@
 ---
 title: Node + Docker (no Cloudflare)
-description: Run openma as a single Node process or docker compose stack — no Cloudflare account, no Workers, no Durable Objects, no Containers. SQLite or Postgres backend, local or remote sandbox.
+description: Run oma as a single Node process or docker compose stack — no Cloudflare account, no Workers, no Durable Objects, no Containers. SQLite or Postgres backend, local or remote sandbox.
 ---
 
 import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
 
-If you want openma without a Cloudflare account — on a VPS, your laptop,
+If you want oma without a Cloudflare account — on a VPS, your laptop,
 fly.io, your k8s cluster, or anywhere else that runs Linux/macOS — this
 is the path. **Same code.** The harness, the event log, the recovery
 logic, the API, the Console UI: identical to the Cloudflare deploy.
@@ -27,7 +27,7 @@ Only the I/O bindings change.
 | Backups | `cp ./data/*.db` or [litestream](https://litestream.io) → S3 | `pg_dump` / managed PG snapshots |
 | Extra services | None | + `postgres:16-alpine` (or external PG) |
 
-**Same `openma/main-node:dev` image either way** — `DATABASE_URL` env at
+**Same `oma/main-node:dev` image either way** — `DATABASE_URL` env at
 runtime decides. SQLite needs only `DATABASE_PATH`; Postgres needs
 `DATABASE_URL=postgres://...`. better-auth's small `auth.db` stays SQLite
 on both backends regardless.

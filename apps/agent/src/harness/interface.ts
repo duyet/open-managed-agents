@@ -162,6 +162,7 @@ export interface HarnessRuntime {
     step?: number;
     total_steps?: number;
     detail?: string;
+    blocked_on?: string;
   }) => void;
   pendingConfirmations?: string[];
   abortSignal?: AbortSignal;
@@ -255,6 +256,11 @@ export interface HarnessContext {
     OMA_MAX_OUTPUT_TOKENS?: string;
     TAVILY_API_KEY?: string;
     delegateToAgent?: (agentId: string, message: string) => Promise<string>;
+    /** Same delegation path as `delegateToAgent`, but also resolves the
+     *  child's `session_thread_id` — used by the `call_agents_parallel`
+     *  tool (buildTools) to surface per-child thread ids in its
+     *  aggregated result. See tools.ts for the fallback when unset. */
+    delegateToAgentDetailed?: (agentId: string, message: string) => Promise<{ text: string; threadId?: string }>;
     CONFIG_KV?: KVNamespace;
     memoryStoreIds?: string[];
     environmentConfig?: { networking?: { type: string; allowed_hosts?: string[] } };

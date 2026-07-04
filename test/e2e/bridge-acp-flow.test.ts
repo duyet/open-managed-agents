@@ -2,7 +2,7 @@
  * End-to-end bridge / ACP-agents test against prod oma.duyet.net.
  *
  * Validates the full CLI-first flow for OMA's local-runtime story:
- *   `oma bridge daemon` (already attached) → openma relay → ACP child → reply
+ *   `oma bridge daemon` (already attached) → oma relay → ACP child → reply
  *
  * Covers the changes from this branch:
  *   - 6-agent registry (claude / codex / gemini / opencode / hermes / openclaw)
@@ -64,7 +64,7 @@ const BRIDGE_ROOT = join(homedir(), `.oma/bridge${DIR_SUFFIX}`);
 const CREDS = join(BRIDGE_ROOT, "credentials.json");
 const DAEMON_LOG = join(BRIDGE_ROOT, "logs", "bridge.log");
 const SESSIONS_ROOT = join(BRIDGE_ROOT, "sessions");
-const PLIST = join(homedir(), "Library/LaunchAgents", `dev.openma.bridge${LABEL_SUFFIX}.plist`);
+const PLIST = join(homedir(), "Library/LaunchAgents", `dev.oma.bridge${LABEL_SUFFIX}.plist`);
 const NPM_BIN_DIR = "$HOME/.nvm/versions/node/v24.14.0/bin";
 
 let RUNTIME_ID = "";
@@ -277,7 +277,7 @@ test("registry: daemon reports core ACP agents from merged (official + overlay) 
   }
 });
 
-test("chat: claude-acp round-trip via openma relay", async () => {
+test("chat: claude-acp round-trip via oma relay", async () => {
   const agent = await createAgent(`e2e-claude-${Date.now()}`, "claude-acp");
   const session = await createSession(agent, "e2e-claude");
   const reply = await chat(session, "Reply with PONG.", 60_000);
@@ -389,7 +389,7 @@ test("concurrency: two sessions on one agent run in parallel without cross-talk"
 });
 
 test("session reusability after client-side abort", async () => {
-  // Honest scope: prod's openma relay does NOT yet expose a "cancel turn"
+  // Honest scope: prod's oma relay does NOT yet expose a "cancel turn"
   // verb to the daemon — killing the CLI client only drops the SSE/WS
   // readback, the daemon-side ACP child keeps streaming until the model
   // finishes. We verify only that the same session is reusable for a

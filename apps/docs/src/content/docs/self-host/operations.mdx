@@ -58,7 +58,7 @@ Workers metrics (requests, CPU time, errors) are in the Cloudflare dashboard per
 
 ## Multi-tenancy
 
-By default, openma is **multi-tenant on a single D1**. Every user gets a `tenant_id` row; every query is scoped by it. Adequate for most teams.
+By default, oma is **multi-tenant on a single D1**. Every user gets a `tenant_id` row; every query is scoped by it. Adequate for most teams.
 
 The codebase has two distinct mechanisms for stricter isolation; they solve different problems:
 
@@ -77,20 +77,22 @@ See `packages/storage/README.md` for the full config schema. This is independent
 
 If your deployment outgrows a single D1 (D1 has a 10 GB / 50K-row limits per database), you can fan out across N MAIN_DB shards. The shard router lives in `ROUTER_DB`; per-tenant data lands on whichever shard `tenant_shard` says owns the tenant.
 
-Activation is config-only — the wrangler files ship with `env.production` overlays that bind 4 sharded auth DBs (used by oma.duyet.net's hosted prod). To enable for your own deployment:
+Activation is config-only, but **not pre-wired**: `env.production`'s `d1_databases` today bind only `MAIN_DB` + `INTEGRATIONS_DB` (single-D1 — oma.duyet.net launched this way since sharding is premature with zero users). To enable sharding for your own deployment, you re-add the `ROUTER_DB`/`AUTH_DB_00..03` bindings yourself:
 
-1. Provision the additional D1s: `wrangler d1 create openma-router`, `wrangler d1 create openma-auth-shard-01..03`
-2. Patch the IDs into `env.production` blocks of `apps/{main,agent,integrations}/wrangler.jsonc` (replacing oma.duyet.net's IDs)
-3. Apply migrations to each shard:
+1. Provision the additional D1s: `wrangler d1 create oma-router`, `wrangler d1 create oma-auth-shard-01..03`
+2. Add `ROUTER_DB`/`AUTH_DB_00..03` entries (with the new ids) to the `env.production.d1_databases` array in `apps/{main,agent,integrations}/wrangler.jsonc`. Give the `ROUTER_DB` entry a `"migrations_dir": "migrations-router"` field — `wrangler d1 migrations apply` has no `--migrations-dir` CLI flag; the directory comes only from the matching `d1_databases` entry's own `migrations_dir` field (defaults to `./migrations`, relative to the config file, when unset).
+3. Apply migrations to each shard (`--env production` selects the overlay you just edited):
    ```bash
-   wrangler d1 migrations apply openma-auth-shard-01 --remote --config apps/main/wrangler.jsonc
-   wrangler d1 migrations apply openma-auth-shard-02 --remote --config apps/main/wrangler.jsonc
-   wrangler d1 migrations apply openma-auth-shard-03 --remote --config apps/main/wrangler.jsonc
-   wrangler d1 migrations apply openma-router        --remote --config apps/main/wrangler.jsonc
+   wrangler d1 migrations apply oma-auth-shard-01 --remote --config apps/main/wrangler.jsonc --env production
+   wrangler d1 migrations apply oma-auth-shard-02 --remote --config apps/main/wrangler.jsonc --env production
+   wrangler d1 migrations apply oma-auth-shard-03 --remote --config apps/main/wrangler.jsonc --env production
+   # oma-router needs the router tables (tenant_shard/shard_pool/memory_store_tenant),
+   # which live only in migrations-router/ — resolved via that entry's migrations_dir above.
+   wrangler d1 migrations apply oma-router --remote --config apps/main/wrangler.jsonc --env production
    ```
 4. Seed the shard pool:
    ```bash
-   wrangler d1 execute openma-router --remote --command \
+   wrangler d1 execute oma-router --remote --command \
      "INSERT INTO shard_pool (binding_name, status, tenant_count) VALUES \
       ('AUTH_DB_00', 'open', 0), \
       ('AUTH_DB_01', 'open', 0), \
@@ -120,8 +122,8 @@ Pull `main`, install, redeploy:
 ```bash
 git pull
 pnpm install
-npx wrangler d1 migrations apply openma-auth         --remote --config apps/main/wrangler.jsonc
-npx wrangler d1 migrations apply openma-integrations --remote --config apps/main/wrangler.jsonc
+npx wrangler d1 migrations apply oma-auth         --remote --config apps/main/wrangler.jsonc
+npx wrangler d1 migrations apply oma-integrations --remote --config apps/main/wrangler.jsonc
 npx wrangler deploy --config apps/main/wrangler.jsonc
 npx wrangler deploy --config apps/agent/wrangler.jsonc
 npx wrangler deploy --config apps/integrations/wrangler.jsonc
@@ -146,7 +148,7 @@ The historical migration files are kept under `apps/main/migrations/_archive/` (
 
 ## Sandbox isolation
 
-Every session gets its own Cloudflare Container instance via the `SANDBOX` Durable Object class. Sessions never share container state. The container's outbound network goes through openma's egress proxy; secrets (Vault entries) are injected per-host so the model never sees raw credentials.
+Every session gets its own Cloudflare Container instance via the `SANDBOX` Durable Object class. Sessions never share container state. The container's outbound network goes through oma's egress proxy; secrets (Vault entries) are injected per-host so the model never sees raw credentials.
 
 If you want to restrict outbound destinations, edit `apps/agent/src/sandbox/proxy.ts` to add allowlist rules.
 
@@ -162,7 +164,7 @@ This bites self-hosters using `curl` from automation against `*.oma.duyet.net` d
 
 ### "Migration failed" on first deploy
 
-Make sure you ran `wrangler d1 migrations apply openma-auth --remote` before `pnpm deploy`. The deploy script doesn't re-apply migrations.
+Make sure you ran `wrangler d1 migrations apply oma-auth --remote` before `pnpm deploy`. The deploy script doesn't re-apply migrations.
 
 ### Container fails to start
 

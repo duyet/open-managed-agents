@@ -647,7 +647,7 @@ app.get("/callback", async (c) => {
   // Two transports because COOP can sever window.opener:
   //   1. window.opener.postMessage — works when the OAuth provider doesn't
   //      set Cross-Origin-Opener-Policy headers (Linear, Notion, Airtable).
-  //   2. BroadcastChannel("openma-oauth") — survives COOP severance because
+  //   2. BroadcastChannel("oma-oauth") — survives COOP severance because
   //      it uses same-origin browser bus, not the popup→parent reference.
   //      Required for Sentry (COOP: same-origin), GitHub etc., effectively
   //      anything large enough to set COOP defensively. Both popup and
@@ -677,7 +677,7 @@ app.get("/callback", async (c) => {
           }
         } catch (e) {}
         try {
-          var bc = new BroadcastChannel("openma-oauth");
+          var bc = new BroadcastChannel("oma-oauth");
           bc.postMessage(msg);
           bc.close();
           notified = true;

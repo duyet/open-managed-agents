@@ -226,7 +226,7 @@ async function apiFetch<T = unknown>(config: Config, path: string, init?: Reques
       // gets rejected by Cloudflare's bot fight rules on api.oma.duyet.net with
       // a 1010 ban; a Mozilla-style UA passes the integrity check while
       // still naming the actual client and product page for log readers.
-      "user-agent": "Mozilla/5.0 (compatible; OpenManagedAgents-CLI/0.1; +https://oma.duyet.net)",
+      "user-agent": "Mozilla/5.0 (compatible; OMA-CLI/0.1; +https://oma.duyet.net)",
       ...init?.headers,
     },
   });
@@ -260,7 +260,7 @@ async function rawStream(
     ...init,
     headers: {
       "x-api-key": config.apiKey,
-      "user-agent": "Mozilla/5.0 (compatible; OpenManagedAgents-CLI/0.1; +https://oma.duyet.net)",
+      "user-agent": "Mozilla/5.0 (compatible; OMA-CLI/0.1; +https://oma.duyet.net)",
       ...init?.headers,
     },
   });

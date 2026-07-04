@@ -131,11 +131,16 @@ A **vault** is a secure credential store. Credentials in vaults are **never expo
 | `mcp_servers` | array | No | External MCP server connections |
 | `skills` | array | No | Skill references to mount into the sandbox |
 | `callable_agents` | array | No | Other agents this agent can delegate to |
+| `max_parallel_subagents` | number | No | Concurrency cap for `call_agents_parallel` (default 5, hard ceiling 10) |
 | `model_card_id` | string | No | Reference to a model card for custom provider config |
 | `aux_model` | string or object | No | Auxiliary model used by tools for in-process LLM work (e.g. `web_fetch` page summarization). Same shape as `model`. When unset, tools that would benefit from summarization fall back to returning raw content. |
 | `aux_model_card_id` | string | No | Companion to `aux_model` — explicit model card binding when needed |
 | `harness` | string | No | Harness implementation to use (default: `"default"`) |
 | `metadata` | object | No | Arbitrary key-value metadata |
+
+See [`examples/`](examples/) for copy-paste-ready agent and environment
+configs (coding assistant, data analyst, research agent, plus full harness
+demos with pre-built Docker images).
 
 ---
 
@@ -215,7 +220,8 @@ These tools are automatically generated based on session configuration:
 
 | Tool | Generated When | Purpose |
 |---|---|---|
-| `call_agent_*` | `callable_agents` configured | Delegate work to another agent |
+| `call_agent_*` | `callable_agents` configured | Delegate work to another agent (one at a time, blocks until idle) |
+| `call_agents_parallel` | `callable_agents` configured | Fan out to multiple sub-agents concurrently and aggregate their results |
 | `mcp_*` | `mcp_servers` configured | Call MCP server tools |
 
 (Memory stores do **not** generate bespoke tools. Each attached store is
@@ -273,6 +279,7 @@ Sessions communicate through a typed event log. Events fall into four categories
 | `agent.custom_tool_use` | Agent calls a custom tool (pauses session) |
 | `agent.mcp_tool_use` | Agent calls an MCP server tool |
 | `agent.mcp_tool_result` | Result from an MCP tool |
+| `agent.status` | Structured progress heartbeat (`state`, `summary`, `step`, `total_steps`, `blocked_on`) for long-running work. OMA extension — purely observational, excluded from model context. Emitted per model turn by `default`, and on a fixed cadence by the `long-running` harness. |
 
 **Session events** (lifecycle signals):
 
@@ -408,7 +415,7 @@ curl -s $BASE/v1/vaults/$VAULT_ID/credentials \
 |---|---|---|
 | `static_bearer` | API tokens (GitHub, etc.) | `Authorization: Bearer` header on matching URLs |
 | `mcp_oauth` | OAuth-authenticated MCP servers | Token refresh + injection via outbound proxy |
-| `command_secret` | CLI tools (wrangler, aws) | Environment variable injection for matching commands |
+| `cap_cli` | CLI tools (gh, aws, kubectl, wrangler, ...) | `Authorization` header injected at the outbound-proxy/network layer for a registered CLI's endpoints (`cap.builtinSpecs`), matched by `cli_id` — replaces the older `command_secret` type, which injected tokens straight into the subprocess env (leaky) |
 
 ### How It Works
 
@@ -505,6 +512,47 @@ This generates a `call_agent_researcher` tool. When invoked, the platform:
 2. Forwards the message
 3. Waits for the child to reach `idle`
 4. Returns the child's response to the parent
+
+### Parallel Delegation
+
+`call_agent_*` tools run one child at a time — the parent blocks until each
+child reaches `idle` before the next call can start. When an agent has 1+
+entries in `callable_agents`, the platform also generates a
+`call_agents_parallel` tool that fans out to several children **concurrently**
+(even to the same sub-agent id, called multiple times) and aggregates their
+results:
+
+```json
+{
+  "calls": [
+    { "agent_id": "agent_researcher", "message": "Research topic A" },
+    { "agent_id": "agent_researcher", "message": "Research topic B" },
+    { "agent_id": "agent_writer", "message": "Draft an outline for topic C" }
+  ]
+}
+```
+
+Returns one result per call, each carrying its own status so a single failing
+child doesn't lose the others' results:
+
+```json
+{
+  "results": [
+    { "agent_id": "agent_researcher", "success": true, "response": "...", "thread_id": "sthr_..." },
+    { "agent_id": "agent_researcher", "success": true, "response": "...", "thread_id": "sthr_..." },
+    { "agent_id": "agent_writer", "success": false, "error": "Sub-agent error: ..." }
+  ]
+}
+```
+
+- `thread_id` is the child's `session_thread_id` (same id emitted on
+  `session.thread_created`) — use it to deep-link into that child's event log.
+- Concurrency is capped — default 5 in-flight children at once, hard ceiling
+  10 regardless of config. Requests beyond the cap queue in waves rather than
+  being rejected. Lower (or raise, up to the ceiling) the default via the
+  agent's `max_parallel_subagents` field.
+- A call targeting an `agent_id` not in the agent's `callable_agents` roster
+  fails just that entry (`success: false`) without aborting the batch.
 
 ---
 

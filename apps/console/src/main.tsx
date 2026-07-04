@@ -25,6 +25,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { AgentsList } from "./pages/AgentsList";
 import { AgentDetail } from "./pages/AgentDetail";
 import { SessionsList } from "./pages/SessionsList";
+import { KanbanBoard } from "./pages/KanbanBoard";
 import { FilesList } from "./pages/FilesList";
 import { EnvironmentsList } from "./pages/EnvironmentsList";
 import { EnvironmentDetail } from "./pages/EnvironmentDetail";
@@ -114,6 +115,7 @@ const protectedRoutes: RouteObject[] = [
     ],
   },
   { path: "files", element: <FilesList />, handle: { crumb: "Files" } },
+  { path: "kanban", element: <KanbanBoard />, handle: { crumb: "Kanban Board" } },
   {
     path: "evals",
     handle: { crumb: "Eval Runs" },

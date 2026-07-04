@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
 /**
- * E2E test for openma console.
+ * E2E test for oma console.
  *
  * Prerequisites:
  *   - wrangler dev running on :8787 (backend)

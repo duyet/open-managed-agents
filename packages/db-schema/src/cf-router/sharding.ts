@@ -8,9 +8,9 @@
 // (the squashed baseline; pre-squash sources are in _archive/).
 //
 // Single-D1 self-host deployments do NOT bind ROUTER_DB at all —
-// env.ROUTER_DB falls back to env.MAIN_DB and these tables sit
-// (harmlessly) inside the MAIN_DB file. Drift CI still validates
-// the schema regardless.
+// env.ROUTER_DB falls back to env.MAIN_DB, so these tables are ALSO modeled
+// (identically) in packages/db-schema/src/cf-auth/sharding.ts and applied via
+// apps/main/migrations/0001_router_tables.sql — keep both copies in sync.
 
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 

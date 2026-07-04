@@ -1,16 +1,16 @@
 ---
-name: openma
+name: oma
 description: >
-  Use the openma platform to build, deploy, and manage AI agents. Trigger when
+  Use the oma platform to build, deploy, and manage AI agents. Trigger when
   users want to create agents, start sessions, manage environments, configure
   model cards, handle vaults/credentials, install skills, connect MCP servers,
-  or interact with the openma HTTP API. Also trigger when users mention "oma",
-  "openma", "managed agents", or ask how to deploy/run/manage an agent on openma.
+  or interact with the oma HTTP API. Also trigger when users mention "oma",
+  "openma", "managed agents", or ask how to deploy/run/manage an agent on oma.
 ---
 
-# openma
+# oma
 
-openma is an open-source platform for building, deploying, and managing AI agents.
+oma is an open-source platform for building, deploying, and managing AI agents.
 You define an agent (model + system prompt + tools), the platform handles sandboxed
 execution, credential management, and session state.
 

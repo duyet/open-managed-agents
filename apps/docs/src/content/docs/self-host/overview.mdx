@@ -1,11 +1,11 @@
 ---
 title: Self-host Overview
-description: Two ways to self-host openma — on Cloudflare Workers, or as a single Node process. Same code, same API, different I/O.
+description: Two ways to self-host oma — on Cloudflare Workers, or as a single Node process. Same code, same API, different I/O.
 ---
 
 import { Card, CardGrid, Aside, LinkCard } from '@astrojs/starlight/components';
 
-You can run all of openma — the API, the Console, the integrations gateway, and the agent runtime — yourself. The same code that powers [oma.duyet.net](https://app.oma.duyet.net) is the code in the public repo; nothing is held back.
+You can run all of oma — the API, the Console, the integrations gateway, and the agent runtime — yourself. The same code that powers [oma.duyet.net](https://app.oma.duyet.net) is the code in the public repo; nothing is held back.
 
 ## Two paths
 
@@ -92,7 +92,7 @@ In rough order of cost (highest first):
 3. **Workers** — requests + CPU time. Cheap.
 4. **Storage** — D1 / R2 / KV / Vectorize. Generally negligible until you have lots of long-lived sessions.
 
-There are no openma platform fees because there is no openma platform — it's all your Cloudflare account.
+There are no oma platform fees because there is no oma platform — it's all your Cloudflare account.
 
 ## Multi-tenancy
 

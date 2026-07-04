@@ -7,7 +7,7 @@
 // somewhere — we transparently rewrite /workspace → workdir).
 //
 // /mnt/memory and /mnt/session/outputs: when running inside the
-// `openma/main-node` container, we create real symlinks at those root
+// `oma/main-node` container, we create real symlinks at those root
 // paths pointing into the workdir's `.mnt/...` tree. Bash that does
 // `cat /mnt/memory/foo` then resolves the same dir as harness tools.
 // Outside a container the host's `/mnt` is usually not writable as the
@@ -228,7 +228,7 @@ export class LocalSubprocessSandbox implements SandboxExecutor {
    *   2. Best-effort: a real symlink at the root `/mnt/memory/<storeName>`
    *      → the workdir target. Created only when `/mnt/memory` is
    *      writable to this process (typical inside the
-   *      `openma/main-node` container running as the `node` user).
+   *      `oma/main-node` container running as the `node` user).
    *      Bash that hard-codes `/mnt/memory/foo` then sees the same dir
    *      as the harness. Outside a container the root path usually isn't
    *      writable — bash that hard-codes `/mnt/memory/...` will hit

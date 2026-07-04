@@ -29,7 +29,7 @@ backends](#migrating-between-backends) below).
 | Extra services | None | + `postgres:16-alpine` (or external PG) |
 | When to switch | "I want PG already" / "want to scale out" | — |
 
-**Same Docker image either way** (`openma/main-node:dev` built from
+**Same Docker image either way** (`oma/main-node:dev` built from
 `apps/main-node/Dockerfile`) — `DATABASE_URL` env at runtime decides.
 SQLite needs only `DATABASE_PATH`; Postgres needs `DATABASE_URL=
 postgres://…`. In Postgres mode better-auth's tables live in the same
@@ -111,7 +111,7 @@ curl localhost:8787/health
 ```
 
 Curl flow + console URL are identical — application code is backend-
-agnostic. Same `openma/main-node:dev` image, just different env.
+agnostic. Same `oma/main-node:dev` image, just different env.
 
 What changes vs the SQLite stack:
 
@@ -198,7 +198,7 @@ upserts SQL index" is the multi-replica analog of the chokidar path.
 Limitation: `local-subprocess` sandboxes still need
 `MEMORY_BLOB_DIR` for their `/mnt/memory` symlinks — the local subprocess
 adapter doesn't speak s3fs. Use S3 mode together with a remote sandbox
-provider. Inside the `openma/main-node` container the adapter creates a
+provider. Inside the `oma/main-node` container the adapter creates a
 real `/mnt/memory/<storeName>` symlink (visible to bash that hardcodes
 the path); on hosts without a writable `/mnt`, it transparently rewrites
 `/mnt/memory/...` to the workdir-relative `.mnt/memory/...` so harness
@@ -555,7 +555,7 @@ To skip the console build (smaller API-only image, ~250MB → ~245MB):
 
 ```bash
 docker build -f apps/main-node/Dockerfile --build-arg SKIP_CONSOLE=1 \
-  -t openma/main-node:api-only .
+  -t oma/main-node:api-only .
 # then unset CONSOLE_DIR in your runtime env
 ```
 

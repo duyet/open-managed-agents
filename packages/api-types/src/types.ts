@@ -101,6 +101,13 @@ export interface AgentConfig {
   skills?: Array<{ skill_id: string; type: string; version?: string }>;
   callable_agents?: Array<{ type: "agent"; id: string; version?: number }>;
   /**
+   * Concurrency cap for the `call_agents_parallel` tool (generated when
+   * `callable_agents` has 1+ entries). Lowers the platform default (5)
+   * down or up; always clamped to the platform's hard ceiling (10)
+   * regardless of what's configured here. Unset = platform default.
+   */
+  max_parallel_subagents?: number;
+  /**
    * Optional auxiliary model used by tools for in-process LLM work
    * (e.g. web_fetch summarization). Same shape as `model`.
    * When unset, tools that would benefit from summarization fall back to
@@ -168,7 +175,15 @@ export interface EnvironmentConfig {
   name: string;
   description?: string;
   config: {
-    type: string; // "cloud"
+    // Hosting type — selects the sandbox backend, immutable after create.
+    // On the Cloudflare host only "cloud" is meaningful. Self-hosted
+    // (main-node) additionally accepts the sandbox-adapter ids resolved by
+    // buildSandbox: "subprocess" (local child_process, no isolation),
+    // "litebox"/"boxlite" (local Firecracker micro-VM), "boxrun" (remote
+    // BoxLite control plane), "daytona" (Daytona SaaS VM), "e2b" (E2B
+    // Firecracker microVM), "k8s"/"kubernetes" (agent-sandbox pod). "cloud"
+    // or unset falls back to the node's global SANDBOX_PROVIDER.
+    type: string;
     packages?: {
       pip?: string[];
       npm?: string[];
@@ -432,10 +447,16 @@ export interface AgentStatusEvent extends EventBase {
   summary: string;
   /** 1-indexed current step, when the harness tracks a bounded plan. */
   step?: number;
-  /** Total expected steps, when known. */
+  /** Total expected steps, when known. When emitted by the `long-running`
+   *  harness this carries the agent's `metadata.total_steps_estimate`. */
   total_steps?: number;
   /** Optional additional detail beyond `summary` (e.g. the command being run). */
   detail?: string;
+  /** What the agent is blocked on, when `state === "blocked"` (e.g.
+   *  "3 tool calls awaiting confirmation"). A structured "blocked on what"
+   *  signal for manager UIs. Emitted by the `long-running` harness; optional
+   *  so other emitters can omit it. */
+  blocked_on?: string;
 }
 
 export interface AgentToolUseEvent extends EventBase {

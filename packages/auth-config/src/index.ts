@@ -102,7 +102,7 @@ export function buildBetterAuth(opts: BuildBetterAuthOpts) {
           const label = labels[type] ?? "Your verification code";
           await sender.send({
             to: email,
-            subject: `${label} — openma`,
+            subject: `${label} — oma`,
             html: otpEmailHtml(otp, label),
             text: `${label}: ${otp}`,
           });
@@ -116,7 +116,7 @@ export function buildBetterAuth(opts: BuildBetterAuthOpts) {
         sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
           await sender.send({
             to: user.email,
-            subject: "Verify your email — openma",
+            subject: "Verify your email — oma",
             html: `<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:32px"><h2>Verify your email</h2><p>Click the button below to verify your email address.</p><a href="${url}" style="display:inline-block;padding:12px 24px;background:#111;color:#fff;text-decoration:none;border-radius:6px;margin:16px 0">Verify email</a></div>`,
             text: `Verify your email: ${url}`,
           });
@@ -130,7 +130,7 @@ export function buildBetterAuth(opts: BuildBetterAuthOpts) {
     ? async ({ user, url }: { user: { email: string }; url: string }) => {
         await sender.send({
           to: user.email,
-          subject: "Reset your password — openma",
+          subject: "Reset your password — oma",
           html: `<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:32px"><h2>Reset your password</h2><a href="${url}" style="display:inline-block;padding:12px 24px;background:#111;color:#fff;text-decoration:none;border-radius:6px;margin:16px 0">Reset password</a></div>`,
           text: `Reset your password: ${url}`,
         });

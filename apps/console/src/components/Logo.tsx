@@ -29,7 +29,7 @@ export function Logo({ size = "sm", className = "" }: LogoProps) {
       height={px}
       viewBox="196 55 162 113"
       role="img"
-      aria-label="openma"
+      aria-label="oma"
       className={`shrink-0 ${className}`.trim()}
       xmlns="http://www.w3.org/2000/svg"
     >
