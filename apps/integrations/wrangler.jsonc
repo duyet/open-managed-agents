@@ -9,8 +9,10 @@
   // SELF-HOST BASELINE (integrations gateway worker)
   // ─────────────────────────────────────────────────────────────────────
   // Top-level config = single-D1 self-host shape: MAIN_DB +
-  // INTEGRATIONS_DB only, no shards. oma.duyet.net's multi-shard prod
-  // lives in env.production overlay below.
+  // INTEGRATIONS_DB only, no shards. oma.duyet.net's launch env.production
+  // overlay below uses the SAME single-D1 shape — sharding is premature
+  // with zero users; see that overlay's own comment for how to scale out
+  // later.
   // ─────────────────────────────────────────────────────────────────────
 
   // Public origin where this gateway is reachable. Used to build OAuth

@@ -67,7 +67,7 @@
   // and routing work without any shard tables.
   "d1_databases": [
     { "binding": "MAIN_DB",         "database_name": "openma-auth",         "database_id": "<set-by-setup-cf-sh>" },
-    { "binding": "INTEGRATIONS_DB", "database_name": "openma-integrations", "database_id": "<set-by-setup-cf-sh>" }
+    { "binding": "INTEGRATIONS_DB", "database_name": "openma-integrations", "database_id": "<set-by-setup-cf-sh>", "migrations_dir": "migrations-integrations" }
   ],
 
   "durable_objects": {
@@ -218,7 +218,7 @@
       // AUTH_DB_00..03 (see git history / env.staging) and split the shards.
       "d1_databases": [
         { "binding": "MAIN_DB",         "database_name": "openma-auth",         "database_id": "dbb5f01c-7016-4157-945d-f8ff9fbda967" },
-        { "binding": "INTEGRATIONS_DB", "database_name": "openma-integrations", "database_id": "36f67512-b0d7-4300-9d57-f265cd9d3075" }
+        { "binding": "INTEGRATIONS_DB", "database_name": "openma-integrations", "database_id": "36f67512-b0d7-4300-9d57-f265cd9d3075", "migrations_dir": "migrations-integrations" }
       ],
       "durable_objects": {
         "bindings": [

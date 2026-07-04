@@ -179,9 +179,8 @@ if (changed) fs.writeFileSync(cfg, text);
 process.stdout.write(JSON.stringify({ changed, unchanged, missing }));
 NODE
 )
-  local changed unchanged missing
+  local changed missing
   changed=$(echo "$res" | jq -r '.changed')
-  unchanged=$(echo "$res" | jq -r '.unchanged')
   missing=$(echo "$res" | jq -r '.missing')
   if [ "$missing" = "1" ]; then
     ok "$cfg :: no env.production.$array_key entry with $match_field=$match_val (not bound here — skipped)"
@@ -231,9 +230,10 @@ create_d1() {
 
 create_r2() {
   local name="$1"
-  npx wrangler r2 bucket create "$name" 2>/dev/null \
+  local out
+  out=$(npx wrangler r2 bucket create "$name" 2>&1) \
     || npx wrangler r2 bucket info "$name" >/dev/null 2>&1 \
-    || die "r2 bucket $name doesn't exist and create failed"
+    || die "r2 bucket $name doesn't exist and create failed: $out"
   ok "r2 bucket $name"
 }
 
@@ -301,9 +301,19 @@ if [ "$SKIP_MIGRATIONS" = "0" ]; then
   apply_migrations() {
     local db_name="$1" dir="$2"
     echo "  → $db_name (from $dir)"
-    npx wrangler d1 migrations apply "$db_name" --remote \
-      --config "$MAIN_CFG" --migrations-dir "$dir" 2>&1 \
-      | grep -E '(Applied|No migrations|already)' || true
+    # `wrangler d1 migrations apply` has no --migrations-dir flag — the
+    # directory comes from the matching d1_databases entry's own
+    # `migrations_dir` field in $MAIN_CFG (see env.production.d1_databases
+    # above), resolved for THIS env via --env production. Capture the real
+    # exit status before piping through grep, so a failed migration aborts
+    # the script instead of silently continuing to deploy against an
+    # unmigrated schema.
+    local out status
+    out=$(npx wrangler d1 migrations apply "$db_name" --remote \
+      --config "$MAIN_CFG" --env "$ENV_NAME" 2>&1)
+    status=$?
+    echo "$out" | grep -E '(Applied|No migrations|already)' || true
+    [ "$status" -eq 0 ] || die "migrations apply failed for $db_name (from $dir):"$'\n'"$out"
   }
 
   # Tenant/auth schema (now includes tenant_shard/shard_pool/memory_store_tenant
@@ -319,63 +329,87 @@ fi
 if [ "$SKIP_SECRETS" = "0" ]; then
   say "4. Set required Worker secrets (--env production)"
 
-  # Resolve a secret value: prefer the exported env var; else auto-generate.
-  # Prints irreplaceable ones so they can be saved.
+  gen_base64_secret() { openssl rand -base64 32; }
+  gen_hex_secret()    { openssl rand -hex 32; }
+
+  # Resolve a secret value: prefer the exported env var; else auto-generate
+  # via $2 (a function name — no eval, no shell re-parsing of a command
+  # string). Sets GEN_OR_ENV_GENERATED=1 when a fresh value was generated,
+  # so callers can decide whether/when to warn about saving it.
   gen_or_env() {
-    local var_name="$1" gen_cmd="$2" irreplaceable="$3"
+    local var_name="$1" gen_fn="$2"
     local val="${!var_name:-}"
+    GEN_OR_ENV_GENERATED=0
     if [ -z "$val" ]; then
-      val=$(eval "$gen_cmd")
-      if [ "$irreplaceable" = "1" ]; then
-        warn "$var_name was not exported — auto-generated. SAVE THIS NOW (losing it is unrecoverable):"
-        printf "      %s=%s\n" "$var_name" "$val"
-      fi
+      val=$("$gen_fn")
+      GEN_OR_ENV_GENERATED=1
     fi
     echo "$val"
   }
 
+  # Sets a secret. Returns 0 if it was actually WRITTEN (new, or
+  # --reset-secrets), 1 if skipped because it already exists remotely —
+  # callers use this to decide whether a freshly-generated irreplaceable
+  # value truly needs a "SAVE THIS NOW" warning (printing it unconditionally
+  # would be misleading when set_secret silently skips the write because the
+  # real value is already provisioned).
   set_secret() {
     local name="$1" value="$2" cfg="$3"
     if [ "$RESET_SECRETS" = "0" ]; then
       if npx wrangler secret list --env "$ENV_NAME" --config "$cfg" 2>/dev/null \
            | jq -e ".[] | select(.name == \"$name\")" >/dev/null 2>&1; then
         ok "$cfg [$ENV_NAME] :: $name (already set, skipping; --reset-secrets to overwrite)"
-        return
+        return 1
       fi
     fi
     echo "$value" | npx wrangler secret put "$name" --env "$ENV_NAME" --config "$cfg" >/dev/null
     ok "$cfg [$ENV_NAME] :: $name"
+    return 0
   }
 
   # Shared across all three workers — value MUST match everywhere. Export these
   # to guarantee consistency across re-runs / interrupted runs.
-  PLATFORM_ROOT_SECRET=$(gen_or_env PLATFORM_ROOT_SECRET "openssl rand -base64 32" 1)
-  INTEGRATIONS_INTERNAL_SECRET=$(gen_or_env INTEGRATIONS_INTERNAL_SECRET "openssl rand -hex 32" 0)
+  PLATFORM_ROOT_SECRET=$(gen_or_env PLATFORM_ROOT_SECRET gen_base64_secret)
+  platform_root_generated=$GEN_OR_ENV_GENERATED
+  INTEGRATIONS_INTERNAL_SECRET=$(gen_or_env INTEGRATIONS_INTERNAL_SECRET gen_hex_secret)
   : "${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY must be set for secret provisioning}"
 
+  platform_root_written=0
   for cfg in "$MAIN_CFG" "$AGENT_CFG" "$INTEGRATIONS_CFG"; do
-    set_secret PLATFORM_ROOT_SECRET         "$PLATFORM_ROOT_SECRET"         "$cfg"
-    set_secret INTEGRATIONS_INTERNAL_SECRET "$INTEGRATIONS_INTERNAL_SECRET" "$cfg"
-    set_secret ANTHROPIC_API_KEY            "$ANTHROPIC_API_KEY"            "$cfg"
+    if set_secret PLATFORM_ROOT_SECRET "$PLATFORM_ROOT_SECRET" "$cfg"; then
+      platform_root_written=1
+    fi
+    # set_secret returns 1 (non-fatal "already set, skipping") when RESET_SECRETS=0
+    # — guard every unchecked call against `set -e` aborting the script on that path.
+    set_secret INTEGRATIONS_INTERNAL_SECRET "$INTEGRATIONS_INTERNAL_SECRET" "$cfg" || true
+    set_secret ANTHROPIC_API_KEY            "$ANTHROPIC_API_KEY"            "$cfg" || true
   done
+  if [ "$platform_root_generated" = "1" ] && [ "$platform_root_written" = "1" ]; then
+    warn "PLATFORM_ROOT_SECRET was not exported — auto-generated and just written. SAVE THIS NOW (losing it is unrecoverable):"
+    printf "      PLATFORM_ROOT_SECRET=%s\n" "$PLATFORM_ROOT_SECRET"
+  fi
 
   # main-only
-  BETTER_AUTH_SECRET=$(gen_or_env BETTER_AUTH_SECRET "openssl rand -hex 32" 1)
-  set_secret BETTER_AUTH_SECRET "$BETTER_AUTH_SECRET" "$MAIN_CFG"
+  BETTER_AUTH_SECRET=$(gen_or_env BETTER_AUTH_SECRET gen_hex_secret)
+  better_auth_generated=$GEN_OR_ENV_GENERATED
+  if set_secret BETTER_AUTH_SECRET "$BETTER_AUTH_SECRET" "$MAIN_CFG" && [ "$better_auth_generated" = "1" ]; then
+    warn "BETTER_AUTH_SECRET was not exported — auto-generated and just written. SAVE THIS NOW (losing it is unrecoverable):"
+    printf "      BETTER_AUTH_SECRET=%s\n" "$BETTER_AUTH_SECRET"
+  fi
   if [ -n "${API_KEY:-}" ]; then
-    set_secret API_KEY "$API_KEY" "$MAIN_CFG"
+    set_secret API_KEY "$API_KEY" "$MAIN_CFG" || true
   else
     warn "API_KEY not exported — skipping (bootstrap admin key; set later with: wrangler secret put API_KEY --env production --config $MAIN_CFG)"
   fi
   if [ -n "${TURNSTILE_SECRET_KEY:-}" ]; then
-    set_secret TURNSTILE_SECRET_KEY "$TURNSTILE_SECRET_KEY" "$MAIN_CFG"
+    set_secret TURNSTILE_SECRET_KEY "$TURNSTILE_SECRET_KEY" "$MAIN_CFG" || true
   else
     warn "TURNSTILE_SECRET_KEY not exported — Turnstile soft-passes (bot challenge disabled). env.production sets TURNSTILE_SITE_KEY, so set this to actually enforce the challenge."
   fi
 
   # agent-only
   if [ -n "${TAVILY_API_KEY:-}" ]; then
-    set_secret TAVILY_API_KEY "$TAVILY_API_KEY" "$AGENT_CFG"
+    set_secret TAVILY_API_KEY "$TAVILY_API_KEY" "$AGENT_CFG" || true
   else
     warn "TAVILY_API_KEY not exported — the web_search tool stays unavailable until set on $AGENT_CFG"
   fi

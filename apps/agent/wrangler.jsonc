@@ -8,8 +8,10 @@
   // ─────────────────────────────────────────────────────────────────────
   // SELF-HOST BASELINE (sandbox/agent worker)
   // ─────────────────────────────────────────────────────────────────────
-  // Top-level config = single-D1 self-host shape. Multi-shard prod
-  // for oma.duyet.net lives in env.production overlay below.
+  // Top-level config = single-D1 self-host shape. oma.duyet.net's launch
+  // env.production overlay below uses the SAME single-D1 shape (only
+  // MAIN_DB bound) — sharding is premature with zero users; see that
+  // overlay's own comment for how to scale out later.
   // ─────────────────────────────────────────────────────────────────────
 
   "containers": [

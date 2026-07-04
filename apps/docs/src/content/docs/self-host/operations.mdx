@@ -77,18 +77,18 @@ See `packages/storage/README.md` for the full config schema. This is independent
 
 If your deployment outgrows a single D1 (D1 has a 10 GB / 50K-row limits per database), you can fan out across N MAIN_DB shards. The shard router lives in `ROUTER_DB`; per-tenant data lands on whichever shard `tenant_shard` says owns the tenant.
 
-Activation is config-only — the wrangler files ship with `env.production` overlays that bind 4 sharded auth DBs (used by oma.duyet.net's hosted prod). To enable for your own deployment:
+Activation is config-only, but **not pre-wired**: `env.production`'s `d1_databases` today bind only `MAIN_DB` + `INTEGRATIONS_DB` (single-D1 — oma.duyet.net launched this way since sharding is premature with zero users). To enable sharding for your own deployment, you re-add the `ROUTER_DB`/`AUTH_DB_00..03` bindings yourself:
 
 1. Provision the additional D1s: `wrangler d1 create openma-router`, `wrangler d1 create openma-auth-shard-01..03`
-2. Patch the IDs into `env.production` blocks of `apps/{main,agent,integrations}/wrangler.jsonc` (replacing oma.duyet.net's IDs)
-3. Apply migrations to each shard:
+2. Add `ROUTER_DB`/`AUTH_DB_00..03` entries (with the new ids) to the `env.production.d1_databases` array in `apps/{main,agent,integrations}/wrangler.jsonc`. Give the `ROUTER_DB` entry a `"migrations_dir": "migrations-router"` field — `wrangler d1 migrations apply` has no `--migrations-dir` CLI flag; the directory comes only from the matching `d1_databases` entry's own `migrations_dir` field (defaults to `./migrations`, relative to the config file, when unset).
+3. Apply migrations to each shard (`--env production` selects the overlay you just edited):
    ```bash
-   wrangler d1 migrations apply openma-auth-shard-01 --remote --config apps/main/wrangler.jsonc
-   wrangler d1 migrations apply openma-auth-shard-02 --remote --config apps/main/wrangler.jsonc
-   wrangler d1 migrations apply openma-auth-shard-03 --remote --config apps/main/wrangler.jsonc
-   # openma-router needs the router tables, which live only in migrations-router/
-   # (the auth consolidated migration does NOT carry them) — pass --migrations-dir:
-   wrangler d1 migrations apply openma-router --remote --config apps/main/wrangler.jsonc --migrations-dir apps/main/migrations-router
+   wrangler d1 migrations apply openma-auth-shard-01 --remote --config apps/main/wrangler.jsonc --env production
+   wrangler d1 migrations apply openma-auth-shard-02 --remote --config apps/main/wrangler.jsonc --env production
+   wrangler d1 migrations apply openma-auth-shard-03 --remote --config apps/main/wrangler.jsonc --env production
+   # openma-router needs the router tables (tenant_shard/shard_pool/memory_store_tenant),
+   # which live only in migrations-router/ — resolved via that entry's migrations_dir above.
+   wrangler d1 migrations apply openma-router --remote --config apps/main/wrangler.jsonc --env production
    ```
 4. Seed the shard pool:
    ```bash
