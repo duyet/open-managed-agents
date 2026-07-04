@@ -58,6 +58,14 @@ WORKDIR /app
 
 COPY --from=deps /app /app
 
+# pnpm 11's `pnpm start` runs a dependency-status check that can write a temp
+# file directly under /app (e.g. `_tmp_19_<hash>`) to verify node_modules
+# matches the lockfile before invoking the "start" script. /app is root-owned
+# from the COPY above, but the process runs as the unprivileged `node` user
+# (below) — without this chown that check fails with EACCES and crash-loops
+# the container. Same fix as apps/main-node/Dockerfile.
+RUN chown -R node:node /app
+
 # Shared volume mount point; oma-server writes the db here.
 RUN mkdir -p /app/data && chown -R node:node /app/data
 
