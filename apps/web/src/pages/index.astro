@@ -223,6 +223,204 @@ SANDBOX_PROVIDER=boxrun       # boxrun sandboxed execution</code></pre>
     </p>
   </section>
 
+  <!-- Fleet operations -->
+  <section class="border-t border-[var(--color-border)]" data-reveal>
+    <div class="max-w-5xl mx-auto px-4 py-16">
+      <h2 class="font-display text-3xl font-bold mb-3 text-center">Built for running more than one agent</h2>
+      <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12">
+        Recent work targets the point where "one agent, one session" stops
+        being enough: picking isolation per environment, watching a fleet of
+        sessions at a glance, fanning work out to sub-agents, giving
+        multi-hour tasks a structured heartbeat instead of a wall of text, and
+        posting status out to the channels your team already watches.
+      </p>
+
+      <div class="mb-14">
+        <h3 class="font-display text-xl font-bold mb-3">Pick a sandbox backend per environment</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed mb-4 max-w-3xl">
+          Environments — the reusable packages/networking/image config sessions
+          attach to — now carry their own hosting type on self-hosted Node
+          deployments, instead of everything sharing one global
+          <code class="font-mono text-sm">SANDBOX_PROVIDER</code>. The Console's
+          environment-create picker feature-detects what a given host actually
+          supports via <code class="font-mono text-sm">GET /v1/hosting_types</code>
+          rather than assuming: the Cloudflare host doesn't expose that route,
+          so the picker 404s gracefully and falls back to a single, immutable
+          "Cloud" option — no regression there.
+        </p>
+        <div class="grid md:grid-cols-2 gap-8 items-start">
+          <pre class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-4 text-xs leading-relaxed overflow-x-auto"><code>GET /v1/hosting_types
+&#123;
+  "data": [
+    &#123; "id": "cloud", "label": "Cloud" &#125;,
+    &#123; "id": "subprocess", "label": "Local subprocess" &#125;,
+    &#123; "id": "litebox", "label": "LiteBox (local micro-VM)" &#125;,
+    &#123; "id": "boxrun", "label": "BoxRun (remote micro-VM)" &#125;,
+    &#123; "id": "daytona", "label": "Daytona" &#125;,
+    &#123; "id": "e2b", "label": "E2B" &#125;,
+    &#123; "id": "k8s", "label": "Kubernetes" &#125;
+  ]
+&#125;</code></pre>
+          <p class="text-[var(--color-fg-muted)] leading-relaxed text-sm">
+            Mix isolation levels across environments on the same host — trusted
+            internal tooling on cheap subprocess isolation, customer-facing
+            work on a hardware-isolated micro-VM or Kubernetes pod — without a
+            redeploy or a harness change. It's the same provider list as the
+            pluggable sandbox layer above; this is the per-environment
+            selection surface on top of it.
+          </p>
+        </div>
+      </div>
+
+      <div class="mb-14">
+        <h3 class="font-display text-xl font-bold mb-3">A Kanban board across the whole session fleet</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed max-w-3xl">
+          Four columns — Queued, Running, Blocked, Done — derived entirely from
+          data the platform already tracks: a session's <code class="font-mono text-sm">status</code>
+          plus its most recent event's <code class="font-mono text-sm">stop_reason</code>.
+          No new backend state, no separate "board" resource — an idle session
+          with no events yet reads as queued, one whose last event is
+          <code class="font-mono text-sm">session.status_idle</code> with
+          <code class="font-mono text-sm">stop_reason.type === "requires_action"</code>
+          reads as blocked (waiting on a tool confirmation), everything else
+          idle reads as done. Polls every 15s — useful the moment you're
+          running more sessions than fit in one browser tab, e.g. the
+          self-improvement-agent triaging a backlog of issues concurrently.
+        </p>
+      </div>
+
+      <div class="mb-14">
+        <h3 class="font-display text-xl font-bold mb-3">Fan out to sub-agents in parallel</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed mb-4 max-w-3xl">
+          <code class="font-mono text-sm">call_agent_*</code> tools were
+          one-child-at-a-time — the parent blocked until a child reached idle
+          before starting the next. Any agent with <code class="font-mono text-sm">callable_agents</code>
+          configured now also gets a <code class="font-mono text-sm">call_agents_parallel</code>
+          tool that fans out to several children concurrently (even the same
+          sub-agent called multiple times) and aggregates results, each
+          carrying its own success/failure so one bad child doesn't sink the
+          batch. Concurrency defaults to 5 in-flight children, hard-capped at
+          10 regardless of config — extra calls queue in waves instead of
+          getting rejected.
+        </p>
+        <pre class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-4 text-xs leading-relaxed overflow-x-auto"><code>// call_agents_parallel input
+&#123;
+  "calls": [
+    &#123; "agent_id": "agent_researcher", "message": "Research topic A" &#125;,
+    &#123; "agent_id": "agent_researcher", "message": "Research topic B" &#125;,
+    &#123; "agent_id": "agent_writer", "message": "Draft an outline for topic C" &#125;
+  ]
+&#125;
+
+// result — one entry per call, independent success/failure
+&#123;
+  "results": [
+    &#123; "agent_id": "agent_researcher", "success": true, "response": "...", "thread_id": "sthr_..." &#125;,
+    &#123; "agent_id": "agent_researcher", "success": true, "response": "...", "thread_id": "sthr_..." &#125;,
+    &#123; "agent_id": "agent_writer", "success": false, "error": "Sub-agent error: ..." &#125;
+  ]
+&#125;</code></pre>
+      </div>
+
+      <div class="mb-14">
+        <h3 class="font-display text-xl font-bold mb-3">Structured progress for multi-hour tasks</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed max-w-3xl">
+          A new <code class="font-mono text-sm">agent.status</code> event carries
+          a structured heartbeat — <code class="font-mono text-xs">state</code>,
+          <code class="font-mono text-xs">summary</code>, <code class="font-mono text-xs">step</code>,
+          <code class="font-mono text-xs">total_steps</code>, <code class="font-mono text-xs">blocked_on</code>
+          — instead of free-text progress buried in <code class="font-mono text-sm">agent.message</code>.
+          The default harness emits one per model turn; the <code class="font-mono text-sm">long-running</code>
+          harness additionally fires a wall-clock heartbeat (default every 60s)
+          so a single very long tool call still reports life, and marks
+          <code class="font-mono text-xs">state: "blocked"</code> when a turn
+          ends waiting on tool confirmation. These events are excluded from
+          model context entirely, so heartbeats can't perturb the byte-deterministic
+          prompt-cache prefix or force early compaction — and the step counter
+          reseeds from the durable event log on crash recovery, so numbering
+          survives a restart without gaps or duplicates.
+        </p>
+      </div>
+
+      <div class="mb-14">
+        <h3 class="font-display text-xl font-bold mb-3">Outbound notifications to GitHub, Slack, and Matrix</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed mb-4 max-w-3xl">
+          A new agent-level <code class="font-mono text-sm">notify</code> field
+          (mirrors <code class="font-mono text-sm">mcp_servers</code>) takes a
+          list of <code class="font-mono text-sm">NotificationTarget</code>s —
+          <code class="font-mono text-sm">github_comment</code>,
+          <code class="font-mono text-sm">slack_message</code>,
+          <code class="font-mono text-sm">matrix_message</code> — each naming a
+          vault credential and a destination. <code class="font-mono text-sm">packages/github</code>
+          and <code class="font-mono text-sm">packages/slack</code> gained a
+          <code class="font-mono text-sm">notify.ts</code>, and a new
+          <code class="font-mono text-sm">packages/matrix</code> package ships
+          an outbound-only Matrix Client-Server API client alongside one — all
+          three format the same shared <code class="font-mono text-sm">summarizeSessionNotifyEvent()</code>
+          text in their own house style (GitHub markdown with a 🔴/⚪/🟢 status
+          dot, Slack mrkdwn emoji codes, Matrix plain text), so the wording
+          stays consistent across channels.
+        </p>
+        <pre class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-4 text-xs leading-relaxed overflow-x-auto"><code>&#123;
+  "notify": [
+    &#123; "type": "github_comment", "credential_id": "cred_gh",
+      "owner": "duyet", "repo": "oma", "issue_number": 52 &#125;,
+    &#123; "type": "slack_message", "credential_id": "cred_slack",
+      "channel": "C0123456" &#125;,
+    &#123; "type": "matrix_message", "credential_id": "cred_matrix",
+      "homeserver_url": "https://matrix.org", "room_id": "!abc:matrix.org" &#125;
+  ]
+&#125;</code></pre>
+        <p class="text-xs text-[var(--color-fg-subtle)] mt-4 max-w-3xl">
+          Today this covers the config field, the credential-scoped target
+          types, and a formatter + sender per channel — the field round-trips
+          through <code class="font-mono text-xs">/v1/agents</code> and each
+          package's <code class="font-mono text-xs">notify.ts</code> is ready
+          to call with a resolved token. Wiring the automatic dispatch —
+          calling these on a session's own <code class="font-mono text-xs">session.status_idle</code>
+          / <code class="font-mono text-xs">session.error</code> transitions —
+          is explicit next-up work, not yet in <code class="font-mono text-xs">session-do.ts</code>.
+        </p>
+      </div>
+
+      <div>
+        <h3 class="font-display text-xl font-bold mb-3">Copy-paste example agents</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed mb-4 max-w-3xl">
+          <code class="font-mono text-sm">examples/agents/*.json</code> are
+          full-configuration bodies you <code class="font-mono text-sm">POST</code>
+          as-is — no scaffolding required. <code class="font-mono text-sm">examples/self-improvement-agent/</code>
+          goes further: a complete agent + environment + Dockerfile + run
+          script that files GitHub issues from repo and CI health signals, a
+          template for turning this platform on your own codebase.
+        </p>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border border-[var(--color-border)] rounded-lg">
+            <thead>
+              <tr class="bg-[var(--color-bg-surface)] text-left">
+                <th scope="col" class="px-3 py-2 font-semibold border-b border-[var(--color-border)]">File</th>
+                <th scope="col" class="px-3 py-2 font-semibold border-b border-[var(--color-border)]">Persona</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">agents/coding-assistant.json</code></th>
+                <td class="px-3 py-2 border-b border-[var(--color-border)]">General-purpose coding agent, default harness, full file/bash toolset</td>
+              </tr>
+              <tr>
+                <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">agents/data-analyst.json</code></th>
+                <td class="px-3 py-2 border-b border-[var(--color-border)]">Data analysis agent (pandas/numpy/matplotlib/scikit-learn), pairs with <code class="font-mono text-xs">environments/data-analyst.json</code></td>
+              </tr>
+              <tr>
+                <th scope="row" class="px-3 py-2 font-medium"><code class="font-mono text-xs">agents/research-agent.json</code></th>
+                <td class="px-3 py-2">Web research agent — <code class="font-mono text-xs">web_search</code> + <code class="font-mono text-xs">web_fetch</code>, with <code class="font-mono text-xs">aux_model</code> set so long fetched pages get summarized instead of dumped raw into context</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Cloudflare -->
   <section class="border-t border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal>
     <div class="max-w-5xl mx-auto px-4 py-16">
