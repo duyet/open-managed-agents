@@ -89,6 +89,9 @@ import { spawnStdioMcpServers, type StdioMcpConfig } from "./mcp-spawner";
 import {
   findLatestBackup as findWorkspaceBackup,
 } from "./workspace-backups";
+import type { SessionNotifyEvent, SessionNotifyStatus } from "@duyet/oma-integrations-core";
+import { WorkerHttpClient } from "@duyet/oma-integrations-adapters-cf";
+import { dispatchSessionNotifications } from "./notify-dispatch";
 
 interface SessionInitParams {
   agent_id: string;
@@ -3326,6 +3329,83 @@ export class SessionDO extends DurableObject<Env> {
         // Connection already closed
       }
     }
+    this.maybeFireSessionNotifications(event);
+  }
+
+  /**
+   * Fire-and-forget side channel: post to `agent.notify` targets (GitHub
+   * issue/PR comment, Slack message, Matrix room message) when a session
+   * reaches a terminal-ish status. Purely observational — never awaited by
+   * `broadcastEvent`'s caller, never touches history/context construction,
+   * and never throws back into the caller (see notify-dispatch.ts, which
+   * itself never throws).
+   */
+  private maybeFireSessionNotifications(event: SessionEvent): void {
+    let status: SessionNotifyStatus;
+    let detail: string | undefined;
+    switch (event.type) {
+      case "session.status_idle": {
+        status = "idle";
+        detail = (event as { stop_reason?: { type: string } }).stop_reason?.type;
+        break;
+      }
+      case "session.error": {
+        status = "error";
+        const err = (event as { error: string | { message: string } }).error;
+        detail = typeof err === "string" ? err : err.message;
+        break;
+      }
+      case "session.status_terminated": {
+        status = "terminated";
+        detail = (event as { reason?: string }).reason;
+        break;
+      }
+      default:
+        return;
+    }
+
+    // Fast path: the overwhelming majority of sessions never configure
+    // `agent.notify`, and the overwhelming majority of sessions carry a
+    // cached `agent_snapshot` from /init. Check it synchronously before
+    // spawning the async IIFE below, so the common no-notify case costs
+    // nothing beyond this property read — no Promise, no extra microtask,
+    // no async hop through getAgentConfig's KV/D1 fallback path. Sessions
+    // without a cached snapshot (rare) still fall through to the async
+    // path so a real vault/D1-backed agent config is checked.
+    const snapshot = this.state.agent_snapshot;
+    if (snapshot && (!snapshot.notify || snapshot.notify.length === 0)) return;
+
+    // Detached — deliberately not awaited. Errors are swallowed here so a
+    // notify-config or credential problem can never affect the caller of
+    // broadcastEvent (mirrors the fanOutToHooks fire-and-forget idiom).
+    (async () => {
+      const agent = await this.getAgentConfig(this.state.agent_id);
+      const targets = agent?.notify;
+      if (!targets || targets.length === 0) return;
+      const notifyEvent: SessionNotifyEvent = {
+        sessionId: this.state.session_id,
+        status,
+        ...(agent?.name ? { agentName: agent.name } : {}),
+        ...(detail ? { detail } : {}),
+      };
+      await dispatchSessionNotifications(notifyEvent, targets, {
+        resolveCredentialToken: (id) => this.resolveCredentialToken(id),
+        httpClient: new WorkerHttpClient(),
+        onError: (target, err) => {
+          logWarn(
+            {
+              op: "session_do.notify_dispatch",
+              session_id: this.state.session_id,
+              target_type: target.type,
+              err,
+            },
+            "session-status notification failed",
+          );
+        },
+      });
+    })().catch((err) => {
+      console.error(`[maybeFireSessionNotifications] unexpected failure: ${(err as Error).message}`);
+    });
   }
 
   /**

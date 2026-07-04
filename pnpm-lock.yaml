@@ -117,9 +117,21 @@ importers:
       '@duyet/oma-files-store':
         specifier: workspace:*
         version: link:../../packages/files-store
+      '@duyet/oma-github':
+        specifier: workspace:*
+        version: link:../../packages/github
+      '@duyet/oma-integrations-adapters-cf':
+        specifier: workspace:*
+        version: link:../../packages/integrations-adapters-cf
+      '@duyet/oma-integrations-core':
+        specifier: workspace:*
+        version: link:../../packages/integrations-core
       '@duyet/oma-markdown':
         specifier: workspace:*
         version: link:../../packages/markdown
+      '@duyet/oma-matrix':
+        specifier: workspace:*
+        version: link:../../packages/matrix
       '@duyet/oma-memory-store':
         specifier: workspace:*
         version: link:../../packages/memory-store
@@ -147,6 +159,9 @@ importers:
       '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@duyet/oma-slack':
+        specifier: workspace:*
+        version: link:../../packages/slack
       '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../../packages/sql-client
