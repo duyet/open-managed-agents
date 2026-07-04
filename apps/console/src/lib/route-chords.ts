@@ -15,6 +15,7 @@ export const ROUTE_CHORDS: Record<string, string> = {
   "/":              "d",
   "/agents":        "a",
   "/sessions":      "s",
+  "/kanban":        "b",
   "/files":         "f",
   "/environments":  "e",
   "/vaults":        "v",

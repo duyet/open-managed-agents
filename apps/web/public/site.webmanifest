@@ -1,6 +1,6 @@
 {
   "name": "Open Managed Agents",
-  "short_name": "openma",
+  "short_name": "oma",
   "description": "Open-source Claude Managed Agents alternative and self-hosted Claude Tag-style agent platform.",
   "start_url": "/",
   "display": "standalone",

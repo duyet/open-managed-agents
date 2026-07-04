@@ -1,7 +1,7 @@
 ---
-name: openma-integrations-github
+name: oma-integrations-github
 description: >
-  Bind an openma agent to a GitHub org as a real teammate (assignable on
+  Bind an oma agent to a GitHub org as a real teammate (assignable on
   issues/PRs, mentionable via @<bot>, request-as-reviewer, replies to comments).
   Use when the user asks to "bind to GitHub", "publish to GitHub", "make this
   agent a GitHub bot", "let my agent review PRs", "let my agent triage issues",
@@ -10,15 +10,15 @@ description: >
   needed and how the agent acts back via both MCP and sandbox `gh`.
 ---
 
-# Bind an openma agent to GitHub
+# Bind an oma agent to GitHub
 
-Make an openma agent appear in a GitHub org under its own bot identity —
+Make an oma agent appear in a GitHub org under its own bot identity —
 assignable on issues, request-as-reviewer on PRs, posting comments as itself.
 Ships in `oma github …`.
 
 ## Prerequisites
 
-- `OMA_BASE_URL` and `OMA_API_KEY` set (see the `openma` skill for setup).
+- `OMA_BASE_URL` and `OMA_API_KEY` set (see the `oma` skill for setup).
 - API key minted from a logged-in Console session, **not** the static
   `API_KEY` env var. GitHub endpoints are user-scoped: legacy keys without
   `user_id` get `403 user-scoped endpoint: regenerate your API key`.
@@ -28,10 +28,10 @@ Ships in `oma github …`.
 ## Architecture in one paragraph
 
 Each agent gets its **own GitHub App** (per-agent identity, not a shared bot).
-The App registration goes through GitHub's **Manifest flow**: openma generates
+The App registration goes through GitHub's **Manifest flow**: oma generates
 a manifest JSON, the user clicks one button, GitHub fires up the App and
 returns its credentials in a single round-trip — zero copy-paste of App IDs
-or .pem files. After install, openma stores **one vault with two
+or .pem files. After install, oma stores **one vault with two
 credentials** holding the same installation token: a `static_bearer` for
 the GitHub MCP server (typed tools for issues/PRs/comments) and a
 `command_secret` that injects `GITHUB_TOKEN` into sandbox `gh` and `git`
@@ -62,12 +62,12 @@ Hand that URL to the human. When they open it:
 
 1. Browser auto-POSTs the manifest to `github.com/settings/apps/new`.
 2. GitHub renders **"Create GitHub App for <persona>"** — they click confirm.
-3. GitHub redirects through the openma gateway's `/github/manifest/callback`
+3. GitHub redirects through the oma gateway's `/github/manifest/callback`
    which exchanges the manifest code, persists App credentials, and bounces
    them to **`https://github.com/apps/<slug>/installations/new`** for org
    selection.
 4. They pick the org (or personal account) and click **Install**.
-5. GitHub redirects back to openma; the publication transitions to `live`.
+5. GitHub redirects back to oma; the publication transitions to `live`.
 
 > **HTTPS / public-host caveat.** Manifest URLs come from `GATEWAY_ORIGIN`
 > on the integrations worker, not from `OMA_BASE_URL`. GitHub requires HTTPS
@@ -187,7 +187,7 @@ token (no separate PAT needed) and the repo is pre-cloned to `/workspace`.
 
 ## Token lifecycle (automatic)
 
-Installation tokens last ~1 hour. openma refreshes them at three points,
+Installation tokens last ~1 hour. oma refreshes them at three points,
 all automatic:
 
 1. **Every webhook dispatch** — when an event triggers a session, a fresh
@@ -275,7 +275,7 @@ The 1-hour installation token expired AND the on-401 retry failed. Check
 the integrations gateway logs for `[github] token refresh failed` warnings.
 Common causes: App was uninstalled from the org, App permissions revoked,
 private key rotated externally. `oma github get <pub-id>` will show
-`status: needs_reauth` if openma detected revocation. Re-bind to recover.
+`status: needs_reauth` if oma detected revocation. Re-bind to recover.
 
 ### Bot replying to itself
 

@@ -1,0 +1,26 @@
+{
+  "name": "Coding Assistant",
+  "description": "Copy-paste template for a general-purpose coding agent: default harness, full built-in toolset, no web tools needed for most repo work.",
+  "model": "claude-sonnet-4-6",
+  "system": "You are an expert software engineer. Work methodically: read before you write, make surgical changes, and run tests before declaring a task done.",
+  "tools": [
+    {
+      "type": "agent_toolset_20260401",
+      "default_config": { "enabled": true },
+      "configs": [
+        { "name": "bash", "enabled": true },
+        { "name": "read", "enabled": true },
+        { "name": "write", "enabled": true },
+        { "name": "edit", "enabled": true },
+        { "name": "glob", "enabled": true },
+        { "name": "grep", "enabled": true },
+        { "name": "web_search", "enabled": false },
+        { "name": "web_fetch", "enabled": false }
+      ]
+    }
+  ],
+  "harness": "default",
+  "metadata": {
+    "persona": "coding-assistant"
+  }
+}

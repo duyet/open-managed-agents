@@ -4,7 +4,7 @@
  * and the raw text otherwise — enough to switch on for retry / UI
  * surfacing without re-fetching.
  */
-export class OpenMAError extends Error {
+export class OmaError extends Error {
   readonly status: number;
   readonly body: unknown;
   readonly raw: string;
@@ -18,8 +18,8 @@ export class OpenMAError extends Error {
         ? (parsed as { error: string }).error
         : JSON.stringify((parsed as { error: unknown }).error)
       : raw || `HTTP ${status}`);
-    super(`OpenMA ${status}: ${message}`);
-    this.name = "OpenMAError";
+    super(`Oma ${status}: ${message}`);
+    this.name = "OmaError";
     this.status = status;
     this.body = parsed;
     this.raw = raw;

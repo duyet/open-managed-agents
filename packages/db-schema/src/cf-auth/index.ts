@@ -5,7 +5,8 @@
 // session_memory_stores, memory_stores, memories, memory_versions,
 // memory_blob_poller_lease, vaults, credentials, model_cards,
 // environments, files, workspace_backups, runtimes, runtime_tokens,
-// connect_runtime_codes, eval_runs, usage_events, kv_entries, api_keys.
+// connect_runtime_codes, eval_runs, usage_events, kv_entries, api_keys,
+// tenant_shard, shard_pool, memory_store_tenant.
 //
 // drizzle-kit consumes this barrel via drizzle.cf-auth.config.ts and
 // emits migrations into apps/main/migrations/.
@@ -22,3 +23,4 @@ export * from "./runtimes";
 export * from "./evals";
 export * from "./usage";
 export * from "./kv";
+export * from "./sharding";

@@ -17,7 +17,7 @@
  *   - Empty profile → paths exactly as the original single-tenant layout.
  *     Existing prod users see no change.
  *   - Named profile <p> → configDir becomes ~/.oma/bridge-<p>/, service
- *     label becomes dev.openma.bridge.<p>, etc. Two daemons (e.g. prod
+ *     label becomes dev.oma.bridge.<p>, etc. Two daemons (e.g. prod
  *     in launchd + staging in foreground) coexist without stomping each
  *     other's creds, sessions, logs, or launchd registration.
  *   See packages/cli/src/index.ts:credentialsPath for the matching cli-
@@ -77,7 +77,7 @@ export interface Paths {
   serviceLabel: string;
 }
 
-const SERVICE_LABEL_BASE = "dev.openma.bridge";
+const SERVICE_LABEL_BASE = "dev.oma.bridge";
 
 export function paths(): Paths {
   const home = homedir();
@@ -85,7 +85,7 @@ export function paths(): Paths {
   const profile = currentProfile();
   // Suffix everything that needs to be unique-per-daemon. Empty profile
   // → empty suffix → identical to pre-profile layout. Named profile →
-  //   ~/.oma/bridge-staging/, dev.openma.bridge.staging, …plist
+  //   ~/.oma/bridge-staging/, dev.oma.bridge.staging, …plist
   const dirSuffix = profile ? `-${profile}` : "";
   const labelSuffix = profile ? `.${profile}` : "";
   const configDir = join(home, `.oma/bridge${dirSuffix}`);

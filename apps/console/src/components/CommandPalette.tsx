@@ -47,6 +47,7 @@ const COMMANDS: NavCommand[] = [
   { label: "Dashboard",          to: "/",                          group: "Overview",       icon: DashboardIcon },
   { label: "Agents",             to: "/agents",                    group: "Managed Agents", icon: AgentIcon },
   { label: "Sessions",           to: "/sessions",                  group: "Managed Agents", icon: SessionsIcon },
+  { label: "Kanban Board",       to: "/kanban",                    group: "Managed Agents", icon: SessionsIcon, aliases: "board queued running blocked done" },
   { label: "Files",              to: "/files",                     group: "Managed Agents", icon: FilesIcon },
   { label: "Eval Runs",          to: "/evals",                     group: "Managed Agents", icon: SessionsIcon, aliases: "evaluations evals" },
   { label: "Environments",       to: "/environments",              group: "Infrastructure", icon: EnvIcon, aliases: "envs sandboxes" },

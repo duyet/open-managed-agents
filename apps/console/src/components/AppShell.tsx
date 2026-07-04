@@ -61,7 +61,7 @@ import { Logo } from "./Logo";
  *     that anti-aliases into a visible dark line against the rounded
  *     corner next door.
  *   - Top header is `h-11 bg-sidebar shrink-0` — same baseline as the
- *     sidebar brand row so `[ logo openma ]` and `[ trigger / crumb ]`
+ *     sidebar brand row so `[ logo oma ]` and `[ trigger / crumb ]`
  *     align horizontally on one shared 44-px band.
  *   - PageHeader is portaled into a `shrink-0` slot that sits ABOVE
  *     `<main>` (the scroll context) — slot literally cannot scroll,

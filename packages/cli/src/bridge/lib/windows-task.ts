@@ -22,7 +22,7 @@
  * Wrapping node + cli path:
  *   - schtasks splits /TR by spaces and is gnarly with embedded quotes.
  *     Wrap node + the cli entry in a tiny .cmd shim under
- *     %LOCALAPPDATA%\OpenMA\bridge[-profile]\daemon.cmd that calls the
+ *     %LOCALAPPDATA%\oma\bridge[-profile]\daemon.cmd that calls the
  *     two with explicit quoting. Task references the shim. Easier to
  *     debug (open the shim, see the command), easier to update (rewrite
  *     the shim, re-register the task).

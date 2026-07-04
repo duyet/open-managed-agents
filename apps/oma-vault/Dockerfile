@@ -9,7 +9,7 @@
 # wired from main-node's LocalSubprocessSandbox.setOutboundContext.
 #
 # Build:
-#   docker build -f apps/oma-vault/Dockerfile -t openma/oma-vault:dev .
+#   docker build -f apps/oma-vault/Dockerfile -t oma/oma-vault:dev .
 # Run (compose): see docker-compose.yml at repo root.
 
 # ─── Stage 1: deps (and native compile) ────────────────────────────────────
@@ -43,10 +43,28 @@ COPY tsconfig.json ./
 # ─── Stage 2: runtime ──────────────────────────────────────────────────────
 FROM node:22-slim AS runtime
 
-RUN corepack enable
+# `corepack prepare` bakes pnpm@<version> into the image at BUILD time under a
+# shared COREPACK_HOME. Without it, corepack downloads pnpm from
+# registry.npmjs.org on the FIRST `pnpm start` — a transient DNS/network blip
+# (EAI_AGAIN registry.npmjs.org) then crashes the container (exit 1) and
+# restarts it. Same fix as apps/main-node/Dockerfile. COREPACK_HOME lives
+# outside /app so the later `COPY --from=deps /app /app` can't clobber it, and
+# is world-readable so the unprivileged `node` user resolves the cached pnpm.
+ENV COREPACK_HOME=/opt/corepack
+RUN corepack enable \
+  && corepack prepare pnpm@11.0.8 --activate \
+  && chmod -R a+rX /opt/corepack
 WORKDIR /app
 
 COPY --from=deps /app /app
+
+# pnpm 11's `pnpm start` runs a dependency-status check that can write a temp
+# file directly under /app (e.g. `_tmp_19_<hash>`) to verify node_modules
+# matches the lockfile before invoking the "start" script. /app is root-owned
+# from the COPY above, but the process runs as the unprivileged `node` user
+# (below) — without this chown that check fails with EACCES and crash-loops
+# the container. Same fix as apps/main-node/Dockerfile.
+RUN chown -R node:node /app
 
 # Shared volume mount point; oma-server writes the db here.
 RUN mkdir -p /app/data && chown -R node:node /app/data

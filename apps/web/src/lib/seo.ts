@@ -48,7 +48,7 @@ export function organizationSchema() {
     // we register it (or any other social account), append the URL here.
     sameAs: [REPO_URL],
     description:
-      "Open Managed Agents — open-source alternative to Claude Managed Agents. Self-host Claude agents on Cloudflare Workers or Docker. Apache 2.0.",
+      "Open Managed Agents (oma) — an open-source, self-hostable agent platform that runs with any LLM provider. Self-host on Cloudflare Workers or Docker. Apache 2.0.",
   };
 }
 
@@ -59,7 +59,7 @@ export function websiteSchema() {
     name: ORG_NAME,
     url: SITE_URL,
     description:
-      "Open-source alternative to Claude Managed Agents — self-host Claude agents on Cloudflare or Docker.",
+      "Open-source, self-hostable agent platform for any LLM provider — self-host on Cloudflare or Docker.",
     potentialAction: {
       "@type": "SearchAction",
       // Stub for future sitelinks search box. Google indexes this even
@@ -87,7 +87,7 @@ export function softwareApplicationSchema() {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     name: ORG_NAME,
-    alternateName: ["openma", "open-managed-agents"],
+    alternateName: ["oma", "openma", "open-managed-agents"],
     applicationCategory: "DeveloperApplication",
     operatingSystem: "Cross-platform",
     offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
@@ -95,8 +95,9 @@ export function softwareApplicationSchema() {
     downloadUrl: REPO_URL,
     license: "https://www.apache.org/licenses/LICENSE-2.0",
     keywords:
-      "Claude Managed Agents alternative, Claude Tag alternative, open-source Claude Tag, self-hosted Claude Tag, MCP, BYOK",
+      "self-hosted agent platform, any LLM provider, BYOK, MCP, Claude Managed Agents alternative, Claude Tag alternative, open-source Claude Tag, self-hosted Claude Tag",
     featureList: [
+      "Any LLM provider — Anthropic, OpenAI-compatible gateways, or a private model gateway",
       "Claude Managed Agents API compatibility",
       "Claude Tag-style Slack publication",
       "MCP server hosting",
@@ -104,7 +105,7 @@ export function softwareApplicationSchema() {
       "Cloudflare Workers and Docker self-hosting",
     ],
     description:
-      "Open-source alternative to Claude Managed Agents and a foundation for self-hosted Claude Tag-style agents. Self-host Claude agents on Cloudflare Workers or Docker. Wire-compatible API, MCP + Claude Code skills built in.",
+      "Open-source, self-hostable agent platform that runs with any LLM provider — Anthropic, OpenAI-compatible gateways, or your own model. Self-host on Cloudflare Workers or Docker. Wire-compatible with the Claude Managed Agents API, MCP + Claude Code skills built in.",
     sameAs: [REPO_URL],
   };
 }
@@ -132,7 +133,9 @@ export function blogPostSchema(p: BlogPostSchemaInput) {
     dateModified: (p.updatedAt ?? p.publishedAt).toISOString(),
     author: {
       "@type": "Organization",
-      name: p.author === "openma" ? ORG_NAME : p.author,
+      // "openma" covers historical posts published under the old default
+      // author (content.config.ts default is "oma" going forward).
+      name: p.author === "openma" || p.author === "oma" ? ORG_NAME : p.author,
       url: SITE_URL,
     },
     publisher: {

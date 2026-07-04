@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.svg" alt="openma" height="80" />
+  <img src="logo.svg" alt="oma" height="80" />
 </p>
 
 <p align="center">
@@ -181,6 +181,17 @@ on every push to `main` that touches `apps/web/**`. One-time manual setup:
 
 No other manual steps are required; `workflow_dispatch` is also available
 for manual re-runs.
+
+---
+
+## Examples
+
+[`examples/`](examples/) has copy-paste-ready agent configs for common
+personas (coding assistant, data analyst, research agent) plus full harness
+demos (`claude-agent-sdk`, `flue`, GitHub-repo attach) with pre-built Docker
+images published to GHCR by
+[`build-example-images.yml`](.github/workflows/build-example-images.yml).
+See [`examples/README.md`](examples/README.md).
 
 ---
 
@@ -548,7 +559,7 @@ Two install kinds:
 | **`personal_token`** (PAT) | Single workspace, fastest path, no OAuth App | `oma linear install-pat --workspace <slug> --pat <linear-pat>` |
 | **`dedicated`** (OAuth App) | Multi-workspace, proper bot identity, OAuth refresh | Console **Integrations → Linear → Publish agent** (wizard issues per-publication callback + webhook URLs to paste into your own Linear OAuth App at `linear.app/settings/api`) |
 
-The full agent-side playbook (when to ask the human, how to offer browser automation, exactly what to paste into Linear's form) lives at [`skills/openma/integrations-linear.md`](skills/openma/integrations-linear.md).
+The full agent-side playbook (when to ask the human, how to offer browser automation, exactly what to paste into Linear's form) lives at [`skills/oma/integrations-linear.md`](skills/oma/integrations-linear.md).
 
 PAT-mode autopilot — let the bot pick up unassigned issues by label/state/project:
 
@@ -587,7 +598,7 @@ Give an agent its own GitHub App with a real bot identity — assignable on issu
 # (1) Console — humans clicking through a wizard
 Integrations → GitHub → Publish agent
 
-# (2) CLI — agents driving openma on a user's behalf
+# (2) CLI — agents driving oma on a user's behalf
 oma github bind <agent-id> --env <env-id>       # → opens one-click GitHub App Manifest flow
 oma github handoff <form-token>                 # alt: 7-day URL for an org admin to complete
 oma github list
@@ -620,7 +631,7 @@ Publish an agent into a Slack workspace as a dedicated bot — `@mention`able in
 # (1) Console — humans clicking through a wizard
 Integrations → Slack → Publish agent   # ↑ opens api.slack.com with a pre-filled manifest
 
-# (2) CLI — agents driving openma on a user's behalf
+# (2) CLI — agents driving oma on a user's behalf
 oma slack publish <agent-id> --env <env-id>    # → returns manifestLaunchUrl + formToken (60 min TTL)
 oma slack submit <form-token> --client-id … --client-secret … --signing-secret …
 oma slack handoff <form-token>                 # alt: 7-day shareable URL for a workspace admin
@@ -630,7 +641,7 @@ oma slack update <pub-id> --caps message.write,thread.reply,reaction.add,…
 oma slack unpublish <pub-id>
 ```
 
-The full agent-side playbook (manifest-flow caveats, `GATEWAY_ORIGIN` HTTPS requirement, what to paste where, MCP toggle probe) lives at [`skills/openma/integrations-slack.md`](skills/openma/integrations-slack.md).
+The full agent-side playbook (manifest-flow caveats, `GATEWAY_ORIGIN` HTTPS requirement, what to paste where, MCP toggle probe) lives at [`skills/oma/integrations-slack.md`](skills/oma/integrations-slack.md).
 
 How it works:
 
@@ -675,6 +686,7 @@ open-managed-agents/
 │   ├── integrations-core/         # Provider-neutral persistence interfaces
 │   └── integrations-adapters-{cf,node}/  # D1 / KV / Workers + Postgres / FS implementations
 ├── docs/                  # Internal design RFCs (not the user-facing site)
+├── examples/              # Copy-paste agent/environment configs + ready-to-use Docker images
 ├── test/                  # Unit + integration tests
 └── scripts/               # Deployment + maintenance scripts
 ```

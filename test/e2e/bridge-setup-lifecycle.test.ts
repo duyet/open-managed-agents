@@ -156,14 +156,14 @@ describe("bridge lifecycle (e2e, opt-in)", { skip: skipMsg }, () => {
     const kind = probeKind();
     if (kind === "launchd") {
       const plist = readFileSync(
-        join(homedir(), "Library/LaunchAgents", `dev.openma.bridge.${PROFILE}.plist`),
+        join(homedir(), "Library/LaunchAgents", `dev.oma.bridge.${PROFILE}.plist`),
         "utf-8",
       );
       assert.match(plist, /<key>OMA_PROFILE<\/key>/);
       assert.match(plist, new RegExp(`<string>${PROFILE}</string>`));
     } else if (kind === "systemd") {
       const unit = readFileSync(
-        join(homedir(), ".config/systemd/user", `dev.openma.bridge.${PROFILE}.service`),
+        join(homedir(), ".config/systemd/user", `dev.oma.bridge.${PROFILE}.service`),
         "utf-8",
       );
       assert.match(unit, new RegExp(`Environment=OMA_PROFILE=${PROFILE}`));
@@ -241,7 +241,7 @@ describe("bridge lifecycle (e2e, opt-in)", { skip: skipMsg }, () => {
     // for the job to relaunch under launchd. Equivalent to "I just
     // upgraded oma" from the user's perspective.
     const kick = spawnSync("launchctl", [
-      "kickstart", "-k", `gui/${process.getuid?.() ?? 0}/dev.openma.bridge.${PROFILE}`,
+      "kickstart", "-k", `gui/${process.getuid?.() ?? 0}/dev.oma.bridge.${PROFILE}`,
     ], { encoding: "utf-8", timeout: 15_000 });
     assert.equal(kick.status, 0, `kickstart failed: ${kick.stderr || kick.stdout}`);
 

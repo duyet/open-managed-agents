@@ -27,6 +27,7 @@
     "@flue/runtime": "1.0.0-beta.8",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@duyet/oma-agents-store": "workspace:*",
+    "@duyet/oma-anyrouter": "workspace:*",
     "@duyet/oma-api-types": "workspace:*",
     "@duyet/oma-browser-harness": "workspace:*",
     "@duyet/oma-cap": "workspace:*",

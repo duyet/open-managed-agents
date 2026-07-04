@@ -745,3 +745,296 @@ describe("Thread model — delegateToAgent", () => {
     expect(delegateCalls[1].agentId).toBe("agent_beta");
   });
 });
+
+// ============================================================
+// 9. call_agents_parallel — fan-out + aggregation
+// ============================================================
+describe("call_agents_parallel", () => {
+  function delayedDelegate(delayMs: number, calls: Array<{ agentId: string; message: string }>) {
+    return async (agentId: string, message: string) => {
+      calls.push({ agentId, message });
+      await new Promise((r) => setTimeout(r, delayMs));
+      return `response from ${agentId}`;
+    };
+  }
+
+  it("is generated when callable_agents has 1+ entries", async () => {
+    const agentConfig: AgentConfig = {
+      id: "agent_fanout",
+      name: "Fan-out coordinator",
+      model: "claude-sonnet-4-6",
+      system: "You coordinate.",
+      tools: [{ type: "agent_toolset_20260401" }],
+      callable_agents: [{ type: "agent", id: "agent_worker1", version: 1 }],
+      version: 1,
+      created_at: new Date().toISOString(),
+    };
+    const sandbox = new TestSandbox();
+    const tools = await buildTools(agentConfig, sandbox, {
+      ANTHROPIC_API_KEY: "sk-ant-test",
+      delegateToAgent: async () => "ok",
+    });
+    expect(tools.call_agents_parallel).toBeDefined();
+  });
+
+  it("is NOT generated without callable_agents", async () => {
+    const agentConfig: AgentConfig = {
+      id: "agent_no_fanout",
+      name: "No fan-out",
+      model: "claude-sonnet-4-6",
+      system: "You are helpful.",
+      tools: [{ type: "agent_toolset_20260401" }],
+      version: 1,
+      created_at: new Date().toISOString(),
+    };
+    const sandbox = new TestSandbox();
+    const tools = await buildTools(agentConfig, sandbox, {
+      ANTHROPIC_API_KEY: "sk-ant-test",
+      delegateToAgent: async () => "ok",
+    });
+    expect(tools.call_agents_parallel).toBeUndefined();
+  });
+
+  it("runs 3 children concurrently — ~1x delay, not 3x", async () => {
+    const delayMs = 150;
+    const calls: Array<{ agentId: string; message: string }> = [];
+    const agentConfig: AgentConfig = {
+      id: "agent_timing",
+      name: "Timing coordinator",
+      model: "claude-sonnet-4-6",
+      system: "You coordinate.",
+      tools: [{ type: "agent_toolset_20260401" }],
+      callable_agents: [
+        { type: "agent", id: "agent_a", version: 1 },
+        { type: "agent", id: "agent_b", version: 1 },
+        { type: "agent", id: "agent_c", version: 1 },
+      ],
+      version: 1,
+      created_at: new Date().toISOString(),
+    };
+    const sandbox = new TestSandbox();
+    const tools = await buildTools(agentConfig, sandbox, {
+      ANTHROPIC_API_KEY: "sk-ant-test",
+      delegateToAgent: delayedDelegate(delayMs, calls),
+    });
+
+    const start = Date.now();
+    const raw = await tools.call_agents_parallel.execute(
+      {
+        calls: [
+          { agent_id: "agent_a", message: "task a" },
+          { agent_id: "agent_b", message: "task b" },
+          { agent_id: "agent_c", message: "task c" },
+        ],
+      },
+      { toolCallId: "tc_1", messages: [], abortSignal: undefined as any }
+    );
+    const elapsed = Date.now() - start;
+
+    // Sequential would be ~3*delayMs (450ms+); concurrent should stay
+    // comfortably under 2x a single delay even with test-runner jitter.
+    expect(elapsed).toBeLessThan(delayMs * 2);
+    expect(calls).toHaveLength(3);
+
+    const parsed = JSON.parse(raw as string);
+    expect(parsed.results).toHaveLength(3);
+    for (const r of parsed.results) {
+      expect(r.success).toBe(true);
+      expect(r.response).toBe(`response from ${r.agent_id}`);
+    }
+  });
+
+  it("partial failure in one child doesn't fail the whole call", async () => {
+    const agentConfig: AgentConfig = {
+      id: "agent_partial_fail",
+      name: "Partial-fail coordinator",
+      model: "claude-sonnet-4-6",
+      system: "You coordinate.",
+      tools: [{ type: "agent_toolset_20260401" }],
+      callable_agents: [
+        { type: "agent", id: "agent_ok1", version: 1 },
+        { type: "agent", id: "agent_flaky", version: 1 },
+        { type: "agent", id: "agent_ok2", version: 1 },
+      ],
+      version: 1,
+      created_at: new Date().toISOString(),
+    };
+    const sandbox = new TestSandbox();
+    const tools = await buildTools(agentConfig, sandbox, {
+      ANTHROPIC_API_KEY: "sk-ant-test",
+      delegateToAgent: async (agentId: string) => {
+        if (agentId === "agent_flaky") throw new Error("sub-agent crashed");
+        return `response from ${agentId}`;
+      },
+    });
+
+    const raw = await tools.call_agents_parallel.execute(
+      {
+        calls: [
+          { agent_id: "agent_ok1", message: "task 1" },
+          { agent_id: "agent_flaky", message: "task 2" },
+          { agent_id: "agent_ok2", message: "task 3" },
+        ],
+      },
+      { toolCallId: "tc_1", messages: [], abortSignal: undefined as any }
+    );
+
+    const parsed = JSON.parse(raw as string);
+    expect(parsed.results).toHaveLength(3);
+    expect(parsed.results[0]).toMatchObject({ agent_id: "agent_ok1", success: true, response: "response from agent_ok1" });
+    expect(parsed.results[1]).toMatchObject({ agent_id: "agent_flaky", success: false });
+    expect(parsed.results[1].error).toContain("sub-agent crashed");
+    expect(parsed.results[2]).toMatchObject({ agent_id: "agent_ok2", success: true, response: "response from agent_ok2" });
+  });
+
+  it("rejects a call targeting an agent_id not in callable_agents without crashing the batch", async () => {
+    const agentConfig: AgentConfig = {
+      id: "agent_unknown_target",
+      name: "Coordinator",
+      model: "claude-sonnet-4-6",
+      system: "You coordinate.",
+      tools: [{ type: "agent_toolset_20260401" }],
+      callable_agents: [{ type: "agent", id: "agent_known", version: 1 }],
+      version: 1,
+      created_at: new Date().toISOString(),
+    };
+    const sandbox = new TestSandbox();
+    const tools = await buildTools(agentConfig, sandbox, {
+      ANTHROPIC_API_KEY: "sk-ant-test",
+      delegateToAgent: async (agentId: string) => `response from ${agentId}`,
+    });
+
+    const raw = await tools.call_agents_parallel.execute(
+      {
+        calls: [
+          { agent_id: "agent_known", message: "task 1" },
+          { agent_id: "agent_not_in_roster", message: "task 2" },
+        ],
+      },
+      { toolCallId: "tc_1", messages: [], abortSignal: undefined as any }
+    );
+
+    const parsed = JSON.parse(raw as string);
+    expect(parsed.results[0]).toMatchObject({ agent_id: "agent_known", success: true });
+    expect(parsed.results[1]).toMatchObject({ agent_id: "agent_not_in_roster", success: false });
+    expect(parsed.results[1].error).toContain("not in this agent's callable_agents roster");
+  });
+
+  it("enforces the configured concurrency cap — batches beyond the cap run in a second wave", async () => {
+    const delayMs = 150;
+    let concurrentNow = 0;
+    let maxConcurrent = 0;
+    const agentConfig: AgentConfig = {
+      id: "agent_capped",
+      name: "Capped coordinator",
+      model: "claude-sonnet-4-6",
+      system: "You coordinate.",
+      tools: [{ type: "agent_toolset_20260401" }],
+      callable_agents: [
+        { type: "agent", id: "agent_1", version: 1 },
+        { type: "agent", id: "agent_2", version: 1 },
+        { type: "agent", id: "agent_3", version: 1 },
+        { type: "agent", id: "agent_4", version: 1 },
+      ],
+      max_parallel_subagents: 2,
+      version: 1,
+      created_at: new Date().toISOString(),
+    };
+    const sandbox = new TestSandbox();
+    const tools = await buildTools(agentConfig, sandbox, {
+      ANTHROPIC_API_KEY: "sk-ant-test",
+      delegateToAgent: async (agentId: string) => {
+        concurrentNow++;
+        maxConcurrent = Math.max(maxConcurrent, concurrentNow);
+        await new Promise((r) => setTimeout(r, delayMs));
+        concurrentNow--;
+        return `response from ${agentId}`;
+      },
+    });
+
+    const start = Date.now();
+    const raw = await tools.call_agents_parallel.execute(
+      {
+        calls: [
+          { agent_id: "agent_1", message: "t1" },
+          { agent_id: "agent_2", message: "t2" },
+          { agent_id: "agent_3", message: "t3" },
+          { agent_id: "agent_4", message: "t4" },
+        ],
+      },
+      { toolCallId: "tc_1", messages: [], abortSignal: undefined as any }
+    );
+    const elapsed = Date.now() - start;
+
+    // 4 calls at cap=2 → two waves of ~delayMs each. Never more than 2
+    // in flight at once, and total time reflects 2 waves, not 1 or 4.
+    expect(maxConcurrent).toBeLessThanOrEqual(2);
+    expect(elapsed).toBeGreaterThanOrEqual(delayMs * 2 - 30);
+    expect(elapsed).toBeLessThan(delayMs * 4);
+
+    const parsed = JSON.parse(raw as string);
+    expect(parsed.results).toHaveLength(4);
+    expect(parsed.results.every((r: { success: boolean }) => r.success)).toBe(true);
+  });
+
+  it("surfaces per-child thread ids via delegateToAgentDetailed", async () => {
+    const agentConfig: AgentConfig = {
+      id: "agent_threaded",
+      name: "Threaded coordinator",
+      model: "claude-sonnet-4-6",
+      system: "You coordinate.",
+      tools: [{ type: "agent_toolset_20260401" }],
+      callable_agents: [
+        { type: "agent", id: "agent_a", version: 1 },
+        { type: "agent", id: "agent_b", version: 1 },
+      ],
+      version: 1,
+      created_at: new Date().toISOString(),
+    };
+    const sandbox = new TestSandbox();
+    const tools = await buildTools(agentConfig, sandbox, {
+      ANTHROPIC_API_KEY: "sk-ant-test",
+      delegateToAgentDetailed: async (agentId: string) => ({
+        text: `response from ${agentId}`,
+        threadId: `sthr_${agentId}`,
+      }),
+    });
+
+    const raw = await tools.call_agents_parallel.execute(
+      {
+        calls: [
+          { agent_id: "agent_a", message: "task a" },
+          { agent_id: "agent_b", message: "task b" },
+        ],
+      },
+      { toolCallId: "tc_1", messages: [], abortSignal: undefined as any }
+    );
+
+    const parsed = JSON.parse(raw as string);
+    expect(parsed.results[0]).toMatchObject({ agent_id: "agent_a", success: true, thread_id: "sthr_agent_a" });
+    expect(parsed.results[1]).toMatchObject({ agent_id: "agent_b", success: true, thread_id: "sthr_agent_b" });
+  });
+
+  it("returns fallback text when neither delegate function is provided", async () => {
+    const agentConfig: AgentConfig = {
+      id: "agent_no_delegate_fanout",
+      name: "Coordinator",
+      model: "claude-sonnet-4-6",
+      system: "You coordinate.",
+      tools: [{ type: "agent_toolset_20260401" }],
+      callable_agents: [{ type: "agent", id: "agent_worker1", version: 1 }],
+      version: 1,
+      created_at: new Date().toISOString(),
+    };
+    const sandbox = new TestSandbox();
+    const tools = await buildTools(agentConfig, sandbox, {
+      ANTHROPIC_API_KEY: "sk-ant-test",
+    });
+
+    const result = await tools.call_agents_parallel.execute(
+      { calls: [{ agent_id: "agent_worker1", message: "task" }] },
+      { toolCallId: "tc_1", messages: [], abortSignal: undefined as any }
+    );
+    expect(result).toContain("not available");
+  });
+});

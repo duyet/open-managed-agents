@@ -1,11 +1,11 @@
 ---
 title: Configuration Reference
-description: Schemas for Agent, Environment, Skill, Vault, and the full list of environment variables required to run openma.
+description: Schemas for Agent, Environment, Skill, Vault, and the full list of environment variables required to run oma.
 ---
 
 import { Aside, LinkCard } from '@astrojs/starlight/components';
 
-Authoritative reference for openma's configuration shapes. The TypeScript source of truth lives in `packages/api-types`; the in-repo human-readable schema doc is `AGENTS.md`.
+Authoritative reference for oma's configuration shapes. The TypeScript source of truth lives in `packages/api-types`; the in-repo human-readable schema doc is `AGENTS.md`.
 
 ## Agent
 
@@ -203,6 +203,8 @@ Required for self-host. Set as Worker secrets via `npx wrangler secret put NAME`
 | Variable | Worker | Purpose |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | main, agent | Fallback LLM credential when a tenant has not added a Model Card. In production, prefer per-tenant Model Cards from the Console — they're encrypted under `PLATFORM_ROOT_SECRET` and rotatable without redeploy. (Alternates: `OPENAI_API_KEY`, `MINIMAX_API_KEY`.) |
+| `ANYROUTER_API_KEY` | agent | Static fallback provider (routes through [AnyRouter](https://anyrouter.dev), an OpenAI-compatible gateway) used only when an agent's model matches no Model Card **and** `ANTHROPIC_API_KEY` is unset. Model ids must be `provider/model`-shaped (e.g. `anthropic/claude-sonnet-4-6`) — AnyRouter addresses models that way. |
+| `CLAUDE_CODE_OAUTH_TOKEN` | agent (self-host Node only) | Non-interactive Claude Code auth (`claude setup-token`) for agents on the `claude-agent-sdk` harness — the CI/CD alternative to `ANTHROPIC_API_KEY` for that harness's CLI subprocess. Not available on the Cloudflare Workers deploy (the SDK can't spawn a subprocess in a Workers isolate). |
 | `LINEAR_CLIENT_ID` | integrations | Linear OAuth |
 | `LINEAR_CLIENT_SECRET` | integrations | Linear OAuth |
 | `LINEAR_WEBHOOK_SECRET` | integrations | Verify inbound Linear webhooks |

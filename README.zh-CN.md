@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.svg" alt="openma" height="80" />
+  <img src="logo.svg" alt="oma" height="80" />
 </p>
 
 <p align="center">
@@ -510,7 +510,7 @@ curl -sX POST $BASE/v1/sessions -H "x-api-key: $KEY" \
 | **`personal_token`**（PAT）| 单 workspace，最快路径，无 OAuth App | `oma linear install-pat --workspace <slug> --pat <linear-pat>` |
 | **`dedicated`**（OAuth App）| 多 workspace、独立 bot 身份、OAuth 自动刷新 | Console **集成 → Linear → 发布智能体**（向导会签发 per-publication 的 callback + webhook URL，你拿去贴到自己在 `linear.app/settings/api` 注册的 OAuth App 里）|
 
-完整的 agent 侧操作手册（何时询问人、如何提供浏览器自动化、应该往 Linear 表单里粘贴什么）见 [`skills/openma/integrations-linear.md`](skills/openma/integrations-linear.md)。
+完整的 agent 侧操作手册（何时询问人、如何提供浏览器自动化、应该往 Linear 表单里粘贴什么）见 [`skills/oma/integrations-linear.md`](skills/oma/integrations-linear.md)。
 
 PAT 模式自动派单 —— 按 label / state / project 让 bot 自己捡未分配 issue：
 
@@ -549,7 +549,7 @@ Linear 集成以 `packages/linear/`（provider 逻辑、webhook 签名、MCP 配
 # (1) Console —— 适合人通过向导点击
 集成 → GitHub → 发布智能体
 
-# (2) CLI —— 适合代表用户驱动 openma 的 agent
+# (2) CLI —— 适合代表用户驱动oma 的 agent
 oma github bind <agent-id> --env <env-id>       # → 打开一键 GitHub App Manifest 流程
 oma github handoff <form-token>                 # 备选：7 天有效的 URL 让 org 管理员去走完
 oma github list
@@ -582,7 +582,7 @@ GitHub 集成的 provider 逻辑在 `packages/github/`，CF 路由薄壳在 `app
 # (1) Console —— 适合人通过向导点击
 集成 → Slack → 发布智能体          # ↑ 会打开 api.slack.com，manifest 已预填
 
-# (2) CLI —— 适合代表用户驱动 openma 的 agent
+# (2) CLI —— 适合代表用户驱动 oma 的 agent
 oma slack publish <agent-id> --env <env-id>    # → 返回 manifestLaunchUrl + formToken（60 分钟 TTL）
 oma slack submit <form-token> --client-id … --client-secret … --signing-secret …
 oma slack handoff <form-token>                 # 备选：7 天有效的 URL 让 workspace 管理员去走完
@@ -592,7 +592,7 @@ oma slack update <pub-id> --caps message.write,thread.reply,reaction.add,…
 oma slack unpublish <pub-id>
 ```
 
-完整的 agent 侧操作手册（manifest 流程注意事项、`GATEWAY_ORIGIN` 必须 HTTPS、应该把什么粘到哪、MCP 开关探测）见 [`skills/openma/integrations-slack.md`](skills/openma/integrations-slack.md)。
+完整的 agent 侧操作手册（manifest 流程注意事项、`GATEWAY_ORIGIN` 必须 HTTPS、应该把什么粘到哪、MCP 开关探测）见 [`skills/oma/integrations-slack.md`](skills/oma/integrations-slack.md)。
 
 工作原理：
 

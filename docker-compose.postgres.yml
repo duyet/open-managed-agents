@@ -22,7 +22,7 @@ services:
     build:
       context: .
       dockerfile: apps/main-node/Dockerfile
-    image: openma/main-node:dev
+    image: oma/main-node:dev
     container_name: oma-server
     ports:
       - "${OMA_PORT:-8787}:8787"
@@ -95,7 +95,7 @@ services:
     build:
       context: .
       dockerfile: apps/oma-vault/Dockerfile
-    image: openma/oma-vault:dev
+    image: oma/oma-vault:dev
     container_name: oma-vault
     environment:
       DATABASE_URL: postgres://oma:oma@postgres:5432/oma

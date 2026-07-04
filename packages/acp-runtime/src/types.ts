@@ -3,12 +3,12 @@
  *
  * Three layers, intentionally separated so the same agent-driving code
  * (`AcpRuntime`) works whether the agent is a local subprocess (clash-bridge
- * use case) or running inside an openma sandbox container (openma session
+ * use case) or running inside an oma sandbox container (oma session
  * use case).
  *
  *   [Spawner]            How a child process gets started + its stdio.
  *                        Different per host: Node child_process for local,
- *                        openma sandbox.exec for cloud.
+ *                        oma sandbox.exec for cloud.
  *
  *   [ChildHandle]        The opaque process — read stdout, write stdin,
  *                        wait for exit, kill. AcpRuntime never inspects
@@ -73,7 +73,7 @@ export interface ChildHandle {
  *
  * Host examples:
  *   - Node spawner (clash-bridge, local CLIs, dev tools)
- *   - CF sandbox spawner (openma session DO → its sandbox container)
+ *   - CF sandbox spawner (oma session DO → its sandbox container)
  *   - Tauri/Electron spawner (BYO desktop client)
  *
  * All spawners must produce a fully-working ChildHandle BEFORE returning.
@@ -173,7 +173,7 @@ export interface AcpSession {
 
   /**
    * Apply a tool result that was requested by the agent. Use when the
-   * agent issued `tools/request` and the host (= clash CLI, openma
+   * agent issued `tools/request` and the host (= clash CLI, oma
    * sandbox, etc.) executed it out-of-band.
    */
   provideToolResult(toolCallId: string, result: unknown): Promise<void>;

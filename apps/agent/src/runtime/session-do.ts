@@ -63,7 +63,7 @@ import type {
 import type { HarnessContext, HarnessInterface, HistoryStore, SandboxExecutor, ProcessHandle, FileResolver } from "../harness/interface";
 import { resolveHarness } from "../harness/registry";
 import { composeSystemPrompt } from "../harness/platform-guidance";
-import { resolveModel } from "../harness/provider";
+import { resolveModel, resolveDefaultProviderCreds } from "../harness/provider";
 import type { ApiCompat } from "../harness/provider";
 import type { LanguageModel } from "ai";
 import { generateText } from "ai";
@@ -471,6 +471,10 @@ export class SessionDO extends DurableObject<Env> {
   // straggler `this.observability?.foo()` call elsewhere stays a no-op.
   observability: { emit?: (event: unknown) => void } | null = null;
   private initialized = false;
+  /** True once the event-log DDL has been bootstrapped for this DO's
+   *  SqlStorage. Lets `makeHistory()` skip the ~13 idempotent CREATE/PRAGMA
+   *  statements SqliteHistory would otherwise re-run on every construction. */
+  private eventLogSchemaReady = false;
   private sandbox: SandboxExecutor | null = null;
   private wrappedSandbox: SandboxExecutor | null = null;
   private sandboxWarmupPromise: Promise<void> | null = null;
@@ -521,12 +525,44 @@ export class SessionDO extends DurableObject<Env> {
    *  picking them up. Lazy-initialized in ensureSchema(). */
   private pending: PendingQueueRepo | null = null;
 
+  /**
+   * Bootstrap the event-log DDL exactly once per DO instance (per
+   * SqlStorage). The adapter's `ensureSchema` is idempotent (CREATE TABLE IF
+   * NOT EXISTS), but each call still runs ~13 metadata statements against DO
+   * SQLite; gating it behind `eventLogSchemaReady` makes repeat calls — one
+   * per `makeHistory()` — a true no-op. Re-runs from scratch on the next cold
+   * start (new isolate → flag reset), which is exactly when a schema
+   * migration would need to run.
+   */
+  private ensureEventLogSchemaOnce(): void {
+    if (this.eventLogSchemaReady) return;
+    ensureEventLogSchema(this.ctx.storage.sql);
+    this.eventLogSchemaReady = true;
+  }
+
+  /**
+   * Construct a SqliteHistory bound to this DO's SQLite + files bucket.
+   * Centralizes the identical 3-arg construction that was copy-pasted across
+   * ~a dozen handlers, and passes `skipSchema` because
+   * `ensureEventLogSchemaOnce()` already guarantees the DDL — no need to
+   * re-run it inside every SqliteHistory constructor.
+   */
+  private makeHistory(): SqliteHistory {
+    this.ensureEventLogSchemaOnce();
+    return new SqliteHistory(
+      this.ctx.storage.sql,
+      this.env.FILES_BUCKET ?? null,
+      `t/${this.state.tenant_id ?? "default"}/sessions/${this.state.session_id ?? "unknown"}`,
+      { skipSchema: true },
+    );
+  }
+
   private ensureSchema() {
     if (this.initialized) return;
     // Schema lives in the cf-do adapter so OMA's SessionDO doesn't have
     // to know SQLite syntax. Adapter is idempotent — CREATE TABLE IF NOT
     // EXISTS — so calling on every fetch hot path is fine.
-    ensureEventLogSchema(this.ctx.storage.sql);
+    this.ensureEventLogSchemaOnce();
     this.streams = new CfDoStreamRepo(this.ctx.storage.sql);
     this.pending = new CfDoPendingQueue(this.ctx.storage.sql);
     this.initialized = true;
@@ -615,11 +651,7 @@ export class SessionDO extends DurableObject<Env> {
           // Append directly to the events table — broadcastEvent's
           // dedup hits the broadcastedMessageIds set, but the persist
           // path is what matters most (Console replay, LLM context).
-          const history = new SqliteHistory(
-            this.ctx.storage.sql,
-            this.env.FILES_BUCKET ?? null,
-            `t/${this.state.tenant_id ?? "default"}/sessions/${this.state.session_id ?? "unknown"}`,
-          );
+          const history = this.makeHistory();
           history.append(partialEvent);
           this.broadcastedMessageIds.add(messageId);
           fire(partialEvent);
@@ -712,7 +744,7 @@ export class SessionDO extends DurableObject<Env> {
    *  This wrapper just glues it to DO storage + WS broadcast. */
   private async recoverInterruptedState(): Promise<void> {
     if (!this.streams) return;
-    const history = new SqliteHistory(this.ctx.storage.sql, this.env.FILES_BUCKET ?? null, `t/${this.state.tenant_id ?? "default"}/sessions/${this.state.session_id ?? "unknown"}`);
+    const history = this.makeHistory();
     try {
       const { warnings } = await runRecovery(this.streams, history);
       for (const w of warnings) {
@@ -975,11 +1007,7 @@ export class SessionDO extends DurableObject<Env> {
     // is invoked AFTER _checkRunFibers DELETEs the orphan, so deriveStatus
     // automatically reads "idle" here. No manual state mutation needed.
 
-    const history = new SqliteHistory(
-      this.ctx.storage.sql,
-      this.env.FILES_BUCKET ?? null,
-      `t/${this.state.tenant_id ?? "default"}/sessions/${this.state.session_id ?? "unknown"}`,
-    );
+    const history = this.makeHistory();
 
     const decision = await recoverAgentTurn(
       this.turnRuntimeAdapter(),
@@ -1112,7 +1140,7 @@ export class SessionDO extends DurableObject<Env> {
     this._draining.add(threadId);
 
     try {
-    const history = new SqliteHistory(this.ctx.storage.sql, this.env.FILES_BUCKET ?? null, `t/${this.state.tenant_id ?? "default"}/sessions/${this.state.session_id ?? "unknown"}`);
+    const history = this.makeHistory();
 
     // Legacy backfill (one-shot per drain): pre-3a3e7ec sessions had
     // user.* rows sitting in `events` with processed_at IS NULL. The
@@ -1708,7 +1736,7 @@ export class SessionDO extends DurableObject<Env> {
           );
         }
       }
-      const history = new SqliteHistory(this.ctx.storage.sql, this.env.FILES_BUCKET ?? null, `t/${this.state.tenant_id ?? "default"}/sessions/${this.state.session_id ?? "unknown"}`);
+      const history = this.makeHistory();
 
       // Auto-mount referenced files into the sandbox FS so agent's bash/read
       // tools see them at /mnt/session/uploads/{file_id}, while the model
@@ -1993,7 +2021,7 @@ export class SessionDO extends DurableObject<Env> {
         | { kind: "tool_use"; id: string; name?: string; tool_kind?: "builtin" | "mcp" | "custom" };
       const body = (await request.json().catch(() => ({}))) as { seed?: Seed[] };
       const seeds = body.seed ?? [];
-      const history = new SqliteHistory(this.ctx.storage.sql, this.env.FILES_BUCKET ?? null, `t/${this.state.tenant_id ?? "default"}/sessions/${this.state.session_id ?? "unknown"}`);
+      const history = this.makeHistory();
       for (const s of seeds) {
         if (s.kind === "stream") {
           await this.streams.start(s.message_id, Date.now());
@@ -2059,11 +2087,7 @@ export class SessionDO extends DurableObject<Env> {
       // this is the spec-default ("only events after open"). When set,
       // filter by seq > lastEventId for clean SSE resume semantics.
       if (wantsReplay) {
-        const history = new SqliteHistory(
-          this.ctx.storage.sql,
-          this.env.FILES_BUCKET ?? null,
-          `t/${this.state.tenant_id ?? "default"}/sessions/${this.state.session_id ?? "unknown"}`,
-        );
+        const history = this.makeHistory();
         // Use the repo-level afterSeq filter — the SQL layer drops rows
         // server-side, which is the only place that can see `seq` (the
         // returned SessionEvent objects are bare wire payloads with no
@@ -2490,7 +2514,7 @@ export class SessionDO extends DurableObject<Env> {
     // `outcome.evaluation_end`, `span.outcome_evaluation_end`) so sessions
     // written before this change still surface their verdicts.
     if (request.method === "GET" && url.pathname === "/full-status") {
-      const history = new SqliteHistory(this.ctx.storage.sql, this.env.FILES_BUCKET ?? null, `t/${this.state.tenant_id ?? "default"}/sessions/${this.state.session_id ?? "unknown"}`);
+      const history = this.makeHistory();
 
       const stateEvaluations = this.state.outcome_evaluations ?? [];
       let outcomeEvaluations: PersistedOutcomeEvaluation[] = stateEvaluations;
@@ -3434,7 +3458,7 @@ export class SessionDO extends DurableObject<Env> {
    */
   private persistAndBroadcastEvent(event: SessionEvent) {
     try {
-      const history = new SqliteHistory(this.ctx.storage.sql, this.env.FILES_BUCKET ?? null, `t/${this.state.tenant_id ?? "default"}/sessions/${this.state.session_id ?? "unknown"}`);
+      const history = this.makeHistory();
       history.append(event);
     } catch (err) {
       console.warn(`[persistAndBroadcastEvent] history.append failed: ${(err as Error).message}`);
@@ -3486,7 +3510,9 @@ export class SessionDO extends DurableObject<Env> {
    *
    * Lookup order:
    *   1. Card whose `model_id` (handle) matches the requested handle
-   *   2. Env-var fallback (ANTHROPIC_API_KEY + ANTHROPIC_BASE_URL)
+   *   2. Env-var fallback: ANTHROPIC_API_KEY + ANTHROPIC_BASE_URL, else
+   *      ANYROUTER_API_KEY (static-env-var default provider — see
+   *      resolveDefaultProviderCreds in harness/provider.ts)
    *
    * Returns:
    *   - `model` — the LLM string to send to the provider. card.model when a
@@ -3528,6 +3554,30 @@ export class SessionDO extends DurableObject<Env> {
         }
       } catch (err) {
         console.warn(`[model-card] D1 lookup failed, falling back to env: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    if (!provider && !apiKey) {
+      // No D1 model card matched this handle AND no ANTHROPIC_API_KEY is
+      // configured — only then does ANYROUTER_API_KEY kick in as the
+      // default upstream for this session. Gating on `!apiKey` (not just
+      // `!provider`) matters: when ANTHROPIC_API_KEY IS set, this block
+      // must stay a no-op so the OMA_API_COMPAT override below (the
+      // `else` branch, keyed off `provider` still being undefined) keeps
+      // working exactly as before — setting `provider = "ant"` here would
+      // short-circuit that override for every existing ANTHROPIC_API_KEY
+      // deploy. Setting `provider` from the AnyRouter fallback lets the
+      // apiCompat resolution below pick up its wire compat the same way a
+      // card's `provider` column would.
+      const fallback = resolveDefaultProviderCreds({
+        ANTHROPIC_API_KEY: apiKey,
+        ANTHROPIC_BASE_URL: baseURL,
+        ANYROUTER_API_KEY: this.env.ANYROUTER_API_KEY,
+      });
+      if (fallback) {
+        apiKey = fallback.apiKey;
+        baseURL = fallback.baseURL;
+        provider = fallback.apiCompat;
       }
     }
 
@@ -3748,11 +3798,11 @@ export class SessionDO extends DurableObject<Env> {
     try {
       const sched = await this.schedule(3, "pollBackgroundTasks");
       // Emit debug event so we can verify schedule was set
-      const history = new SqliteHistory(this.ctx.storage.sql, this.env.FILES_BUCKET ?? null, `t/${this.state.tenant_id ?? "default"}/sessions/${this.state.session_id ?? "unknown"}`);
+      const history = this.makeHistory();
       history.append({ type: "span.background_task_scheduled", task_id: taskId, schedule_id: sched?.id } as any);
       this.broadcastEvent({ type: "span.background_task_scheduled", task_id: taskId, schedule_id: sched?.id } as any);
     } catch (err) {
-      const history = new SqliteHistory(this.ctx.storage.sql, this.env.FILES_BUCKET ?? null, `t/${this.state.tenant_id ?? "default"}/sessions/${this.state.session_id ?? "unknown"}`);
+      const history = this.makeHistory();
       history.append({ type: "session.error", error: `watchBackgroundTask schedule failed: ${err}` });
       this.broadcastEvent({ type: "session.error", error: `watchBackgroundTask schedule failed: ${err}` });
     }
@@ -3898,6 +3948,14 @@ export class SessionDO extends DurableObject<Env> {
     parentHistory: HistoryStore,
     sandbox: SandboxExecutor,
     parentThreadId: string = "sthr_primary",
+    // Fired once the thread is durably registered (threads table row +
+    // session.thread_created broadcast) — before the sub-agent harness
+    // actually runs. Lets delegateToAgentDetailed (tools.ts
+    // call_agents_parallel) capture this thread's id without changing
+    // this method's return contract (still plain response text, so the
+    // existing single-child delegateToAgent callers are untouched).
+    // Never fires if agent lookup fails (no thread was created).
+    onThreadStarted?: (threadId: string) => void,
   ): Promise<string> {
     // Generate a unique thread ID. Prefix `sthr_` matches AMA spec
     // (BetaManagedAgentsSessionThread.id is `sthr_*`); previous prefix
@@ -3994,6 +4052,7 @@ export class SessionDO extends DurableObject<Env> {
     } as SessionEvent;
     parentHistory.append(threadCreatedEvent);
     this.broadcastEvent(threadCreatedEvent);
+    onThreadStarted?.(threadId);
 
     // Create sub-agent's isolated history
     const subHistory = new InMemoryHistory();
@@ -4043,6 +4102,14 @@ export class SessionDO extends DurableObject<Env> {
         // Nested delegate: this sub-agent's threadId becomes the new
         // child's parent. Lineage chain matches what Console renders.
         return this.runSubAgent(nestedAgentId, nestedMessage, parentHistory, sandbox, threadId);
+      },
+      delegateToAgentDetailed: async (nestedAgentId: string, nestedMessage: string) => {
+        let nestedThreadId: string | undefined;
+        const text = await this.runSubAgent(
+          nestedAgentId, nestedMessage, parentHistory, sandbox, threadId,
+          (id) => { nestedThreadId = id; },
+        );
+        return { text, threadId: nestedThreadId };
       },
     });
     const subModelId = typeof subAgent.model === "string" ? subAgent.model : subAgent.model?.id;
@@ -4111,6 +4178,14 @@ export class SessionDO extends DurableObject<Env> {
           // Nested delegate inside the env block; see runtime block
           // above for the same lineage rule.
           return this.runSubAgent(nestedAgentId, nestedMessage, parentHistory, sandbox, threadId);
+        },
+        delegateToAgentDetailed: async (nestedAgentId: string, nestedMessage: string) => {
+          let nestedThreadId: string | undefined;
+          const text = await this.runSubAgent(
+            nestedAgentId, nestedMessage, parentHistory, sandbox, threadId,
+            (id) => { nestedThreadId = id; },
+          );
+          return { text, threadId: nestedThreadId };
         },
       },
       runtime: {
@@ -4193,7 +4268,7 @@ export class SessionDO extends DurableObject<Env> {
 
     const agent = await this.getAgentConfig(agentId);
     if (!agent) {
-      const history = new SqliteHistory(this.ctx.storage.sql, this.env.FILES_BUCKET ?? null, `t/${this.state.tenant_id ?? "default"}/sessions/${this.state.session_id ?? "unknown"}`);
+      const history = this.makeHistory();
       const errorEvent: SessionEvent = { type: "session.error", error: "Agent not found" };
       history.append(errorEvent);
       this.broadcastEvent(errorEvent);
@@ -4201,7 +4276,7 @@ export class SessionDO extends DurableObject<Env> {
       return;
     }
 
-    const history = new SqliteHistory(this.ctx.storage.sql, this.env.FILES_BUCKET ?? null, `t/${this.state.tenant_id ?? "default"}/sessions/${this.state.session_id ?? "unknown"}`);
+    const history = this.makeHistory();
 
     // Status-pair invariant: every status_running emit (line ~3889
     // below) MUST be followed by exactly one status_idle emit before
@@ -4303,6 +4378,14 @@ export class SessionDO extends DurableObject<Env> {
         // scope (declared at the top of the function) — closure evals
         // lazily at harness.run time, so TDZ isn't a concern.
         return this.runSubAgent(agentId, message, history, sandbox, turnThreadId);
+      },
+      delegateToAgentDetailed: async (agentId: string, message: string) => {
+        let childThreadId: string | undefined;
+        const text = await this.runSubAgent(
+          agentId, message, history, sandbox, turnThreadId,
+          (id) => { childThreadId = id; },
+        );
+        return { text, threadId: childThreadId };
       },
       watchBackgroundTask: (taskId: string, pid: string, outputFile: string, proc: ProcessHandle | null) => {
         this.watchBackgroundTask(taskId, pid, outputFile, proc, sandbox);
@@ -4563,6 +4646,14 @@ export class SessionDO extends DurableObject<Env> {
             }),
         delegateToAgent: async (agentId: string, message: string) => {
           return this.runSubAgent(agentId, message, history, sandbox, turnThreadId);
+        },
+        delegateToAgentDetailed: async (agentId: string, message: string) => {
+          let childThreadId: string | undefined;
+          const text = await this.runSubAgent(
+            agentId, message, history, sandbox, turnThreadId,
+            (id) => { childThreadId = id; },
+          );
+          return { text, threadId: childThreadId };
         },
         watchBackgroundTask: (taskId: string, pid: string, outputFile: string, proc: ProcessHandle | null) => {
           this.watchBackgroundTask(taskId, pid, outputFile, proc, sandbox);
@@ -4998,11 +5089,7 @@ export class SessionDO extends DurableObject<Env> {
       type: "session.status_terminated",
       reason,
     };
-    const history = new SqliteHistory(
-      this.ctx.storage.sql,
-      this.env.FILES_BUCKET ?? null,
-      `t/${this.state.tenant_id ?? "default"}/sessions/${this.state.session_id ?? "unknown"}`,
-    );
+    const history = this.makeHistory();
     history.append(event);
     this.broadcastEvent(event);
 

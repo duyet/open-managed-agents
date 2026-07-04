@@ -67,6 +67,7 @@ import { ensureSchema as ensureEventLogSchema } from "@duyet/oma-event-log/sql";
 import {
   buildAgentRoutes,
   buildVaultRoutes,
+  buildEnvironmentRoutes,
   buildSessionRoutes,
   buildMemoryRoutes,
   buildDreamRoutes,
@@ -528,11 +529,50 @@ const SANDBOX_PROVIDER_PATHS: Record<string, string> = {
   kubernetes: "@duyet/oma-sandbox/adapters/kubernetes",
 };
 
+// Resolve the sandbox provider for a session from its environment's
+// `config.type` ("Hosting Type"). Returns a provider key ONLY when the
+// environment explicitly selects a non-cloud backend that this node knows
+// how to launch; otherwise returns null so the caller keeps the global
+// SANDBOX_PROVIDER default. "cloud"/unset, an unknown session, a missing
+// environment, or an unrecognized type all degrade to null (with a warning
+// for the unrecognized case) rather than throwing — a misconfigured env
+// must not hard-fail a session.
+async function resolveEnvProvider(sessionId: string): Promise<string | null> {
+  try {
+    const row = await sql
+      .prepare(`SELECT tenant_id, environment_id FROM sessions WHERE id = ?`)
+      .bind(sessionId)
+      .first<{ tenant_id: string; environment_id: string | null }>();
+    if (!row?.environment_id) return null;
+    const env = await environmentsService.get({
+      tenantId: row.tenant_id,
+      environmentId: row.environment_id,
+    });
+    const type = env?.config?.type?.toLowerCase();
+    if (!type || type === "cloud") return null;
+    if (SANDBOX_PROVIDER_PATHS[type]) return type;
+    logger.warn(
+      { op: "main-node.sandbox.unknown_env_type", session_id: sessionId, config_type: type },
+      `environment config.type=${type} is not a known sandbox provider; falling back to SANDBOX_PROVIDER`,
+    );
+    return null;
+  } catch (err) {
+    logger.warn(
+      { err, op: "main-node.sandbox.env_provider_resolve_failed", session_id: sessionId },
+      "failed to resolve per-environment sandbox provider; falling back to SANDBOX_PROVIDER",
+    );
+    return null;
+  }
+}
+
 async function buildSandbox(
   sessionId: string,
   workdir: string,
 ): Promise<import("@duyet/oma-sandbox").SandboxExecutor> {
-  const provider = (process.env.SANDBOX_PROVIDER ?? "subprocess").toLowerCase();
+  const envProvider = await resolveEnvProvider(sessionId);
+  const provider = (
+    envProvider ?? process.env.SANDBOX_PROVIDER ?? "subprocess"
+  ).toLowerCase();
   const path = SANDBOX_PROVIDER_PATHS[provider];
   if (!path) {
     throw new Error(
@@ -588,16 +628,34 @@ if (["k8s", "kubernetes"].includes((process.env.SANDBOX_PROVIDER ?? "").toLowerC
 // buildModel/buildTools/buildHarnessContext so all three agree on which
 // provider is active. Falls back to ANTHROPIC_API_KEY/ANTHROPIC_BASE_URL
 // when nothing is connected.
-function resolveProviderCreds(): { apiKey: string; baseUrl: string | undefined } {
+//
+// `agent` is optional and only consulted for the CLAUDE_CODE_OAUTH_TOKEN
+// carve-out below — every other harness (Default, Flue) still hard-requires
+// ANTHROPIC_API_KEY, since only ClaudeAgentSdkHarness's CLI subprocess can
+// authenticate with the OAuth token instead.
+function resolveProviderCreds(
+  agent?: { metadata?: Record<string, unknown> },
+): { apiKey: string; baseUrl: string | undefined } {
   const anyrouter = getActiveAnyRouterProvider();
   if (anyrouter) return { apiKey: anyrouter.apiKey, baseUrl: anyrouter.baseUrl };
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "ANTHROPIC_API_KEY env var required for harness turns (or connect AnyRouter via the Console)",
-    );
+  if (apiKey) return { apiKey, baseUrl: process.env.ANTHROPIC_BASE_URL };
+
+  // ClaudeAgentSdkHarness authenticates its CLI subprocess directly via
+  // CLAUDE_CODE_OAUTH_TOKEN (see claude-agent-sdk-loop.ts's
+  // resolveClaudeSdkAuth) instead of the ai-sdk ANTHROPIC_API_KEY path every
+  // other harness needs — so it alone may boot with an empty apiKey here
+  // when that token is set. buildHarnessContext below threads the token
+  // itself into ctx.env; buildModel/buildTools never use this empty-string
+  // result because ClaudeAgentSdkHarness ignores ctx.model/ctx.tools.
+  if (agent?.metadata?.harness === "claude-agent-sdk" && process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+    return { apiKey: "", baseUrl: process.env.ANTHROPIC_BASE_URL };
   }
-  return { apiKey, baseUrl: process.env.ANTHROPIC_BASE_URL };
+
+  throw new Error(
+    "ANTHROPIC_API_KEY env var required for harness turns (or connect AnyRouter via the Console, " +
+      "or set CLAUDE_CODE_OAUTH_TOKEN for a claude-agent-sdk agent)",
+  );
 }
 
 const sessionRegistry = new SessionRegistry({
@@ -615,7 +673,7 @@ const sessionRegistry = new SessionRegistry({
     if (anyrouter) {
       return resolveModel(agent.model, anyrouter.apiKey, anyrouter.baseUrl, anyrouter.compat);
     }
-    const { apiKey, baseUrl } = resolveProviderCreds();
+    const { apiKey, baseUrl } = resolveProviderCreds(agent);
     // OMA_API_COMPAT selects the wire format for every model on this node
     // self-host (which has no D1 model cards to choose per-model). Set it to
     // "oai"/"oai-compatible" to talk to an OpenAI-compatible gateway
@@ -636,7 +694,7 @@ const sessionRegistry = new SessionRegistry({
     );
   },
   buildTools: async (agent, sandbox) => {
-    const { apiKey, baseUrl } = resolveProviderCreds();
+    const { apiKey, baseUrl } = resolveProviderCreds(agent);
     return buildTools(agent, sandbox, {
       ANTHROPIC_API_KEY: apiKey,
       ANTHROPIC_BASE_URL: baseUrl,
@@ -673,7 +731,7 @@ const sessionRegistry = new SessionRegistry({
     };
   },
   buildHarnessContext: async (input) => {
-    const { apiKey, baseUrl } = resolveProviderCreds();
+    const { apiKey, baseUrl } = resolveProviderCreds(input.agent);
     const runtime = new NodeHarnessRuntime({
       sessionId: input.sessionId,
       log: input.eventLog,
@@ -693,6 +751,7 @@ const sessionRegistry = new SessionRegistry({
       env: {
         ANTHROPIC_API_KEY: apiKey,
         ANTHROPIC_BASE_URL: baseUrl,
+        CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
       },
       runtime,
     } satisfies HarnessContext;
@@ -718,6 +777,7 @@ const services: RouteServices = {
   memory: memoryService,
   sessions: sessionsService,
   dreams: dreamsService,
+  environments: environmentsService,
   kv,
   newEventLog,
   hub: {
@@ -1038,8 +1098,61 @@ v1.route("/evals", buildEvalRoutes({
   // dep undefined so the route accepts any environment_id without 404ing.
 }));
 
+// Environments — full CRUD via the shared bundle. Replaces the old
+// `{ data: [] }` stub (which also 404'd POST /v1/environments — the bug
+// this route fixes). Backed by the SQLite environments service assembled
+// above and wired into the `services` bundle.
+v1.route("/environments", buildEnvironmentRoutes({ services }));
+
+// Supported hosting types for this host. main-node-only — the CF app does
+// not expose this route, so the Console treats a 404 here as "cloud only"
+// and hides the multi-provider picker. Descriptions are one-liners drawn
+// from each sandbox adapter's header comment (packages/sandbox/src/adapters).
+// `cloud` maps to the global SANDBOX_PROVIDER default; the others select a
+// per-environment sandbox backend at session warmup (see buildSandbox).
+v1.get("/hosting_types", (c) =>
+  c.json({
+    data: [
+      {
+        id: "cloud",
+        label: "Cloud",
+        description: "Managed sandbox — uses this node's default SANDBOX_PROVIDER.",
+      },
+      {
+        id: "subprocess",
+        label: "Local subprocess",
+        description: "Node child_process on the host. Zero isolation — trusted local dev only.",
+      },
+      {
+        id: "litebox",
+        label: "LiteBox (local micro-VM)",
+        description: "Local Firecracker micro-VM per box. Hardware isolation, no daemon.",
+      },
+      {
+        id: "boxrun",
+        label: "BoxRun (remote micro-VM)",
+        description: "Talks to a remote BoxLite HTTP control plane — hardware isolation without local KVM.",
+      },
+      {
+        id: "daytona",
+        label: "Daytona",
+        description: "Daytona SaaS — a managed Linux VM per session.",
+      },
+      {
+        id: "e2b",
+        label: "E2B",
+        description: "E2B Firecracker microVM per session (~250ms cold from a warm pool).",
+      },
+      {
+        id: "k8s",
+        label: "Kubernetes",
+        description: "Pod provisioned via the kubernetes-sigs agent-sandbox controller.",
+      },
+    ],
+  }),
+);
+
 // Stubs for routes the console hits but main-node doesn't yet implement.
-v1.get("/environments", (c) => c.json({ data: [] }));
 v1.get("/runtimes", (c) => c.json({ data: [] }));
 v1.get("/skills", (c) => c.json({ data: [] }));
 v1.get("/model_cards", (c) => c.json({ data: [] }));

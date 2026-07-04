@@ -1,11 +1,11 @@
 ---
 title: Concepts
-description: A one-page tour of every noun in openma — Agent, Session, Environment, Vault, Memory Store, Skill, Tool, Harness, Integration.
+description: A one-page tour of every noun in oma — Agent, Session, Environment, Vault, Memory Store, Skill, Tool, Harness, Integration.
 ---
 
 import { Aside, LinkCard } from '@astrojs/starlight/components';
 
-openma has nine core concepts. Skim this page once and most of the docs will make sense. Each section ends with a link to where the concept is used in depth.
+oma has nine core concepts. Skim this page once and most of the docs will make sense. Each section ends with a link to where the concept is used in depth.
 
 ## Agent
 
@@ -70,7 +70,7 @@ Detailed schemas in [Skills & Tools](/build/skills-and-tools/).
 
 ## Harness
 
-The agent loop itself — the code that decides what the model does next given the session events. openma ships a **DefaultHarness** built on the [`ai` SDK](https://sdk.vercel.ai/), but the harness interface is pluggable. You can register a custom harness that:
+The agent loop itself — the code that decides what the model does next given the session events. oma ships a **DefaultHarness** built on the [`ai` SDK](https://sdk.vercel.ai/), but the harness interface is pluggable. You can register a custom harness that:
 
 - Drives a different model loop
 - Handles compaction differently (`shouldCompact`, `compact`)

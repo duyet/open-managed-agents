@@ -3,12 +3,12 @@
 # Self-host OMA — Node-side single-process image.
 #
 # Build:
-#   docker build -f apps/main-node/Dockerfile -t openma/main-node:dev .
+#   docker build -f apps/main-node/Dockerfile -t oma/main-node:dev .
 # Run (standalone):
 #   docker run --rm -p 8787:8787 \
 #     -v $(pwd)/data:/app/data \
 #     -e ANTHROPIC_API_KEY=sk-... \
-#     openma/main-node:dev
+#     oma/main-node:dev
 # Run (compose): see docker-compose.yml at repo root.
 #
 # What's intentionally NOT here yet (Phase G+ work):
@@ -140,6 +140,14 @@ WORKDIR /app
 # An optimisation pass would `pnpm deploy --prod` to a slim subtree; for the
 # PoC this is the simplest correct copy.
 COPY --from=deps /app /app
+
+# pnpm 11's `pnpm start` runs a dependency-status check that can write a temp
+# file directly under /app (e.g. `_tmp_19_<hash>`) to verify node_modules
+# matches the lockfile before invoking the "start" script. /app is root-owned
+# from the COPY above, but the process runs as the unprivileged `node` user
+# (below) — without this chown that check fails with EACCES and crash-loops
+# the container. Chown the whole tree, not just /app/data.
+RUN chown -R node:node /app
 
 # /app/data holds the sqlite db + per-session sandbox workdirs. Mount a
 # volume here in production so state survives container restarts.

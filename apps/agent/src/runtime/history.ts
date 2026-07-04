@@ -814,11 +814,21 @@ function stampEventImmediate(event: SessionEvent): SessionEvent {
 export class SqliteHistory implements HistoryStore {
   private repo: CfDoEventLog;
 
-  constructor(sql: SqlStorage, r2: R2Bucket | null = null, r2KeyPrefix: string = "") {
+  constructor(
+    sql: SqlStorage,
+    r2: R2Bucket | null = null,
+    r2KeyPrefix: string = "",
+    opts?: { skipSchema?: boolean },
+  ) {
     this.repo = new CfDoEventLog(sql, stampEvent, r2, r2KeyPrefix);
     // Idempotent — first construction in a DO bootstraps the schema; later
-    // ones see CREATE TABLE IF NOT EXISTS as a no-op.
-    ensureCfDoSchema(sql);
+    // ones see CREATE TABLE IF NOT EXISTS as a no-op. Callers that already
+    // guarantee the schema is present for this SqlStorage (e.g. SessionDO,
+    // which bootstraps once via its guarded ensureSchema) pass
+    // `skipSchema: true` to avoid re-running ~13 idempotent DDL statements
+    // on every construction. Default stays self-bootstrapping so tests,
+    // sub-agents, and one-off callers keep working unchanged.
+    if (!opts?.skipSchema) ensureCfDoSchema(sql);
   }
 
   append(event: SessionEvent): void {

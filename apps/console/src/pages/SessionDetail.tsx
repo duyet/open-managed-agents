@@ -971,6 +971,8 @@ export function SessionDetail() {
                 6) in-flight assistant text streams
                 7) typing dots when only the agent is "thinking" with
                    nothing else streaming yet */}
+          {/* Latest structured progress report (long-running harness). */}
+          <LatestAgentStatus events={events} />
           <Conversation className="flex-1 min-h-0">
             <ConversationContent className="pl-3 pr-4 py-6 gap-4">
               {(() => {
@@ -1413,6 +1415,72 @@ function SessionDurationBadge({ events }: { events: Event[] }) {
       label={formatDuration(last - first)}
       title="Wall-clock from first to last event"
     />
+  );
+}
+
+/**
+ * Pinned "latest status" indicator for the `long-running` harness (and any
+ * harness that emits `agent.status`). Scans the event log for the most recent
+ * `agent.status` and renders a compact progress chip above the conversation —
+ * a structured "what step are we on / blocked on what" signal so operators
+ * don't have to parse free-text agent.message prose. Renders nothing when no
+ * status has been reported.
+ */
+function LatestAgentStatus({ events }: { events: Event[] }) {
+  let latest: Event | undefined;
+  let terminatedAfterLatest = false;
+  for (const e of events) {
+    if (e.type === "agent.status") {
+      latest = e;
+      terminatedAfterLatest = false;
+    } else if (e.type === "session.status_terminated") {
+      terminatedAfterLatest = true;
+    }
+  }
+  // No status yet, or the session ended after the last report — a stale
+  // "Working (42s elapsed)" banner on a finished session reads as noise.
+  if (!latest || terminatedAfterLatest) return null;
+  const s = latest as unknown as {
+    state?: "working" | "blocked" | "waiting";
+    summary?: string;
+    step?: number;
+    total_steps?: number;
+    blocked_on?: string;
+  };
+  const state = s.state ?? "working";
+  const tone =
+    state === "blocked"
+      ? "bg-warning-subtle text-warning"
+      : state === "waiting"
+        ? "bg-info-subtle text-info"
+        : "bg-success-subtle text-success";
+  const icon = state === "blocked" ? "⏸" : state === "waiting" ? "⌛" : "▶";
+  const progress =
+    typeof s.step === "number"
+      ? typeof s.total_steps === "number"
+        ? ` · step ${s.step}/${s.total_steps}`
+        : ` · step ${s.step}`
+      : "";
+  return (
+    <div className="px-3 pt-3">
+      <div className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${tone}`}
+        >
+          <span aria-hidden>{icon}</span>
+          {state}
+          {progress}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-fg" title={s.summary}>
+          {s.summary}
+        </span>
+        {s.blocked_on && (
+          <span className="shrink-0 text-xs text-warning" title="Blocked on">
+            blocked on: {s.blocked_on}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 

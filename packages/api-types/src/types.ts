@@ -40,6 +40,38 @@ export interface CustomToolConfig {
 
 export type ToolConfig = ToolsetConfig | CustomToolConfig;
 
+/**
+ * A place to send session-status notifications (issue/PR comments, chat
+ * messages) when a session needs attention, completes, or errors. Attached
+ * at the agent level — every session created from the agent inherits the
+ * targets via its `agent_snapshot`, the same way `mcp_servers` is agent-
+ * scoped rather than per-session.
+ *
+ * `credential_id` references a vault credential (`static_bearer`) holding
+ * the bot/PAT token used to authenticate the outbound call. Resolving that
+ * id to a live token is the caller's responsibility — these target shapes
+ * only describe *where* to post, not how the token is fetched.
+ */
+export type NotificationTarget =
+  | {
+      type: "github_comment";
+      credential_id: string;
+      owner: string;
+      repo: string;
+      issue_number: number;
+    }
+  | {
+      type: "slack_message";
+      credential_id: string;
+      channel: string;
+    }
+  | {
+      type: "matrix_message";
+      credential_id: string;
+      homeserver_url: string;
+      room_id: string;
+    };
+
 export interface AgentConfig {
   id: string;
   name: string;
@@ -68,6 +100,13 @@ export interface AgentConfig {
   }>;
   skills?: Array<{ skill_id: string; type: string; version?: string }>;
   callable_agents?: Array<{ type: "agent"; id: string; version?: number }>;
+  /**
+   * Concurrency cap for the `call_agents_parallel` tool (generated when
+   * `callable_agents` has 1+ entries). Lowers the platform default (5)
+   * down or up; always clamped to the platform's hard ceiling (10)
+   * regardless of what's configured here. Unset = platform default.
+   */
+  max_parallel_subagents?: number;
   /**
    * Optional auxiliary model used by tools for in-process LLM work
    * (e.g. web_fetch summarization). Same shape as `model`.
@@ -113,6 +152,12 @@ export interface AgentConfig {
    * dedicated sub-agent definition.
    */
   enable_general_subagent?: boolean;
+  /**
+   * Notification targets to post session-status updates to (issue/PR
+   * comments, chat messages) — see `NotificationTarget`. Empty/missing =
+   * no outbound notifications.
+   */
+  notify?: NotificationTarget[];
   version: number;
   created_at: string;
   updated_at?: string;
@@ -130,7 +175,15 @@ export interface EnvironmentConfig {
   name: string;
   description?: string;
   config: {
-    type: string; // "cloud"
+    // Hosting type — selects the sandbox backend, immutable after create.
+    // On the Cloudflare host only "cloud" is meaningful. Self-hosted
+    // (main-node) additionally accepts the sandbox-adapter ids resolved by
+    // buildSandbox: "subprocess" (local child_process, no isolation),
+    // "litebox"/"boxlite" (local Firecracker micro-VM), "boxrun" (remote
+    // BoxLite control plane), "daytona" (Daytona SaaS VM), "e2b" (E2B
+    // Firecracker microVM), "k8s"/"kubernetes" (agent-sandbox pod). "cloud"
+    // or unset falls back to the node's global SANDBOX_PROVIDER.
+    type: string;
     packages?: {
       pip?: string[];
       npm?: string[];
@@ -394,10 +447,16 @@ export interface AgentStatusEvent extends EventBase {
   summary: string;
   /** 1-indexed current step, when the harness tracks a bounded plan. */
   step?: number;
-  /** Total expected steps, when known. */
+  /** Total expected steps, when known. When emitted by the `long-running`
+   *  harness this carries the agent's `metadata.total_steps_estimate`. */
   total_steps?: number;
   /** Optional additional detail beyond `summary` (e.g. the command being run). */
   detail?: string;
+  /** What the agent is blocked on, when `state === "blocked"` (e.g.
+   *  "3 tool calls awaiting confirmation"). A structured "blocked on what"
+   *  signal for manager UIs. Emitted by the `long-running` harness; optional
+   *  so other emitters can omit it. */
+  blocked_on?: string;
 }
 
 export interface AgentToolUseEvent extends EventBase {

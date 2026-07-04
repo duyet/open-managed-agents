@@ -85,7 +85,7 @@ export function Dashboard() {
         {/* Header */}
         <header>
           <h1 className="font-display text-[32px] leading-tight font-semibold tracking-tight text-fg">
-            Get started with openma
+            Get started with oma
           </h1>
           <p className="mt-1.5 text-[15px] text-fg-muted">
             Hand the platform to your agent — install the CLI, mint a key, point them at it.
@@ -159,8 +159,8 @@ export function Dashboard() {
             </div>
             <div className="space-y-2.5">
               <p className="text-sm text-fg-muted">
-                Point your agent at the <code className="font-mono text-[13px] text-fg">openma-cli</code>{" "}
-                or <code className="font-mono text-[13px] text-fg">openma-api</code> skill, then
+                Point your agent at the <code className="font-mono text-[13px] text-fg">oma-cli</code>{" "}
+                or <code className="font-mono text-[13px] text-fg">oma-api</code> skill, then
                 ask for what you want:
               </p>
               <button

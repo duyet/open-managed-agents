@@ -827,7 +827,7 @@ function githubLandingPage(opts: { token: string; personaName: string }): string
 </head>
 <body>
   <h1>Install "${escapedName}" GitHub App on your org</h1>
-  <p>Someone on your team is publishing OpenMA's <strong>${escapedName}</strong> agent
+  <p>Someone on your team is publishing Oma's <strong>${escapedName}</strong> agent
   to GitHub. GitHub App registration on an org requires an admin — that's where you come in.</p>
   <ol>
     <li>Open GitHub → Settings → Developer settings → New GitHub App.</li>

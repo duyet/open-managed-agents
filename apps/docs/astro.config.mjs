@@ -15,7 +15,7 @@ export default defineConfig({
   site: 'https://docs.oma.duyet.net',
   integrations: [
     starlight({
-      title: 'openma',
+      title: 'oma',
       description: 'Open-source alternative to Claude Managed Agents — self-host Claude agents on Cloudflare or Docker.',
       logo: {
         src: './src/assets/logo.svg',

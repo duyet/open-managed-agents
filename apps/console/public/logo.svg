@@ -1,16 +1,8 @@
-<svg width="162" height="113" viewBox="196 55 162 113" role="img" xmlns="http://www.w3.org/2000/svg">
-<defs><mask id="m" maskUnits="userSpaceOnUse">
-  <rect x="-200" y="-200" width="900" height="900" fill="white"/>
-  <rect x="-4" y="16.4" width="62.2" height="108.8" fill="black" rx="2"/>
-  <rect x="96" y="16.4" width="62.2" height="108.8" fill="black" rx="2"/>
-</mask></defs>
-<g transform="translate(200, 40)" fill="none" stroke="#FF6B50" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
-  <text font-family="'JetBrains Mono', 'SF Mono', monospace" font-size="90" font-weight="800" fill="#FF6B50" stroke="none" x="0" y="102">[</text>
-  <g transform="translate(52, 10)">
-    <path d="M30,50 Q28,30 22,8 Q35,20 40,45" mask="url(#m)"/>
-    <path d="M30,50 Q28,58 30,65" stroke-width="3" mask="url(#m)"/>
-    <circle cx="34" cy="52" r="3.5" fill="#FF6B50" stroke="none"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="oma">
+  <!-- oma mark: square brackets = the harness; the dot = the agent it runs. -->
+  <g fill="none" stroke="#FF6B50" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 15 H15 V49 H24" />
+    <path d="M40 15 H49 V49 H40" />
   </g>
-  <text font-family="'JetBrains Mono', 'SF Mono', monospace" font-size="90" font-weight="800" fill="#FF6B50" stroke="none" x="100" y="102">]</text>
-</g>
+  <circle cx="32" cy="32" r="8" fill="#FF6B50" />
 </svg>

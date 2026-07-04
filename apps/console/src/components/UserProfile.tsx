@@ -34,7 +34,7 @@ import { Avatar } from "./Avatar";
  * SidebarHeader uses — `h-11 px-3 flex items-center gap-2` with the
  * avatar fixed at x=12 and the text collapsing via
  * `group-data-[collapsible=icon]:hidden`. When the sidebar narrows to
- * icon mode the avatar stays put and the openma-style row visually
+ * icon mode the avatar stays put and the oma-style row visually
  * mirrors the brand row at the top.
  */
 const THEME_OPTIONS = [
