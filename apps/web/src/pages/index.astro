@@ -230,8 +230,9 @@ SANDBOX_PROVIDER=boxrun       # boxrun sandboxed execution</code></pre>
       <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12">
         Recent work targets the point where "one agent, one session" stops
         being enough: picking isolation per environment, watching a fleet of
-        sessions at a glance, fanning work out to sub-agents, and giving
-        multi-hour tasks a structured heartbeat instead of a wall of text.
+        sessions at a glance, fanning work out to sub-agents, giving
+        multi-hour tasks a structured heartbeat instead of a wall of text, and
+        posting status out to the channels your team already watches.
       </p>
 
       <div class="mb-14">
@@ -338,6 +339,47 @@ SANDBOX_PROVIDER=boxrun       # boxrun sandboxed execution</code></pre>
           prompt-cache prefix or force early compaction — and the step counter
           reseeds from the durable event log on crash recovery, so numbering
           survives a restart without gaps or duplicates.
+        </p>
+      </div>
+
+      <div class="mb-14">
+        <h3 class="font-display text-xl font-bold mb-3">Outbound notifications to GitHub, Slack, and Matrix</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed mb-4 max-w-3xl">
+          A new agent-level <code class="font-mono text-sm">notify</code> field
+          (mirrors <code class="font-mono text-sm">mcp_servers</code>) takes a
+          list of <code class="font-mono text-sm">NotificationTarget</code>s —
+          <code class="font-mono text-sm">github_comment</code>,
+          <code class="font-mono text-sm">slack_message</code>,
+          <code class="font-mono text-sm">matrix_message</code> — each naming a
+          vault credential and a destination. <code class="font-mono text-sm">packages/github</code>
+          and <code class="font-mono text-sm">packages/slack</code> gained a
+          <code class="font-mono text-sm">notify.ts</code>, and a new
+          <code class="font-mono text-sm">packages/matrix</code> package ships
+          an outbound-only Matrix Client-Server API client alongside one — all
+          three format the same shared <code class="font-mono text-sm">summarizeSessionNotifyEvent()</code>
+          text in their own house style (GitHub markdown with a 🔴/⚪/🟢 status
+          dot, Slack mrkdwn emoji codes, Matrix plain text), so the wording
+          stays consistent across channels.
+        </p>
+        <pre class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-4 text-xs leading-relaxed overflow-x-auto"><code>&#123;
+  "notify": [
+    &#123; "type": "github_comment", "credential_id": "cred_gh",
+      "owner": "duyet", "repo": "oma", "issue_number": 52 &#125;,
+    &#123; "type": "slack_message", "credential_id": "cred_slack",
+      "channel": "C0123456" &#125;,
+    &#123; "type": "matrix_message", "credential_id": "cred_matrix",
+      "homeserver_url": "https://matrix.org", "room_id": "!abc:matrix.org" &#125;
+  ]
+&#125;</code></pre>
+        <p class="text-xs text-[var(--color-fg-subtle)] mt-4 max-w-3xl">
+          Today this covers the config field, the credential-scoped target
+          types, and a formatter + sender per channel — the field round-trips
+          through <code class="font-mono text-xs">/v1/agents</code> and each
+          package's <code class="font-mono text-xs">notify.ts</code> is ready
+          to call with a resolved token. Wiring the automatic dispatch —
+          calling these on a session's own <code class="font-mono text-xs">session.status_idle</code>
+          / <code class="font-mono text-xs">session.error</code> transitions —
+          is explicit next-up work, not yet in <code class="font-mono text-xs">session-do.ts</code>.
         </p>
       </div>
 
