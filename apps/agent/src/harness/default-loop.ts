@@ -287,7 +287,18 @@ export class DefaultHarness implements HarnessInterface {
     // summarized view from this turn forward (NOT recomputed per turn).
     const allEvents = runtime.history.getEvents();
     const ctxWindow = resolveContextWindowTokens(model);
+    // Track whether we entered the compaction path at all. When we don't
+    // (the common case — compaction only fires near the context limit),
+    // `allEvents` is still an exact snapshot of the log and can be reused
+    // for the projection below, avoiding a second full read + a JSON.parse
+    // of every event in the log on every turn (that cost scales with
+    // conversation length, not turn count). We key off "attempted" rather
+    // than "succeeded" so the re-read happens whenever compact() ran —
+    // matching the original unconditional re-read even if compact() appended
+    // a boundary and then threw.
+    let attemptedCompaction = false;
     if (this.shouldCompact && this.compact && this.shouldCompact(allEvents, { contextWindowTokens: ctxWindow })) {
+      attemptedCompaction = true;
       try {
         await this.compact(allEvents, runtime, { model, systemPrompt, tools });
       } catch (err) {
@@ -302,9 +313,13 @@ export class DefaultHarness implements HarnessInterface {
     // async file_id → bytes resolution via ctx.fileFetcher). Custom harnesses
     // can override for sliding-window / RAG / etc. — the await unwraps either
     // sync or async overrides so existing implementations keep working.
+    // Reuse the snapshot read at the top of the turn unless we ran
+    // compaction — which may have appended a boundary event — in which case
+    // we re-read so the projection sees the new summary.
+    const eventsForProjection = attemptedCompaction ? runtime.history.getEvents() : allEvents;
     const messages = this.deriveModelContext
-      ? await this.deriveModelContext(runtime.history.getEvents(), { fileFetcher: ctx.fileFetcher })
-      : await eventsToMessagesAsync(runtime.history.getEvents(), ctx.fileFetcher);
+      ? await this.deriveModelContext(eventsForProjection, { fileFetcher: ctx.fileFetcher })
+      : await eventsToMessagesAsync(eventsForProjection, ctx.fileFetcher);
 
     // 3. Apply provider-specific cache strategy. Anthropic: tag system block
     // + last tool + last message + (optional) one mid-conversation breakpoint
