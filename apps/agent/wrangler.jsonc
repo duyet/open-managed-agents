@@ -138,14 +138,14 @@
         ]
       },
       "kv_namespaces": [
-        { "binding": "CONFIG_KV", "id": "5e49bdaec1884f5989037c86ece7b462" }
+        { "binding": "CONFIG_KV", "id": "6adfd1b06ee6493981b4b818d3dd81ae" }
       ],
       // Single-D1 launch layout — matches the top-level baseline. Only MAIN_DB
       // is bound; buildCfTenantDbProvider() picks the non-sharded
       // CfSharedAuthDbProvider because AUTH_DB_01 is absent. Re-add the shard
       // bindings (see git history / env.staging) to scale out later.
       "d1_databases": [
-        { "binding": "MAIN_DB", "database_name": "oma-auth", "database_id": "dbb5f01c-7016-4157-945d-f8ff9fbda967" }
+        { "binding": "MAIN_DB", "database_name": "oma-auth", "database_id": "c0f61e65-4e87-4561-91b7-a590313259b8" }
       ],
       "services": [
         { "binding": "INTEGRATIONS", "service": "managed-agents-integrations" },
@@ -156,7 +156,7 @@
         "MEMORY_BUCKET_NAME": "managed-agents-memory",
         "WORKSPACE_BUCKET_NAME": "managed-agents-workspace",
         "BACKUP_BUCKET_NAME": "managed-agents-backups",
-        "CLOUDFLARE_ACCOUNT_ID": "44af79e51582ca20c9003eb926540242"
+        "CLOUDFLARE_ACCOUNT_ID": "23050adb6c92e313643a29e1ba64c88a"
       },
       "r2_buckets": [
         { "binding": "WORKSPACE_BUCKET", "bucket_name": "managed-agents-workspace" },

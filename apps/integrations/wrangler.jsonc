@@ -82,8 +82,8 @@
       // sharding. Re-add ROUTER_DB + AUTH_DB_00..03 (see git history /
       // env.staging) to scale out later.
       "d1_databases": [
-        { "binding": "MAIN_DB",         "database_name": "oma-auth",         "database_id": "dbb5f01c-7016-4157-945d-f8ff9fbda967" },
-        { "binding": "INTEGRATIONS_DB", "database_name": "oma-integrations", "database_id": "36f67512-b0d7-4300-9d57-f265cd9d3075" }
+        { "binding": "MAIN_DB",         "database_name": "oma-auth",         "database_id": "c0f61e65-4e87-4561-91b7-a590313259b8" },
+        { "binding": "INTEGRATIONS_DB", "database_name": "oma-integrations", "database_id": "6ccdebc5-5503-4e84-8d29-cabd87d136bb" }
       ],
       "services": [
         { "binding": "MAIN", "service": "managed-agents" }
