@@ -47,12 +47,12 @@ describe("Linear webhook parser", () => {
       notification: {
         type: "issueCommentMention",
         issue: { id: "iss_99", identifier: "ENG-99", title: "T" },
-        comment: { id: "cmt_1", body: "@OpenMA /coder please look" },
+        comment: { id: "cmt_1", body: "@Oma /coder please look" },
         actor: { id: "usr_bob", name: "Bob" },
       },
     });
     expect(event?.kind).toBe("issueCommentMention");
-    expect(event?.commentBody).toBe("@OpenMA /coder please look");
+    expect(event?.commentBody).toBe("@Oma /coder please look");
     expect(event?.commentId).toBe("cmt_1");
   });
 

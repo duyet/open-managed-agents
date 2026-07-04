@@ -35,14 +35,14 @@ describe("service builders — OMA_PROFILE injection", () => {
       expect(plist).toMatch(/<key>OMA_PROFILE<\/key>\s*<string>staging<\/string>/);
       // The Label and log path also carry the profile so they don't
       // collide with the default profile's plist.
-      expect(plist).toMatch(/<key>Label<\/key>\s*<string>dev\.openma\.bridge\.staging<\/string>/);
+      expect(plist).toMatch(/<key>Label<\/key>\s*<string>dev\.oma\.bridge\.staging<\/string>/);
       expect(plist).toMatch(/bridge-staging\/logs\/bridge\.log/);
     });
 
     it("OMITS OMA_PROFILE for the default (empty) profile", () => {
       const plist = buildPlist(opts);
       expect(plist).not.toMatch(/OMA_PROFILE/);
-      expect(plist).toMatch(/<key>Label<\/key>\s*<string>dev\.openma\.bridge<\/string>/);
+      expect(plist).toMatch(/<key>Label<\/key>\s*<string>dev\.oma\.bridge<\/string>/);
     });
 
     it("escapes profile values that contain XML-special chars (defense)", () => {

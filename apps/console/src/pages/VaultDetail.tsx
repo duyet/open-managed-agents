@@ -466,7 +466,7 @@ function AddCredentialModal({
     window.addEventListener("message", handleOAuthMessage);
     let bc: BroadcastChannel | null = null;
     try {
-      bc = new BroadcastChannel("openma-oauth");
+      bc = new BroadcastChannel("oma-oauth");
       bc.addEventListener("message", handleOAuthMessage);
     } catch {
       // Old browser without BroadcastChannel — fall back to postMessage only.

@@ -1,7 +1,7 @@
 ---
-name: openma-integrations-linear
+name: oma-integrations-linear
 description: >
-  Publish an openma agent into a Linear workspace as a real teammate (assignable
+  Publish an oma agent into a Linear workspace as a real teammate (assignable
   in the dropdown, mentionable via @, replies to comments). Use when the user
   asks to "publish to Linear", "make this agent a Linear bot", "assign Linear
   issues to my agent", or anything that ends with "Linear" + "agent". Walks
@@ -9,14 +9,14 @@ description: >
   the one moment a human is genuinely needed.
 ---
 
-# Publish an openma agent to Linear
+# Publish an oma agent to Linear
 
-Make an openma agent appear in a Linear workspace under its own identity —
+Make an oma agent appear in a Linear workspace under its own identity —
 assignable, mentionable, posting comments back. Ships in `oma linear …`.
 
 ## Prerequisites
 
-- `OMA_BASE_URL` and `OMA_API_KEY` set (see the `openma` skill for setup).
+- `OMA_BASE_URL` and `OMA_API_KEY` set (see the `oma` skill for setup).
 - The API key was minted from a logged-in Console session, **not** from the
   static `API_KEY` env var. Linear endpoints are user-scoped: legacy keys
   without `user_id` get `403 user-scoped endpoint: regenerate your API key`.
@@ -27,10 +27,10 @@ assignable, mentionable, posting comments back. Ships in `oma linear …`.
 ## Architecture in one paragraph
 
 Each agent gets its own Linear OAuth App (per-agent identity, not a shared
-bot). The publish flow is three steps: (1) openma mints a `formToken` and
+bot). The publish flow is three steps: (1) oma mints a `formToken` and
 shows you the App-config values to paste into Linear; (2) you (or the human
 admin) register the App in Linear and paste the `clientId`/`clientSecret`
-back; (3) Linear's OAuth flow redirects to the openma callback, which links
+back; (3) Linear's OAuth flow redirects to the oma callback, which links
 the App to a `publication` row and creates a vault credential the agent uses
 for outbound writes.
 
@@ -89,7 +89,7 @@ oma linear submit <form-token> \
 
 Returns a Linear OAuth install URL. Hand that URL to a human with **Linear
 admin rights on the workspace** — only an admin can authorize the install.
-After approval Linear redirects to the openma callback and the publication
+After approval Linear redirects to the oma callback and the publication
 goes from `pending_setup` → `live`.
 
 If the human who has the `clientId`/`clientSecret`/`webhookSecret` is *not*

@@ -66,7 +66,7 @@ export function buildManifest(input: SlackManifestInput): Record<string, unknown
   return {
     display_information: {
       name: input.personaName,
-      description: input.description ?? `${input.personaName} — an OpenMA agent`,
+      description: input.description ?? `${input.personaName} — an Oma agent`,
     },
     features: {
       app_home: {

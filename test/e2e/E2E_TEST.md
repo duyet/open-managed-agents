@@ -1,6 +1,6 @@
 # Console E2E Test — Agent Manual Walkthrough
 
-This document describes the end-to-end test steps for the openma console UI. An AI agent should follow these steps using browser automation (agent-browser, Playwright, etc.), verifying each assertion before proceeding.
+This document describes the end-to-end test steps for the oma console UI. An AI agent should follow these steps using browser automation (agent-browser, Playwright, etc.), verifying each assertion before proceeding.
 
 ## Prerequisites
 

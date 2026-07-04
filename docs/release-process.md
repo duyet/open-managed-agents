@@ -5,7 +5,7 @@ versioning and publishing for the public npm packages:
 
 - `@duyet/oma-cli` (`packages/cli`)
 
-`@duyet/oma-sdk` is **deprecated**: the openma API is wire-compatible with
+`@duyet/oma-sdk` is **deprecated**: the oma API is wire-compatible with
 Anthropic's Managed Agents API, so the recommended client is now
 `@anthropic-ai/sdk` pointed at `baseURL: 'https://oma.duyet.net'`. The package
 remains in `packages/sdk` for reference; no new versions will be published.

@@ -5,7 +5,7 @@ import { SessionsResource } from "./resources/sessions.js";
 import { MemoryStoresResource } from "./resources/memory-stores.js";
 import { DreamsResource } from "./resources/dreams.js";
 
-export { OpenMAError } from "./errors.js";
+export { OmaError } from "./errors.js";
 export { parseSSE } from "./sse.js";
 export type { ClientOptions } from "./client.js";
 export type * from "./types.js";
@@ -52,12 +52,12 @@ export type {
 } from "./resources/dreams.js";
 
 /**
- * Official TypeScript SDK for openma — typed REST + SSE streaming.
+ * Official TypeScript SDK for oma — typed REST + SSE streaming.
  *
  * ```ts
- * import { OpenMA } from "@duyet/oma-sdk";
+ * import { Oma } from "@duyet/oma-sdk";
  *
- * const oma = new OpenMA({ apiKey: process.env.OMA_API_KEY! });
+ * const oma = new Oma({ apiKey: process.env.OMA_API_KEY! });
  *
  * // Streaming chat — async iterator over typed events
  * for await (const ev of oma.sessions.chat(sessionId, "Hello")) {
@@ -87,10 +87,10 @@ export type {
  *
  * Runs anywhere `fetch` exists: Node ≥ 20, Bun, Deno, browsers,
  * Cloudflare Workers. Auth is `x-api-key` (or cookie `bearer` when
- * embedded in the Console). Errors throw `OpenMAError` with
+ * embedded in the Console). Errors throw `OmaError` with
  * `{ status, body, raw }` for switching on.
  */
-export class OpenMA {
+export class Oma {
   readonly client: Client;
   readonly agents: AgentsResource;
   readonly sessions: SessionsResource;

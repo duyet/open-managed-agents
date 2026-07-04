@@ -1,7 +1,7 @@
 ---
-name: openma-integrations-slack
+name: oma-integrations-slack
 description: >
-  Bind an openma agent to a Slack workspace as a real teammate (mentionable
+  Bind an oma agent to a Slack workspace as a real teammate (mentionable
   via @<bot>, replies in threads, joins DMs, hosts AI assistant threads).
   Use when the user asks to "bind to Slack", "publish to Slack", "make this
   agent a Slack bot", "let my agent answer in Slack", "let my agent triage
@@ -11,15 +11,15 @@ description: >
   via both `mcp.slack.com` (typed tools) and `slack.com/api` (chat).
 ---
 
-# Bind an openma agent to Slack
+# Bind an oma agent to Slack
 
-Make an openma agent appear in a Slack workspace under its own bot identity —
+Make an oma agent appear in a Slack workspace under its own bot identity —
 mentionable in channels, repliable in threads, hostable in the AI assistant
 pane. Ships in `oma slack …`.
 
 ## Prerequisites
 
-- `OMA_BASE_URL` and `OMA_API_KEY` set (see the `openma` skill for setup).
+- `OMA_BASE_URL` and `OMA_API_KEY` set (see the `oma` skill for setup).
 - API key minted from a logged-in Console session, **not** the static
   `API_KEY` env var. Slack endpoints are user-scoped: legacy keys without
   `user_id` get `403 user-scoped endpoint: regenerate your API key`.
@@ -31,9 +31,9 @@ pane. Ships in `oma slack …`.
 
 Each agent gets its **own Slack App** (per-agent identity, not a shared bot).
 The App registration goes through Slack's **"Create from manifest" URL
-flow**: openma generates a manifest JSON pre-filled with name, scopes,
+flow**: oma generates a manifest JSON pre-filled with name, scopes,
 events, and the Events Request / Redirect URLs; the user opens one link,
-clicks Create, and Slack provisions the App. After install, openma stores
+clicks Create, and Slack provisions the App. After install, oma stores
 **two vaults bound to two MCP origins**: a `xoxp-` user token vault for
 `mcp.slack.com/mcp` (typed tools — search, history, canvases) and a `xoxb-`
 bot token vault for `slack.com/api` (chat.postMessage, reactions,
@@ -88,7 +88,7 @@ oma slack submit <FORM_TOKEN> \
 ```
 
 CLI prints a Slack OAuth URL. Open in browser → authorize → land back at
-openma. The publication transitions to `live`.
+oma. The publication transitions to `live`.
 
 ### Step 3 — verify
 
@@ -131,7 +131,7 @@ oma slack handoff <FORM_TOKEN>
 ```
 
 Returns a 7-day shareable URL. Send it to the workspace admin. They open
-it (no openma login required), see the same manifest one-click button + a
+it (no oma login required), see the same manifest one-click button + a
 form for the 3 secrets, and complete the install. The token IS the auth —
 treat the URL as sensitive.
 
@@ -217,9 +217,9 @@ etc.).
 
 Slack `xoxb-` (bot) and `xoxp-` (user) tokens are **long-lived by default**
 — they don't expire unless the workspace admin explicitly enables Token
-Rotation in the App's settings. openma stores them as-is and doesn't
+Rotation in the App's settings. oma stores them as-is and doesn't
 auto-refresh. If the workspace turns Rotation on, the App will start
-issuing 12-hour tokens with refresh tokens; openma's current dedicated
+issuing 12-hour tokens with refresh tokens; oma's current dedicated
 flow doesn't yet rotate these (the schema is intentionally narrowed —
 no `refresh_token_cipher` column). To recover from a rotation event,
 unpublish + re-bind. Tracked as future work.
@@ -312,7 +312,7 @@ wrangler tail -c apps/integrations/wrangler.jsonc | grep slack-webhook
 
 Most likely the workspace admin uninstalled the App, or revoked OAuth
 scopes. `oma slack get <pub-id>` will show `status: needs_reauth` if
-openma detected revocation (via `tokens_revoked` / `app_uninstalled`
+oma detected revocation (via `tokens_revoked` / `app_uninstalled`
 events). Re-bind to recover.
 
 If `status` still shows `live` but the agent is silent: the bot may not be

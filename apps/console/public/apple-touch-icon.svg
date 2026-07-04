@@ -8,7 +8,7 @@
   inner glyph is the brand `[horse]` mark in --brand-fg (dark warm tone),
   same one-off ink the rest of the app uses on coral.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180" role="img" aria-label="openma">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180" role="img" aria-label="oma">
   <!-- Opaque coral background. rx≈22% matches the iOS app-icon mask
        radius so the SVG isn't visibly clipped further at install time. -->
   <rect width="180" height="180" rx="40" ry="40" fill="#FF6B50"/>

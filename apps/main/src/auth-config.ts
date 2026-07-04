@@ -21,7 +21,7 @@ function sendEmail(
     return;
   }
   return env.SEND_EMAIL.send({
-    from: "openma <noreply@oma.duyet.net>",
+    from: "oma <noreply@oma.duyet.net>",
     to,
     subject,
     html,
@@ -66,7 +66,7 @@ export function createAuth(env: Env) {
         await sendEmail(
           env,
           user.email,
-          "Reset your password — openma",
+          "Reset your password — oma",
           `<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:32px"><h2>Reset your password</h2><p>Click the button below to reset your password.</p><a href="${url}" style="display:inline-block;padding:12px 24px;background:#111;color:#fff;text-decoration:none;border-radius:6px;margin:16px 0">Reset password</a><p style="color:#666;font-size:14px">If you did not request this, ignore this email.</p></div>`,
           `Reset your password: ${url}`,
         );
@@ -77,7 +77,7 @@ export function createAuth(env: Env) {
         await sendEmail(
           env,
           user.email,
-          "Verify your email — openma",
+          "Verify your email — oma",
           `<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:32px"><h2>Verify your email</h2><p>Click the button below to verify your email address.</p><a href="${url}" style="display:inline-block;padding:12px 24px;background:#111;color:#fff;text-decoration:none;border-radius:6px;margin:16px 0">Verify email</a><p style="color:#666;font-size:14px">If you did not create an account, ignore this email.</p></div>`,
           `Verify your email: ${url}`,
         );
@@ -100,7 +100,7 @@ export function createAuth(env: Env) {
           await sendEmail(
             env,
             email,
-            `${label} — openma`,
+            `${label} — oma`,
             otpEmailHtml(otp, label),
             `${label}: ${otp}`,
           );

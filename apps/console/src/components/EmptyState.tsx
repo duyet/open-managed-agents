@@ -22,7 +22,7 @@ import {
  *
  * Used wherever a list / detail / dashboard panel has no content to show.
  * The illustration anchors the empty space so it doesn't read as a broken
- * page; falling back to the bracket vocabulary signals "openma" the way a
+ * page; falling back to the bracket vocabulary signals "oma" the way a
  * hand-drawn illustration signals personality elsewhere.
  *
  * Sizes:

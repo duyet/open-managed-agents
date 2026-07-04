@@ -9,7 +9,7 @@
 # wired from main-node's LocalSubprocessSandbox.setOutboundContext.
 #
 # Build:
-#   docker build -f apps/oma-vault/Dockerfile -t openma/oma-vault:dev .
+#   docker build -f apps/oma-vault/Dockerfile -t oma/oma-vault:dev .
 # Run (compose): see docker-compose.yml at repo root.
 
 # ─── Stage 1: deps (and native compile) ────────────────────────────────────

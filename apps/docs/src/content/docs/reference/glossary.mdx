@@ -1,6 +1,6 @@
 ---
 title: Glossary
-description: Every openma term, alphabetized, with cross-links.
+description: Every oma term, alphabetized, with cross-links.
 ---
 
 import { LinkCard } from '@astrojs/starlight/components';
@@ -27,7 +27,7 @@ The shipped harness implementation, built on the `ai` SDK. Lives in `apps/agent/
 
 ## Durable Object (DO)
 
-Cloudflare primitive providing strong consistency and per-key state. openma uses `SESSION_DO` (per-session SQLite event log) and `SANDBOX` (per-session Container).
+Cloudflare primitive providing strong consistency and per-key state. oma uses `SESSION_DO` (per-session SQLite event log) and `SANDBOX` (per-session Container).
 
 ## Environment
 
@@ -43,7 +43,7 @@ The agent loop. Ships as `DefaultHarness`; pluggable via `HarnessInterface`. See
 
 ## Hosted
 
-Refers to the openma SaaS at [oma.duyet.net](https://app.oma.duyet.net), as opposed to self-host.
+Refers to the oma SaaS at [oma.duyet.net](https://app.oma.duyet.net), as opposed to self-host.
 
 ## Integration
 
@@ -55,7 +55,7 @@ The interface every integration implements. Defined in `packages/integrations-co
 
 ## MCP
 
-Model Context Protocol — open standard for connecting language models to tools. openma auto-generates `mcp__<server>__<tool>` (double underscore) for any registered MCP server. See [Skills & Tools → MCP servers](/build/skills-and-tools/#mcp-servers).
+Model Context Protocol — open standard for connecting language models to tools. oma auto-generates `mcp__<server>__<tool>` (double underscore) for any registered MCP server. See [Skills & Tools → MCP servers](/build/skills-and-tools/#mcp-servers).
 
 ## Memory store
 
@@ -75,11 +75,11 @@ A binding that says "this agent serves this workspace via this integration with 
 
 ## Self-host
 
-Running openma on your own Cloudflare account, as opposed to the hosted SaaS.
+Running oma on your own Cloudflare account, as opposed to the hosted SaaS.
 
 ## Service binding
 
-Cloudflare primitive for Worker-to-Worker calls without leaving the data plane. openma uses them for `main → integrations`, `main → agent`, etc.
+Cloudflare primitive for Worker-to-Worker calls without leaving the data plane. oma uses them for `main → integrations`, `main → agent`, etc.
 
 ## Session
 
@@ -95,7 +95,7 @@ Reusable prompt fragment + reference files mounted into the sandbox. See [Concep
 
 ## Tenant
 
-A unit of multi-tenancy in openma. Created automatically on first user sign-in. See [Self-host → Operations → Multi-tenancy](/self-host/operations/#multi-tenancy).
+A unit of multi-tenancy in oma. Created automatically on first user sign-in. See [Self-host → Operations → Multi-tenancy](/self-host/operations/#multi-tenancy).
 
 ## Tool
 
@@ -111,11 +111,11 @@ A credential store. Bound to specific hosts; injected by the outbound proxy. See
 
 ## Vectorize
 
-Cloudflare's managed vector index. openma uses it to back Memory Stores.
+Cloudflare's managed vector index. oma uses it to back Memory Stores.
 
 ## Workers AI
 
-Cloudflare's managed model service. openma uses it for memory embeddings (not for the agent loop itself — that goes through your configured Model Card).
+Cloudflare's managed model service. oma uses it for memory embeddings (not for the agent loop itself — that goes through your configured Model Card).
 
 ## Workspace bucket
 

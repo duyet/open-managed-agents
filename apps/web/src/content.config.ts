@@ -15,7 +15,7 @@ const blog = defineCollection({
     description: z.string().max(280),
     publishedAt: z.coerce.date(),
     updatedAt: z.coerce.date().optional(),
-    author: z.string().default("openma"),
+    author: z.string().default("oma"),
     tags: z.array(z.string()).default([]),
     /** Hide from /blog index. Useful for unlisted posts shared via direct link. */
     draft: z.boolean().default(false),

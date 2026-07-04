@@ -58,7 +58,7 @@ Workers metrics (requests, CPU time, errors) are in the Cloudflare dashboard per
 
 ## Multi-tenancy
 
-By default, openma is **multi-tenant on a single D1**. Every user gets a `tenant_id` row; every query is scoped by it. Adequate for most teams.
+By default, oma is **multi-tenant on a single D1**. Every user gets a `tenant_id` row; every query is scoped by it. Adequate for most teams.
 
 The codebase has two distinct mechanisms for stricter isolation; they solve different problems:
 
@@ -146,7 +146,7 @@ The historical migration files are kept under `apps/main/migrations/_archive/` (
 
 ## Sandbox isolation
 
-Every session gets its own Cloudflare Container instance via the `SANDBOX` Durable Object class. Sessions never share container state. The container's outbound network goes through openma's egress proxy; secrets (Vault entries) are injected per-host so the model never sees raw credentials.
+Every session gets its own Cloudflare Container instance via the `SANDBOX` Durable Object class. Sessions never share container state. The container's outbound network goes through oma's egress proxy; secrets (Vault entries) are injected per-host so the model never sees raw credentials.
 
 If you want to restrict outbound destinations, edit `apps/agent/src/sandbox/proxy.ts` to add allowlist rules.
 

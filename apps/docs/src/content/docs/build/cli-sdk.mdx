@@ -1,14 +1,14 @@
 ---
 title: CLI & SDK
-description: The open-managed-agents Node CLI and using @anthropic-ai/sdk against openma — your two ways to talk to the API without curl.
+description: The open-managed-agents Node CLI and using @anthropic-ai/sdk against oma — your two ways to talk to the API without curl.
 ---
 
 import { Tabs, TabItem, Aside, LinkCard } from '@astrojs/starlight/components';
 
-openma is callable via two routes:
+oma is callable via two routes:
 
 - **`@duyet/oma-cli`** — a Node CLI for scripting against the API.
-- **Anthropic's official SDKs** — TypeScript ([`@anthropic-ai/sdk`](https://www.npmjs.com/package/@anthropic-ai/sdk)), Python ([`anthropic`](https://pypi.org/project/anthropic/)), and Go ([`anthropic-sdk-go`](https://pkg.go.dev/github.com/anthropics/anthropic-sdk-go)) — pointed at openma's `baseURL`. The openma API is wire-compatible with the Claude Managed Agents API, so the same SDKs work against both.
+- **Anthropic's official SDKs** — TypeScript ([`@anthropic-ai/sdk`](https://www.npmjs.com/package/@anthropic-ai/sdk)), Python ([`anthropic`](https://pypi.org/project/anthropic/)), and Go ([`anthropic-sdk-go`](https://pkg.go.dev/github.com/anthropics/anthropic-sdk-go)) — pointed at oma's `baseURL`. The oma API is wire-compatible with the Claude Managed Agents API, so the same SDKs work against both.
 
 The CLI lives in this repo (`packages/cli`).
 
@@ -58,7 +58,7 @@ oma agents create -f ./my-agent.json
 oma sessions create --agent agent_abc123 --env env_abc123 --title "research"
 
 # Chat — post a turn AND stream the reply token-by-token to your terminal
-oma sessions chat sess_xyz "Summarize the openma docs."
+oma sessions chat sess_xyz "Summarize the oma docs."
 
 # Fire-and-forget message (no streaming back; useful when something else is tailing)
 oma sessions message sess_xyz "Now also include the integrations."
@@ -81,7 +81,7 @@ Run `oma --help` or `oma <command> --help` for the full surface.
 
 ## SDK
 
-The openma API is **wire-compatible with the [Claude Managed Agents API](https://docs.anthropic.com/)**, so the recommended client is one of Anthropic's official SDKs pointed at our `baseURL`. One SDK, two providers — moving between them is a config line.
+The oma API is **wire-compatible with the [Claude Managed Agents API](https://docs.anthropic.com/)**, so the recommended client is one of Anthropic's official SDKs pointed at our `baseURL`. One SDK, two providers — moving between them is a config line.
 
 <Aside type="caution" title="@duyet/oma-sdk is deprecated">
   The standalone `@duyet/oma-sdk` package is no longer maintained. Existing installs keep working, but new projects should use the official Anthropic SDKs as shown below.
@@ -204,7 +204,7 @@ The openma API is **wire-compatible with the [Claude Managed Agents API](https:/
 
 ### Resources covered
 
-Every namespace in the official SDK works against openma:
+Every namespace in the official SDK works against oma:
 
 | Namespace | Notes |
 |---|---|

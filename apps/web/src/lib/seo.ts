@@ -132,7 +132,9 @@ export function blogPostSchema(p: BlogPostSchemaInput) {
     dateModified: (p.updatedAt ?? p.publishedAt).toISOString(),
     author: {
       "@type": "Organization",
-      name: p.author === "openma" ? ORG_NAME : p.author,
+      // "openma" covers historical posts published under the old default
+      // author (content.config.ts default is "oma" going forward).
+      name: p.author === "openma" || p.author === "oma" ? ORG_NAME : p.author,
       url: SITE_URL,
     },
     publisher: {

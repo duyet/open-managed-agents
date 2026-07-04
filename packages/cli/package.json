@@ -1,7 +1,7 @@
 {
   "name": "@duyet/oma-cli",
   "version": "0.5.0",
-  "description": "CLI for the openma managed agents platform",
+  "description": "CLI for the oma managed agents platform",
   "type": "module",
   "bin": {
     "oma": "./dist/index.js"
@@ -25,7 +25,7 @@
     "ai",
     "agents",
     "managed-agents",
-    "openma",
+    "oma",
     "cli",
     "llm"
   ],

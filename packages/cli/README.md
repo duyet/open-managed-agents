@@ -1,6 +1,6 @@
 # @duyet/oma-cli
 
-Command-line client for [openma](https://oma.duyet.net) managed agents.
+Command-line client for [oma](https://oma.duyet.net) managed agents.
 
 > **Beta.** API surface and command names may change before 0.1.0 final.
 
@@ -19,7 +19,7 @@ export OMA_API_KEY=sk_...
 export OMA_BASE_URL=https://api.oma.duyet.net   # default
 ```
 
-Generate an API key from the [openma console](https://oma.duyet.net) → API Keys.
+Generate an API key from the [oma console](https://oma.duyet.net) → API Keys.
 
 ## Usage
 

@@ -355,7 +355,7 @@ export function Login() {
 
   const subtitles: Record<Mode, string> = {
     login: "Sign in to your workspace",
-    signup: "Get started with openma",
+    signup: "Get started with oma",
     "otp-login": "We'll send a 6-digit code to your email",
     "verify-signup": `We sent a code to ${email}`,
     "verify-login": `We sent a code to ${email}`,
