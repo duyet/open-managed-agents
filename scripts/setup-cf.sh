@@ -244,18 +244,28 @@ say "3. Apply D1 migrations"
 apply_migrations() {
   local db_name="$1" dir="$2"
   echo "  → $db_name (from $dir)"
-  npx wrangler d1 migrations apply "$db_name" --remote --config apps/main/wrangler.jsonc \
-    --migrations-dir "$dir" 2>&1 | grep -E '(Applied|No migrations)' || true
+  # `wrangler d1 migrations apply` has no --migrations-dir flag — the
+  # directory comes from the matching d1_databases entry's own
+  # `migrations_dir` field in the config (defaults to ./migrations if unset).
+  # Capture the real exit status before piping through grep, so a failed
+  # migration aborts the script instead of silently continuing to deploy.
+  local out status
+  out=$(npx wrangler d1 migrations apply "$db_name" --remote --config apps/main/wrangler.jsonc 2>&1)
+  status=$?
+  echo "$out" | grep -E '(Applied|No migrations)' || true
+  [ "$status" -eq 0 ] || die "migrations apply failed for $db_name (from $dir):"$'\n'"$out"
 }
 
 apply_migrations "openma-auth"         "apps/main/migrations"
 apply_migrations "openma-integrations" "apps/main/migrations-integrations"
 # ROUTER_DB is the same physical DB as AUTH_DB in single-D1 mode (the
 # code falls back via env.ROUTER_DB ?? env.AUTH_DB). The router tables
-# (tenant_shard, shard_pool, memory_store_tenant) are also in the AUTH_DB
-# consolidated migration as a back-compat carry-over, so we don't apply
-# migrations-router/ in single-D1 mode. For multi-shard prod, the
-# operator runs `wrangler d1 migrations apply openma-router` separately.
+# (tenant_shard, shard_pool, memory_store_tenant) are created by
+# apps/main/migrations/0001_router_tables.sql — part of the regular
+# apps/main/migrations dir applied above, NOT a separate step — so we don't
+# apply migrations-router/ in single-D1 mode. For multi-shard prod, the
+# operator runs `wrangler d1 migrations apply openma-router` separately
+# against a genuinely standalone ROUTER_DB.
 
 # ── 4. set secrets ──────────────────────────────────────────────────────
 if [ "$SKIP_SECRETS" = "0" ]; then

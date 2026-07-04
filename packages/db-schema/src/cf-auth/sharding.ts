@@ -1,16 +1,17 @@
-// ROUTER_DB sharding tables (CF SQLite / D1).
+// Control-plane routing tables, folded into MAIN_DB (CF SQLite / D1).
 //
-// This is the entire ROUTER_DB schema — three tiny lookup tables that
-// together form the tenant→shard route map for the multi-shard
-// control plane. No user data lives here.
+// Identical schema to packages/db-schema/src/cf-router/sharding.ts (the
+// ROUTER_DB source of truth for true multi-shard deployments) — kept as a
+// separate copy here because single-D1 deployments (self-host default AND
+// oma.duyet.net's launch layout) never bind a standalone ROUTER_DB: code
+// resolves the control plane via `env.ROUTER_DB ?? env.MAIN_DB`, so these
+// tables must physically exist on MAIN_DB. In particular, `ensureTenant()`
+// (apps/main/src/auth-config.ts) does an unconditional INSERT into
+// tenant_shard on every signup, even in single-D1 mode — without this
+// table on MAIN_DB, every signup throws.
 //
-// Source of truth: apps/main/migrations-router/0001_consolidated.sql
-// (the squashed baseline; pre-squash sources are in _archive/).
-//
-// Single-D1 self-host deployments do NOT bind ROUTER_DB at all —
-// env.ROUTER_DB falls back to env.MAIN_DB, so these tables are ALSO modeled
-// (identically) in packages/db-schema/src/cf-auth/sharding.ts and applied via
-// apps/main/migrations/0001_router_tables.sql — keep both copies in sync.
+// If the cf-router shape ever changes, mirror the change here too (and vice
+// versa) — the two schemas must stay identical.
 
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
@@ -52,9 +53,7 @@ export const shard_pool = sqliteTable(
 // when a memory store is created (apps/main/src/routes/memory.ts POST
 // /v1/memory). The R2 → MEMORY_EVENTS_QUEUE consumer queries this
 // once per event to find the owning tenant when only the bucket key
-// is known. Co-located with tenant_shard (not in MAIN_DB) so the
-// memory queue keeps routing for tenants on shards 1-3 even when
-// shard 0 is down.
+// is known.
 export const memory_store_tenant = sqliteTable(
   "memory_store_tenant",
   {
