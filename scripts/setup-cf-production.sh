@@ -254,13 +254,16 @@ create_r2() {
 }
 
 create_queue() {
-  local name="$1"
-  if npx wrangler queues create "$name" >/dev/null 2>&1; then
+  local name="$1" out
+  if out=$(npx wrangler queues create "$name" 2>&1); then
     ok "queue $name (created)"
-  elif npx wrangler queues list --json 2>/dev/null | jq -e --arg n "$name" '.[] | select(.queue_name == $n or .name == $n)' >/dev/null 2>&1; then
+  elif echo "$out" | grep -qi "already taken"; then
+    # `wrangler queues list` has no --json/table-only output in this
+    # wrangler version, so idempotency here relies on parsing the create
+    # command's own "already taken" error instead of a pre-check via list.
     ok "queue $name (exists)"
   else
-    warn "queue $name — create failed and not found in list; wrangler also creates it lazily on first consumer deploy"
+    warn "queue $name — create failed and not confirmed already-existing; wrangler also creates it lazily on first consumer deploy: $out"
   fi
 }
 
@@ -275,7 +278,11 @@ INTEGRATIONS_DB_ID=$(create_d1 "oma-integrations"); ok "D1 oma-integrations → 
 # create a duplicate and fail with "already exists"); only create if truly
 # absent by both id and title.
 say "1b. CONFIG_KV namespace"
-KV_LIST=$(npx wrangler kv namespace list --json 2>/dev/null)
+# No --json flag on this subcommand in this wrangler version — passing it
+# prints help text instead of erroring, which then fails downstream jq
+# parsing with a confusing "Invalid numeric literal" error. Plain JSON is
+# this command's only (default) output format.
+KV_LIST=$(npx wrangler kv namespace list 2>/dev/null)
 if echo "$KV_LIST" | jq -e --arg id "$EXPECTED_KV_ID" '.[] | select(.id == $id)' >/dev/null 2>&1; then
   CONFIG_KV_ID="$EXPECTED_KV_ID"
   ok "CONFIG_KV $EXPECTED_KV_ID already exists — reusing"
