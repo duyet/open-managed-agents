@@ -93,6 +93,9 @@ importers:
       '@duyet/oma-agents-store':
         specifier: workspace:*
         version: link:../../packages/agents-store
+      '@duyet/oma-anyrouter':
+        specifier: workspace:*
+        version: link:../../packages/anyrouter
       '@duyet/oma-api-types':
         specifier: workspace:*
         version: link:../../packages/api-types

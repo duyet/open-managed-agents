@@ -253,6 +253,11 @@ export interface HarnessContext {
     ANTHROPIC_API_KEY: string;
     ANTHROPIC_BASE_URL?: string;
     ANTHROPIC_MODEL?: string;
+    /** CI/CD alternative to ANTHROPIC_API_KEY for ClaudeAgentSdkHarness's
+     *  CLI subprocess auth (minted via `claude setup-token`). Only
+     *  consulted when ANTHROPIC_API_KEY is unset — see
+     *  claude-agent-sdk-loop.ts. */
+    CLAUDE_CODE_OAUTH_TOKEN?: string;
     OMA_MAX_OUTPUT_TOKENS?: string;
     TAVILY_API_KEY?: string;
     delegateToAgent?: (agentId: string, message: string) => Promise<string>;

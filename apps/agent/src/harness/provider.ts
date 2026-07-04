@@ -1,6 +1,7 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModel } from "ai";
+import { ANYROUTER_API_BASE, ANYROUTER_API_COMPAT } from "@duyet/oma-anyrouter";
 
 /**
  * API compatibility types:
@@ -10,6 +11,47 @@ import type { LanguageModel } from "ai";
  * - "oai-compatible" — Third-party OpenAI-compatible API (DeepSeek, Groq, etc.)
  */
 export type ApiCompat = "ant" | "ant-compatible" | "oai" | "oai-compatible";
+
+export interface DefaultProviderCreds {
+  apiKey: string;
+  baseURL?: string;
+  apiCompat: ApiCompat;
+}
+
+/**
+ * Static-env-var default provider fallback for when an agent's `model`
+ * handle matches no D1 model card (see resolveModelCardCredentials in
+ * session-do.ts). Precedence:
+ *
+ *   1. ANTHROPIC_API_KEY — the existing default; wins whenever set, even
+ *      alongside ANYROUTER_API_KEY, since a deploy that has explicitly
+ *      configured Anthropic is treated as more deliberate than a
+ *      platform-wide AnyRouter fallback.
+ *   2. ANYROUTER_API_KEY — routes to AnyRouter (https://anyrouter.dev), an
+ *      OpenAI-compatible LLM gateway. Base URL + wire compat come from
+ *      @duyet/oma-anyrouter's constants so every OMA surface pointed at
+ *      AnyRouter agrees on both (same pairing apps/main-node's
+ *      OAuth-connected AnyRouter provider uses — see
+ *      apps/main-node/src/lib/anyrouter-provider.ts). AnyRouter addresses
+ *      models as "provider/model" (e.g. "anthropic/claude-sonnet-4-6"); an
+ *      agent relying on this fallback must set `model` accordingly.
+ *
+ * Returns null when neither is configured — callers fall through to their
+ * existing "no credentials" behavior unchanged.
+ */
+export function resolveDefaultProviderCreds(env: {
+  ANTHROPIC_API_KEY?: string;
+  ANTHROPIC_BASE_URL?: string;
+  ANYROUTER_API_KEY?: string;
+}): DefaultProviderCreds | null {
+  if (env.ANTHROPIC_API_KEY) {
+    return { apiKey: env.ANTHROPIC_API_KEY, baseURL: env.ANTHROPIC_BASE_URL, apiCompat: "ant" };
+  }
+  if (env.ANYROUTER_API_KEY) {
+    return { apiKey: env.ANYROUTER_API_KEY, baseURL: ANYROUTER_API_BASE, apiCompat: ANYROUTER_API_COMPAT };
+  }
+  return null;
+}
 
 const KNOWN_CLAUDE_PREFIX = "claude-";
 

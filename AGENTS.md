@@ -684,6 +684,29 @@ Reference in agent config:
 
 Supported providers: `anthropic`, `openai`, `custom`.
 
+### Default Provider Fallback
+
+When an agent's `model` handle matches no Model Card, the Cloudflare
+deployment falls back to static env-var secrets, in order:
+
+1. `ANTHROPIC_API_KEY` (+ optional `ANTHROPIC_BASE_URL`) — the long-standing
+   default.
+2. `ANYROUTER_API_KEY` — routes through [AnyRouter](https://anyrouter.dev),
+   an OpenAI-compatible LLM gateway, only when `ANTHROPIC_API_KEY` is unset.
+   AnyRouter addresses models as `provider/model` (e.g.
+   `anthropic/claude-sonnet-4-6`), so `agent.model` must be set accordingly
+   to use this fallback.
+
+An explicit Model Card always wins over both. See
+`resolveDefaultProviderCreds` in `apps/agent/src/harness/provider.ts` and
+`resolveModelCardCredentials` in `apps/agent/src/runtime/session-do.ts`.
+
+The `claude-agent-sdk` harness (self-host Node only — see
+[Custom Harness](#custom-harness)) authenticates its CLI subprocess
+independently: `ANTHROPIC_API_KEY`, or `CLAUDE_CODE_OAUTH_TOKEN` (minted via
+`claude setup-token`) when that's unset — the CI/CD alternative for
+non-interactive deploys.
+
 ---
 
 ## Session Resources

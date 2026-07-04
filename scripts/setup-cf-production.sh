@@ -60,6 +60,9 @@
 #     export API_KEY=...             # bootstrap admin key (main)
 #     export TURNSTILE_SECRET_KEY=... # bot challenge (main); soft-passes if unset
 #     export TAVILY_API_KEY=...      # web_search tool (agent)
+#     export ANYROUTER_API_KEY=...   # default-provider fallback via https://anyrouter.dev
+#                                     # (agent); only used when no model card matches and
+#                                     # ANTHROPIC_API_KEY is unset — see harness/provider.ts
 
 set -euo pipefail
 
@@ -412,6 +415,11 @@ if [ "$SKIP_SECRETS" = "0" ]; then
     set_secret TAVILY_API_KEY "$TAVILY_API_KEY" "$AGENT_CFG" || true
   else
     warn "TAVILY_API_KEY not exported — the web_search tool stays unavailable until set on $AGENT_CFG"
+  fi
+  if [ -n "${ANYROUTER_API_KEY:-}" ]; then
+    set_secret ANYROUTER_API_KEY "$ANYROUTER_API_KEY" "$AGENT_CFG" || true
+  else
+    warn "ANYROUTER_API_KEY not exported — skipping (static default-provider fallback via https://anyrouter.dev; only used when no model card matches and ANTHROPIC_API_KEY is unset)"
   fi
 else
   warn "4. Skipping secrets (--skip-secrets)"
