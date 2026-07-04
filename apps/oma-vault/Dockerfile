@@ -43,7 +43,17 @@ COPY tsconfig.json ./
 # ─── Stage 2: runtime ──────────────────────────────────────────────────────
 FROM node:22-slim AS runtime
 
-RUN corepack enable
+# `corepack prepare` bakes pnpm@<version> into the image at BUILD time under a
+# shared COREPACK_HOME. Without it, corepack downloads pnpm from
+# registry.npmjs.org on the FIRST `pnpm start` — a transient DNS/network blip
+# (EAI_AGAIN registry.npmjs.org) then crashes the container (exit 1) and
+# restarts it. Same fix as apps/main-node/Dockerfile. COREPACK_HOME lives
+# outside /app so the later `COPY --from=deps /app /app` can't clobber it, and
+# is world-readable so the unprivileged `node` user resolves the cached pnpm.
+ENV COREPACK_HOME=/opt/corepack
+RUN corepack enable \
+  && corepack prepare pnpm@11.0.8 --activate \
+  && chmod -R a+rX /opt/corepack
 WORKDIR /app
 
 COPY --from=deps /app /app
