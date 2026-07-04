@@ -216,7 +216,7 @@ export function CliLogin() {
           <Logo size="md" />
           <div>
             <h1 className="font-display text-lg font-semibold">Authorize CLI</h1>
-            <div className="text-xs text-fg-subtle">openma command-line client</div>
+            <div className="text-xs text-fg-subtle">oma command-line client</div>
           </div>
         </div>
 

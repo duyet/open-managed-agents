@@ -84,7 +84,7 @@ function landingPage(opts: {
 </head>
 <body>
   <h1>Set up "${escapedName}" in your Slack workspace</h1>
-  <p>Someone on your team is installing OpenMA's <strong>${escapedName}</strong> agent
+  <p>Someone on your team is installing Oma's <strong>${escapedName}</strong> agent
   into your Slack workspace. Slack app registration requires a workspace admin —
   that's where you come in.</p>
 

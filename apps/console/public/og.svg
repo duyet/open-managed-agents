@@ -1,7 +1,7 @@
 <!--
   Open Graph share image — 1200×630 (the Facebook/Twitter/LinkedIn standard
   large-card size). Clean light background with the brand `[horse]` glyph
-  and the "openma" wordmark.
+  and the "oma" wordmark.
 
   NOTE on format: most modern social platforms (Facebook, Twitter/X,
   LinkedIn, Slack, Discord) now render SVG OG images fine. The one stale
@@ -48,14 +48,14 @@
     </g>
   </g>
 
-  <!-- Wordmark — "openma" in display serif, matches the --font-display
+  <!-- Wordmark — "oma" in display serif, matches the --font-display
        Source Serif 4 we use in the app. Falls back to Georgia/serif on
        systems that don't have the webfont, which is fine for a static
        SVG meant for OG previews (most renderers don't load webfonts). -->
   <text x="600" y="475" text-anchor="middle"
         font-family="'Source Serif 4', Georgia, 'Times New Roman', serif"
         font-size="84" font-weight="700" fill="#1a1a1a"
-        letter-spacing="-1">openma</text>
+        letter-spacing="-1">oma</text>
 
   <!-- Tagline -->
   <text x="600" y="540" text-anchor="middle"

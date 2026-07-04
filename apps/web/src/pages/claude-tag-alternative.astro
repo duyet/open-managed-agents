@@ -29,37 +29,37 @@ const comparisonRows = [
   {
     feature: "Source",
     claudeTag: "Closed hosted product",
-    openma: "Apache 2.0 open-source runtime",
+    oma: "Apache 2.0 open-source runtime",
   },
   {
     feature: "Hosting",
     claudeTag: "Anthropic-hosted for eligible Claude teams",
-    openma: "Self-host on Cloudflare Workers, Docker, Node.js, or use hosted openma",
+    oma: "Self-host on Cloudflare Workers, Docker, Node.js, or use hosted oma",
   },
   {
     feature: "Primary product shape",
     claudeTag: "Claude tagged in Slack with admin-approved tools",
-    openma: "Claude Tag-style runtime you can productize on your own deployment",
+    oma: "Claude Tag-style runtime you can productize on your own deployment",
   },
   {
     feature: "Model and keys",
     claudeTag: "Claude inside Anthropic's managed service",
-    openma: "BYOK model cards for Anthropic, OpenAI, OpenRouter, or your own gateway",
+    oma: "BYOK model cards for Anthropic, OpenAI, OpenRouter, or your own gateway",
   },
   {
     feature: "Tools",
     claudeTag: "Admin-approved tools, credentials, and repositories",
-    openma: "MCP, Slack, GitHub, Linear, shell/browser tools, and custom providers",
+    oma: "MCP, Slack, GitHub, Linear, shell/browser tools, and custom providers",
   },
   {
     feature: "Memory",
     claudeTag: "Productized workspace and channel memory",
-    openma: "Memory stores under your deployment; Tag-level memory UI is product work",
+    oma: "Memory stores under your deployment; Tag-level memory UI is product work",
   },
   {
     feature: "Governance",
     claudeTag: "Spend limits, audit, and access bundles in Claude admin",
-    openma: "Vaults, event logs, quotas, and usage stores exist; admin UX is roadmap",
+    oma: "Vaults, event logs, quotas, and usage stores exist; admin UX is roadmap",
   },
 ];
 
@@ -90,7 +90,7 @@ const schemas = [
   title="Claude Tag Alternative: Open-Source and Self-Hosted | Open Managed Agents"
   description="Looking for an open-source or self-hosted Claude Tag alternative? Open Managed Agents provides the runtime foundation: BYOK, MCP, vaults, memory stores, durable sessions, Slack publication, and sandboxed work."
   canonical="/claude-tag-alternative/"
-  keywords="claude tag alternative, claude tag open source, open source claude tag, self-hosted claude tag, claude tag self hosted, claude tag clone, openma claude tag, byok claude tag, mcp claude tag"
+  keywords="claude tag alternative, claude tag open source, open source claude tag, self-hosted claude tag, claude tag self hosted, claude tag clone, oma claude tag, byok claude tag, mcp claude tag"
   schemas={schemas}
 >
   <section class="border-b border-[var(--color-border)]">
@@ -162,7 +162,7 @@ const schemas = [
             <tr>
               <th scope="row" class={`px-4 py-3 font-medium ${index < comparisonRows.length - 1 ? "border-b border-[var(--color-border)]" : ""}`}>{row.feature}</th>
               <td class={`px-4 py-3 text-[var(--color-fg-muted)] ${index < comparisonRows.length - 1 ? "border-b border-[var(--color-border)]" : ""}`}>{row.claudeTag}</td>
-              <td class={`px-4 py-3 text-[var(--color-fg-muted)] ${index < comparisonRows.length - 1 ? "border-b border-[var(--color-border)]" : ""}`}>{row.openma}</td>
+              <td class={`px-4 py-3 text-[var(--color-fg-muted)] ${index < comparisonRows.length - 1 ? "border-b border-[var(--color-border)]" : ""}`}>{row.oma}</td>
             </tr>
           ))}
         </tbody>

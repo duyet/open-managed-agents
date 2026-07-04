@@ -2,8 +2,8 @@
 
 > ## ⚠️ Deprecated — use `@anthropic-ai/sdk` instead
 >
-> This package is no longer the recommended way to call the openma platform.
-> The openma API is **wire-compatible with Anthropic's Managed Agents API**, so
+> This package is no longer the recommended way to call the oma platform.
+> The oma API is **wire-compatible with Anthropic's Managed Agents API**, so
 > you can use the official Anthropic SDK directly:
 >
 > ```bash
@@ -39,7 +39,7 @@
 
 ---
 
-Official TypeScript SDK for the [openma](https://oma.duyet.net) managed agents platform — typed REST + SSE streaming, runs anywhere `fetch` exists (Node ≥ 20, Bun, Deno, browsers, Cloudflare Workers).
+Official TypeScript SDK for the [oma](https://oma.duyet.net) managed agents platform — typed REST + SSE streaming, runs anywhere `fetch` exists (Node ≥ 20, Bun, Deno, browsers, Cloudflare Workers).
 
 ## Install
 
@@ -54,9 +54,9 @@ bun add @duyet/oma-sdk
 ## Quick start
 
 ```ts
-import { OpenMA } from "@duyet/oma-sdk";
+import { Oma } from "@duyet/oma-sdk";
 
-const oma = new OpenMA({ apiKey: process.env.OMA_API_KEY! });
+const oma = new Oma({ apiKey: process.env.OMA_API_KEY! });
 
 // Streaming chat — async iterator over typed events.
 for await (const ev of oma.sessions.chat(sessionId, "Hello")) {
@@ -140,15 +140,15 @@ More resources land per release — file an issue if something you need is missi
 
 ## Errors
 
-Every non-2xx throws an `OpenMAError`:
+Every non-2xx throws an `OmaError`:
 
 ```ts
-import { OpenMAError } from "@duyet/oma-sdk";
+import { OmaError } from "@duyet/oma-sdk";
 
 try {
   await oma.sessions.get("sess-bogus");
 } catch (err) {
-  if (err instanceof OpenMAError) {
+  if (err instanceof OmaError) {
     console.error(err.status, err.body);
     if (err.status === 404) { /* handle missing */ }
   }
@@ -159,16 +159,16 @@ try {
 
 ```ts
 // API key — server-to-server, CLI scripts. Sent as `x-api-key`.
-new OpenMA({ apiKey: "oma_..." });
+new Oma({ apiKey: "oma_..." });
 
 // Cookie auth — for embedding in the Console UI. Sent as `Authorization: Bearer ...`.
-new OpenMA({ bearer: cookieToken });
+new Oma({ bearer: cookieToken });
 
 // Self-host
-new OpenMA({ apiKey: "oma_...", baseUrl: "https://your.openma.example" });
+new Oma({ apiKey: "oma_...", baseUrl: "https://your.oma.example" });
 
 // Multi-tenant (cookie-auth users in workspaces with multiple memberships)
-new OpenMA({ bearer: cookieToken, activeTenantId: "tn_..." });
+new Oma({ bearer: cookieToken, activeTenantId: "tn_..." });
 ```
 
 ## License

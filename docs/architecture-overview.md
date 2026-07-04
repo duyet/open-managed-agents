@@ -78,7 +78,7 @@ open-managed-agents/
 │   └── sdk/                       # `@duyet/oma-sdk` 公网 TS SDK
 ├── docs/                          # 内部 RFC / 设计文档（本文亦在此）
 ├── apps/docs/                     # 用户文档（Astro Starlight，docs.oma.duyet.net）
-├── skills/                        # 内置技能（openma SOP、create-agent）
+├── skills/                        # 内置技能（oma SOP、create-agent）
 ├── rl/                            # Reinforcement Learning 自训练子系统
 ├── scripts/                       # 部署 / 迁移 / 监控脚本
 ├── test/                          # unit / integration / e2e / eval

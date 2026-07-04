@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { OpenMA } from "../../packages/sdk/src/index";
+import { Oma } from "../../packages/sdk/src/index";
 
-describe("OpenMA SDK dreams resource", () => {
+describe("Oma SDK dreams resource", () => {
   it("creates dreams with the required beta header", async () => {
     const calls: Array<{ url: string; method: string; headers: Headers; body: unknown }> = [];
     const fetcher: typeof fetch = async (input, init) => {
@@ -34,7 +34,7 @@ describe("OpenMA SDK dreams resource", () => {
         error: null,
       });
     };
-    const oma = new OpenMA({
+    const oma = new Oma({
       apiKey: "oma-test",
       baseUrl: "https://api.example",
       fetch: fetcher,

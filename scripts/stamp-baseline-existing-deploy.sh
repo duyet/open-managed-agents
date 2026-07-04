@@ -43,7 +43,7 @@ cd "$ROOT_DIR"
 echo "=== Stamping consolidated baselines on $ENV ==="
 
 # Map env → DB names. Pull these from wrangler.jsonc env.<name>.d1_databases
-# rather than hardcoding so a forked openma uses its own DB names.
+# rather than hardcoding so a forked oma uses its own DB names.
 read_db_names() {
   local config="$1"
   local env_key="$2"

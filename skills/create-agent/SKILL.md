@@ -1,18 +1,18 @@
 ---
 name: create-agent
 description: >
-  Help users create and configure openma managed agents through conversation.
+  Help users create and configure oma managed agents through conversation.
   Trigger when users say "create an agent", "I need an agent that...", "set up
   an agent for", "build me a bot", or describe a task to automate. Also trigger
-  for "Create with AI" from Dashboard. Also use when users ask about the openma
+  for "Create with AI" from Dashboard. Also use when users ask about the oma
   platform, what it can do, how to use the CLI, or how to configure resources.
 ---
 
-# openma Agent Creator
+# oma Agent Creator
 
-## What is openma?
+## What is oma?
 
-openma is an open-source platform for building, deploying, and managing AI agents.
+oma is an open-source platform for building, deploying, and managing AI agents.
 Think of it as a managed runtime — you define an agent (model + system prompt + tools),
 the platform handles sandboxed execution, credential management, and session state.
 

@@ -113,7 +113,7 @@ const LABELED_GROUPS = new Set(["Integrations"]);
  *
  * Layout from top to bottom:
  *
- *   1. SidebarHeader  — `[ logo ] openma` (h-11)
+ *   1. SidebarHeader  — `[ logo ] oma` (h-11)
  *   2. TenantSwitcher — h-11, shares the brand-row recipe so it
  *                       collapses identically (icon at x=12, text
  *                       hides via group-data-[collapsible=icon]:hidden)
@@ -180,13 +180,13 @@ export function AppSidebar() {
       <SidebarHeader className="bg-sidebar h-11 px-3 flex-row items-center gap-2">
         <Logo size="sm" />
         <span className="font-mono font-bold text-base text-brand group-data-[collapsible=icon]:hidden">
-          openma
+          oma
         </span>
       </SidebarHeader>
 
       {/* Tenant sits between brand row and nav content — same h-11 px-3
           recipe as the brand row so the collapse animation pins its
-          icon at the same x=12 axis as the openma logo above. `mt-2`
+          icon at the same x=12 axis as the oma logo above. `mt-2`
           drops it 8 px below the brand row so its vertical center
           aligns with the toolbar chips on the right (PageHeader's
           py-3 pushes them down by the same amount). */}

@@ -1,18 +1,18 @@
 ---
-title: openma — open-source Claude Managed Agents alternative on Cloudflare
-description: openma is the open-source alternative to Claude Managed Agents. Run Claude agents yourself with durable sessions, sandboxes, tools, memory, and vault-backed credentials — on Cloudflare Workers or Docker.
+title: oma — open-source Claude Managed Agents alternative on Cloudflare
+description: oma is the open-source alternative to Claude Managed Agents. Run Claude agents yourself with durable sessions, sandboxes, tools, memory, and vault-backed credentials — on Cloudflare Workers or Docker.
 template: splash
 head:
-  # Starlight's auto-generated <title> would tack on " | openma" (the
+  # Starlight's auto-generated <title> would tack on " | oma" (the
   # site title) and produce a redundant brand-after-brand suffix.
   # Override so the keyword-rich page title stands alone for SERP.
   - tag: title
-    content: openma — open-source Claude Managed Agents alternative on Cloudflare
+    content: oma — open-source Claude Managed Agents alternative on Cloudflare
 hero:
   tagline: Run Claude agents yourself. Durable sessions, sandboxed tools, vault-backed credentials, MCP + Claude Code skills built in. Drop-in compatible API.
   image:
     file: ../../assets/logo.svg
-    alt: 'openma logo: a horse-head sketch framed by JetBrains Mono brackets'
+    alt: 'oma logo: a horse-head sketch framed by JetBrains Mono brackets'
   actions:
     - text: Quickstart
       link: /quickstart/
@@ -26,9 +26,9 @@ hero:
 
 import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
-## What is openma?
+## What is oma?
 
-**openma** (Open Managed Agents) is the infrastructure layer for AI agents. You bring the harness — the loop that decides what the model does next — and openma takes care of everything else: durable sessions, sandboxed code execution, tool calls, semantic memory, secret-safe credentials, and crash recovery.
+**oma** (Open Managed Agents) is the infrastructure layer for AI agents. You bring the harness — the loop that decides what the model does next — and oma takes care of everything else: durable sessions, sandboxed code execution, tool calls, semantic memory, secret-safe credentials, and crash recovery.
 
 It runs entirely on Cloudflare (Workers, Durable Objects, D1, R2, KV, Vectorize, Containers), and you can either use the **hosted product at [oma.duyet.net](https://app.oma.duyet.net)** or **fork and self-host** to your own Cloudflare account.
 
@@ -57,9 +57,9 @@ It runs entirely on Cloudflare (Workers, Durable Objects, D1, R2, KV, Vectorize,
   />
 </CardGrid>
 
-## Why openma?
+## Why oma?
 
-Most agent frameworks tell you *how* to build an agent — the loop, the prompt format, the orchestration shape. openma is different: it stays out of the harness and instead provides what every long-running agent needs but is painful to build.
+Most agent frameworks tell you *how* to build an agent — the loop, the prompt format, the orchestration shape. oma is different: it stays out of the harness and instead provides what every long-running agent needs but is painful to build.
 
 <CardGrid>
   <Card title="Durable sessions" icon="approve-check">
@@ -75,7 +75,7 @@ Most agent frameworks tell you *how* to build an agent — the loop, the prompt 
     Per-agent semantic memory across sessions, indexed in Vectorize via Workers AI embeddings.
   </Card>
   <Card title="MCP, everywhere" icon="puzzle">
-    Connect any MCP server and openma auto-generates `mcp_*` tools the model can call.
+    Connect any MCP server and oma auto-generates `mcp_*` tools the model can call.
   </Card>
   <Card title="Three integrations, day one" icon="rocket">
     Publish agents into Linear (assignable issues), GitHub (PRs), and Slack (channels) with OAuth-managed auth.

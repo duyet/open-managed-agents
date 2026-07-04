@@ -28,11 +28,11 @@ describe("currentProfile / paths() — profile isolation", () => {
     expect(p.credsFile).toBe(join(homedir(), ".oma/bridge", "credentials.json"));
     expect(p.sessionsDir).toBe(join(homedir(), ".oma/bridge", "sessions"));
     expect(p.logFile).toBe(join(homedir(), ".oma/bridge", "logs", "bridge.log"));
-    expect(p.serviceLabel).toBe("dev.openma.bridge");
+    expect(p.serviceLabel).toBe("dev.oma.bridge");
     // Service file path is platform-specific; just check the label baked in.
     if (p.serviceFile) {
-      expect(p.serviceFile.endsWith("dev.openma.bridge.plist") ||
-             p.serviceFile.endsWith("dev.openma.bridge.service")).toBe(true);
+      expect(p.serviceFile.endsWith("dev.oma.bridge.plist") ||
+             p.serviceFile.endsWith("dev.oma.bridge.service")).toBe(true);
     }
   });
 
@@ -44,10 +44,10 @@ describe("currentProfile / paths() — profile isolation", () => {
     expect(p.credsFile).toBe(join(homedir(), ".oma/bridge-staging", "credentials.json"));
     expect(p.sessionsDir).toBe(join(homedir(), ".oma/bridge-staging", "sessions"));
     expect(p.logFile).toBe(join(homedir(), ".oma/bridge-staging", "logs", "bridge.log"));
-    expect(p.serviceLabel).toBe("dev.openma.bridge.staging");
+    expect(p.serviceLabel).toBe("dev.oma.bridge.staging");
     if (p.serviceFile) {
-      expect(p.serviceFile.endsWith("dev.openma.bridge.staging.plist") ||
-             p.serviceFile.endsWith("dev.openma.bridge.staging.service")).toBe(true);
+      expect(p.serviceFile.endsWith("dev.oma.bridge.staging.plist") ||
+             p.serviceFile.endsWith("dev.oma.bridge.staging.service")).toBe(true);
     }
   });
 
@@ -82,15 +82,15 @@ describe("currentProfile / paths() — profile isolation", () => {
   it("trims whitespace from OMA_PROFILE (env vars often pick up stray spaces)", () => {
     process.env.OMA_PROFILE = "  staging  ";
     expect(currentProfile()).toBe("staging");
-    expect(paths().serviceLabel).toBe("dev.openma.bridge.staging");
+    expect(paths().serviceLabel).toBe("dev.oma.bridge.staging");
   });
 
   it("treats empty / whitespace-only OMA_PROFILE as default", () => {
     process.env.OMA_PROFILE = "";
     expect(currentProfile()).toBe("");
-    expect(paths().serviceLabel).toBe("dev.openma.bridge");
+    expect(paths().serviceLabel).toBe("dev.oma.bridge");
     process.env.OMA_PROFILE = "   ";
     expect(currentProfile()).toBe("");
-    expect(paths().serviceLabel).toBe("dev.openma.bridge");
+    expect(paths().serviceLabel).toBe("dev.oma.bridge");
   });
 });

@@ -120,7 +120,7 @@ export function ConnectRuntime() {
           <Logo size="md" />
           <div>
             <h1 className="font-display text-lg font-semibold">Connect machine</h1>
-            <div className="text-xs text-fg-subtle">openma local runtime</div>
+            <div className="text-xs text-fg-subtle">oma local runtime</div>
           </div>
         </div>
 

@@ -1,14 +1,14 @@
-import { OpenMAError } from "./errors.js";
+import { OmaError } from "./errors.js";
 
 export interface ClientOptions {
   /** API key (`oma_...`). Required unless `bearer` is passed (cookie auth). */
   apiKey?: string;
   /** Browser cookie auth — for embedding the SDK in the Console UI. */
   bearer?: string;
-  /** Base URL of the openma deployment. Defaults to https://oma.duyet.net. */
+  /** Base URL of the oma deployment. Defaults to https://oma.duyet.net. */
   baseUrl?: string;
   /** Override the User-Agent header. The default identifies as
-   *  OpenManagedAgents-SDK; some hardened deployments (Cloudflare bot
+   *  OMA-SDK; some hardened deployments (Cloudflare bot
    *  fight) require a Mozilla-style UA — pass that here if you hit 1010. */
   userAgent?: string;
   /** Active tenant id. Sent as `x-active-tenant`; the backend validates
@@ -42,7 +42,7 @@ export class Client {
 
   constructor(opts: ClientOptions) {
     if (!opts.apiKey && !opts.bearer) {
-      throw new TypeError("OpenMA: provide either `apiKey` or `bearer`");
+      throw new TypeError("Oma: provide either `apiKey` or `bearer`");
     }
     this.baseUrl = (opts.baseUrl ?? "https://oma.duyet.net").replace(/\/+$/, "");
     this.fetcher = opts.fetch ?? globalThis.fetch.bind(globalThis);
@@ -50,14 +50,14 @@ export class Client {
     this.maxRetryAfterSeconds = opts.maxRetryAfterSeconds ?? 30;
     this.headers = {
       "user-agent": opts.userAgent
-        ?? "Mozilla/5.0 (compatible; OpenManagedAgents-SDK/0.1; +https://oma.duyet.net)",
+        ?? "Mozilla/5.0 (compatible; OMA-SDK/0.1; +https://oma.duyet.net)",
       ...(opts.apiKey ? { "x-api-key": opts.apiKey } : {}),
       ...(opts.bearer ? { authorization: `Bearer ${opts.bearer}` } : {}),
       ...(opts.activeTenantId ? { "x-active-tenant": opts.activeTenantId } : {}),
     };
   }
 
-  /** Execute a JSON request — throws OpenMAError on non-2xx, parses
+  /** Execute a JSON request — throws OmaError on non-2xx, parses
    *  JSON otherwise. Use `raw()` instead for streaming responses. */
   async request<T = unknown>(
     method: string,
@@ -80,7 +80,7 @@ export class Client {
     const text = await res.text();
     if (!text) return undefined as T;
     try { return JSON.parse(text) as T; }
-    catch { throw new OpenMAError(res.status, text, res.url); }
+    catch { throw new OmaError(res.status, text, res.url); }
   }
 
   /** Lower-level — returns the raw Response. Used by SSE consumers
@@ -130,7 +130,7 @@ export class Client {
       }
 
       const text = await res.text().catch(() => "");
-      throw new OpenMAError(res.status, text, res.url);
+      throw new OmaError(res.status, text, res.url);
     }
   }
 

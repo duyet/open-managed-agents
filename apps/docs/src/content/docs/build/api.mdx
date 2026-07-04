@@ -1,6 +1,6 @@
 ---
 title: REST API
-description: openma exposes a REST API under /v1/* for managing agents, sessions, environments, skills, vaults, integrations, and more. SSE for live session events.
+description: oma exposes a REST API under /v1/* for managing agents, sessions, environments, skills, vaults, integrations, and more. SSE for live session events.
 ---
 
 import { Aside, Tabs, TabItem, LinkCard } from '@astrojs/starlight/components';
@@ -21,7 +21,7 @@ Two auth schemes:
 
 **API key** — for server-to-server and CLI use. Pass as the `x-api-key` header (`x-api-key: oma_...`). Create on the Console **API Keys** page.
 
-**Session cookie** — what the Console UI uses (better-auth-issued). Not normally what you'll integrate against unless you're embedding openma in a browser app.
+**Session cookie** — what the Console UI uses (better-auth-issued). Not normally what you'll integrate against unless you're embedding oma in a browser app.
 
 ```bash
 export OMA_BASE_URL="https://app.oma.duyet.net"

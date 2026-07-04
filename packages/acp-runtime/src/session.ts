@@ -79,7 +79,7 @@ export class AcpSessionImpl implements AcpSession {
           this.#pushEvent(params);
         },
         // Permissions / terminals / file ops: surface as events too.
-        // Higher layers (clash bridge, openma session) decide handling.
+        // Higher layers (clash bridge, oma session) decide handling.
         requestPermission: async (params: unknown) => {
           this.#pushEvent({ type: "requestPermission", params });
           // Default policy: deny. Hosts can intercept by overriding.
@@ -203,7 +203,7 @@ export class AcpSessionImpl implements AcpSession {
     // requestPermission / terminal calls / etc. and we respond. Tool
     // *execution* results flow back through whatever mechanism the
     // agent invented; ACP doesn't have a single "tool result" RPC.
-    // For now this is a stub — wire concrete behaviour when openma
+    // For now this is a stub — wire concrete behaviour when oma
     // (the only caller that needs it) lands its tool integration.
     void toolCallId;
     void result;
