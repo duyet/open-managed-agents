@@ -1,6 +1,6 @@
 <!--
   Open Graph share image — 1200×630 (the Facebook/Twitter/LinkedIn standard
-  large-card size). Clean light background with the brand `[horse]` glyph
+  large-card size). Clean light background with the brand `[•]` glyph
   and the "oma" wordmark.
 
   NOTE on format: most modern social platforms (Facebook, Twitter/X,
@@ -12,7 +12,7 @@
   SVG keeps the asset crisp and ~2 KB instead of ~120 KB.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Open Managed Agents">
-  <!-- Background — same #fefefe as the light-mode --bg token. -->
+  <!-- Background — same #fefefe as the light-mode bg token. -->
   <rect width="1200" height="630" fill="#fefefe"/>
 
   <!-- Subtle brand-tinted halo so the image isn't a flat white card in
@@ -32,14 +32,14 @@
        sits below at display weight. -->
   <!-- [•] glyph — square brackets = the harness, dot = the agent it runs.
        64-viewBox mark scaled ~3.6x and centered above the wordmark. -->
-  <g transform="translate(484.8, 94.8) scale(3.6)" fill="none" stroke="#FF6B50" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+  <g transform="translate(484.8, 130) scale(3.6)" fill="none" stroke="#FF6B50" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
     <path d="M24 15 H15 V49 H24"/>
     <path d="M40 15 H49 V49 H40"/>
     <circle cx="32" cy="32" r="8" fill="#FF6B50" stroke="none"/>
   </g>
 
-  <!-- Wordmark — "oma" in display serif, matches the --font-display
-       Source Serif 4 we use in the app. Falls back to Georgia/serif on
+  <!-- Wordmark — "oma" in display serif, matches the display font
+       (Source Serif 4) we use in the app. Falls back to Georgia/serif on
        systems that don't have the webfont, which is fine for a static
        SVG meant for OG previews (most renderers don't load webfonts). -->
   <text x="600" y="475" text-anchor="middle"
