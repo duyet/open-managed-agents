@@ -553,6 +553,32 @@ async function buildSandbox(
   );
 }
 
+// ─── Sandbox GC (startup-only) ──────────────────────────────────────────
+//
+// A main-node crash/restart mid-session skips destroy(), and the
+// agent-sandbox controller applies no TTL to a failed Sandbox CR — it (and
+// its dead pod) sit forever. Sweep once at boot, the same moment a
+// crash-induced orphan would exist. Fire-and-forget: must never delay the
+// HTTP listener or take main-node down if the cluster call fails.
+if (["k8s", "kubernetes"].includes((process.env.SANDBOX_PROVIDER ?? "").toLowerCase())) {
+  import("@duyet/oma-sandbox/adapters/kubernetes")
+    .then((mod) =>
+      mod.sweepOrphanedSandboxes({
+        namespace: process.env.OMA_K8S_NAMESPACE,
+        logger: {
+          warn: (msg, ctx) => logger.warn((ctx as Record<string, unknown>) ?? {}, msg),
+          log: (msg) => logger.info(msg),
+        },
+      }),
+    )
+    .then((result) => {
+      if (result.deleted.length || result.errors.length) {
+        logger.info({ op: "main-node.sandbox_gc", ...result }, "sandbox GC swept orphaned Sandbox CRs");
+      }
+    })
+    .catch((err) => logger.warn({ op: "main-node.sandbox_gc.failed", err }, "sandbox GC sweep failed"));
+}
+
 // ─── Session registry ───────────────────────────────────────────────────
 
 // An OAuth-connected AnyRouter credential (Console "Connect to AnyRouter"
