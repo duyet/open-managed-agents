@@ -6,7 +6,7 @@
      so the rasterized PNGs aren't bleed-to-edge at small sizes. -->
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
      width="512" height="512" viewBox="0 0 512 512">
-  <!-- logo.svg natural ratio = 190:122 ≈ 1.557. Fit width to 440 (36px
-       margin l/r), height auto-derives to ~282.5, y-centered. -->
-  <image xlink:href="logo.svg" x="36" y="115" width="440" height="283"/>
+  <!-- logo.svg is now square (64:64). Center it at 320×320 (96px margin
+       all sides) so the mark keeps breathing room at 16px. -->
+  <image xlink:href="logo.svg" x="96" y="96" width="320" height="320"/>
 </svg>
