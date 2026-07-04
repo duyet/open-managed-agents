@@ -230,6 +230,9 @@ export class SqlSessionRepo implements SessionRepo {
           ? JSON.stringify(update.environmentSnapshot)
           : null;
     }
+    if (update.stopReason !== undefined) set.stop_reason = update.stopReason;
+    if (update.toolCallCount !== undefined) set.tool_call_count = update.toolCallCount;
+    if (update.messageCount !== undefined) set.message_count = update.messageCount;
     await runOnce(
       this.db
         .update(sessions)
@@ -432,6 +435,9 @@ function toSessionRow(r: typeof sessions.$inferSelect): SessionRow {
     updated_at: r.updated_at !== null ? msToIso(r.updated_at) : null,
     archived_at: r.archived_at !== null ? msToIso(r.archived_at) : null,
     terminated_at: r.terminated_at !== null ? msToIso(r.terminated_at) : null,
+    stop_reason: r.stop_reason,
+    tool_call_count: r.tool_call_count,
+    message_count: r.message_count,
   };
 }
 

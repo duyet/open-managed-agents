@@ -37,6 +37,9 @@ interface InMemSession {
   updated_at: number | null;
   archived_at: number | null;
   terminated_at: number | null;
+  stop_reason: string | null;
+  tool_call_count: number;
+  message_count: number;
 }
 
 interface InMemResource {
@@ -70,6 +73,9 @@ export class InMemorySessionRepo implements SessionRepo {
       updated_at: null,
       archived_at: null,
       terminated_at: null,
+      stop_reason: null,
+      tool_call_count: 0,
+      message_count: 0,
     };
     this.sessions.set(session.id, row);
 
@@ -190,6 +196,9 @@ export class InMemorySessionRepo implements SessionRepo {
     if (update.metadata !== undefined) row.metadata = update.metadata;
     if (update.agentSnapshot !== undefined) row.agent_snapshot = update.agentSnapshot;
     if (update.environmentSnapshot !== undefined) row.environment_snapshot = update.environmentSnapshot;
+    if (update.stopReason !== undefined) row.stop_reason = update.stopReason;
+    if (update.toolCallCount !== undefined) row.tool_call_count = update.toolCallCount;
+    if (update.messageCount !== undefined) row.message_count = update.messageCount;
     row.updated_at = update.updatedAt;
     return toSessionRow(row);
   }
@@ -377,6 +386,9 @@ function toSessionRow(s: InMemSession): SessionRow {
     updated_at: s.updated_at !== null ? msToIso(s.updated_at) : null,
     archived_at: s.archived_at !== null ? msToIso(s.archived_at) : null,
     terminated_at: s.terminated_at !== null ? msToIso(s.terminated_at) : null,
+    stop_reason: s.stop_reason,
+    tool_call_count: s.tool_call_count,
+    message_count: s.message_count,
   };
 }
 

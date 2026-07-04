@@ -8,6 +8,13 @@
       "when": 1779348643561,
       "tag": "0000_consolidated",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783155183443,
+      "tag": "0001_session_run_summary",
+      "breakpoints": true
     }
   ]
 }

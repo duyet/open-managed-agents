@@ -256,6 +256,124 @@ describe("SessionService — update", () => {
   });
 });
 
+describe("SessionService — run-history summary (issue #21)", () => {
+  it("new sessions default to no stop_reason and zero counts", async () => {
+    const { service } = createInMemorySessionService();
+    const { session } = await service.create({
+      tenantId: TENANT,
+      agentId: AGENT,
+      environmentId: ENV_ID,
+    });
+    expect(session.stop_reason).toBeNull();
+    expect(session.tool_call_count).toBe(0);
+    expect(session.message_count).toBe(0);
+  });
+
+  it("recordRunSummary persists stop_reason + counts and bumps updated_at", async () => {
+    const clock = new ManualClock(1000);
+    const { service } = createInMemorySessionService({ clock });
+    const { session } = await service.create({
+      tenantId: TENANT,
+      agentId: AGENT,
+      environmentId: ENV_ID,
+    });
+    clock.set(2000);
+    const updated = await service.recordRunSummary({
+      tenantId: TENANT,
+      sessionId: session.id,
+      stopReason: "end_turn",
+      toolCallCount: 3,
+      messageCount: 1,
+    });
+    expect(updated.stop_reason).toBe("end_turn");
+    expect(updated.tool_call_count).toBe(3);
+    expect(updated.message_count).toBe(1);
+    expect(updated.updated_at).not.toBeNull();
+
+    const got = await service.get({ tenantId: TENANT, sessionId: session.id });
+    expect(got?.stop_reason).toBe("end_turn");
+    expect(got?.tool_call_count).toBe(3);
+    expect(got?.message_count).toBe(1);
+  });
+
+  it("recordRunSummary is a partial patch — omitted fields are left untouched", async () => {
+    const { service } = createInMemorySessionService();
+    const { session } = await service.create({
+      tenantId: TENANT,
+      agentId: AGENT,
+      environmentId: ENV_ID,
+    });
+    await service.recordRunSummary({
+      tenantId: TENANT,
+      sessionId: session.id,
+      stopReason: "end_turn",
+      toolCallCount: 2,
+      messageCount: 1,
+    });
+    // A later call only bumping toolCallCount (as endTurn would after a
+    // later turn) must not reset messageCount back to undefined/0.
+    const updated = await service.recordRunSummary({
+      tenantId: TENANT,
+      sessionId: session.id,
+      toolCallCount: 5,
+    });
+    expect(updated.tool_call_count).toBe(5);
+    expect(updated.message_count).toBe(1);
+    expect(updated.stop_reason).toBe("end_turn");
+  });
+
+  it("recordRunSummary throws SessionNotFoundError for a missing session", async () => {
+    const { service } = createInMemorySessionService();
+    await expect(
+      service.recordRunSummary({
+        tenantId: TENANT,
+        sessionId: "missing",
+        stopReason: "end_turn",
+      }),
+    ).rejects.toBeInstanceOf(SessionNotFoundError);
+  });
+
+  it("listPage surfaces the summary fields — the GET /v1/agents/:id/runs read path", async () => {
+    const clock = new ManualClock(1000);
+    const { service } = createInMemorySessionService({ clock });
+    const { session: s1 } = await service.create({
+      tenantId: TENANT,
+      agentId: AGENT,
+      environmentId: ENV_ID,
+      title: "run 1",
+    });
+    clock.set(2000);
+    const { session: s2 } = await service.create({
+      tenantId: TENANT,
+      agentId: AGENT,
+      environmentId: ENV_ID,
+      title: "run 2",
+    });
+    await service.recordRunSummary({
+      tenantId: TENANT,
+      sessionId: s1.id,
+      stopReason: "end_turn",
+      toolCallCount: 4,
+      messageCount: 2,
+    });
+    await service.recordRunSummary({
+      tenantId: TENANT,
+      sessionId: s2.id,
+      stopReason: "terminated",
+      toolCallCount: 1,
+      messageCount: 1,
+    });
+
+    const page = await service.listPage({ tenantId: TENANT, agentId: AGENT });
+    expect(page.items.map((s) => s.title)).toEqual(["run 2", "run 1"]);
+    expect(page.items[0].stop_reason).toBe("terminated");
+    expect(page.items[0].tool_call_count).toBe(1);
+    expect(page.items[1].stop_reason).toBe("end_turn");
+    expect(page.items[1].tool_call_count).toBe(4);
+    expect(page.items[1].message_count).toBe(2);
+  });
+});
+
 describe("SessionService — archive vs delete", () => {
   it("archive sets archived_at without removing the row", async () => {
     const clock = new ManualClock(5000);

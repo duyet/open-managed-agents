@@ -1,7 +1,7 @@
 // Sessions (Node-PG variant of cf-auth/sessions).
 
 import { sql } from "drizzle-orm";
-import { bigint, index, pgTable, primaryKey, text } from "drizzle-orm/pg-core";
+import { bigint, index, integer, pgTable, primaryKey, text } from "drizzle-orm/pg-core";
 
 export const sessions = pgTable(
   "sessions",
@@ -25,6 +25,10 @@ export const sessions = pgTable(
     updated_at: bigint("updated_at", { mode: "number" }),
     archived_at: bigint("archived_at", { mode: "number" }),
     terminated_at: bigint("terminated_at", { mode: "number" }),
+    // Added for issue #21 (agent run history) — mirrors cf-auth/sessions.ts.
+    stop_reason: text("stop_reason"),
+    tool_call_count: integer("tool_call_count").notNull().default(0),
+    message_count: integer("message_count").notNull().default(0),
   },
   (t) => [
     index("idx_sessions_status").on(t.status, t.tenant_id),
