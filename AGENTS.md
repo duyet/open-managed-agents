@@ -137,6 +137,10 @@ A **vault** is a secure credential store. Credentials in vaults are **never expo
 | `harness` | string | No | Harness implementation to use (default: `"default"`) |
 | `metadata` | object | No | Arbitrary key-value metadata |
 
+See [`examples/`](examples/) for copy-paste-ready agent and environment
+configs (coding assistant, data analyst, research agent, plus full harness
+demos with pre-built Docker images).
+
 ---
 
 ## Tools

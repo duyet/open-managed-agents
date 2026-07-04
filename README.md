@@ -184,6 +184,17 @@ for manual re-runs.
 
 ---
 
+## Examples
+
+[`examples/`](examples/) has copy-paste-ready agent configs for common
+personas (coding assistant, data analyst, research agent) plus full harness
+demos (`claude-agent-sdk`, `flue`, GitHub-repo attach) with pre-built Docker
+images published to GHCR by
+[`build-example-images.yml`](.github/workflows/build-example-images.yml).
+See [`examples/README.md`](examples/README.md).
+
+---
+
 ## Architecture
 
 A **meta-harness** is not an agent — it's the platform that runs agents. It defines stable interfaces for everything an agent needs, and stays out of the way of the agent loop:
@@ -675,6 +686,7 @@ open-managed-agents/
 │   ├── integrations-core/         # Provider-neutral persistence interfaces
 │   └── integrations-adapters-{cf,node}/  # D1 / KV / Workers + Postgres / FS implementations
 ├── docs/                  # Internal design RFCs (not the user-facing site)
+├── examples/              # Copy-paste agent/environment configs + ready-to-use Docker images
 ├── test/                  # Unit + integration tests
 └── scripts/               # Deployment + maintenance scripts
 ```

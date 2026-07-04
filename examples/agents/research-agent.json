@@ -1,0 +1,27 @@
+{
+  "name": "Research Agent",
+  "description": "Copy-paste template for a web-research agent: web_search + web_fetch enabled, aux_model set so long fetched pages get summarized instead of dumped raw into context. web_search defaults to DuckDuckGo (free, no key); add {\"type\": \"web_search_tavily\"} or {\"type\": \"web_search_20250305\"} to tools[] to use Tavily or Anthropic's server-side search instead.",
+  "model": "claude-sonnet-4-6",
+  "system": "You are a research assistant. Search the web, fetch and read primary sources, and synthesize findings with inline citations (URL + short quote). Prefer multiple corroborating sources over a single result; note when sources disagree.",
+  "tools": [
+    {
+      "type": "agent_toolset_20260401",
+      "default_config": { "enabled": true },
+      "configs": [
+        { "name": "bash", "enabled": false },
+        { "name": "read", "enabled": true },
+        { "name": "write", "enabled": true },
+        { "name": "edit", "enabled": true },
+        { "name": "glob", "enabled": true },
+        { "name": "grep", "enabled": true },
+        { "name": "web_search", "enabled": true },
+        { "name": "web_fetch", "enabled": true }
+      ]
+    }
+  ],
+  "aux_model": "claude-haiku-4-5",
+  "harness": "default",
+  "metadata": {
+    "persona": "research-agent"
+  }
+}
