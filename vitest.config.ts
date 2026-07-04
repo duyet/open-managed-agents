@@ -37,6 +37,7 @@ export default defineConfig({
       { find: "@cloudflare/sandbox", replacement: "./test/sandbox-stub.ts" },
 
       // ─── Stores: package + test-fakes subpath ─────────────────────────
+      { find: "@duyet/oma-anyrouter", replacement: "./packages/anyrouter/src/index.ts" },
       { find: "@duyet/oma-api-types", replacement: "./packages/api-types/src/index.ts" },
       { find: "@duyet/oma-cf-billing", replacement: "./packages/cf-billing/src/index.ts" },
       { find: "@duyet/oma-eval-core", replacement: "./packages/eval-core/src/index.ts" },
