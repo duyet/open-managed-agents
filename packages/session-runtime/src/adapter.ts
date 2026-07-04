@@ -12,6 +12,7 @@
 import type { SqlClient } from "@duyet/oma-sql-client";
 import type { EventLogRepo, StreamRepo } from "@duyet/oma-event-log";
 import type { SandboxExecutor } from "@duyet/oma-sandbox";
+import type { SessionEvent } from "@duyet/oma-shared";
 import type { OrphanTurn, RuntimeAdapter, TurnId } from "./ports";
 
 export interface RuntimeAdapterOptions {
@@ -69,33 +70,128 @@ export class RuntimeAdapterImpl implements RuntimeAdapter {
     status: "idle" | "destroyed",
   ): Promise<void> {
     const now = Date.now();
+    // Run-history summary (issue #21): refreshed on every turn end so
+    // GET /v1/agents/:id/runs can list history without replaying event
+    // logs per row. stop_reason is derived from `status` alone (not
+    // from the event log) so it's deterministic regardless of whether
+    // the harness's session.status_idle append has landed yet on every
+    // platform. See tryComputeRunCounts for why counts degrade
+    // gracefully instead of blocking the status flip.
+    const stopReason = status === "idle" ? "end_turn" : "destroyed";
+    const counts = await this.tryComputeRunCounts();
     // Filter by turn_id so a stale endTurn (e.g. from a recovery that
     // raced with a new beginTurn) doesn't clobber a fresh run.
-    await this.sql
-      .prepare(
-        `UPDATE sessions
-            SET status=?, turn_id=NULL, turn_started_at=NULL, updated_at=?
-          WHERE id=? AND turn_id=?`,
-      )
-      .bind(status, now, sessionId, turnId)
-      .run();
+    if (counts) {
+      await this.sql
+        .prepare(
+          `UPDATE sessions
+              SET status=?, turn_id=NULL, turn_started_at=NULL, updated_at=?,
+                  stop_reason=?, tool_call_count=?, message_count=?
+            WHERE id=? AND turn_id=?`,
+        )
+        .bind(status, now, stopReason, counts.toolCallCount, counts.messageCount, sessionId, turnId)
+        .run();
+    } else {
+      await this.sql
+        .prepare(
+          `UPDATE sessions
+              SET status=?, turn_id=NULL, turn_started_at=NULL, updated_at=?
+            WHERE id=? AND turn_id=?`,
+        )
+        .bind(status, now, sessionId, turnId)
+        .run();
+    }
     this.onTurnEnded?.(sessionId, turnId);
   }
 
   async terminate(sessionId: string, _reason: string): Promise<void> {
     const now = Date.now();
+    const counts = await this.tryComputeRunCounts();
     // Idempotent: second call is a no-op because the WHERE filter only
     // matches rows that aren't already terminated. Also clears any
     // in-flight turn marker so listOrphanTurns doesn't see a ghost row.
-    await this.sql
-      .prepare(
-        `UPDATE sessions
-            SET status='terminated', terminated_at=?, turn_id=NULL,
-                turn_started_at=NULL, updated_at=?
-          WHERE id=? AND terminated_at IS NULL`,
-      )
-      .bind(now, now, sessionId)
-      .run();
+    if (counts) {
+      await this.sql
+        .prepare(
+          `UPDATE sessions
+              SET status='terminated', terminated_at=?, turn_id=NULL,
+                  turn_started_at=NULL, updated_at=?, stop_reason='terminated',
+                  tool_call_count=?, message_count=?
+            WHERE id=? AND terminated_at IS NULL`,
+        )
+        .bind(now, now, counts.toolCallCount, counts.messageCount, sessionId)
+        .run();
+    } else {
+      await this.sql
+        .prepare(
+          `UPDATE sessions
+              SET status='terminated', terminated_at=?, turn_id=NULL,
+                  turn_started_at=NULL, updated_at=?
+            WHERE id=? AND terminated_at IS NULL`,
+        )
+        .bind(now, now, sessionId)
+        .run();
+    }
+  }
+
+  /**
+   * Run-history summary counts (issue #21) — cumulative tool-call and
+   * message totals for the whole session, recomputed from scratch on
+   * every idle/destroyed/terminated transition (cheap: bounded by a
+   * session's event count, and this only runs once per turn — not on
+   * the GET /v1/agents/:id/runs read path, which stays a plain indexed
+   * row scan). Recomputing from scratch (rather than incrementing a
+   * stored counter) means a failed read here just leaves the previous
+   * values in place next time; no drift accumulates.
+   *
+   * Returns null — deliberately NOT {toolCallCount: 0, messageCount: 0} —
+   * when the event log can't be read, so callers skip the summary
+   * columns for this call instead of clobbering good data with zeros.
+   * The core status-flip UPDATE must never be blocked by this.
+   */
+  private async tryComputeRunCounts(): Promise<
+    { toolCallCount: number; messageCount: number } | null
+  > {
+    try {
+      const events = await this.freshEvents();
+      let toolCallCount = 0;
+      let messageCount = 0;
+      for (const e of events) {
+        switch (e.type) {
+          case "agent.tool_use":
+          case "agent.mcp_tool_use":
+          case "agent.custom_tool_use":
+            toolCallCount++;
+            break;
+          case "agent.message":
+            messageCount++;
+            break;
+        }
+      }
+      return { toolCallCount, messageCount };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Prefer a fresh async read when the event log offers one. Node's
+   * SqlEventLog serves sync getEvents() off an in-memory cache that's
+   * only refreshed by explicit `.refresh()` calls — reading it here
+   * could miss events appended earlier in the same turn. CF's
+   * CfDoEventLog has no async variant; its sync getEvents() reads
+   * DO-local SQLite directly and is always fresh. Same
+   * cast-to-detect-getEventsAsync pattern SessionStateMachine's
+   * recoverOrphan already uses (machine.ts).
+   */
+  private async freshEvents(): Promise<SessionEvent[]> {
+    const withAsync = this.eventLog as unknown as {
+      getEventsAsync?: (afterSeq?: number) => Promise<SessionEvent[]>;
+    };
+    if (typeof withAsync.getEventsAsync === "function") {
+      return withAsync.getEventsAsync();
+    }
+    return this.eventLog.getEvents();
   }
 
   async listOrphanTurns(sessionId: string): Promise<OrphanTurn[]> {

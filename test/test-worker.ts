@@ -218,8 +218,15 @@ export { outbound, outboundByHost } from "../apps/agent/src/outbound";
 // consolidated baseline SQL file. The original 20 historical files live in
 // _archive/ for git-blame reference; this test path uses the same single
 // 0000_consolidated.sql self-host deploys ship with, plus any post-
-// consolidation files added on top (0018_runtime_multi_tenant.sql is the
-// first such — see multi-tenant CLI bridge daemon PR).
+// consolidation files added on top (0018_runtime_multi_tenant.sql was the
+// first such; 0002_session_run_summary.sql — issue #21 — adds another. Its
+// drizzle-kit-assigned index is 0002, not 0019 — it sorts after 0001 but
+// before 0017/0018 by drizzle's own numbering; the file list here is
+// order-independent for ALTER TABLE ADD COLUMN, so that's harmless).
+// New post-consolidation migration files must be added here explicitly:
+// the `?raw` imports are static, so nothing here discovers new files on
+// its own — forgetting this step is why a brand-new migration can pass
+// `pnpm db:check:*` yet still 500 with "no such column" under this pool.
 
 // @ts-expect-error vitest resolves SQL via ?raw
 import authSchema from "../apps/main/migrations/0000_consolidated.sql?raw";
@@ -227,6 +234,8 @@ import authSchema from "../apps/main/migrations/0000_consolidated.sql?raw";
 import schema0017 from "../apps/main/migrations/0017_dreams.sql?raw";
 // @ts-expect-error vitest resolves SQL via ?raw
 import schema0018 from "../apps/main/migrations/0018_runtime_multi_tenant.sql?raw";
+// @ts-expect-error vitest resolves SQL via ?raw
+import schema0019 from "../apps/main/migrations/0002_session_run_summary.sql?raw";
 // @ts-expect-error vitest resolves SQL via ?raw
 import integrationsSchema from "../apps/main/migrations-integrations/0001_consolidated.sql?raw";
 // @ts-expect-error vitest resolves SQL via ?raw
@@ -236,6 +245,7 @@ const MIGRATIONS_RAW: string[] = [
   authSchema as string,
   schema0017 as string,
   schema0018 as string,
+  schema0019 as string,
 ];
 
 const INTEGRATIONS_MIGRATIONS_RAW: string[] = [integrationsSchema as string];

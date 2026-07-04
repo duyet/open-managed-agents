@@ -277,6 +277,76 @@ describe("Agent CRUD", () => {
 });
 
 // ============================================================
+// 2b. Agent run history (issue #21) — full end-to-end through the real
+// SessionDO turn machinery, not just the sessions-store layer. Drives an
+// actual turn (TestHarness broadcasts one agent.message, which durably
+// appends to the event log the same way a real harness would), then
+// asserts the summary RuntimeAdapterImpl.endTurn wrote lands in
+// GET /v1/agents/:id/runs. This is the check that would catch a typo in
+// the adapter's raw SQL column names even though every unit test passes.
+// ============================================================
+describe("Agent run history — GET /v1/agents/:id/runs", () => {
+  it("returns 404 for an unknown agent", async () => {
+    const res = await api("/v1/agents/agent_nonexistent/runs", { headers: HEADERS });
+    expect(res.status).toBe(404);
+  });
+
+  it("lists a completed session with duration, tool/message counts, and stop_reason", async () => {
+    const { agent, session } = await createFullSession();
+    await postMessage(session.id, "trigger harness");
+
+    // Poll until the turn completes (same pattern as the DO-status test
+    // above) — RuntimeAdapterImpl.endTurn writes the summary columns in
+    // the same UPDATE that flips status back to idle.
+    let status = "running";
+    for (let i = 0; i < 25; i++) {
+      await new Promise((r) => setTimeout(r, 200));
+      const statusRes = await getDoStatus(session.id);
+      const body = (await statusRes.json()) as any;
+      status = body.status;
+      if (status === "idle") break;
+    }
+    expect(status).toBe("idle");
+
+    const runsRes = await api(`/v1/agents/${agent.id}/runs`, { headers: HEADERS });
+    expect(runsRes.status).toBe(200);
+    const runs = (await runsRes.json()) as any;
+    expect(runs.data.length).toBe(1);
+    const run = runs.data[0];
+    expect(run.id).toBe(session.id);
+    expect(run.status).toBe("idle");
+    expect(run.stop_reason).toBe("end_turn");
+    // TestHarness broadcasts exactly one agent.message and no tool calls.
+    expect(run.message_count).toBe(1);
+    expect(run.tool_call_count).toBe(0);
+    expect(run.duration_ms).toBeGreaterThanOrEqual(0);
+    expect(run.created_at).toBeTruthy();
+  });
+
+  it("a session with no completed turn yet has null stop_reason and zero counts", async () => {
+    const { agent, session } = await createFullSession();
+    const runsRes = await api(`/v1/agents/${agent.id}/runs`, { headers: HEADERS });
+    const runs = (await runsRes.json()) as any;
+    const run = runs.data.find((r: any) => r.id === session.id);
+    expect(run).toBeTruthy();
+    expect(run.stop_reason).toBeNull();
+    expect(run.tool_call_count).toBe(0);
+    expect(run.message_count).toBe(0);
+  });
+
+  it("scopes runs to the requesting agent only", async () => {
+    const { agent: agentA, session: sessA } = await createFullSession();
+    const { agent: agentB } = await createFullSession();
+
+    const runsA = (await (await api(`/v1/agents/${agentA.id}/runs`, { headers: HEADERS })).json()) as any;
+    expect(runsA.data.map((r: any) => r.id)).toEqual([sessA.id]);
+
+    const runsB = (await (await api(`/v1/agents/${agentB.id}/runs`, { headers: HEADERS })).json()) as any;
+    expect(runsB.data.some((r: any) => r.id === sessA.id)).toBe(false);
+  });
+});
+
+// ============================================================
 // 3. Environment CRUD
 // ============================================================
 describe("Environment CRUD", () => {

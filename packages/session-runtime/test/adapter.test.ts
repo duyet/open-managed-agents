@@ -37,6 +37,10 @@ interface Fixture {
   sql: SqlClient;
   adapter: RuntimeAdapter;
   hintFires: string[];
+  /** Raw event log handle — tests use `appendAsync` directly (awaited,
+   *  unlike the fire-and-forget sync `append`) so events are guaranteed
+   *  durable before the adapter call under test reads them back. */
+  eventLog: SqlEventLog;
 }
 
 async function newFixture(): Promise<Fixture> {
@@ -47,15 +51,19 @@ async function newFixture(): Promise<Fixture> {
   // apps/main/migrations/0014_session_turn_id.sql).
   await sql.exec(`
     CREATE TABLE sessions (
-      id              TEXT PRIMARY KEY NOT NULL,
-      tenant_id       TEXT NOT NULL,
-      agent_id        TEXT,
-      status          TEXT NOT NULL,
-      title           TEXT,
-      turn_id         TEXT,
-      turn_started_at INTEGER,
-      created_at      INTEGER NOT NULL,
-      updated_at      INTEGER NOT NULL
+      id                TEXT PRIMARY KEY NOT NULL,
+      tenant_id         TEXT NOT NULL,
+      agent_id          TEXT,
+      status            TEXT NOT NULL,
+      title             TEXT,
+      turn_id           TEXT,
+      turn_started_at   INTEGER,
+      created_at        INTEGER NOT NULL,
+      updated_at        INTEGER NOT NULL,
+      terminated_at     INTEGER,
+      stop_reason       TEXT,
+      tool_call_count   INTEGER NOT NULL DEFAULT 0,
+      message_count     INTEGER NOT NULL DEFAULT 0
     );
   `);
   await ensureEventLogSchema(sql);
@@ -80,7 +88,7 @@ async function newFixture(): Promise<Fixture> {
     onTurnInFlight: (sid) => hintFires.push(sid),
   });
 
-  return { sql, adapter, hintFires };
+  return { sql, adapter, hintFires, eventLog };
 }
 
 async function readSession(
@@ -89,6 +97,20 @@ async function readSession(
 ): Promise<{ status: string; turn_id: string | null; turn_started_at: number | null } | null> {
   return sql
     .prepare(`SELECT status, turn_id, turn_started_at FROM sessions WHERE id = ?`)
+    .bind(id)
+    .first();
+}
+
+async function readSummary(
+  sql: SqlClient,
+  id: string,
+): Promise<{
+  stop_reason: string | null;
+  tool_call_count: number;
+  message_count: number;
+} | null> {
+  return sql
+    .prepare(`SELECT stop_reason, tool_call_count, message_count FROM sessions WHERE id = ?`)
     .bind(id)
     .first();
 }
@@ -363,6 +385,143 @@ describe("RuntimeAdapter — unified shape (Node + CF)", () => {
       // onTurnInFlight intentionally omitted
     });
     expect(() => adapterNoHint.hintTurnInFlight!("sess_test")).not.toThrow();
+  });
+});
+
+// ── Run-history summary (issue #21) ────────────────────────────────────
+//
+// Exercises the PRODUCTION write path directly: RuntimeAdapterImpl.endTurn
+// / terminate issuing raw SQL against the `sessions` table. This is
+// deliberately separate from the sessions-store package's own tests
+// (which cover SessionService.recordRunSummary + SessionRow round-
+// tripping) because that's a different code path — sessions-store never
+// writes these columns in production, RuntimeAdapterImpl does. A test
+// that only exercises SessionService would pass even if the adapter's
+// raw SQL had a typo in a column name.
+describe("RuntimeAdapter — run-history summary (issue #21)", () => {
+  let f: Fixture;
+  beforeEach(async () => {
+    f = await newFixture();
+  });
+
+  it("endTurn(idle) with no events records stop_reason='end_turn' and zero counts", async () => {
+    await f.adapter.beginTurn("sess_test", "turn_a");
+    await f.adapter.endTurn("sess_test", "turn_a", "idle");
+    const summary = await readSummary(f.sql, "sess_test");
+    expect(summary).toEqual({
+      stop_reason: "end_turn",
+      tool_call_count: 0,
+      message_count: 0,
+    });
+  });
+
+  it("endTurn(idle) counts agent.tool_use / agent.mcp_tool_use / agent.custom_tool_use / agent.message", async () => {
+    await f.adapter.beginTurn("sess_test", "turn_a");
+    await f.eventLog.appendAsync({
+      type: "agent.tool_use",
+      id: "use_1",
+      name: "bash",
+      input: { command: "echo hi" },
+    } as unknown as SessionEvent);
+    await f.eventLog.appendAsync({
+      type: "agent.mcp_tool_use",
+      id: "mcp_use_1",
+      name: "search",
+      server_name: "tavily",
+      input: { q: "anthropic" },
+    } as unknown as SessionEvent);
+    await f.eventLog.appendAsync({
+      type: "agent.custom_tool_use",
+      id: "custom_use_1",
+      name: "send_email",
+      input: {},
+    } as unknown as SessionEvent);
+    await f.eventLog.appendAsync({
+      type: "agent.message",
+      content: [{ type: "text", text: "done" }],
+    } as unknown as SessionEvent);
+
+    await f.adapter.endTurn("sess_test", "turn_a", "idle");
+    const summary = await readSummary(f.sql, "sess_test");
+    expect(summary?.stop_reason).toBe("end_turn");
+    expect(summary?.tool_call_count).toBe(3);
+    expect(summary?.message_count).toBe(1);
+  });
+
+  it("endTurn(destroyed) records stop_reason='destroyed'", async () => {
+    await f.adapter.beginTurn("sess_test", "turn_a");
+    await f.adapter.endTurn("sess_test", "turn_a", "destroyed");
+    const summary = await readSummary(f.sql, "sess_test");
+    expect(summary?.stop_reason).toBe("destroyed");
+  });
+
+  it("terminate() records stop_reason='terminated' and the full-session counts", async () => {
+    await f.eventLog.appendAsync({
+      type: "agent.tool_use",
+      id: "use_1",
+      name: "bash",
+      input: {},
+    } as unknown as SessionEvent);
+    await f.eventLog.appendAsync({
+      type: "agent.message",
+      content: [{ type: "text", text: "hi" }],
+    } as unknown as SessionEvent);
+
+    await f.adapter.terminate("sess_test", "user requested");
+    const summary = await readSummary(f.sql, "sess_test");
+    expect(summary?.stop_reason).toBe("terminated");
+    expect(summary?.tool_call_count).toBe(1);
+    expect(summary?.message_count).toBe(1);
+  });
+
+  it("counts are cumulative across turns, recomputed fresh each time — not reset per turn", async () => {
+    // Turn 1: one tool call.
+    await f.adapter.beginTurn("sess_test", "turn_a");
+    await f.eventLog.appendAsync({
+      type: "agent.tool_use",
+      id: "use_1",
+      name: "bash",
+      input: {},
+    } as unknown as SessionEvent);
+    await f.adapter.endTurn("sess_test", "turn_a", "idle");
+    expect((await readSummary(f.sql, "sess_test"))?.tool_call_count).toBe(1);
+
+    // Turn 2: one more tool call + one message. Total should be 2 + 1,
+    // not reset to 1 + 1 — the whole event log is replayed each time.
+    await f.adapter.beginTurn("sess_test", "turn_b");
+    await f.eventLog.appendAsync({
+      type: "agent.tool_use",
+      id: "use_2",
+      name: "bash",
+      input: {},
+    } as unknown as SessionEvent);
+    await f.eventLog.appendAsync({
+      type: "agent.message",
+      content: [{ type: "text", text: "done" }],
+    } as unknown as SessionEvent);
+    await f.adapter.endTurn("sess_test", "turn_b", "idle");
+
+    const summary = await readSummary(f.sql, "sess_test");
+    expect(summary?.tool_call_count).toBe(2);
+    expect(summary?.message_count).toBe(1);
+  });
+
+  it("endTurn with a stale turn_id still skips the summary write (WHERE clause matches nothing)", async () => {
+    // Mirrors the existing idempotency test above: a stale endTurn must
+    // not clobber a fresh turn's row — including the new summary columns.
+    await f.adapter.beginTurn("sess_test", "turn_a");
+    await f.eventLog.appendAsync({
+      type: "agent.message",
+      content: [{ type: "text", text: "first" }],
+    } as unknown as SessionEvent);
+    await f.adapter.endTurn("sess_test", "turn_a", "idle");
+    const afterFirst = await readSummary(f.sql, "sess_test");
+
+    await f.adapter.beginTurn("sess_test", "turn_b");
+    // Stale endTurn for the OLD turn_a — WHERE turn_id=? filters it out.
+    await f.adapter.endTurn("sess_test", "turn_a", "destroyed");
+    const afterStale = await readSummary(f.sql, "sess_test");
+    expect(afterStale).toEqual(afterFirst);
   });
 });
 

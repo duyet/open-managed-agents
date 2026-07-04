@@ -49,6 +49,15 @@ export const sessions = sqliteTable(
     turn_started_at: integer("turn_started_at"),
     // Added 0016: AMA terminus.
     terminated_at: integer("terminated_at"),
+    // Added for issue #21 (agent run history): lightweight per-session
+    // run summary, refreshed by RuntimeAdapterImpl.endTurn/terminate on
+    // every idle/destroyed/terminated transition. Cumulative counters
+    // covering the whole session (not just the latest turn) so
+    // GET /v1/agents/:id/runs can list history without replaying event
+    // logs per row.
+    stop_reason: text("stop_reason"),
+    tool_call_count: integer("tool_call_count").notNull().default(0),
+    message_count: integer("message_count").notNull().default(0),
   },
   (t) => [
     index("idx_sessions_tenant_created").on(t.tenant_id, t.created_at),

@@ -45,6 +45,16 @@ export interface SessionRow {
   /** Set when SessionDO drives the session to AMA's terminated terminus
    *  (POST /events returns 409 going forward). null means not terminated. */
   terminated_at: string | null;
+  /** Run-history summary (issue #21) — refreshed by
+   *  RuntimeAdapterImpl.endTurn/terminate (packages/session-runtime) on
+   *  every idle/destroyed/terminated transition, not written through this
+   *  service. `stop_reason` is one of "end_turn" | "destroyed" |
+   *  "terminated", or null before the session's first turn completes.
+   *  `tool_call_count` / `message_count` are cumulative totals for the
+   *  whole session, recomputed from the event log on each transition. */
+  stop_reason: string | null;
+  tool_call_count: number;
+  message_count: number;
 }
 
 export interface SessionResourceRow {

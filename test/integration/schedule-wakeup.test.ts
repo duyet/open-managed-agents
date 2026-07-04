@@ -62,6 +62,9 @@ async function ensureMainDbSessionsForTest() {
     `ALTER TABLE sessions ADD COLUMN turn_id TEXT`,
     `ALTER TABLE sessions ADD COLUMN turn_started_at INTEGER`,
     `ALTER TABLE sessions ADD COLUMN terminated_at INTEGER`,
+    `ALTER TABLE sessions ADD COLUMN stop_reason TEXT`,
+    `ALTER TABLE sessions ADD COLUMN tool_call_count INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE sessions ADD COLUMN message_count INTEGER NOT NULL DEFAULT 0`,
   ]) {
     try {
       await env.MAIN_DB.prepare(stmt).run();

@@ -51,6 +51,16 @@ export interface SessionUpdateFields {
   metadata?: Record<string, unknown> | null;
   agentSnapshot?: AgentConfig | null;
   environmentSnapshot?: EnvironmentConfig | null;
+  /**
+   * Run-history summary fields (issue #21). Production writes to these
+   * columns go through raw SQL in RuntimeAdapterImpl (packages/session-runtime),
+   * not through this port — it's exposed here so the fields round-trip
+   * through SessionRow for the GET /v1/agents/:id/runs read path, and so
+   * tests can seed values without reaching into SQL directly.
+   */
+  stopReason?: string | null;
+  toolCallCount?: number;
+  messageCount?: number;
   updatedAt: number;
 }
 

@@ -21,6 +21,7 @@ import {
   AgentNotFoundError,
   AgentVersionMismatchError,
 } from "@duyet/oma-agents-store";
+import type { SessionRow } from "@duyet/oma-sessions-store";
 import type { RouteServicesArg } from "../types";
 import { resolveServices } from "../types";
 
@@ -94,6 +95,38 @@ function formatAgent(agent: AgentConfig) {
 function toApiAgent(row: AgentConfig & { tenant_id?: string }) {
   const { tenant_id: _t, ...rest } = row;
   return formatAgent(rest);
+}
+
+/**
+ * Summarize a session row for GET /v1/agents/:id/runs (issue #21).
+ * `duration_ms` is derived at read time from already-tracked timestamps
+ * (no extra column): the end boundary is `terminated_at` once the session
+ * reached AMA's terminus, else `updated_at` (last known activity), else
+ * `created_at` for a session with no activity yet. `stop_reason` /
+ * `tool_call_count` / `message_count` are written by
+ * RuntimeAdapterImpl.endTurn/terminate on every idle/destroyed/terminated
+ * transition — null / 0 until the session's first turn completes.
+ */
+function formatRun(row: SessionRow) {
+  const createdMs = Date.parse(row.created_at);
+  const endMs = row.terminated_at
+    ? Date.parse(row.terminated_at)
+    : row.updated_at
+      ? Date.parse(row.updated_at)
+      : createdMs;
+  return {
+    type: "agent_run" as const,
+    id: row.id,
+    title: row.title,
+    status: row.status,
+    stop_reason: row.stop_reason,
+    tool_call_count: row.tool_call_count,
+    message_count: row.message_count,
+    duration_ms: Math.max(0, endMs - createdMs),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    terminated_at: row.terminated_at,
+  };
 }
 
 function multiagentToCallableAgents(
@@ -503,6 +536,38 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
     });
     if (!row) return c.json({ error: "Version not found" }, 404);
     return c.json(formatAgent(row.snapshot));
+  });
+
+  // GET /v1/agents/:id/runs — cursor-paginated run history (issue #21).
+  // Each item is a session summarized for a "what has this agent done"
+  // dashboard: status, duration, tool-call count, stop reason. Backed by
+  // the same indexed `sessions` row + cursor convention as GET /v1/agents
+  // and GET /v1/sessions — no event-log replay on this read path. The
+  // summary columns themselves are refreshed on session completion by
+  // RuntimeAdapterImpl.endTurn/terminate (packages/session-runtime).
+  app.get("/:id/runs", async (c) => {
+    const services = resolveServices(deps.services, c);
+    const id = c.req.param("id");
+    const tenantId = c.var.tenant_id;
+    const exists = await services.agents.get({ tenantId, agentId: id });
+    if (!exists) return c.json({ error: "Agent not found" }, 404);
+
+    const limitStr = c.req.query("limit");
+    const limit = limitStr ? Math.min(Math.max(1, Number(limitStr)), 100) : 50;
+    const cursor = c.req.query("cursor") ?? undefined;
+
+    const page = await services.sessions.listPage({
+      tenantId,
+      agentId: id,
+      includeArchived: true,
+      limit,
+      ...(cursor ? { cursor } : {}),
+    });
+    return c.json({
+      data: page.items.map(formatRun),
+      ...(page.nextCursor ? { next_cursor: page.nextCursor } : {}),
+      has_more: !!page.nextCursor,
+    });
   });
 
   // POST /v1/agents/:id/archive

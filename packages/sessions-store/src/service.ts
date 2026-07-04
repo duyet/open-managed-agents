@@ -191,6 +191,30 @@ export class SessionService {
     });
   }
 
+  /**
+   * Run-history summary write (issue #21). Not wired to any public route —
+   * production writes to these columns happen via
+   * RuntimeAdapterImpl.endTurn/terminate (packages/session-runtime), which
+   * talks to the `sessions` table directly on session completion and
+   * doesn't depend on this service. This method exists so the fields are
+   * reachable through the normal port/service layering too (tests,
+   * potential future backfill/admin tooling) instead of only via raw SQL.
+   */
+  async recordRunSummary(opts: {
+    tenantId: string;
+    sessionId: string;
+    stopReason?: string | null;
+    toolCallCount?: number;
+    messageCount?: number;
+  }): Promise<SessionRow> {
+    await this.requireSession(opts);
+    const update: SessionUpdateFields = { updatedAt: this.clock.nowMs() };
+    if (opts.stopReason !== undefined) update.stopReason = opts.stopReason;
+    if (opts.toolCallCount !== undefined) update.toolCallCount = opts.toolCallCount;
+    if (opts.messageCount !== undefined) update.messageCount = opts.messageCount;
+    return this.repo.update(opts.tenantId, opts.sessionId, update);
+  }
+
   async archive(opts: { tenantId: string; sessionId: string }): Promise<SessionRow> {
     await this.requireSession(opts);
     return this.repo.archive(opts.tenantId, opts.sessionId, this.clock.nowMs());
