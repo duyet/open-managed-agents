@@ -194,6 +194,12 @@
   "env": {
     "production": {
       "name": "managed-agents",
+      // Custom domain for the main API + bundled Console UI (assets.directory
+      // above). oma.duyet.net is a subdomain of the duyet.net zone, which is
+      // on this account, so Cloudflare auto-creates the DNS record + route.
+      "routes": [
+        { "pattern": "app.oma.duyet.net", "custom_domain": true }
+      ],
       "vars": {
         "INTEGRATIONS_ORIGIN": "https://integrations.oma.duyet.net",
         "TURNSTILE_SITE_KEY": "0x4AAAAAADDow0APKUYcuXMp"
