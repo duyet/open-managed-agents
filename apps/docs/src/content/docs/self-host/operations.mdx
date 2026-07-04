@@ -86,7 +86,9 @@ Activation is config-only — the wrangler files ship with `env.production` over
    wrangler d1 migrations apply openma-auth-shard-01 --remote --config apps/main/wrangler.jsonc
    wrangler d1 migrations apply openma-auth-shard-02 --remote --config apps/main/wrangler.jsonc
    wrangler d1 migrations apply openma-auth-shard-03 --remote --config apps/main/wrangler.jsonc
-   wrangler d1 migrations apply openma-router        --remote --config apps/main/wrangler.jsonc
+   # openma-router needs the router tables, which live only in migrations-router/
+   # (the auth consolidated migration does NOT carry them) — pass --migrations-dir:
+   wrangler d1 migrations apply openma-router --remote --config apps/main/wrangler.jsonc --migrations-dir apps/main/migrations-router
    ```
 4. Seed the shard pool:
    ```bash
