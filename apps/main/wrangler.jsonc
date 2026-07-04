@@ -207,9 +207,11 @@
       ],
       // Single-D1 launch layout (no sharding — zero users yet, sharding is
       // premature). MAIN_DB holds all tenant + control-plane data; the router
-      // tables (tenant_shard / shard_pool / memory_store_tenant) live on it too
-      // via the ROUTER_DB ?? MAIN_DB fallback, so setup-cf-production.sh applies
-      // BOTH apps/main/migrations and apps/main/migrations-router to openma-auth.
+      // tables (tenant_shard / shard_pool / memory_store_tenant) are now folded
+      // into apps/main/migrations itself (see 0001_router_tables.sql) via the
+      // ROUTER_DB ?? MAIN_DB fallback — setup-cf-production.sh applies only
+      // apps/main/migrations to openma-auth; migrations-router/ is reserved for
+      // a genuinely separate ROUTER_DB in real multi-shard mode.
       // AUTH_DB_01 is deliberately absent, so buildCfTenantDbProvider() selects
       // the non-sharded CfSharedAuthDbProvider. INTEGRATIONS_DB stays its own
       // database (openma-integrations). To scale out later, re-add ROUTER_DB +
