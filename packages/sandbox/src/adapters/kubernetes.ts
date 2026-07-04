@@ -332,8 +332,15 @@ export class KubernetesSandboxExecutor implements SandboxExecutor {
     if (proxyUrl.startsWith("http://localhost") || proxyUrl.startsWith("http://127.")) {
       this.logger.warn(
         `k8s-sandbox: OMA_VAULT_PROXY_URL points at localhost (${proxyUrl}) — ` +
-        `unreachable from inside the sandbox pod's network. Use an in-cluster ` +
-        `Service DNS name (e.g. http://oma-vault.oma-system.svc:14322).`,
+        `unreachable from inside the sandbox pod's network. In the common ` +
+        `self-host layout, oma-vault runs as a SIDECAR container in the ` +
+        `main-node pod (not its own Deployment), so there is no separate ` +
+        `"oma-vault" Service to point at — expose its port on main-node's ` +
+        `OWN Service instead (add a port 14322 entry) and use that Service's ` +
+        `DNS name, e.g. http://oma.oma.svc.cluster.local:14322 for a Service ` +
+        `named "oma" in namespace "oma". Only use a dedicated ` +
+        `"oma-vault.<ns>.svc" name if oma-vault is deployed as its own ` +
+        `standalone Service.`,
       );
     }
     const inBoxCaPath = "/etc/ssl/oma-vault-ca.crt";
