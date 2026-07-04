@@ -69,6 +69,13 @@ export interface AgentConfig {
   skills?: Array<{ skill_id: string; type: string; version?: string }>;
   callable_agents?: Array<{ type: "agent"; id: string; version?: number }>;
   /**
+   * Concurrency cap for the `call_agents_parallel` tool (generated when
+   * `callable_agents` has 1+ entries). Lowers the platform default (5)
+   * down or up; always clamped to the platform's hard ceiling (10)
+   * regardless of what's configured here. Unset = platform default.
+   */
+  max_parallel_subagents?: number;
+  /**
    * Optional auxiliary model used by tools for in-process LLM work
    * (e.g. web_fetch summarization). Same shape as `model`.
    * When unset, tools that would benefit from summarization fall back to

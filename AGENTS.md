@@ -131,6 +131,7 @@ A **vault** is a secure credential store. Credentials in vaults are **never expo
 | `mcp_servers` | array | No | External MCP server connections |
 | `skills` | array | No | Skill references to mount into the sandbox |
 | `callable_agents` | array | No | Other agents this agent can delegate to |
+| `max_parallel_subagents` | number | No | Concurrency cap for `call_agents_parallel` (default 5, hard ceiling 10) |
 | `model_card_id` | string | No | Reference to a model card for custom provider config |
 | `aux_model` | string or object | No | Auxiliary model used by tools for in-process LLM work (e.g. `web_fetch` page summarization). Same shape as `model`. When unset, tools that would benefit from summarization fall back to returning raw content. |
 | `aux_model_card_id` | string | No | Companion to `aux_model` — explicit model card binding when needed |
@@ -215,7 +216,8 @@ These tools are automatically generated based on session configuration:
 
 | Tool | Generated When | Purpose |
 |---|---|---|
-| `call_agent_*` | `callable_agents` configured | Delegate work to another agent |
+| `call_agent_*` | `callable_agents` configured | Delegate work to another agent (one at a time, blocks until idle) |
+| `call_agents_parallel` | `callable_agents` configured | Fan out to multiple sub-agents concurrently and aggregate their results |
 | `mcp_*` | `mcp_servers` configured | Call MCP server tools |
 
 (Memory stores do **not** generate bespoke tools. Each attached store is
@@ -505,6 +507,47 @@ This generates a `call_agent_researcher` tool. When invoked, the platform:
 2. Forwards the message
 3. Waits for the child to reach `idle`
 4. Returns the child's response to the parent
+
+### Parallel Delegation
+
+`call_agent_*` tools run one child at a time — the parent blocks until each
+child reaches `idle` before the next call can start. When an agent has 1+
+entries in `callable_agents`, the platform also generates a
+`call_agents_parallel` tool that fans out to several children **concurrently**
+(even to the same sub-agent id, called multiple times) and aggregates their
+results:
+
+```json
+{
+  "calls": [
+    { "agent_id": "agent_researcher", "message": "Research topic A" },
+    { "agent_id": "agent_researcher", "message": "Research topic B" },
+    { "agent_id": "agent_writer", "message": "Draft an outline for topic C" }
+  ]
+}
+```
+
+Returns one result per call, each carrying its own status so a single failing
+child doesn't lose the others' results:
+
+```json
+{
+  "results": [
+    { "agent_id": "agent_researcher", "success": true, "response": "...", "thread_id": "sthr_..." },
+    { "agent_id": "agent_researcher", "success": true, "response": "...", "thread_id": "sthr_..." },
+    { "agent_id": "agent_writer", "success": false, "error": "Sub-agent error: ..." }
+  ]
+}
+```
+
+- `thread_id` is the child's `session_thread_id` (same id emitted on
+  `session.thread_created`) — use it to deep-link into that child's event log.
+- Concurrency is capped — default 5 in-flight children at once, hard ceiling
+  10 regardless of config. Requests beyond the cap queue in waves rather than
+  being rejected. Lower (or raise, up to the ceiling) the default via the
+  agent's `max_parallel_subagents` field.
+- A call targeting an `agent_id` not in the agent's `callable_agents` roster
+  fails just that entry (`success: false`) without aborting the batch.
 
 ---
 

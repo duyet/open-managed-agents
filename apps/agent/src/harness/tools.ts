@@ -47,6 +47,13 @@ const MAX_BASH_TIMEOUT = 600000;      // 10 minutes (CC max)
 // 15s is generous: a healthy server replies in <1s.
 const MCP_SETUP_TIMEOUT_MS = 15_000;
 
+// call_agents_parallel concurrency guard. DEFAULT applies when
+// agentConfig.max_parallel_subagents is unset; HARD_CAP is the ceiling no
+// agent config can exceed — protects the sandbox/session from an unbounded
+// fan-out regardless of what the agent config or the model requests.
+const DEFAULT_MAX_PARALLEL_SUBAGENTS = 5;
+const MAX_PARALLEL_SUBAGENTS_HARD_CAP = 10;
+
 // System prompt for the auxiliary model when summarizing web pages fetched
 // by web_fetch. Designed for the OMA agent loop: the summary lands directly
 // in the agent's tool-result context window, so it has to carry whatever the
@@ -193,6 +200,31 @@ function safe<T>(fn: (args: T) => Promise<ToolResultValue>): (args: T) => Promis
       return `Error: ${truncated}`;
     }
   };
+}
+
+/**
+ * Run `fn` over `items` with at most `limit` in flight at once (worker-pool
+ * style — no external dependency). Used by call_agents_parallel to enforce
+ * the concurrency cap: results land in the same order as `items` regardless
+ * of completion order, and one item throwing never aborts the others (the
+ * caller's `fn` is expected to catch its own errors into the result value).
+ */
+async function runWithConcurrencyLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i], i);
+    }
+  }
+  const workerCount = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
 }
 
 /**
@@ -354,6 +386,12 @@ export async function buildTools(
      *  back to raw curl + a warning to the model. */
     toMarkdown?: ToMarkdownProvider;
     delegateToAgent?: (agentId: string, message: string) => Promise<string>;
+    /** Same delegation path as `delegateToAgent`, but also resolves the
+     *  child's `session_thread_id` so call_agents_parallel can surface it
+     *  per-child in the aggregated result (deep-linking into the child's
+     *  event log). Falls back to `delegateToAgent` (no thread id) when
+     *  unset — e.g. older test harnesses that only wire the plain form. */
+    delegateToAgentDetailed?: (agentId: string, message: string) => Promise<{ text: string; threadId?: string }>;
     environmentConfig?: { networking?: { type: string; allowed_hosts?: string[] } };
     /** MCP routing context — wired from SessionDO. AI SDK's MCP HTTP
      *  transport gets a custom `fetch` that calls
@@ -1212,6 +1250,72 @@ export async function buildTools(
         }),
       });
     }
+  }
+
+  // call_agents_parallel — fan out to N callable sub-agents concurrently
+  // and aggregate their responses. Generated under the same condition as
+  // the single-call `call_agent_*` tools above (callable_agents configured
+  // + a key to run sub-agent turns with). Partial failures don't fail the
+  // whole tool call: each entry in `results` carries its own success/error
+  // status, so the model can act on whichever children succeeded.
+  if (agentConfig.callable_agents?.length && env?.ANTHROPIC_API_KEY) {
+    const callableIds = new Set(agentConfig.callable_agents.map((ca) => ca.id));
+    // Effective concurrency: agent config can lower the default but never
+    // exceed the hard cap, regardless of what the model requests in a
+    // single call — this is the resource/quota guard, not a model-facing
+    // knob (the model only controls how many calls it makes; batches
+    // larger than the limit are queued, not rejected).
+    const configuredLimit = agentConfig.max_parallel_subagents;
+    const concurrencyLimit = Math.min(
+      MAX_PARALLEL_SUBAGENTS_HARD_CAP,
+      Math.max(1, configuredLimit ?? DEFAULT_MAX_PARALLEL_SUBAGENTS),
+    );
+
+    tools.call_agents_parallel = tool({
+      description:
+        `Delegate tasks to multiple sub-agents at once and run them concurrently ` +
+        `(up to ${concurrencyLimit} at a time). Use this instead of calling ` +
+        `call_agent_* one-by-one when the tasks are independent — e.g. fanning out ` +
+        `research across topics, or running the same analysis over several inputs. ` +
+        `Returns one result per call, each with its own success/failure status, so ` +
+        `one sub-agent failing doesn't lose the others' results.`,
+      inputSchema: z.object({
+        calls: z.array(z.object({
+          agent_id: z.string().describe("ID of the callable sub-agent to invoke (must be one of this agent's callable_agents)"),
+          message: z.string().describe("The task to delegate to this sub-agent"),
+        })).min(1).max(MAX_PARALLEL_SUBAGENTS_HARD_CAP)
+          .describe(`1-${MAX_PARALLEL_SUBAGENTS_HARD_CAP} delegate calls to run concurrently`),
+      }),
+      execute: safe(async ({ calls }) => {
+        if (!env?.delegateToAgent && !env?.delegateToAgentDetailed) {
+          return "Multi-agent delegation not available: no thread executor configured";
+        }
+        const results = await runWithConcurrencyLimit(calls, concurrencyLimit, async (call) => {
+          if (!callableIds.has(call.agent_id)) {
+            return {
+              agent_id: call.agent_id,
+              success: false,
+              error: `"${call.agent_id}" is not in this agent's callable_agents roster`,
+            };
+          }
+          try {
+            if (env.delegateToAgentDetailed) {
+              const { text, threadId } = await env.delegateToAgentDetailed(call.agent_id, call.message);
+              return { agent_id: call.agent_id, success: true, response: text, thread_id: threadId };
+            }
+            const text = await env.delegateToAgent!(call.agent_id, call.message);
+            return { agent_id: call.agent_id, success: true, response: text };
+          } catch (e) {
+            return {
+              agent_id: call.agent_id,
+              success: false,
+              error: e instanceof Error ? e.message : String(e),
+            };
+          }
+        });
+        return JSON.stringify({ results }, null, 2);
+      }),
+    });
   }
 
   // Built-in general sub-agent tool — opt-in via

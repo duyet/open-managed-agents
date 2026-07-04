@@ -39,6 +39,7 @@ export interface NewAgentInput {
   appendable_prompts?: string[];
   runtime_binding?: AgentConfig["runtime_binding"];
   enable_general_subagent?: boolean;
+  max_parallel_subagents?: number;
 }
 
 /** Mutable subset for `update`. Per-field `null` means "clear" — service
@@ -60,6 +61,7 @@ export interface UpdateAgentInput {
   appendable_prompts?: string[] | null;
   runtime_binding?: AgentConfig["runtime_binding"] | null;
   enable_general_subagent?: boolean | null;
+  max_parallel_subagents?: number | null;
 }
 
 /** Default tools value when none provided — matches agents.ts:125. */
@@ -82,6 +84,7 @@ const UPDATABLE_FIELDS = [
   "appendable_prompts",
   "runtime_binding",
   "enable_general_subagent",
+  "max_parallel_subagents",
 ] as const;
 
 const MAX_CONCURRENT_UPDATE_RETRIES = 2;
@@ -150,6 +153,7 @@ export class AgentService {
       appendable_prompts: opts.input.appendable_prompts,
       runtime_binding: opts.input.runtime_binding,
       enable_general_subagent: opts.input.enable_general_subagent,
+      max_parallel_subagents: opts.input.max_parallel_subagents,
       version: 1,
       created_at: nowIso,
       updated_at: nowIso,
