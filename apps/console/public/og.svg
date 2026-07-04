@@ -1,6 +1,6 @@
 <!--
   Open Graph share image — 1200×630 (the Facebook/Twitter/LinkedIn standard
-  large-card size). Clean light background with the brand `[horse]` glyph
+  large-card size). Clean light background with the brand `[•]` glyph
   and the "oma" wordmark.
 
   NOTE on format: most modern social platforms (Facebook, Twitter/X,
@@ -12,7 +12,7 @@
   SVG keeps the asset crisp and ~2 KB instead of ~120 KB.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Open Managed Agents">
-  <!-- Background — same #fefefe as the light-mode --bg token. -->
+  <!-- Background — same #fefefe as the light-mode bg token. -->
   <rect width="1200" height="630" fill="#fefefe"/>
 
   <!-- Subtle brand-tinted halo so the image isn't a flat white card in
@@ -24,32 +24,22 @@
       <stop offset="60%" stop-color="#FF6B50" stop-opacity="0.03"/>
       <stop offset="100%" stop-color="#FF6B50" stop-opacity="0"/>
     </radialGradient>
-    <mask id="og-m" maskUnits="userSpaceOnUse">
-      <rect x="-200" y="-200" width="900" height="900" fill="white"/>
-      <rect x="-4" y="16.4" width="62.2" height="108.8" fill="black" rx="2"/>
-      <rect x="96" y="16.4" width="62.2" height="108.8" fill="black" rx="2"/>
-    </mask>
   </defs>
   <rect width="1200" height="630" fill="url(#halo)"/>
 
   <!-- Brand glyph + wordmark, vertically stacked, optically centered.
        Glyph drawn at ~3x of header size to fill the share card; wordmark
        sits below at display weight. -->
-  <g transform="translate(600, 250)">
-    <!-- [horse] glyph, scaled 3x and re-anchored around (0,0). -->
-    <g transform="translate(-195, -135) scale(3)" fill="none" stroke="#FF6B50" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
-      <text font-family="'JetBrains Mono', 'SF Mono', monospace" font-size="90" font-weight="800" fill="#FF6B50" stroke="none" x="0" y="78">[</text>
-      <g transform="translate(48, -10)">
-        <path d="M30,50 Q28,30 22,8 Q35,20 40,45" mask="url(#og-m)"/>
-        <path d="M30,50 Q28,58 30,65" stroke-width="3" mask="url(#og-m)"/>
-        <circle cx="34" cy="52" r="3.5" fill="#FF6B50" stroke="none"/>
-      </g>
-      <text font-family="'JetBrains Mono', 'SF Mono', monospace" font-size="90" font-weight="800" fill="#FF6B50" stroke="none" x="92" y="78">]</text>
-    </g>
+  <!-- [•] glyph — square brackets = the harness, dot = the agent it runs.
+       64-viewBox mark scaled ~3.6x and centered above the wordmark. -->
+  <g transform="translate(484.8, 130) scale(3.6)" fill="none" stroke="#FF6B50" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 15 H15 V49 H24"/>
+    <path d="M40 15 H49 V49 H40"/>
+    <circle cx="32" cy="32" r="8" fill="#FF6B50" stroke="none"/>
   </g>
 
-  <!-- Wordmark — "oma" in display serif, matches the --font-display
-       Source Serif 4 we use in the app. Falls back to Georgia/serif on
+  <!-- Wordmark — "oma" in display serif, matches the display font
+       (Source Serif 4) we use in the app. Falls back to Georgia/serif on
        systems that don't have the webfont, which is fine for a static
        SVG meant for OG previews (most renderers don't load webfonts). -->
   <text x="600" y="475" text-anchor="middle"
