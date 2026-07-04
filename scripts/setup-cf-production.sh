@@ -365,15 +365,14 @@ if [ "$SKIP_SECRETS" = "0" ]; then
 
   # Resolve a secret value: prefer the exported env var; else auto-generate
   # via $2 (a function name — no eval, no shell re-parsing of a command
-  # string). Sets GEN_OR_ENV_GENERATED=1 when a fresh value was generated,
-  # so callers can decide whether/when to warn about saving it.
+  # string). Runs in a $(...) subshell, so it cannot report "was this
+  # generated?" via a side-effect variable — callers check that themselves
+  # by testing the original env var *before* overwriting it with this call.
   gen_or_env() {
     local var_name="$1" gen_fn="$2"
     local val="${!var_name:-}"
-    GEN_OR_ENV_GENERATED=0
     if [ -z "$val" ]; then
       val=$("$gen_fn")
-      GEN_OR_ENV_GENERATED=1
     fi
     echo "$val"
   }
@@ -400,8 +399,8 @@ if [ "$SKIP_SECRETS" = "0" ]; then
 
   # Shared across all three workers — value MUST match everywhere. Export these
   # to guarantee consistency across re-runs / interrupted runs.
+  platform_root_generated=$([ -z "${PLATFORM_ROOT_SECRET:-}" ] && echo 1 || echo 0)
   PLATFORM_ROOT_SECRET=$(gen_or_env PLATFORM_ROOT_SECRET gen_base64_secret)
-  platform_root_generated=$GEN_OR_ENV_GENERATED
   INTEGRATIONS_INTERNAL_SECRET=$(gen_or_env INTEGRATIONS_INTERNAL_SECRET gen_hex_secret)
 
   platform_root_written=0
@@ -424,8 +423,8 @@ if [ "$SKIP_SECRETS" = "0" ]; then
   fi
 
   # main-only
+  better_auth_generated=$([ -z "${BETTER_AUTH_SECRET:-}" ] && echo 1 || echo 0)
   BETTER_AUTH_SECRET=$(gen_or_env BETTER_AUTH_SECRET gen_hex_secret)
-  better_auth_generated=$GEN_OR_ENV_GENERATED
   if set_secret BETTER_AUTH_SECRET "$BETTER_AUTH_SECRET" "$MAIN_CFG" && [ "$better_auth_generated" = "1" ]; then
     warn "BETTER_AUTH_SECRET was not exported — auto-generated and just written. SAVE THIS NOW (losing it is unrecoverable):"
     printf "      BETTER_AUTH_SECRET=%s\n" "$BETTER_AUTH_SECRET"
