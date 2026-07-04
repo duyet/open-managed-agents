@@ -37,6 +37,7 @@ export default defineConfig({
       { find: "@cloudflare/sandbox", replacement: "./test/sandbox-stub.ts" },
 
       // ─── Stores: package + test-fakes subpath ─────────────────────────
+      { find: "@duyet/oma-anyrouter", replacement: "./packages/anyrouter/src/index.ts" },
       { find: "@duyet/oma-api-types", replacement: "./packages/api-types/src/index.ts" },
       { find: "@duyet/oma-cf-billing", replacement: "./packages/cf-billing/src/index.ts" },
       { find: "@duyet/oma-eval-core", replacement: "./packages/eval-core/src/index.ts" },
@@ -153,6 +154,7 @@ export default defineConfig({
       { find: "@duyet/oma-vault-forward", replacement: "./packages/vault-forward/src/index.ts" },
       { find: "@duyet/oma-schema", replacement: "./packages/schema/src/index.ts" },
       { find: "@duyet/oma-http-routes", replacement: "./packages/http-routes/src/index.ts" },
+      { find: "@duyet/oma-integrations-core/test-fakes", replacement: "./packages/integrations-core/src/test-fakes.ts" },
       { find: "@duyet/oma-integrations-core", replacement: "./packages/integrations-core/src/index.ts" },
       { find: "@duyet/oma-integrations-adapters-cf", replacement: "./packages/integrations-adapters-cf/src/index.ts" },
       { find: "@duyet/oma-integrations-adapters-node", replacement: "./packages/integrations-adapters-node/src/index.ts" },

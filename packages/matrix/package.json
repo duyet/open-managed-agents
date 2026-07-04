@@ -1,0 +1,13 @@
+{
+  "name": "@duyet/oma-matrix",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@duyet/oma-integrations-core": "workspace:*",
+    "@duyet/oma-shared": "workspace:*"
+  }
+}

@@ -54,6 +54,7 @@ import type { SessionEvent, UserMessageEvent } from "@duyet/oma-shared";
 import { generateEventId, log, logError } from "@duyet/oma-shared";
 import { buildOmaSandboxMcpServer } from "./claude-agent-sdk/sandbox-tools";
 import { ClaudeAgentSdkEventTranslator } from "./claude-agent-sdk/translate";
+import { resolveClaudeSdkAuth } from "./claude-agent-sdk/auth";
 
 /** Base scratch directory the CLI subprocess is spawned from. Only its own
  *  process bookkeeping (and the disabled built-in tools, which never run —
@@ -91,9 +92,12 @@ export class ClaudeAgentSdkHarness implements HarnessInterface {
       return;
     }
 
-    const apiKey = ctx.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      this.#emitError(runtime, "ClaudeAgentSdkHarness needs env.ANTHROPIC_API_KEY");
+    const auth = resolveClaudeSdkAuth(ctx.env);
+    if (!auth) {
+      this.#emitError(
+        runtime,
+        "ClaudeAgentSdkHarness needs env.ANTHROPIC_API_KEY or env.CLAUDE_CODE_OAUTH_TOKEN",
+      );
       return;
     }
     const model = resolveModelId(ctx);
@@ -160,7 +164,7 @@ export class ClaudeAgentSdkHarness implements HarnessInterface {
           ...(hasPriorTurn ? { resume: sessionUuid } : { sessionId: sessionUuid }),
           env: {
             ...process.env,
-            ANTHROPIC_API_KEY: apiKey,
+            ...auth,
             ...(ctx.env.ANTHROPIC_BASE_URL ? { ANTHROPIC_BASE_URL: ctx.env.ANTHROPIC_BASE_URL } : {}),
             CLAUDE_AGENT_SDK_CLIENT_APP: "open-managed-agents/1.0",
           },

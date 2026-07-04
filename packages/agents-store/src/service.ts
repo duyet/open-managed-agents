@@ -39,6 +39,7 @@ export interface NewAgentInput {
   appendable_prompts?: string[];
   runtime_binding?: AgentConfig["runtime_binding"];
   enable_general_subagent?: boolean;
+  notify?: AgentConfig["notify"];
   max_parallel_subagents?: number;
 }
 
@@ -61,6 +62,7 @@ export interface UpdateAgentInput {
   appendable_prompts?: string[] | null;
   runtime_binding?: AgentConfig["runtime_binding"] | null;
   enable_general_subagent?: boolean | null;
+  notify?: AgentConfig["notify"] | null;
   max_parallel_subagents?: number | null;
 }
 
@@ -84,6 +86,7 @@ const UPDATABLE_FIELDS = [
   "appendable_prompts",
   "runtime_binding",
   "enable_general_subagent",
+  "notify",
   "max_parallel_subagents",
 ] as const;
 
@@ -153,6 +156,7 @@ export class AgentService {
       appendable_prompts: opts.input.appendable_prompts,
       runtime_binding: opts.input.runtime_binding,
       enable_general_subagent: opts.input.enable_general_subagent,
+      notify: opts.input.notify,
       max_parallel_subagents: opts.input.max_parallel_subagents,
       version: 1,
       created_at: nowIso,

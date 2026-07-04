@@ -46,10 +46,20 @@ export {
   type RawAppRateLimited,
   type RawEventInner,
 } from "./webhook/parse";
-export { SlackApiClient, SlackApiError, type AuthTestResult } from "./api/client";
+export {
+  SlackApiClient,
+  SlackApiError,
+  type AuthTestResult,
+  type PostMessageResult,
+} from "./api/client";
 export type {
   SlackInstallationRepo,
   SlackPublicationRepo,
   SlackPublicationCredentialState,
   SlackSessionScopeRepo,
 } from "./ports";
+export {
+  formatSessionNotifyMessage,
+  postSessionStatusMessage,
+  type SlackNotifyTarget,
+} from "./notify";

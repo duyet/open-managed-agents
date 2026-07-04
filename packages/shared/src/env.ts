@@ -111,6 +111,18 @@ export interface Env {
   ANTHROPIC_API_KEY: string;
   ANTHROPIC_BASE_URL?: string;
   ANTHROPIC_MODEL?: string;
+  /** Long-lived, non-interactive Claude Code auth token minted via
+   *  `claude setup-token` — the CI/CD alternative to ANTHROPIC_API_KEY for
+   *  `@anthropic-ai/claude-agent-sdk`'s CLI subprocess (ClaudeAgentSdkHarness,
+   *  apps/main-node only; the SDK can't spawn a subprocess inside a CF
+   *  Workers isolate). Used only when ANTHROPIC_API_KEY is unset. */
+  CLAUDE_CODE_OAUTH_TOKEN?: string;
+  /** Static-env-var fallback upstream provider (https://anyrouter.dev, an
+   *  OpenAI-compatible LLM gateway — see @duyet/oma-anyrouter). Used by
+   *  apps/agent's resolveModelCardCredentials when an agent's `model` handle
+   *  matches no D1 model card AND ANTHROPIC_API_KEY is unset. Never
+   *  overrides an explicit model card or a set ANTHROPIC_API_KEY. */
+  ANYROUTER_API_KEY?: string;
   /** Dream pipeline curator mode override. `"dedup"` uses a deterministic
    *  no-network curator for tests and offline development. */
   DREAM_CURATOR_MODE?: string;

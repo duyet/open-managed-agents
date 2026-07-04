@@ -63,7 +63,7 @@ import type {
 import type { HarnessContext, HarnessInterface, HistoryStore, SandboxExecutor, ProcessHandle, FileResolver } from "../harness/interface";
 import { resolveHarness } from "../harness/registry";
 import { composeSystemPrompt } from "../harness/platform-guidance";
-import { resolveModel } from "../harness/provider";
+import { resolveModel, resolveDefaultProviderCreds } from "../harness/provider";
 import type { ApiCompat } from "../harness/provider";
 import type { LanguageModel } from "ai";
 import { generateText } from "ai";
@@ -3486,7 +3486,9 @@ export class SessionDO extends DurableObject<Env> {
    *
    * Lookup order:
    *   1. Card whose `model_id` (handle) matches the requested handle
-   *   2. Env-var fallback (ANTHROPIC_API_KEY + ANTHROPIC_BASE_URL)
+   *   2. Env-var fallback: ANTHROPIC_API_KEY + ANTHROPIC_BASE_URL, else
+   *      ANYROUTER_API_KEY (static-env-var default provider — see
+   *      resolveDefaultProviderCreds in harness/provider.ts)
    *
    * Returns:
    *   - `model` — the LLM string to send to the provider. card.model when a
@@ -3528,6 +3530,30 @@ export class SessionDO extends DurableObject<Env> {
         }
       } catch (err) {
         console.warn(`[model-card] D1 lookup failed, falling back to env: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    if (!provider && !apiKey) {
+      // No D1 model card matched this handle AND no ANTHROPIC_API_KEY is
+      // configured — only then does ANYROUTER_API_KEY kick in as the
+      // default upstream for this session. Gating on `!apiKey` (not just
+      // `!provider`) matters: when ANTHROPIC_API_KEY IS set, this block
+      // must stay a no-op so the OMA_API_COMPAT override below (the
+      // `else` branch, keyed off `provider` still being undefined) keeps
+      // working exactly as before — setting `provider = "ant"` here would
+      // short-circuit that override for every existing ANTHROPIC_API_KEY
+      // deploy. Setting `provider` from the AnyRouter fallback lets the
+      // apiCompat resolution below pick up its wire compat the same way a
+      // card's `provider` column would.
+      const fallback = resolveDefaultProviderCreds({
+        ANTHROPIC_API_KEY: apiKey,
+        ANTHROPIC_BASE_URL: baseURL,
+        ANYROUTER_API_KEY: this.env.ANYROUTER_API_KEY,
+      });
+      if (fallback) {
+        apiKey = fallback.apiKey;
+        baseURL = fallback.baseURL;
+        provider = fallback.apiCompat;
       }
     }
 
