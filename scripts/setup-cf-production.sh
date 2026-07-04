@@ -52,11 +52,14 @@
 # Secrets: export these before running so every run (and every worker) uses the
 # SAME value — auto-generation is a last-resort fallback and the irreplaceable
 # ones are printed once so you can back them up:
-#     export ANTHROPIC_API_KEY=sk-ant-...      # or ANYROUTER_API_KEY below — one of the two required
 #     export PLATFORM_ROOT_SECRET="$(openssl rand -base64 32)"   # back this up!
 #     export BETTER_AUTH_SECRET="$(openssl rand -hex 32)"
 #     export INTEGRATIONS_INTERNAL_SECRET="$(openssl rand -hex 32)"
-#   optional:
+#   optional — this is a self-service platform; tenants bring their own model
+#   credentials via model_cards or vaults, so NONE of these are required to
+#   deploy a working instance:
+#     export ANTHROPIC_API_KEY=sk-ant-... # default-provider fallback, used only when
+#                                     # a session's agent has no model_card_id at all
 #     export API_KEY=...             # bootstrap admin key (main)
 #     export TURNSTILE_SECRET_KEY=... # bot challenge (main); soft-passes if unset
 #     export TAVILY_API_KEY=...      # web_search tool (agent)
@@ -136,18 +139,19 @@ if [ "$ACCOUNT_ID" != "$EXPECTED_ACCOUNT_ID" ]; then
   warn "Fine for a fresh deploy — the agent worker's CLOUDFLARE_ACCOUNT_ID var is re-patched below."
 fi
 
-# A model credential is required at deploy time — ANTHROPIC_API_KEY or
-# ANYROUTER_API_KEY (the general default-provider fallback used by
-# session-do.ts's resolveModelCardCredentials, unlike CLAUDE_CODE_OAUTH_TOKEN
-# which only powers the opt-in claude-agent-sdk harness — see provider.ts).
-# Only prompt if NEITHER is set.
+# ANTHROPIC_API_KEY / ANYROUTER_API_KEY are OPTIONAL, not required. This is
+# a self-service platform — tenants bring their own provider credentials via
+# model_cards (POST /v1/model_cards) or vault-backed credentials on their
+# agents. The env-var key here is only a lazy, per-session FALLBACK used by
+# session-do.ts's resolveModelCardCredentials when a session's agent has no
+# model_card_id at all — nothing at boot, signup, or tenant-creation reads
+# it. Deploying without it is completely normal: a fresh instance works
+# immediately for signup/environments/vaults/agents; the only thing that
+# needs a model_card (or this fallback) is a session actually calling a
+# model. Neither key set here is fine — just warn, don't block deploy.
 if [ "$SKIP_SECRETS" = "0" ] && [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${ANYROUTER_API_KEY:-}" ]; then
-  read -rsp "  Anthropic API key (sk-ant-...) [blank to use ANYROUTER_API_KEY instead, if exported]: " ANTHROPIC_API_KEY
-  echo
-  if [ -z "$ANTHROPIC_API_KEY" ]; then
-    die "Need ANTHROPIC_API_KEY or ANYROUTER_API_KEY (or pass --skip-secrets)"
-  fi
-  export ANTHROPIC_API_KEY
+  warn "Neither ANTHROPIC_API_KEY nor ANYROUTER_API_KEY exported — skipping the default-provider fallback."
+  warn "Deploy proceeds normally; tenants configure their own model_cards (or a vault credential) per-agent."
 fi
 
 # Console assets are bundled into the main worker (assets.directory =
@@ -384,9 +388,6 @@ if [ "$SKIP_SECRETS" = "0" ]; then
   PLATFORM_ROOT_SECRET=$(gen_or_env PLATFORM_ROOT_SECRET gen_base64_secret)
   platform_root_generated=$GEN_OR_ENV_GENERATED
   INTEGRATIONS_INTERNAL_SECRET=$(gen_or_env INTEGRATIONS_INTERNAL_SECRET gen_hex_secret)
-  if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${ANYROUTER_API_KEY:-}" ]; then
-    die "Need ANTHROPIC_API_KEY or ANYROUTER_API_KEY for secret provisioning"
-  fi
 
   platform_root_written=0
   for cfg in "$MAIN_CFG" "$AGENT_CFG" "$INTEGRATIONS_CFG"; do
