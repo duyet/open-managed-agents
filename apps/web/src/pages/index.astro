@@ -130,6 +130,69 @@ curl localhost:8787/v1/agents -d '&#123;"name":"hello", \
   "model":"claude-sonnet-4-6"&#125;'</code></pre>
         </div>
       </div>
+
+      <div class="mt-14">
+        <h3 class="font-display text-xl font-bold mb-3">
+          Sandbox execution is pluggable — not locked to Cloudflare Containers
+        </h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed mb-4 max-w-3xl">
+          "Platform vs. harness" is one seam; "harness vs. sandbox" is
+          another. Whichever harness drives the agent loop, it executes tool
+          calls through a small <code class="font-mono text-sm">SandboxExecutor</code>
+          port — run this command, read/write this file. Cloudflare Containers
+          is the default backend on the Cloudflare deployment, but it's one
+          adapter among several already in
+          <code class="font-mono text-sm">packages/sandbox/src/adapters/</code>,
+          selected per-deployment with a single env var — no harness or route
+          changes. More backends are being added.
+        </p>
+        <div class="grid md:grid-cols-2 gap-8 items-start">
+          <pre class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-4 text-xs leading-relaxed overflow-x-auto"><code># self-hosted Node deployment — pick a backend, no code changes
+SANDBOX_PROVIDER=subprocess   # default: plain host subprocess
+SANDBOX_PROVIDER=k8s          # pod via kubernetes-sigs agent-sandbox
+SANDBOX_PROVIDER=e2b          # E2B-hosted sandboxes
+SANDBOX_PROVIDER=daytona      # Daytona-hosted sandboxes
+SANDBOX_PROVIDER=litebox      # lightweight boxed execution
+SANDBOX_PROVIDER=boxrun       # boxrun sandboxed execution</code></pre>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm border border-[var(--color-border)] rounded-lg">
+              <thead>
+                <tr class="bg-[var(--color-bg)] text-left">
+                  <th scope="col" class="px-3 py-2 font-semibold border-b border-[var(--color-border)]">Provider</th>
+                  <th scope="col" class="px-3 py-2 font-semibold border-b border-[var(--color-border)]">What it is</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">subprocess</code></th>
+                  <td class="px-3 py-2 border-b border-[var(--color-border)]">Plain host subprocess — self-host default, no isolation beyond the OS</td>
+                </tr>
+                <tr>
+                  <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">k8s</code></th>
+                  <td class="px-3 py-2 border-b border-[var(--color-border)]">Pod via the kubernetes-sigs <a href="https://github.com/kubernetes-sigs/agent-sandbox" target="_blank" rel="noopener noreferrer">agent-sandbox</a> controller</td>
+                </tr>
+                <tr>
+                  <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">e2b</code></th>
+                  <td class="px-3 py-2 border-b border-[var(--color-border)]">E2B-hosted sandboxes</td>
+                </tr>
+                <tr>
+                  <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">daytona</code></th>
+                  <td class="px-3 py-2 border-b border-[var(--color-border)]">Daytona-hosted sandboxes</td>
+                </tr>
+                <tr>
+                  <th scope="row" class="px-3 py-2 font-medium"><code class="font-mono text-xs">litebox</code> / <code class="font-mono text-xs">boxrun</code></th>
+                  <td class="px-3 py-2">Lightweight boxed-execution sandboxes</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p class="text-xs text-[var(--color-fg-subtle)] mt-4">
+          Same <code class="font-mono text-xs">SandboxExecutor</code> port,
+          same tool calls from the agent's perspective — swapping providers
+          doesn't touch the harness or the routes.
+        </p>
+      </div>
     </div>
   </section>
 
@@ -181,9 +244,9 @@ curl localhost:8787/v1/agents -d '&#123;"name":"hello", \
         memory) has a <code class="font-mono text-sm">cf</code> adapter (D1) and a
         <code class="font-mono text-sm">pg</code> adapter (Postgres). Choice is per-store
         via env var, so you can move one store at a time. The same pattern
-        applies to sandboxes — LocalSubprocess, LiteBox, E2B, Daytona, BoxRun
-        all swap in for the Cloudflare Sandbox without touching harness or
-        routes.
+        applies to sandboxes — LocalSubprocess, Kubernetes (agent-sandbox),
+        LiteBox, E2B, Daytona, BoxRun all swap in for the Cloudflare Sandbox
+        without touching harness or routes.
       </p>
       <p class="text-[var(--color-fg-muted)] leading-relaxed">
         For self-hosters who can't run Cloudflare at all (data residency,
@@ -293,7 +356,7 @@ curl localhost:8787/v1/agents -d '&#123;"name":"hello", \
           </tr>
           <tr>
             <th scope="row" class="px-4 py-3 font-medium border-b border-[var(--color-border)]">Sandbox runtime</th>
-            <td class="px-4 py-3 border-b border-[var(--color-border)]">Cloudflare Containers, LocalSubprocess, E2B, Daytona, BoxRun</td>
+            <td class="px-4 py-3 border-b border-[var(--color-border)]">Cloudflare Containers, LocalSubprocess, Kubernetes, E2B, Daytona, BoxRun</td>
             <td class="px-4 py-3 border-b border-[var(--color-border)]">Anthropic-managed sandbox</td>
           </tr>
           <tr>
