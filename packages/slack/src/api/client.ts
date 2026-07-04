@@ -30,6 +30,11 @@ export interface AuthTestResult {
   bot_id?: string;
 }
 
+export interface PostMessageResult {
+  channel: string;
+  ts: string;
+}
+
 export class SlackApiClient {
   constructor(private readonly http: HttpClient) {}
 
@@ -61,6 +66,33 @@ export class SlackApiClient {
       team_id: typeof parsed.team_id === "string" ? parsed.team_id : "",
       user_id: typeof parsed.user_id === "string" ? parsed.user_id : "",
       bot_id: typeof parsed.bot_id === "string" ? parsed.bot_id : undefined,
+    };
+  }
+
+  /**
+   * `chat.postMessage` — post a message to a channel (or DM) as the bot.
+   * Pass the bot (`xoxb-`) token. Used by notify.ts to post session-status
+   * updates; the agent's own runtime traffic goes through `mcp.slack.com`
+   * instead (see the module doc comment above).
+   */
+  async postMessage(token: string, channel: string, text: string): Promise<PostMessageResult> {
+    const res = await this.http.fetch({
+      method: "POST",
+      url: `${SLACK_API_BASE}/chat.postMessage`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify({ channel, text }),
+    });
+    const parsed = JSON.parse(res.body) as Record<string, unknown>;
+    if (parsed.ok !== true) {
+      const err = typeof parsed.error === "string" ? parsed.error : "unknown_error";
+      throw new SlackApiError("chat.postMessage", err, res.status);
+    }
+    return {
+      channel: typeof parsed.channel === "string" ? parsed.channel : channel,
+      ts: typeof parsed.ts === "string" ? parsed.ts : "",
     };
   }
 }

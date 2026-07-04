@@ -1228,6 +1228,15 @@ importers:
         specifier: ^7.2.0
         version: 7.2.4
 
+  packages/matrix:
+    dependencies:
+      '@duyet/oma-integrations-core':
+        specifier: workspace:*
+        version: link:../integrations-core
+      '@duyet/oma-shared':
+        specifier: workspace:*
+        version: link:../shared
+
   packages/memory-store:
     dependencies:
       '@aws-sdk/client-s3':

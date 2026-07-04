@@ -153,6 +153,7 @@ export default defineConfig({
       { find: "@duyet/oma-vault-forward", replacement: "./packages/vault-forward/src/index.ts" },
       { find: "@duyet/oma-schema", replacement: "./packages/schema/src/index.ts" },
       { find: "@duyet/oma-http-routes", replacement: "./packages/http-routes/src/index.ts" },
+      { find: "@duyet/oma-integrations-core/test-fakes", replacement: "./packages/integrations-core/src/test-fakes.ts" },
       { find: "@duyet/oma-integrations-core", replacement: "./packages/integrations-core/src/index.ts" },
       { find: "@duyet/oma-integrations-adapters-cf", replacement: "./packages/integrations-adapters-cf/src/index.ts" },
       { find: "@duyet/oma-integrations-adapters-node", replacement: "./packages/integrations-adapters-node/src/index.ts" },
