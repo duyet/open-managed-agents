@@ -96,6 +96,8 @@ const GROUP = "agents.x-k8s.io";
 const VERSION = "v1alpha1";
 const PLURAL = "sandboxes";
 const CONTAINER_NAME = "sandbox";
+const OMA_MANAGED_LABEL_KEY = "agents.x-k8s.io/oma-managed";
+const OMA_MANAGED_LABEL_SELECTOR = `${OMA_MANAGED_LABEL_KEY}=true`;
 /** Matches clients/go/sandbox's PodNameAnnotation constant — set by the
  *  agent-sandbox controller when adopting a pod from a warm pool. Not
  *  guaranteed present for a bare (non-claimed) Sandbox; we fall back to
@@ -192,6 +194,13 @@ interface K8sCustomObjectsApiLike {
     plural: string;
     name: string;
   }): Promise<unknown>;
+  listNamespacedCustomObject(args: {
+    group: string;
+    version: string;
+    namespace: string;
+    plural: string;
+    labelSelector?: string;
+  }): Promise<{ body?: unknown } | unknown>;
 }
 interface K8sPod {
   metadata?: { name?: string };
@@ -635,7 +644,7 @@ export class KubernetesSandboxExecutor implements SandboxExecutor {
       metadata: {
         name: this.name,
         namespace: this.namespace,
-        labels: { "agents.x-k8s.io/oma-managed": "true" },
+        labels: { [OMA_MANAGED_LABEL_KEY]: "true" },
       },
       spec: { podTemplate: { spec: podSpec } },
     };
@@ -735,6 +744,89 @@ export class KubernetesSandboxExecutor implements SandboxExecutor {
 function unwrapBody<T>(res: { body?: unknown } | unknown): T {
   if (res && typeof res === "object" && "body" in res) return (res as { body: T }).body;
   return res as T;
+}
+
+function unwrapItems<T>(res: { body?: unknown } | unknown): T[] {
+  const body = unwrapBody<{ items?: T[] }>(res);
+  return body?.items ?? [];
+}
+
+/** A Sandbox is a crash orphan when its pod has definitively failed
+ *  (Finished=True) and it never was — or no longer is — Ready. A sandbox
+ *  still Ready=True (actively serving a session) or not yet Finished (still
+ *  starting up) is left alone: without cross-referencing the sessions
+ *  store, that's indistinguishable from a sandbox a live session still
+ *  needs. */
+function isOrphanedSandbox(obj: SandboxCustomResource): boolean {
+  const conditions = obj.status?.conditions ?? [];
+  const ready = conditions.find((c) => c.type === "Ready");
+  const finished = conditions.find((c) => c.type === "Finished");
+  return ready?.status === "False" && finished?.status === "True";
+}
+
+export interface SweepOrphanedSandboxesOptions {
+  /** Namespace to sweep. Default "default" (matches KubernetesSandboxOptions). */
+  namespace?: string;
+  logger?: { warn: (msg: string, ctx?: unknown) => void; log: (msg: string) => void };
+}
+
+export interface SweepOrphanedSandboxesResult {
+  checked: number;
+  deleted: string[];
+  errors: Array<{ name: string; error: string }>;
+}
+
+/**
+ * GC backstop for orphaned Sandbox CRs: a main-node crash/restart mid-session
+ * skips `destroy()`, and the agent-sandbox controller applies no TTL, so a
+ * failed Sandbox's CR (and its dead pod) sit forever. Intended to run once at
+ * main-node startup — the same moment a crash-induced orphan would exist.
+ */
+export async function sweepOrphanedSandboxes(
+  opts: SweepOrphanedSandboxesOptions = {},
+): Promise<SweepOrphanedSandboxesResult> {
+  const namespace = opts.namespace ?? "default";
+  const logger = opts.logger ?? {
+    warn: (msg: string, ctx?: unknown) => moduleLogger.warn({ ...(ctx as Record<string, unknown> ?? {}) }, msg),
+    log: (msg: string) => moduleLogger.info(msg),
+  };
+  const result: SweepOrphanedSandboxesResult = { checked: 0, deleted: [], errors: [] };
+
+  const mod = (await import(/* @vite-ignore */ "@kubernetes/client-node" as string).catch(
+    (err) => {
+      throw new Error(
+        `sweepOrphanedSandboxes: failed to load '@kubernetes/client-node' — ${String(err)}`,
+      );
+    },
+  )) as K8sClientModule;
+  const kc = new mod.KubeConfig();
+  if (process.env.KUBERNETES_SERVICE_HOST) kc.loadFromCluster();
+  else kc.loadFromDefault();
+  const customApi = kc.makeApiClient(mod.CustomObjectsApi);
+
+  const listed = await customApi.listNamespacedCustomObject({
+    group: GROUP,
+    version: VERSION,
+    namespace,
+    plural: PLURAL,
+    labelSelector: OMA_MANAGED_LABEL_SELECTOR,
+  });
+  const items = unwrapItems<SandboxCustomResource>(listed);
+  result.checked = items.length;
+
+  for (const item of items) {
+    const name = item.metadata?.name;
+    if (!name || !isOrphanedSandbox(item)) continue;
+    try {
+      await customApi.deleteNamespacedCustomObject({ group: GROUP, version: VERSION, namespace, plural: PLURAL, name });
+      result.deleted.push(name);
+      logger.log(`sandbox-gc: deleted orphaned Sandbox ${namespace}/${name}`);
+    } catch (err) {
+      result.errors.push({ name, error: (err as Error).message });
+      logger.warn(`sandbox-gc: failed to delete Sandbox ${namespace}/${name}: ${(err as Error).message}`);
+    }
+  }
+  return result;
 }
 
 function sleep(ms: number): Promise<void> {

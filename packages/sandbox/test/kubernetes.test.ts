@@ -41,6 +41,9 @@ const world = {
    *  waitForReady's poll loop never matches — used to exercise the
    *  ready-timeout error path. Reset in beforeEach. */
   forceNotReady: false,
+  /** Names that deleteNamespacedCustomObject should reject with an error —
+   *  used to exercise sweepOrphanedSandboxes' per-item error handling. */
+  failDeleteNames: new Set<string>(),
 };
 
 vi.mock("@kubernetes/client-node", () => {
@@ -74,9 +77,18 @@ vi.mock("@kubernetes/client-node", () => {
       return obj;
     }
     async deleteNamespacedCustomObject(args: { namespace: string; name: string }) {
+      if (world.failDeleteNames.has(args.name)) {
+        throw new Error("delete failed");
+      }
       world.deleteCalls.push({ namespace: args.namespace, name: args.name });
       world.sandboxObjects.delete(`${args.namespace}/${args.name}`);
       return {};
+    }
+    async listNamespacedCustomObject(args: { namespace: string }) {
+      const items = [...world.sandboxObjects.entries()]
+        .filter(([key]) => key.startsWith(`${args.namespace}/`))
+        .map(([, obj]) => obj);
+      return { items };
     }
   }
 
@@ -123,7 +135,21 @@ vi.mock("@kubernetes/client-node", () => {
   return { KubeConfig, CustomObjectsApi, CoreV1Api, Exec };
 });
 
-import { KubernetesSandboxExecutor } from "../src/adapters/kubernetes";
+import { KubernetesSandboxExecutor, sweepOrphanedSandboxes } from "../src/adapters/kubernetes";
+
+/** Seeds a fake Sandbox object directly into `world` (bypassing the
+ *  executor) so gc tests can set arbitrary Ready/Finished condition
+ *  combinations the executor itself never produces mid-flight. */
+function seedSandbox(
+  namespace: string,
+  name: string,
+  conditions: Array<{ type: string; status: string }>,
+): void {
+  world.sandboxObjects.set(`${namespace}/${name}`, {
+    metadata: { name, namespace },
+    status: { conditions },
+  });
+}
 
 beforeEach(() => {
   world.sandboxObjects.clear();
@@ -132,6 +158,7 @@ beforeEach(() => {
   world.deleteCalls = [];
   world.execResult = { stdout: "", stderr: "", exitCode: 0 };
   world.forceNotReady = false;
+  world.failDeleteNames.clear();
 });
 
 describe("KubernetesSandboxExecutor", () => {
@@ -242,5 +269,63 @@ describe("KubernetesSandboxExecutor", () => {
   it("startProcess returns null (no detach primitive over pods/exec)", async () => {
     const sandbox = new KubernetesSandboxExecutor({ sessionId: "s8" });
     await expect(sandbox.startProcess("sleep 100")).resolves.toBeNull();
+  });
+});
+
+describe("sweepOrphanedSandboxes", () => {
+  it("deletes only Sandboxes that are Ready=False and Finished=True", async () => {
+    seedSandbox("oma", "orphan-1", [
+      { type: "Ready", status: "False" },
+      { type: "Finished", status: "True" },
+    ]);
+    seedSandbox("oma", "still-running", [{ type: "Ready", status: "True" }]);
+    seedSandbox("oma", "still-starting", [{ type: "Ready", status: "False" }]);
+
+    const result = await sweepOrphanedSandboxes({ namespace: "oma" });
+
+    expect(result.checked).toBe(3);
+    expect(result.deleted).toEqual(["orphan-1"]);
+    expect(world.deleteCalls).toEqual([{ namespace: "oma", name: "orphan-1" }]);
+    expect(world.sandboxObjects.has("oma/still-running")).toBe(true);
+    expect(world.sandboxObjects.has("oma/still-starting")).toBe(true);
+  });
+
+  it("only sweeps the requested namespace", async () => {
+    seedSandbox("oma", "orphan-in-scope", [
+      { type: "Ready", status: "False" },
+      { type: "Finished", status: "True" },
+    ]);
+    seedSandbox("other-ns", "orphan-out-of-scope", [
+      { type: "Ready", status: "False" },
+      { type: "Finished", status: "True" },
+    ]);
+
+    const result = await sweepOrphanedSandboxes({ namespace: "oma" });
+
+    expect(result.checked).toBe(1);
+    expect(result.deleted).toEqual(["orphan-in-scope"]);
+  });
+
+  it("collects per-item errors and keeps sweeping the rest", async () => {
+    seedSandbox("oma", "orphan-a", [
+      { type: "Ready", status: "False" },
+      { type: "Finished", status: "True" },
+    ]);
+    seedSandbox("oma", "orphan-b", [
+      { type: "Ready", status: "False" },
+      { type: "Finished", status: "True" },
+    ]);
+
+    world.failDeleteNames.add("orphan-a");
+
+    const result = await sweepOrphanedSandboxes({ namespace: "oma" });
+
+    expect(result.deleted).toEqual(["orphan-b"]);
+    expect(result.errors).toEqual([{ name: "orphan-a", error: "delete failed" }]);
+  });
+
+  it("returns checked=0, deleted=[] when nothing is oma-managed in the namespace", async () => {
+    const result = await sweepOrphanedSandboxes({ namespace: "empty-ns" });
+    expect(result).toEqual({ checked: 0, deleted: [], errors: [] });
   });
 });
