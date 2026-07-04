@@ -205,7 +205,7 @@
         "TURNSTILE_SITE_KEY": "0x4AAAAAADDow0APKUYcuXMp"
       },
       "kv_namespaces": [
-        { "binding": "CONFIG_KV", "id": "5e49bdaec1884f5989037c86ece7b462" }
+        { "binding": "CONFIG_KV", "id": "6adfd1b06ee6493981b4b818d3dd81ae" }
       ],
       "r2_buckets": [
         { "binding": "FILES_BUCKET", "bucket_name": "managed-agents-files" },
@@ -223,8 +223,8 @@
       // database (oma-integrations). To scale out later, re-add ROUTER_DB +
       // AUTH_DB_00..03 (see git history / env.staging) and split the shards.
       "d1_databases": [
-        { "binding": "MAIN_DB",         "database_name": "oma-auth",         "database_id": "dbb5f01c-7016-4157-945d-f8ff9fbda967" },
-        { "binding": "INTEGRATIONS_DB", "database_name": "oma-integrations", "database_id": "36f67512-b0d7-4300-9d57-f265cd9d3075", "migrations_dir": "migrations-integrations" }
+        { "binding": "MAIN_DB",         "database_name": "oma-auth",         "database_id": "c0f61e65-4e87-4561-91b7-a590313259b8" },
+        { "binding": "INTEGRATIONS_DB", "database_name": "oma-integrations", "database_id": "6ccdebc5-5503-4e84-8d29-cabd87d136bb", "migrations_dir": "migrations-integrations" }
       ],
       "durable_objects": {
         "bindings": [
