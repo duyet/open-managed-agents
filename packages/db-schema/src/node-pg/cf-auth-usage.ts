@@ -14,6 +14,7 @@ export const usage_events = pgTable(
     agent_id: text("agent_id"),
     kind: text("kind").notNull(),
     value: bigint("value", { mode: "number" }).notNull(),
+    instance_type: text("instance_type"),
     created_at: bigint("created_at", { mode: "number" }).notNull(),
     billed_at: bigint("billed_at", { mode: "number" }),
   },

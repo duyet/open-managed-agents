@@ -39,6 +39,9 @@ export interface UsageEventInput {
   kind: UsageKind;
   /** Seconds; non-finite, negative, or >MAX_VALUE_PER_EMIT_SEC are clamped. */
   value: number;
+  /** Sandbox instance type (e.g. "lite", "basic", "standard-1"). Null for
+   *  non-sandbox kinds or providers that don't report it (K8s). */
+  instanceType?: string | null;
 }
 
 export interface UsageEventRow {
@@ -48,6 +51,7 @@ export interface UsageEventRow {
   agent_id: string | null;
   kind: UsageKind;
   value: number;
+  instance_type: string | null;
   created_at: number;
   billed_at: number | null;
 }
@@ -93,10 +97,10 @@ export class SqlUsageStore implements UsageStore {
     if (value <= 0) return;
     await this.client
       .prepare(
-        `INSERT INTO usage_events (tenant_id, session_id, agent_id, kind, value, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO usage_events (tenant_id, session_id, agent_id, kind, value, instance_type, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-      .bind(e.tenantId, e.sessionId, e.agentId ?? null, e.kind, value, Date.now())
+      .bind(e.tenantId, e.sessionId, e.agentId ?? null, e.kind, value, e.instanceType ?? null, Date.now())
       .run();
   }
 
@@ -117,11 +121,11 @@ export class SqlUsageStore implements UsageStore {
     const cap = Math.max(1, Math.min(5000, Math.floor(limit) || 500));
     const r = await this.client
       .prepare(
-        `SELECT id, tenant_id, session_id, agent_id, kind, value, created_at, billed_at
-           FROM usage_events
-          WHERE tenant_id = ? AND billed_at IS NULL AND id > ?
-          ORDER BY id ASC
-          LIMIT ?`,
+        `SELECT id, tenant_id, session_id, agent_id, kind, value, instance_type, created_at, billed_at
+            FROM usage_events
+           WHERE tenant_id = ? AND billed_at IS NULL AND id > ?
+           ORDER BY id ASC
+           LIMIT ?`,
       )
       .bind(tenantId, since, cap)
       .all<UsageEventRow>();

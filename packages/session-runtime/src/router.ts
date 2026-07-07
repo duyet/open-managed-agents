@@ -58,6 +58,7 @@ export interface SessionEventsPage {
 export interface SessionFullStatus {
   status: string;
   usage: { input_tokens: number; output_tokens: number };
+  sandbox_usage?: { instance_type?: string; active_seconds: number };
   outcome_evaluations?: Array<{
     outcome_id?: string;
     result: string;

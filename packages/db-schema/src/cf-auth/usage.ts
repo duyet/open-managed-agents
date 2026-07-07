@@ -19,6 +19,10 @@ export const usage_events = sqliteTable(
     agent_id: text("agent_id"),
     kind: text("kind").notNull(),
     value: integer("value").notNull(),
+    // Sandbox instance type at the time of the event (e.g. "lite", "basic",
+    // "standard-1"). Null for non-sandbox kinds (session_alive_seconds,
+    // browser_active_seconds) or providers that don't report it (K8s).
+    instance_type: text("instance_type"),
     created_at: integer("created_at").notNull(),
     billed_at: integer("billed_at"),
   },
