@@ -95,7 +95,7 @@ describe("memory-events queue consumer — PUT", () => {
       mockMessage({
         account: "acc",
         action: "PutObject",
-        bucket: "managed-agents-memory",
+        bucket: "oma-managed-agents-memory",
         object: { key, size: 13 },
         eventTime: new Date().toISOString(),
       }).body,
@@ -117,7 +117,7 @@ describe("memory-events queue consumer — PUT", () => {
     const event: R2EventMessage = {
       account: "acc",
       action: "PutObject",
-      bucket: "managed-agents-memory",
+      bucket: "oma-managed-agents-memory",
       object: { key, size: 2 },
       eventTime: new Date().toISOString(),
     };

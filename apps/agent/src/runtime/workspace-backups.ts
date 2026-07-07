@@ -151,7 +151,7 @@ export async function recordBackup(
  * Cron-friendly (idempotent, safe to run repeatedly).
  *
  * Note: this only cleans the D1 row. The squashfs in R2 is GC'd by the
- * R2 lifecycle rule the operator configures on managed-agents-backups
+ * R2 lifecycle rule the operator configures on oma-managed-agents-backups
  * (matching the same TTL).
  */
 export async function pruneExpired(db: D1Database, nowMs: number): Promise<number> {

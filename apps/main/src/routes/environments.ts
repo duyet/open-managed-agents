@@ -60,7 +60,7 @@ app.post("/", async (c) => {
     config: body.config || { type: "cloud" },
     // Setup-on-warmup means env is immediately usable — no async build.
     status: "ready",
-    sandboxWorkerName: "sandbox-default",
+    sandboxWorkerName: "oma-sandbox-default",
     imageStrategy: null,
   });
 

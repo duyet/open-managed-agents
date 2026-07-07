@@ -1,6 +1,6 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "sandbox-default",
+  "name": "oma-sandbox-default",
   "main": "src/index.ts",
   "compatibility_date": "2025-09-15",
   "compatibility_flags": ["nodejs_compat"],
@@ -27,25 +27,25 @@
   ],
 
   "vars": {
-    "MEMORY_BUCKET_NAME": "managed-agents-memory",
-    "WORKSPACE_BUCKET_NAME": "managed-agents-workspace",
-    "BACKUP_BUCKET_NAME": "managed-agents-backups",
+    "MEMORY_BUCKET_NAME": "oma-managed-agents-memory",
+    "WORKSPACE_BUCKET_NAME": "oma-managed-agents-workspace",
+    "BACKUP_BUCKET_NAME": "oma-managed-agents-backups",
     "CLOUDFLARE_ACCOUNT_ID": "44af79e51582ca20c9003eb926540242"
   },
 
   "r2_buckets": [
-    { "binding": "WORKSPACE_BUCKET", "bucket_name": "managed-agents-workspace" },
-    { "binding": "FILES_BUCKET", "bucket_name": "managed-agents-files" },
+    { "binding": "WORKSPACE_BUCKET", "bucket_name": "oma-managed-agents-workspace" },
+    { "binding": "FILES_BUCKET", "bucket_name": "oma-managed-agents-files" },
     // Memory store mount target. In wrangler dev this resolves to the local
     // wrangler R2 simulator; sandbox.mountBucket(..., { localBucket: true })
     // performs bidirectional sync via the binding.
-    { "binding": "MEMORY_BUCKET", "bucket_name": "managed-agents-memory" }
+    { "binding": "MEMORY_BUCKET", "bucket_name": "oma-managed-agents-memory" }
   ],
 
   // MAIN service binding so AcpProxyHarness can call into the main worker's
   // /v1/internal/runtime-attach-harness endpoint to reach RuntimeRoom DO.
   "services": [
-    { "binding": "MAIN", "service": "managed-agents" }
+    { "binding": "MAIN", "service": "oma-managed-agents" }
   ],
 
   "browser": { "binding": "BROWSER" },

@@ -291,8 +291,8 @@ export interface Env {
    * Resolved bucket NAMES per environment — needed when mounting via FUSE
    * because the S3 API takes the actual bucket name (not the binding name).
    * Set via `vars` in wrangler.jsonc; overridden in env.staging.
-   *   prod:    "managed-agents-memory"
-   *   staging: "managed-agents-memory-staging"
+ *   prod:    "oma-managed-agents-memory"
+ *   staging: "oma-managed-agents-memory-staging"
    */
   MEMORY_BUCKET_NAME?: string;
   WORKSPACE_BUCKET_NAME?: string;

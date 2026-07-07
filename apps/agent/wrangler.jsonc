@@ -1,6 +1,6 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "sandbox-default",
+  "name": "oma-sandbox-default",
   "main": "src/index.ts",
   "compatibility_date": "2026-04-13",
   "compatibility_flags": ["nodejs_compat"],
@@ -33,7 +33,7 @@
       // AcpProxyHarness uses this to attach to the daemon's RuntimeRoom
       // directly, no service-binding hop through main and no shared secret —
       // see apps/agent/src/harness/acp-proxy-loop.ts.
-      { "name": "RUNTIME_ROOM", "class_name": "RuntimeRoom", "script_name": "managed-agents" }
+      { "name": "RUNTIME_ROOM", "class_name": "RuntimeRoom", "script_name": "oma-managed-agents" }
     ]
   },
 
@@ -65,10 +65,7 @@
   //   proxy outside the harness" design. See apps/main/src/index.ts:McpProxyRpc
   //   for the entrypoint, packages/binding-mcp-transport for the AI-SDK
   //   transport adapter.
-  "services": [
-    { "binding": "INTEGRATIONS", "service": "managed-agents-integrations" },
-    { "binding": "MAIN_MCP", "service": "managed-agents", "entrypoint": "McpProxyRpc" }
-  ],
+  "services": [],
 
   // Workers AI for generating embeddings
   "ai": { "binding": "AI" },
@@ -79,25 +76,25 @@
   // mint R2 presigned URLs for the squashfs upload (production mode).
   // setup-cf.sh fills in the account id (or self-hoster sets it manually).
   "vars": {
-    "MEMORY_BUCKET_NAME": "managed-agents-memory",
-    "WORKSPACE_BUCKET_NAME": "managed-agents-workspace",
-    "BACKUP_BUCKET_NAME": "managed-agents-backups",
+    "MEMORY_BUCKET_NAME": "oma-managed-agents-memory",
+    "WORKSPACE_BUCKET_NAME": "oma-managed-agents-workspace",
+    "BACKUP_BUCKET_NAME": "oma-managed-agents-backups",
     "CLOUDFLARE_ACCOUNT_ID": "<set-by-setup-cf-sh>"
   },
 
   "r2_buckets": [
-    { "binding": "WORKSPACE_BUCKET", "bucket_name": "managed-agents-workspace" },
-    { "binding": "FILES_BUCKET", "bucket_name": "managed-agents-files" },
+    { "binding": "WORKSPACE_BUCKET", "bucket_name": "oma-managed-agents-workspace" },
+    { "binding": "FILES_BUCKET", "bucket_name": "oma-managed-agents-files" },
     // Required by @cloudflare/sandbox createBackup/restoreBackup. Holds
     // the squashfs archives the BaseSnapshotStrategy persists per env.
     // The SDK looks for the binding by the literal name BACKUP_BUCKET.
-    { "binding": "BACKUP_BUCKET", "bucket_name": "managed-agents-backups" },
+    { "binding": "BACKUP_BUCKET", "bucket_name": "oma-managed-agents-backups" },
     // Memory store content. Mounted into the sandbox per attached store via
     // sandbox.mountBucket(<bucket-name>, "/mnt/memory/<store_name>",
     //   { endpoint+credentials+provider:"r2", prefix: "/<store_id>/", readOnly })
     // Agent reads/writes via standard file tools; writes propagate to R2 then
     // feed the apps/main MEMORY queue consumer for D1 audit.
-    { "binding": "MEMORY_BUCKET", "bucket_name": "managed-agents-memory" }
+    { "binding": "MEMORY_BUCKET", "bucket_name": "oma-managed-agents-memory" }
   ],
 
   "browser": { "binding": "BROWSER" },
@@ -121,7 +118,7 @@
   // ─────────────────────────────────────────────────────────────────────
   "env": {
     "production": {
-      "name": "sandbox-default",
+  "name": "oma-sandbox-default",
       "containers": [
         {
           "class_name": "Sandbox",
@@ -134,7 +131,7 @@
         "bindings": [
           { "name": "SESSION_DO", "class_name": "SessionDO" },
           { "name": "SANDBOX", "class_name": "Sandbox" },
-          { "name": "RUNTIME_ROOM", "class_name": "RuntimeRoom", "script_name": "managed-agents" }
+          { "name": "RUNTIME_ROOM", "class_name": "RuntimeRoom", "script_name": "oma-managed-agents" }
         ]
       },
       "kv_namespaces": [
@@ -148,21 +145,21 @@
         { "binding": "MAIN_DB", "database_name": "oma-auth", "database_id": "c0f61e65-4e87-4561-91b7-a590313259b8" }
       ],
       "services": [
-        { "binding": "INTEGRATIONS", "service": "managed-agents-integrations" },
-        { "binding": "MAIN_MCP", "service": "managed-agents", "entrypoint": "McpProxyRpc" }
+        { "binding": "INTEGRATIONS", "service": "oma-managed-agents-integrations" },
+        { "binding": "MAIN_MCP", "service": "oma-managed-agents", "entrypoint": "McpProxyRpc" }
       ],
       "ai": { "binding": "AI" },
       "vars": {
-        "MEMORY_BUCKET_NAME": "managed-agents-memory",
-        "WORKSPACE_BUCKET_NAME": "managed-agents-workspace",
-        "BACKUP_BUCKET_NAME": "managed-agents-backups",
+        "MEMORY_BUCKET_NAME": "oma-managed-agents-memory",
+        "WORKSPACE_BUCKET_NAME": "oma-managed-agents-workspace",
+        "BACKUP_BUCKET_NAME": "oma-managed-agents-backups",
         "CLOUDFLARE_ACCOUNT_ID": "23050adb6c92e313643a29e1ba64c88a"
       },
       "r2_buckets": [
-        { "binding": "WORKSPACE_BUCKET", "bucket_name": "managed-agents-workspace" },
-        { "binding": "FILES_BUCKET", "bucket_name": "managed-agents-files" },
-        { "binding": "BACKUP_BUCKET", "bucket_name": "managed-agents-backups" },
-        { "binding": "MEMORY_BUCKET", "bucket_name": "managed-agents-memory" }
+        { "binding": "WORKSPACE_BUCKET", "bucket_name": "oma-managed-agents-workspace" },
+        { "binding": "FILES_BUCKET", "bucket_name": "oma-managed-agents-files" },
+        { "binding": "BACKUP_BUCKET", "bucket_name": "oma-managed-agents-backups" },
+        { "binding": "MEMORY_BUCKET", "bucket_name": "oma-managed-agents-memory" }
       ],
       "browser": { "binding": "BROWSER" },
       "limits": { "cpu_ms": 300000 },
@@ -172,7 +169,7 @@
       ]
     },
     "staging": {
-      "name": "sandbox-default-staging",
+      "name": "oma-sandbox-default-staging",
       "containers": [
         {
           "class_name": "Sandbox",
@@ -182,8 +179,8 @@
         }
       ],
       "services": [
-        { "binding": "INTEGRATIONS", "service": "managed-agents-integrations-staging" },
-        { "binding": "MAIN_MCP", "service": "managed-agents-staging", "entrypoint": "McpProxyRpc" }
+        { "binding": "INTEGRATIONS", "service": "oma-managed-agents-integrations-staging" },
+        { "binding": "MAIN_MCP", "service": "oma-managed-agents-staging", "entrypoint": "McpProxyRpc" }
       ],
       // Cross-script DO binding to staging RuntimeRoom (lives in
       // managed-agents-staging). Same shape as prod above.
@@ -191,7 +188,7 @@
         "bindings": [
           { "name": "SESSION_DO", "class_name": "SessionDO" },
           { "name": "SANDBOX", "class_name": "Sandbox" },
-          { "name": "RUNTIME_ROOM", "class_name": "RuntimeRoom", "script_name": "managed-agents-staging" }
+          { "name": "RUNTIME_ROOM", "class_name": "RuntimeRoom", "script_name": "oma-managed-agents-staging" }
         ]
       },
       "kv_namespaces": [
@@ -207,16 +204,16 @@
       ],
       "ai": { "binding": "AI" },
       "vars": {
-        "MEMORY_BUCKET_NAME": "managed-agents-memory-staging",
-        "WORKSPACE_BUCKET_NAME": "managed-agents-workspace",
-        "BACKUP_BUCKET_NAME": "managed-agents-backups",
+        "MEMORY_BUCKET_NAME": "oma-managed-agents-memory-staging",
+        "WORKSPACE_BUCKET_NAME": "oma-managed-agents-workspace",
+        "BACKUP_BUCKET_NAME": "oma-managed-agents-backups",
         "CLOUDFLARE_ACCOUNT_ID": "44af79e51582ca20c9003eb926540242"
       },
       "r2_buckets": [
-        { "binding": "WORKSPACE_BUCKET", "bucket_name": "managed-agents-workspace" },
-        { "binding": "FILES_BUCKET", "bucket_name": "managed-agents-files" },
-        { "binding": "BACKUP_BUCKET", "bucket_name": "managed-agents-backups" },
-        { "binding": "MEMORY_BUCKET", "bucket_name": "managed-agents-memory-staging" }
+        { "binding": "WORKSPACE_BUCKET", "bucket_name": "oma-managed-agents-workspace" },
+        { "binding": "FILES_BUCKET", "bucket_name": "oma-managed-agents-files" },
+        { "binding": "BACKUP_BUCKET", "bucket_name": "oma-managed-agents-backups" },
+        { "binding": "MEMORY_BUCKET", "bucket_name": "oma-managed-agents-memory-staging" }
       ],
       "browser": { "binding": "BROWSER" },
       "limits": { "cpu_ms": 300000 },

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
 import { useApi } from "../lib/api";
 import { useApiQuery } from "../lib/useApiQuery";
@@ -77,6 +77,21 @@ export function AgentDetail() {
 
   const modelStr = (m: Agent["model"]) => typeof m === "string" ? m : `${m?.id} (${m?.speed || "standard"})`;
 
+  const [creating, setCreating] = useState(false);
+
+  const createSession = async () => {
+    setCreating(true);
+    try {
+      const session = await api<{ id: string }>("/v1/sessions", {
+        method: "POST",
+        body: JSON.stringify({ agent: id }),
+      });
+      nav(`/sessions/${session.id}`);
+    } catch {
+      setCreating(false);
+    }
+  };
+
   const archive = async () => {
     if (!confirm("Archive this agent?")) return;
     await api(`/v1/agents/${id}/archive`, { method: "POST", body: "{}" });
@@ -99,6 +114,9 @@ export function AgentDetail() {
           title={agent.name}
           actions={
             <>
+              <Button variant="default" size="sm" onClick={createSession} disabled={creating}>
+                {creating ? "Creating…" : "+ New Session"}
+              </Button>
               <Button variant="outline" size="sm" onClick={archive}>
                 Archive
               </Button>

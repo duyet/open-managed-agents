@@ -1,6 +1,6 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "managed-agents-integrations",
+      "name": "oma-managed-agents-integrations",
   "main": "src/index.ts",
   "compatibility_date": "2025-04-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -39,7 +39,7 @@
 
   // Service binding back to the main worker for session creation / resume.
   "services": [
-    { "binding": "MAIN", "service": "managed-agents" }
+    { "binding": "MAIN", "service": "oma-managed-agents" }
   ],
 
   "observability": { "enabled": true },
@@ -69,7 +69,7 @@
   // ─────────────────────────────────────────────────────────────────────
   "env": {
     "production": {
-      "name": "managed-agents-integrations",
+  "name": "oma-managed-agents-integrations",
       "vars": {
         "GATEWAY_ORIGIN": "https://integrations.oma.duyet.net"
       },
@@ -86,7 +86,7 @@
         { "binding": "INTEGRATIONS_DB", "database_name": "oma-integrations", "database_id": "6ccdebc5-5503-4e84-8d29-cabd87d136bb" }
       ],
       "services": [
-        { "binding": "MAIN", "service": "managed-agents" }
+        { "binding": "MAIN", "service": "oma-managed-agents" }
       ],
       "observability": { "enabled": true },
       "triggers": {
@@ -98,7 +98,7 @@
       ]
     },
     "staging": {
-      "name": "managed-agents-integrations-staging",
+      "name": "oma-managed-agents-integrations-staging",
       "vars": {
         "GATEWAY_ORIGIN": "https://integrations.staging.oma.duyet.net"
       },
@@ -115,7 +115,7 @@
         { "binding": "INTEGRATIONS_DB", "database_name": "oma-integrations-staging",  "database_id": "e7247e7e-e60c-4c8e-ac1c-5eff7ad8cb95" }
       ],
       "services": [
-        { "binding": "MAIN", "service": "managed-agents-staging" }
+        { "binding": "MAIN", "service": "oma-managed-agents-staging" }
       ],
       "observability": { "enabled": true },
       "triggers": {

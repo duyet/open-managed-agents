@@ -233,7 +233,7 @@ export class CloudflareSandbox implements SandboxExecutor {
     // helper returns the R2-key form (no leading slash) so we prepend.
     const prefix = `/${sessionOutputsPrefix(opts.tenantId, opts.sessionId)}`;
     const fuse = this.fuseR2ConfigOrNull();
-    const bucketName = "managed-agents-files";
+    const bucketName = "oma-managed-agents-files";
 
     // Defensive cleanup before mount — see mountMemoryStore for details.
     // Real prod symptom: container restart after sleepAfter teardown

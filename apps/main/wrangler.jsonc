@@ -1,6 +1,6 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "managed-agents",
+  "name": "oma-managed-agents",
   "main": "src/index.ts",
   "compatibility_date": "2025-04-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -51,12 +51,12 @@
   },
 
   "r2_buckets": [
-    { "binding": "FILES_BUCKET", "bucket_name": "managed-agents-files" },
+    { "binding": "FILES_BUCKET", "bucket_name": "oma-managed-agents-files" },
     // Bytes-of-truth for memory store content. Each memory is keyed
     // <store_id>/<memory_path>. R2 Event Notifications on this bucket
     // route to MEMORY_EVENTS_QUEUE; the queue consumer in this worker
     // reflects writes back to D1 (memories index + memory_versions audit).
-    { "binding": "MEMORY_BUCKET", "bucket_name": "managed-agents-memory" }
+    { "binding": "MEMORY_BUCKET", "bucket_name": "oma-managed-agents-memory" }
   ],
 
   // D1 layout — single-D1 self-host baseline. MAIN_DB holds everything
@@ -89,8 +89,8 @@
   // env.production below — the OSS Env declares the duck-typed contract
   // so canStartSandbox / recordUsage soft-skip when missing.
   "services": [
-    { "binding": "SANDBOX_sandbox_default", "service": "sandbox-default" },
-    { "binding": "INTEGRATIONS", "service": "managed-agents-integrations" }
+    { "binding": "SANDBOX_sandbox_default", "service": "oma-sandbox-default" },
+    { "binding": "INTEGRATIONS", "service": "oma-managed-agents-integrations" }
   ],
 
   "migrations": [
@@ -149,20 +149,20 @@
   //   - memories index row (UPSERT)
   //   - memory_versions audit row (INSERT)
   // R2 → Queue subscription itself is NOT in wrangler — set it up via:
-  //   wrangler r2 bucket notification create managed-agents-memory \
+  //   wrangler r2 bucket notification create oma-managed-agents-memory \
   //     --event-type object-create object-delete \
-  //     --queue managed-agents-memory-events
+  //     --queue oma-managed-agents-memory-events
   // Local dev: R2 events do NOT fire (CF control-plane feature). REST writes
   // still audit (inline write to D1 in the route handler), but agent FUSE
   // writes are not audited in dev. Documented in README.
   "queues": {
     "consumers": [
       {
-        "queue": "managed-agents-memory-events",
+        "queue": "oma-managed-agents-memory-events",
         "max_batch_size": 25,
         "max_batch_timeout": 5,
         "max_retries": 5,
-        "dead_letter_queue": "managed-agents-memory-events-dlq"
+        "dead_letter_queue": "oma-managed-agents-memory-events-dlq"
       },
       {
         // DLQ subscriber for the main queue above. Captures messages that
@@ -170,7 +170,7 @@
         // logs + records to AE so they don't disappear silently. Handler
         // ALWAYS acks — there's no DLQ-of-DLQ in CF Queues, and a thrown
         // handler here would loop until expiry.
-        "queue": "managed-agents-memory-events-dlq",
+        "queue": "oma-managed-agents-memory-events-dlq",
         "max_batch_size": 10,
         "max_batch_timeout": 30,
         "max_retries": 1
@@ -193,7 +193,7 @@
 
   "env": {
     "production": {
-      "name": "managed-agents",
+  "name": "oma-managed-agents",
       // Custom domain for the main API + bundled Console UI (assets.directory
       // above). oma.duyet.net is a subdomain of the duyet.net zone, which is
       // on this account, so Cloudflare auto-creates the DNS record + route.
@@ -208,8 +208,8 @@
         { "binding": "CONFIG_KV", "id": "6adfd1b06ee6493981b4b818d3dd81ae" }
       ],
       "r2_buckets": [
-        { "binding": "FILES_BUCKET", "bucket_name": "managed-agents-files" },
-        { "binding": "MEMORY_BUCKET", "bucket_name": "managed-agents-memory" }
+        { "binding": "FILES_BUCKET", "bucket_name": "oma-managed-agents-files" },
+        { "binding": "MEMORY_BUCKET", "bucket_name": "oma-managed-agents-memory" }
       ],
       // Single-D1 launch layout (no sharding — zero users yet, sharding is
       // premature). MAIN_DB holds all tenant + control-plane data; the router
@@ -243,8 +243,8 @@
       // start) and the /billing-api/* proxy in src/index.ts returns 404. Matches
       // env.staging, which never bound the meter either.
       "services": [
-        { "binding": "SANDBOX_sandbox_default", "service": "sandbox-default" },
-        { "binding": "INTEGRATIONS", "service": "managed-agents-integrations" }
+        { "binding": "SANDBOX_sandbox_default", "service": "oma-sandbox-default" },
+        { "binding": "INTEGRATIONS", "service": "oma-managed-agents-integrations" }
       ],
       "limits": { "cpu_ms": 300000 },
       "observability": { "enabled": true },
@@ -263,14 +263,14 @@
       "queues": {
         "consumers": [
           {
-            "queue": "managed-agents-memory-events",
+            "queue": "oma-managed-agents-memory-events",
             "max_batch_size": 25,
             "max_batch_timeout": 5,
             "max_retries": 5,
-            "dead_letter_queue": "managed-agents-memory-events-dlq"
+            "dead_letter_queue": "oma-managed-agents-memory-events-dlq"
           },
           {
-            "queue": "managed-agents-memory-events-dlq",
+            "queue": "oma-managed-agents-memory-events-dlq",
             "max_batch_size": 10,
             "max_batch_timeout": 30,
             "max_retries": 1
@@ -282,7 +282,7 @@
       }
     },
     "staging": {
-      "name": "managed-agents-staging",
+      "name": "oma-managed-agents-staging",
       "vars": {
         "INTEGRATIONS_ORIGIN": "https://integrations.staging.oma.duyet.net"
       },
@@ -301,8 +301,8 @@
         { "binding": "AUTH_DB_03", "database_name": "oma-auth-shard-03-staging", "database_id": "8ce8f17d-7527-4a5a-b097-ce73251be55a" }
       ],
       "r2_buckets": [
-        { "binding": "FILES_BUCKET", "bucket_name": "managed-agents-files" },
-        { "binding": "MEMORY_BUCKET", "bucket_name": "managed-agents-memory-staging" }
+        { "binding": "FILES_BUCKET", "bucket_name": "oma-managed-agents-files" },
+        { "binding": "MEMORY_BUCKET", "bucket_name": "oma-managed-agents-memory-staging" }
       ],
       // Memory queue consumers intentionally NOT registered here for
       // staging — `managed-agents-lane-mem-anthropic` (lane worker)
@@ -313,8 +313,8 @@
       ],
       "ai": { "binding": "AI" },
       "services": [
-        { "binding": "SANDBOX_sandbox_default", "service": "sandbox-default-staging" },
-        { "binding": "INTEGRATIONS", "service": "managed-agents-integrations-staging" }
+        { "binding": "SANDBOX_sandbox_default", "service": "oma-sandbox-default-staging" },
+        { "binding": "INTEGRATIONS", "service": "oma-managed-agents-integrations-staging" }
         // USAGE_METER intentionally omitted on staging — packages/billing
         // isn't deployed there. The OSS contract is duck-typed optional,
         // so canStartSandbox/recordUsage soft-skip when binding is absent.
