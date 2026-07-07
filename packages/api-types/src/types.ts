@@ -204,6 +204,17 @@ export interface EnvironmentConfig {
      *  FROM/WORKDIR/USER/ENTRYPOINT/CMD (it owns those to keep the
      *  harness runtime hooks intact). */
     dockerfile?: string;
+    /** Sandbox resource sizing. Provider-specific:
+     *  - "cloud" (CF Containers): "lite" | "basic" | "standard-1" | "standard-2" | "standard-3" | "standard-4"
+     *  - "k8s"/"kubernetes": "small" | "medium" | "large" (or custom cpu/memory string)
+     *  - "subprocess": "default" (ignored, uses host resources)
+     *  When unset, the provider's own default applies ("basic" for CF, etc.). */
+    resources?: {
+      instance_type?: string;
+      cpu?: string;
+      memory?: string;
+      disk?: string;
+    };
   };
   metadata?: Record<string, unknown>;
   created_at: string;

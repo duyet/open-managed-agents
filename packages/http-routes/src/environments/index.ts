@@ -54,6 +54,13 @@ interface EnvironmentLimitsInput {
     type?: string;
     dockerfile?: string;
     packages?: Record<string, unknown>;
+    resources?: {
+      instance_type?: string;
+      cpu?: string;
+      memory?: string;
+      disk?: string;
+      [r: string]: unknown;
+    };
     [k: string]: unknown;
   } | null;
   metadata?: Record<string, unknown> | null;
