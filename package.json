@@ -70,6 +70,10 @@
     "db:check:node-pg": "drizzle-kit check --config=drizzle.node-pg.config.ts",
     "db:check:node-sqlite": "drizzle-kit check --config=drizzle.node-sqlite.config.ts",
     "db:check": "pnpm db:check:cf-auth && pnpm db:check:cf-integrations && pnpm db:check:cf-router && pnpm db:check:node-pg && pnpm db:check:node-sqlite",
+    "sync:secrets:prod": "node scripts/sync-secrets-prod.mjs --to worker",
+    "sync:secrets:prod:github": "node scripts/sync-secrets-prod.mjs --to github",
+    "sync:secrets:prod:all": "node scripts/sync-secrets-prod.mjs --to worker,github",
+    "sync:secrets:prod:dry": "node scripts/sync-secrets-prod.mjs --to worker --dry-run",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "pnpm -r --filter='@duyet/oma-*' build && changeset publish"
