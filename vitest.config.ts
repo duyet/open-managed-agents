@@ -158,6 +158,10 @@ export default defineConfig({
       { find: "@duyet/oma-integrations-core", replacement: "./packages/integrations-core/src/index.ts" },
       { find: "@duyet/oma-integrations-adapters-cf", replacement: "./packages/integrations-adapters-cf/src/index.ts" },
       { find: "@duyet/oma-integrations-adapters-node", replacement: "./packages/integrations-adapters-node/src/index.ts" },
+      { find: "@duyet/oma-github/test-fakes", replacement: "./packages/github/src/test-fakes.ts" },
+      { find: "@duyet/oma-github", replacement: "./packages/github/src/index.ts" },
+      { find: "@duyet/oma-slack", replacement: "./packages/slack/src/index.ts" },
+      { find: "@duyet/oma-matrix", replacement: "./packages/matrix/src/index.ts" },
 
       // ─── markdown / session-runtime / acp-runtime / agent (internal) ──
       { find: "@duyet/oma-markdown/adapters/node", replacement: "./packages/markdown/src/adapters/node.ts" },
