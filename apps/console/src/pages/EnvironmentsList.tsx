@@ -36,12 +36,21 @@ interface HostingType {
 }
 
 // Fallback when the host doesn't expose /v1/hosting_types (e.g. the
-// Cloudflare host, which only supports the managed "cloud" sandbox). Keeps
-// the picker showing a single, immutable "Cloud" option — the historical
-// behavior — so nothing regresses there.
-const CLOUD_ONLY: HostingType[] = [
-  { id: "cloud", label: "Cloud", description: "Managed sandbox." },
+// Cloudflare host, which only supports the managed Cloudflare Sandbox). Keeps
+// the picker showing the single Cloudflare Sandbox option so nothing
+// regresses there. The id stays "cloud" on the wire (backend stores
+// config.type === "cloud" for the managed sandbox) — only the label changes.
+const CLOUDFLARE_SANDBOX_ONLY: HostingType[] = [
+  { id: "cloud", label: "Cloudflare Sandbox", description: "Managed sandbox, built in." },
 ];
+
+// Map a stored config.type (wire id, e.g. "cloud") to a human label. The
+// CF host only knows "cloud"; self-host may advertise richer labels via
+// /v1/hosting_types, which we prefer when available.
+function hostingTypeLabel(type: string | undefined, known: HostingType[]): string {
+  const id = type || "cloud";
+  return known.find((t) => t.id === id)?.label ?? (id === "cloud" ? "Cloudflare Sandbox" : id);
+}
 
 export function EnvironmentsList() {
   const { api } = useApi();
@@ -51,10 +60,10 @@ export function EnvironmentsList() {
 
   // Hosting types are host-dependent: self-hosted (main-node) advertises the
   // full sandbox-provider list at /v1/hosting_types; the Cloudflare host has
-  // no such route (404) → we fall back to cloud-only. This is the feature
-  // gate that keeps non-cloud options from appearing on a host that would
-  // silently ignore them.
-  const [hostingTypes, setHostingTypes] = useState<HostingType[]>(CLOUD_ONLY);
+  // no such route (404) → we fall back to Cloudflare Sandbox only. This is
+  // the feature gate that keeps non-cloud options from appearing on a host
+  // that would silently ignore them.
+  const [hostingTypes, setHostingTypes] = useState<HostingType[]>(CLOUDFLARE_SANDBOX_ONLY);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -64,7 +73,7 @@ export function EnvironmentsList() {
           setHostingTypes(res.data);
         }
       } catch {
-        // 404 on the CF host (or any failure) → keep cloud-only.
+        // 404 on the CF host (or any failure) → keep Cloudflare Sandbox only.
       }
     })();
     return () => {
@@ -141,7 +150,7 @@ export function EnvironmentsList() {
         header: "Type",
         cell: ({ row }) => (
           <span className="text-fg-muted">
-            {(row.original.config?.type as string) || "cloud"}
+            {hostingTypeLabel(row.original.config?.type as string | undefined, hostingTypes)}
           </span>
         ),
       },
@@ -306,7 +315,6 @@ export function EnvironmentsList() {
             <Select
               value={form.type}
               onValueChange={(v) => setForm({ ...form, type: v })}
-              disabled={hostingTypes.length <= 1}
             >
               {hostingTypes.map((t) => (
                 <SelectOption key={t.id} value={t.id}>

@@ -33,6 +33,49 @@ const app = new Hono<{
   Variables: { tenant_id: string; services: Services };
 }>();
 
+// GET /v1/hosting_types — the sandbox providers this host can run. The
+// Console's environment-create dropdown is driven by this so non-supported
+// types never appear. Cloudflare Sandbox is always available (built in).
+// External providers (e2b, Modal, …) are advertised only when their
+// credentials are configured in the worker env — the frontend then renders
+// a managed-config form for them. Each entry's `id` is the `config.type`
+// value the environment stores on the wire.
+app.get("/hosting_types", (c) => {
+  const types: Array<{
+    id: string;
+    label: string;
+    description: string;
+    external?: boolean;
+    requires_key?: string;
+  }> = [
+    {
+      id: "cloud",
+      label: "Cloudflare Sandbox",
+      description: "Managed sandbox, built in.",
+    },
+  ];
+  if (c.env.E2B_API_KEY) {
+    types.push({
+      id: "e2b",
+      label: "E2B",
+      description: "Ephemeral VMs via E2B. Requires an E2B API key.",
+      external: true,
+      requires_key: "E2B_API_KEY",
+    });
+  }
+  if (c.env.MODAL_API_KEY) {
+    types.push({
+      id: "modal",
+      label: "Modal",
+      description:
+        "gVisor-isolated containers via Modal. Optional GPU access, sub-second cold starts, 50K+ concurrent sessions. Requires a Modal API key.",
+      external: true,
+      requires_key: "MODAL_API_KEY",
+    });
+  }
+  return c.json({ data: types });
+});
+
 // POST /v1/environments — create environment
 app.post("/", async (c) => {
   const t = c.get("tenant_id");

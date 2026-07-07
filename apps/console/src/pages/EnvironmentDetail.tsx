@@ -204,7 +204,7 @@ export function EnvironmentDetail() {
               placeholder="environment name"
             />
             <span className="text-[11px] px-2 py-0.5 rounded border border-border bg-bg-surface text-fg-muted font-medium uppercase tracking-wider">
-              {env.config.type || "cloud"}
+              {(env.config.type || "cloud") === "cloud" ? "Cloudflare Sandbox" : env.config.type}
             </span>
             <span className="text-fg-subtle" aria-hidden="true">
               <GlobeIcon />

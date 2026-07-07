@@ -95,6 +95,17 @@ export interface Env {
   AUTH_COOKIE_NAME?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  /** E2B API key. When set, /v1/hosting_types advertises the E2B external
+   *  sandbox provider so environments can opt into it. Provisioning logic
+   *  for E2B sessions is not yet wired — the flag only gates the option. */
+  E2B_API_KEY?: string;
+  /** Modal API key (https://modal.com). When set, /v1/hosting_types
+   *  advertises Modal as an external sandbox provider. Modal offers
+   *  gVisor-isolated containers with optional GPU access (L4–B200),
+   *  sub-second cold starts, filesystem/memory snapshots, and support
+   *  for 50,000+ concurrent sessions. See https://modal.com/solutions/coding-agents
+   *  and the official Modal Sandbox SDK docs. */
+  MODAL_API_KEY?: string;
   // Console "Sign in with GitHub" — distinct from GITHUB_OAUTH_CLIENT_ID
   // below (that pair is for MCP-server / integration OAuth, not Console
   // login). Both set → better-auth registers github as a social provider.
