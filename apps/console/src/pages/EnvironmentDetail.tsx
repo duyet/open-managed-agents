@@ -29,11 +29,45 @@ interface NetworkingConfig {
   allow_package_managers?: boolean;
 }
 
+interface ResourcesConfig {
+  instance_type?: string;
+  cpu?: string;
+  memory?: string;
+  disk?: string;
+}
+
+/** CF Containers instance type presets with resource specs. */
+const CF_INSTANCE_TYPES: { id: string; label: string; cpu: string; memory: string; disk: string }[] = [
+  { id: "lite", label: "Lite", cpu: "1/16 vCPU", memory: "256 MiB", disk: "2 GB" },
+  { id: "basic", label: "Basic", cpu: "1/4 vCPU", memory: "1 GiB", disk: "4 GB" },
+  { id: "standard-1", label: "Standard 1", cpu: "1/2 vCPU", memory: "4 GiB", disk: "8 GB" },
+  { id: "standard-2", label: "Standard 2", cpu: "1 vCPU", memory: "6 GiB", disk: "12 GB" },
+  { id: "standard-3", label: "Standard 3", cpu: "2 vCPU", memory: "8 GiB", disk: "16 GB" },
+  { id: "standard-4", label: "Standard 4", cpu: "4 vCPU", memory: "12 GiB", disk: "20 GB" },
+];
+
+/** K8s instance type presets. */
+const K8S_INSTANCE_TYPES: { id: string; label: string; cpu: string; memory: string; disk: string }[] = [
+  { id: "small", label: "Small", cpu: "0.5 vCPU", memory: "512 MiB", disk: "2 GB" },
+  { id: "medium", label: "Medium", cpu: "1 vCPU", memory: "1 GiB", disk: "4 GB" },
+  { id: "large", label: "Large", cpu: "2 vCPU", memory: "4 GiB", disk: "8 GB" },
+];
+
+/** Map provider type to available instance types. */
+function instanceTypesForProvider(provider: string): { id: string; label: string; cpu: string; memory: string; disk: string }[] {
+  if (provider === "k8s" || provider === "kubernetes") return K8S_INSTANCE_TYPES;
+  if (provider === "subprocess" || provider === "litebox" || provider === "boxrun" || provider === "daytona" || provider === "e2b") {
+    return [{ id: "default", label: "Default", cpu: "Host", memory: "Host", disk: "Host" }];
+  }
+  return CF_INSTANCE_TYPES;
+}
+
 interface EnvConfigBlock {
   type: string;
   packages?: Partial<Record<AnyManager, string[]>>;
   networking?: NetworkingConfig;
   dockerfile?: string;
+  resources?: ResourcesConfig;
 }
 
 interface Env {
@@ -95,6 +129,9 @@ export function EnvironmentDetail() {
   // so save doesn't silently strip them.
   const [preservedGem, setPreservedGem] = useState<string[] | undefined>(undefined);
 
+  // Sandbox resource selection
+  const [resources, setResources] = useState<ResourcesConfig>({});
+
   // Initial load via TQ. Re-renders when the cache is populated; the
   // applyEnv side-effect below seeds the editable form state once per
   // fetched payload (id changes between renders → form re-seeds).
@@ -132,6 +169,8 @@ export function EnvironmentDetail() {
     setPackageRows(packagesToRows(e.config.packages));
     setPreservedGem(e.config.packages?.gem);
 
+    setResources(e.config.resources ?? {});
+
     setMetadataRows(metadataToRows(e.metadata));
   }
 
@@ -146,6 +185,7 @@ export function EnvironmentDetail() {
         ...(env.config.dockerfile !== undefined ? { dockerfile: env.config.dockerfile } : {}),
         packages: rowsToPackages(packageRows, preservedGem),
         networking: buildNetworking(networking, allowedHostsText),
+        resources: buildResources(resources, env.config.type),
       };
 
       const body = {
@@ -282,6 +322,54 @@ export function EnvironmentDetail() {
                   placeholder="www.example1.com, www.example2.com"
                 />
               </Field>
+            )}
+          </div>
+        </SectionCard>
+
+        {/* Sandbox Resources */}
+        <SectionCard
+          title="Sandbox Resources"
+          subtitle="Select the instance size for this environment's sandbox containers. Provider-specific presets."
+        >
+          <div className="space-y-4">
+            <Field label="Instance Type">
+              <div className="w-full max-w-xs">
+                <Select
+                  value={resources.instance_type ?? ""}
+                  onValueChange={(v) => {
+                    const preset = instanceTypesForProvider(env.config.type).find((t) => t.id === v);
+                    setResources({
+                      instance_type: v,
+                      cpu: preset?.cpu,
+                      memory: preset?.memory,
+                      disk: preset?.disk,
+                    });
+                  }}
+                >
+                  <SelectOption value="">Provider default</SelectOption>
+                  {instanceTypesForProvider(env.config.type).map((t) => (
+                    <SelectOption key={t.id} value={t.id}>
+                      {t.label} — {t.cpu}, {t.memory}, {t.disk}
+                    </SelectOption>
+                  ))}
+                </Select>
+              </div>
+            </Field>
+            {resources.instance_type && (
+              <div className="grid grid-cols-3 gap-3 text-xs text-fg-muted">
+                <div className="border border-border rounded px-3 py-2 bg-bg-surface/30">
+                  <span className="block font-medium text-fg">CPU</span>
+                  {resources.cpu ?? "—"}
+                </div>
+                <div className="border border-border rounded px-3 py-2 bg-bg-surface/30">
+                  <span className="block font-medium text-fg">Memory</span>
+                  {resources.memory ?? "—"}
+                </div>
+                <div className="border border-border rounded px-3 py-2 bg-bg-surface/30">
+                  <span className="block font-medium text-fg">Disk</span>
+                  {resources.disk ?? "—"}
+                </div>
+              </div>
             )}
           </div>
         </SectionCard>
@@ -609,6 +697,22 @@ function rowsToMetadata(rows: MetadataRow[]): Record<string, unknown> {
     out[k] = row.value;
   }
   return out;
+}
+
+function buildResources(res: ResourcesConfig, provider: string): ResourcesConfig {
+  const cleaned: ResourcesConfig = {};
+  if (res.instance_type) {
+    cleaned.instance_type = res.instance_type;
+    // Populate cpu/memory/disk from preset when the user picks one
+    const all = instanceTypesForProvider(provider);
+    const preset = all.find((t) => t.id === res.instance_type);
+    if (preset) {
+      cleaned.cpu = preset.cpu;
+      cleaned.memory = preset.memory;
+      cleaned.disk = preset.disk;
+    }
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined as unknown as ResourcesConfig;
 }
 
 function buildNetworking(

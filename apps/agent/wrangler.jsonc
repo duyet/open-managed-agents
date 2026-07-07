@@ -18,7 +18,7 @@
     {
       "class_name": "Sandbox",
       "image": "./Dockerfile.sandbox",
-      "instance_type": "standard-1",
+      "instance_type": "basic",
       "max_instances": 50
     }
   ],
@@ -123,7 +123,7 @@
         {
           "class_name": "Sandbox",
           "image": "./Dockerfile.sandbox",
-          "instance_type": "standard-1",
+          "instance_type": "basic",
           "max_instances": 50
         }
       ],
@@ -174,7 +174,7 @@
         {
           "class_name": "Sandbox",
           "image": "./Dockerfile.sandbox",
-          "instance_type": "standard-1",
+          "instance_type": "basic",
           "max_instances": 50
         }
       ],

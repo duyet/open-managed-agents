@@ -21,6 +21,13 @@ interface Env {
   status?: string;
 }
 
+interface ResourcesConfig {
+  instance_type?: string;
+  cpu?: string;
+  memory?: string;
+  disk?: string;
+}
+
 type StatusValue = "any" | "active" | "archived";
 
 const STATUS_OPTIONS: { value: StatusValue; label: string }[] = [
@@ -44,6 +51,26 @@ const CLOUDFLARE_SANDBOX_ONLY: HostingType[] = [
   { id: "cloud", label: "Cloudflare Sandbox", description: "Managed sandbox, built in." },
 ];
 
+const CF_INSTANCE_TYPES = [
+  { id: "lite", label: "Lite", cpu: "1/16 vCPU", memory: "256 MiB", disk: "2 GB" },
+  { id: "basic", label: "Basic", cpu: "1/4 vCPU", memory: "1 GiB", disk: "4 GB" },
+  { id: "standard-1", label: "Standard 1", cpu: "1/2 vCPU", memory: "4 GiB", disk: "8 GB" },
+  { id: "standard-2", label: "Standard 2", cpu: "1 vCPU", memory: "6 GiB", disk: "12 GB" },
+  { id: "standard-3", label: "Standard 3", cpu: "2 vCPU", memory: "8 GiB", disk: "16 GB" },
+  { id: "standard-4", label: "Standard 4", cpu: "4 vCPU", memory: "12 GiB", disk: "20 GB" },
+];
+
+const K8S_INSTANCE_TYPES = [
+  { id: "small", label: "Small", cpu: "0.5 vCPU", memory: "512 MiB", disk: "2 GB" },
+  { id: "medium", label: "Medium", cpu: "1 vCPU", memory: "1 GiB", disk: "4 GB" },
+  { id: "large", label: "Large", cpu: "2 vCPU", memory: "4 GiB", disk: "8 GB" },
+];
+
+function instanceTypesForProvider(provider: string) {
+  if (provider === "k8s" || provider === "kubernetes") return K8S_INSTANCE_TYPES;
+  return CF_INSTANCE_TYPES;
+}
+
 // Map a stored config.type (wire id, e.g. "cloud") to a human label. The
 // CF host only knows "cloud"; self-host may advertise richer labels via
 // /v1/hosting_types, which we prefer when available.
@@ -56,7 +83,7 @@ export function EnvironmentsList() {
   const { api } = useApi();
   const nav = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", type: "cloud" });
+  const [form, setForm] = useState({ name: "", description: "", type: "cloud", instanceType: "" });
 
   // Hosting types are host-dependent: self-hosted (main-node) advertises the
   // full sandbox-provider list at /v1/hosting_types; the Cloudflare host has
@@ -114,11 +141,21 @@ export function EnvironmentsList() {
   } = useInfiniteApiQuery<Env>("/v1/environments", { limit: 20, params: envsParams });
 
   const create = async () => {
+    const config: Record<string, unknown> = { type: form.type };
+    if (form.instanceType) {
+      const preset = instanceTypesForProvider(form.type).find((t) => t.id === form.instanceType);
+      config.resources = {
+        instance_type: form.instanceType,
+        cpu: preset?.cpu,
+        memory: preset?.memory,
+        disk: preset?.disk,
+      };
+    }
     await api("/v1/environments", {
       method: "POST",
-      body: JSON.stringify({ name: form.name, config: { type: form.type }, description: form.description || undefined }),
+      body: JSON.stringify({ name: form.name, config, description: form.description || undefined }),
     });
-    setShowCreate(false); setForm({ name: "", description: "", type: "cloud" }); load();
+    setShowCreate(false); setForm({ name: "", description: "", type: "cloud", instanceType: "" }); load();
   };
 
   // TanStack column defs. Order, filtering, and search all flow through
@@ -314,7 +351,7 @@ export function EnvironmentsList() {
             <span className="text-sm text-fg-muted block mb-1">Hosting Type</span>
             <Select
               value={form.type}
-              onValueChange={(v) => setForm({ ...form, type: v })}
+              onValueChange={(v) => setForm({ ...form, type: v, instanceType: "" })}
             >
               {hostingTypes.map((t) => (
                 <SelectOption key={t.id} value={t.id}>
@@ -326,6 +363,21 @@ export function EnvironmentsList() {
               <p className="text-xs text-fg-subtle mt-1">{selectedType.description}</p>
             )}
             <p className="text-xs text-fg-subtle mt-1">This cannot be changed after creation.</p>
+          </div>
+          <div>
+            <span className="text-sm text-fg-muted block mb-1">Instance Type <span className="text-fg-subtle">(optional)</span></span>
+            <Select
+              value={form.instanceType}
+              onValueChange={(v) => setForm({ ...form, instanceType: v })}
+            >
+              <SelectOption value="">Provider default</SelectOption>
+              {instanceTypesForProvider(form.type).map((t) => (
+                <SelectOption key={t.id} value={t.id}>
+                  {t.label} — {t.cpu}, {t.memory}, {t.disk}
+                </SelectOption>
+              ))}
+            </Select>
+            <p className="text-xs text-fg-subtle mt-1">Sandbox size. Only takes effect when the provider supports multiple sizes.</p>
           </div>
           <div>
             <label htmlFor="env-create-description" className="text-sm text-fg-muted block mb-1">Description <span className="text-fg-subtle">(optional)</span></label>
