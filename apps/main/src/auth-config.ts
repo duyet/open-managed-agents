@@ -58,6 +58,9 @@ export function createAuth(env: Env) {
 
   return betterAuth({
     basePath: "/auth",
+    // On Cloudflare Workers better-auth can't infer the public origin, which
+    // breaks social-OAuth redirect URIs (500 on /auth/sign-in/social). Pin it.
+    ...(env.BETTER_AUTH_URL ? { baseURL: env.BETTER_AUTH_URL } : {}),
     secret: env.BETTER_AUTH_SECRET,
     emailAndPassword: {
       enabled: true,

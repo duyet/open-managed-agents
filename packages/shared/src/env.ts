@@ -77,6 +77,15 @@ export interface Env {
   TURNSTILE_SECRET_KEY?: string;
   API_KEY: string;
   BETTER_AUTH_SECRET: string;
+  /** Absolute base URL of the public auth origin, e.g.
+   *  "https://app.oma.duyet.net". better-auth cannot infer the request
+   *  origin reliably inside the Cloudflare Workers runtime (no HOST header
+   *  it trusts), so without this it logs "Base URL could not be determined"
+   *  and social-OAuth redirect URIs (the `redirect_uri` it sends to GitHub)
+   *  are generated incorrectly — surfacing as 500s on /auth/sign-in/social.
+   *  Set it on hosted deploys; self-host may leave unset (better-auth falls
+   *  back to deriving from the request when possible). */
+  BETTER_AUTH_URL?: string;
   /** When set, the better-auth session cookie is scoped to this domain
    *  (leading dot for cross-subdomain). Typical value on hosted:
    *  ".oma.duyet.net" so app.oma.duyet.net's auth cookie is also visible from
