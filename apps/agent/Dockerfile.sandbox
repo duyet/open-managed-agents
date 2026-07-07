@@ -1,1 +1,5 @@
-FROM docker.io/openma/sandbox-base:80111f7801e9498e3254920227d213ab4b880259
+# Built and pushed to GHCR by .github/workflows/build-sandbox-image.yml
+# (apps/agent/Dockerfile → ghcr.io/duyet/sandbox-base:latest). Keeping this
+# in lock-step with that pipeline avoids a stale Docker Hub pin and lets CI
+# own the image end-to-end (wrangler deploy pulls it from GHCR).
+FROM ghcr.io/duyet/sandbox-base:latest
