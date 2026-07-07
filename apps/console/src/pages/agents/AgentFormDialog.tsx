@@ -872,10 +872,15 @@ function BasicTab({
           <p className="text-xs text-fg-subtle bg-bg-surface px-3 py-2 rounded-lg">
             No model cards configured. Cloud agents need at least one card to provide LLM
             credentials.{" "}
-            <a href="/model-cards" className="underline hover:text-fg-muted">
+            <a
+              href="/model-cards"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-fg-muted"
+            >
               Add one
-            </a>
-            .
+            </a>{" "}
+            (opens in a new tab — your draft here is kept).
           </p>
         ) : (
           <div>
@@ -951,10 +956,16 @@ function BasicTab({
         {runtimes.length === 0 ? (
           <p className="text-xs text-fg-subtle bg-bg-surface px-3 py-2 rounded-lg">
             No runtimes registered.{" "}
-            <a href="/runtimes" className="underline hover:text-fg-muted">
+            <a
+              href="/runtimes"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-fg-muted"
+            >
               Connect a machine
             </a>{" "}
-            to delegate this agent's loop to your own Claude Code (or other ACP) child.
+            (opens in a new tab — your draft here is kept) to delegate this agent's loop to
+            your own Claude Code (or other ACP) child.
           </p>
         ) : (
           <>

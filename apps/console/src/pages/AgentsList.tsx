@@ -124,6 +124,18 @@ export function AgentsList() {
     loadAux();
   }, []);
 
+  // Refresh aux data (agents, skills, model cards, runtimes) when the tab
+  // regains focus — e.g. the user opened Model Cards / Runtimes in a new
+  // tab to add one while the New Agent dialog was open. Without this the
+  // dialog's pickers stay stale until it's closed and reopened.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") loadAux();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
   const modelStr = (m: Agent["model"]) => (typeof m === "string" ? m : m?.id || "");
 
   // TanStack column defs. Order, filtering, and search all flow through
