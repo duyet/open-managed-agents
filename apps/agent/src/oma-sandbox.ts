@@ -50,6 +50,10 @@ interface BillingContext {
   agentId: string | null;
   /** Unix ms when the container most recently started (or first call landed). */
   startedAt: number;
+  /** Sandbox instance type (e.g. "lite", "basic", "standard-1"). Null for
+   *  providers that don't report it (K8s). Passed through to usage_events
+   *  for pricing = rate(instance_type) × active_seconds. */
+  instanceType: string | null;
 }
 
 // Match the SDK's OutboundHandlerContext shape (see @cloudflare/containers).
@@ -215,13 +219,18 @@ export class OmaSandbox extends Sandbox {
       | undefined;
     if (existing && existing.sessionId === ctx.sessionId) {
       // Same session, container still warm — keep the original startedAt
-      // so we don't double-bill on a no-op re-warm.
+      // so we don't double-bill on a no-op re-warm. Update instanceType
+      // in case it changed (unlikely but correct).
+      if (ctx.instanceType && ctx.instanceType !== existing.instanceType) {
+        await this.ctx.storage.put(BILLING_CTX_KEY, { ...existing, instanceType: ctx.instanceType });
+      }
       return;
     }
     await this.ctx.storage.put(BILLING_CTX_KEY, {
       tenantId: ctx.tenantId,
       sessionId: ctx.sessionId,
       agentId: ctx.agentId,
+      instanceType: ctx.instanceType ?? null,
       startedAt: Date.now(),
     });
   }
@@ -392,8 +401,13 @@ export class OmaSandbox extends Sandbox {
    * Idempotent via storage-delete-after-emit — a later onStop fires this
    * again but reads `undefined` from storage and no-ops.
    */
-  async emitSandboxActiveNow(): Promise<void> {
-    await this.recordSandboxActiveOnStop();
+  /**
+   * Emit sandbox_active_seconds and return the count of seconds emitted
+   * (0 if no billing context existed, i.e. no-op). SessionDO uses the
+   * return value to accumulate on session state.sandbox_usage.
+   */
+  async emitSandboxActiveNow(): Promise<number> {
+    return this.recordSandboxActiveOnStop();
   }
 
   /**
@@ -402,21 +416,23 @@ export class OmaSandbox extends Sandbox {
    * Resets the startedAt cursor so a re-start in the same session DO
    * doesn't re-bill the previous window.
    *
-   * Best-effort: any failure logs and returns. We do NOT block the
+   * Best-effort: any failure logs and returns 0. We do NOT block the
    * container teardown on a billing emit (that would couple billing
    * availability to sandbox availability — wrong direction).
+   *
+   * Returns the count of seconds emitted, or 0 if no-op / failed.
    */
-  private async recordSandboxActiveOnStop(): Promise<void> {
+  private async recordSandboxActiveOnStop(): Promise<number> {
     try {
       const env = this.env as Env;
       const ctx = (await this.ctx.storage.get(BILLING_CTX_KEY)) as
         | BillingContext
         | undefined;
-      if (!ctx) return;
+      if (!ctx) return 0;
       const elapsedMs = Date.now() - ctx.startedAt;
-      if (elapsedMs <= 0) return;
+      if (elapsedMs <= 0) return 0;
       const seconds = Math.floor(elapsedMs / 1000);
-      if (seconds <= 0) return;
+      if (seconds <= 0) return 0;
       const services = await getCfServicesForTenant(env, ctx.tenantId);
       await services.usage.recordUsage({
         tenantId: ctx.tenantId,
@@ -424,6 +440,7 @@ export class OmaSandbox extends Sandbox {
         agentId: ctx.agentId,
         kind: "sandbox_active_seconds",
         value: seconds,
+        instanceType: ctx.instanceType,
       });
       // Drop the stored context so a re-start in the same DO mints a
       // fresh window (re-warm = new billing window, not "continue prior
@@ -433,10 +450,12 @@ export class OmaSandbox extends Sandbox {
       console.log(
         `[oma-sandbox] usage emit sandbox_active_seconds=${seconds} session=${ctx.sessionId.slice(0, 12)}`,
       );
+      return seconds;
     } catch (err) {
       console.error(
         `[oma-sandbox] recordSandboxActiveOnStop failed: ${(err as Error).message ?? err}`,
       );
+      return 0;
     }
   }
 }

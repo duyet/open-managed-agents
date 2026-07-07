@@ -226,6 +226,14 @@ export interface EnvironmentConfig {
 
 export type SessionStatus = "idle" | "running" | "rescheduling" | "terminated";
 
+export interface SessionSandboxUsage {
+  /** Instance type used for the sandbox container (e.g. "lite", "basic", "standard-1" for CF;
+   *  "small", "medium", "large" for K8s; undefined for subprocess). */
+  instance_type?: string;
+  /** Cumulative wall-clock seconds this session's sandbox was alive. */
+  active_seconds: number;
+}
+
 export interface SessionMeta {
   /** Always `"session"` on the wire — Anthropic SDK uses this discriminator
    *  to recognize the resource type. Optional so existing internal callers
@@ -241,6 +249,10 @@ export interface SessionMeta {
   archived_at?: string;
   updated_at?: string;
   created_at: string;
+  /** Sandbox resource usage for this session. Populated when the session uses
+   *  a sandbox provider that reports instance_type (CF Containers, E2B, etc.
+   *  — K8s not tracked yet). Used to calculate pricing = rate(instance_type) × active_seconds. */
+  sandbox_usage?: SessionSandboxUsage;
 }
 
 // --- Content Blocks ---

@@ -503,21 +503,28 @@ export class CloudflareSandbox implements SandboxExecutor {
   }
 
   /**
-   * Forward (tenant, session, agent) tuple to OmaSandbox so its onStop /
-   * pre-destroy emit can attribute the sandbox_active_seconds row. The
-   * wrapper exists because SessionDO holds a CloudflareSandbox, not the
-   * underlying DO stub — without this passthrough, the optional-chain
-   * check at session-do.ts warmup silently no-ops.
+   * Forward (tenant, session, agent, instanceType) tuple to OmaSandbox so
+   * its onStop / pre-destroy emit can attribute the sandbox_active_seconds
+   * row with the correct instance type for pricing. The wrapper exists
+   * because SessionDO holds a CloudflareSandbox, not the underlying DO stub
+   * — without this passthrough, the optional-chain check at session-do.ts
+   * warmup silently no-ops.
    */
   async setBillingContext(opts: {
     tenantId: string;
     sessionId: string;
     agentId: string | null;
+    instanceType?: string | null;
   }): Promise<void> {
     if (!opts.tenantId || !opts.sessionId) return;
     try {
       const sandbox = (await this.getSandbox()) as unknown as {
-        setBillingContext?: (c: { tenantId: string; sessionId: string; agentId: string | null }) => Promise<void>;
+        setBillingContext?: (c: {
+          tenantId: string;
+          sessionId: string;
+          agentId: string | null;
+          instanceType?: string | null;
+        }) => Promise<void>;
       };
       if (typeof sandbox.setBillingContext !== "function") return;
       await sandbox.setBillingContext(opts);
@@ -534,18 +541,21 @@ export class CloudflareSandbox implements SandboxExecutor {
    * in the request lifecycle (CF's onStop callback fires async to destroy
    * and can be dropped on DO eviction). Idempotent via storage-delete
    * inside OmaSandbox.
+   *
+   * Returns the count of seconds emitted (0 if no-op / failed).
    */
-  async emitSandboxActiveNow(): Promise<void> {
+  async emitSandboxActiveNow(): Promise<number> {
     try {
       const sandbox = (await this.getSandbox()) as unknown as {
-        emitSandboxActiveNow?: () => Promise<void>;
+        emitSandboxActiveNow?: () => Promise<number>;
       };
-      if (typeof sandbox.emitSandboxActiveNow !== "function") return;
-      await sandbox.emitSandboxActiveNow();
+      if (typeof sandbox.emitSandboxActiveNow !== "function") return 0;
+      return await sandbox.emitSandboxActiveNow();
     } catch (err) {
       console.error(
         `[sandbox] emitSandboxActiveNow failed: ${(err as Error).message ?? err}`,
       );
+      return 0;
     }
   }
 

@@ -252,6 +252,14 @@ interface SessionState {
    * /destroy) checks this and skips the duplicate emit.
    */
   session_alive_billed?: boolean;
+  /**
+   * Sandbox resource usage aggregated over the session's lifetime.
+   * Populated during warmup and updated on sandbox stop/destroy.
+   * instance_type is pulled from the environment config's resources
+   * (or the provider's default). active_seconds accumulates across
+   * container restarts within the same session.
+   */
+  sandbox_usage?: { instance_type?: string; active_seconds: number };
 }
 
 const INITIAL_SESSION_STATE: SessionState = {
@@ -1652,10 +1660,22 @@ export class SessionDO extends DurableObject<Env> {
       // fallback for non-/destroy teardowns (sleepAfter, OOM); the
       // emit is idempotent (storage delete after success).
       const sandboxBilling = this.sandbox as unknown as {
-        emitSandboxActiveNow?: () => Promise<void>;
+        emitSandboxActiveNow?: () => Promise<number>;
       } | null;
       if (sandboxBilling?.emitSandboxActiveNow) {
-        try { await sandboxBilling.emitSandboxActiveNow(); } catch (err) {
+        try {
+          const emittedSeconds = await sandboxBilling.emitSandboxActiveNow();
+          if (emittedSeconds > 0) {
+            const existing = this.state.sandbox_usage?.active_seconds ?? 0;
+            this.setState({
+              ...this.state,
+              sandbox_usage: {
+                instance_type: this.state.sandbox_usage?.instance_type,
+                active_seconds: existing + emittedSeconds,
+              },
+            });
+          }
+        } catch (err) {
           logWarn({ op: "session_do.destroy.sandbox_emit", session_id: this.state.session_id, err }, "sandbox usage emit failed");
         }
       }
@@ -2555,6 +2575,7 @@ export class SessionDO extends DurableObject<Env> {
           input_tokens: this.state.input_tokens,
           output_tokens: this.state.output_tokens,
         },
+        sandbox_usage: this.state.sandbox_usage,
         outcome_evaluations: outcomeEvaluations,
       });
     }
@@ -3272,11 +3293,15 @@ export class SessionDO extends DurableObject<Env> {
       // row scoped to this (tenant, session, agent). Same idempotency
       // story as setBackupContext — same-session rewarms keep the
       // original startedAt; new-session containers mint a fresh one.
+      // instanceType is pulled from the environment config's resources
+      // (or falls back to the provider default — null means "unknown").
+      const instanceType = this.state.environment_snapshot?.config?.resources?.instance_type ?? null;
       const sandboxAny = sandbox as unknown as {
         setBillingContext?: (c: {
           tenantId: string;
           sessionId: string;
           agentId: string | null;
+          instanceType?: string | null;
         }) => Promise<void>;
       };
       if (sandboxAny.setBillingContext && this.state.session_id && this.state.tenant_id) {
@@ -3284,6 +3309,16 @@ export class SessionDO extends DurableObject<Env> {
           tenantId: this.state.tenant_id,
           sessionId: this.state.session_id,
           agentId: this.state.agent_id || null,
+          instanceType,
+        });
+      }
+      // Track instance_type on session state so GET /full-status returns
+      // it. Re-warm preserves the existing active_seconds accumulator.
+      if (instanceType) {
+        const existing = this.state.sandbox_usage?.active_seconds ?? 0;
+        this.setState({
+          ...this.state,
+          sandbox_usage: { instance_type: instanceType, active_seconds: existing },
         });
       }
 
