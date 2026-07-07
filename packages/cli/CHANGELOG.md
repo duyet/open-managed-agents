@@ -1,5 +1,11 @@
 # @duyet/oma-cli
 
+## 0.7.0
+
+### Minor Changes
+
+- b26c048: Initial publish to npm: `@duyet/oma-sdk` (harness SDK) and `@duyet/oma-cli` (CLI tool).
+
 ## 0.6.0
 
 ### Minor Changes
