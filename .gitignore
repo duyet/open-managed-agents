@@ -35,6 +35,9 @@ rl/tasks/terminal-bench/findings-*.md
 # Local-only CLI creds for hitting deployed envs (oma_… user-scoped keys for staging/prod)
 .oma-cli.*
 
+# Agent runtime / planning artifacts
+.omo/
+
 # IDE
 .vscode/
 .idea/
