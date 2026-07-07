@@ -101,6 +101,36 @@ app.notFound((c) =>
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 
+// GET /v1/hosting_types — sandbox providers this host can run (public).
+// Cloudflare Sandbox is always available. External providers (E2B, Modal,
+// …) are advertised only when their API key env var is configured.
+app.get("/v1/hosting_types", (c) => {
+  const types: Array<{
+    id: string;
+    label: string;
+    description: string;
+    external?: boolean;
+    requires_key?: string;
+  }> = [
+    { id: "cloud", label: "Cloudflare Sandbox", description: "Managed sandbox, built in." },
+  ];
+  if (c.env.E2B_API_KEY) {
+    types.push({
+      id: "e2b", label: "E2B",
+      description: "Ephemeral VMs via E2B. Requires an E2B API key.",
+      external: true, requires_key: "E2B_API_KEY",
+    });
+  }
+  if (c.env.MODAL_API_KEY) {
+    types.push({
+      id: "modal", label: "Modal",
+      description: "gVisor-isolated containers via Modal. Optional GPU access, sub-second cold starts, 50K+ concurrent sessions. Requires a Modal API key.",
+      external: true, requires_key: "MODAL_API_KEY",
+    });
+  }
+  return c.json({ data: types });
+});
+
 // Auth routes (public — no authMiddleware, but rate-limited per-IP and
 // per-email so a stranger can't spam OTP sends and burn the mail budget).
 // Lazy import to avoid crashing workerd in test environments
