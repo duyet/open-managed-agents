@@ -52,11 +52,18 @@ const WORKER_SECRET_KEYS = [
 ];
 
 // Secrets allowed to be pushed to GitHub Actions repo secrets. Keep this
-// tight — anything here is readable by EVERY workflow. Default to just the
-// GitHub OAuth creds (the only ones a CI-driven deploy would plausibly need).
+// tight — anything here is readable by EVERY workflow.
+//
+// NOTE: GitHub forbids repo-secret names prefixed with `GITHUB_` (reserved
+// namespace — `gh secret set` returns HTTP 422). The GitHub OAuth *app* creds
+// (GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET) therefore CANNOT live here, and
+// they shouldn't anyway: CI doesn't run `wrangler deploy`, and the agent
+// image build doesn't need the OAuth app creds. Those are pushed to the
+// Worker only (see WORKER_SECRET_KEYS). Add other cross-CI secrets here as
+// needed (e.g. CLOUDFLARE_API_TOKEN for a future deploy workflow).
 const GITHUB_SECRET_KEYS = [
-  "GITHUB_CLIENT_ID",
-  "GITHUB_CLIENT_SECRET",
+  "CLOUDFLARE_API_TOKEN",
+  "CLOUDFLARE_ACCOUNT_ID",
 ];
 
 // ── arg parse ────────────────────────────────────────────────────────────
@@ -145,6 +152,14 @@ for (const target of targets) {
     if (!allowlist.includes(key)) {
       console.error(
         `✗ '${key}' is not in the ${target} allowlist (scripts/sync-secrets-prod.mjs). Refusing to push unknown key.`,
+      );
+      process.exit(1);
+    }
+    // GitHub reserves the `GITHUB_` prefix for repo secrets — `gh secret set`
+    // rejects it with HTTP 422. Block it loudly rather than failing mid-run.
+    if (target === "github" && key.startsWith("GITHUB_")) {
+      console.error(
+        `✗ '${key}' starts with GITHUB_ — GitHub forbids repo-secret names with that prefix. Push it to the worker target instead.`,
       );
       process.exit(1);
     }
