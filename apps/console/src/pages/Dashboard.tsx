@@ -183,6 +183,70 @@ export function Dashboard() {
           </div>
         </section>
 
+        {/* First-session setup checklist — driven by /v1/stats so each
+            item shows done/pending and links straight to its page. A first
+            session needs: an API key (auth), a model card (LLM creds), an
+            environment (sandbox), and an agent to run. Vaults/skills are
+            optional polish, surfaced but not gating. */}
+        <section>
+          <h2 className="font-display text-lg font-semibold text-fg mb-3">
+            Before your first session
+          </h2>
+          <div className="border border-border rounded-lg divide-y divide-border">
+            {[
+              {
+                label: "API key",
+                hint: "Mint a key so the CLI / your agent can authenticate.",
+                to: "/api-keys",
+                done: (stats?.api_keys ?? 0) > 0,
+              },
+              {
+                label: "Model card",
+                hint: "Add at least one card to provide LLM credentials for cloud agents.",
+                to: "/model-cards",
+                done: (stats?.model_cards ?? 0) > 0,
+              },
+              {
+                label: "Environment",
+                hint: "Create a sandbox environment (e.g. Cloudflare Sandbox) for agents to run in.",
+                to: "/environments",
+                done: (stats?.environments ?? 0) > 0,
+              },
+              {
+                label: "Agent",
+                hint: "Create an agent that ties a model card + environment together.",
+                to: "/agents",
+                done: (stats?.agents ?? 0) > 0,
+              },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="flex items-center gap-3 px-4 py-3.5"
+              >
+                <span
+                  className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${
+                    item.done
+                      ? "bg-brand text-brand-fg"
+                      : "border border-border text-fg-subtle"
+                  }`}
+                >
+                  {item.done ? "✓" : ""}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-fg">{item.label}</div>
+                  <div className="text-xs text-fg-muted">{item.hint}</div>
+                </div>
+                <button
+                  onClick={() => nav(item.to)}
+                  className="inline-flex items-center min-h-11 sm:min-h-0 text-[13px] text-fg-muted hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] shrink-0"
+                >
+                  {item.done ? "Manage" : "Set up"} →
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* Stats — number-forward, no decorative icons */}
         <section>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
