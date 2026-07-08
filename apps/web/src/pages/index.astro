@@ -2,9 +2,9 @@
 import Base from "../layouts/Base.astro";
 import { getCollection } from "astro:content";
 import { softwareApplicationSchema } from "../lib/seo";
-import PricingCard from "../components/PricingCard.astro";
 import FeatureCard from "../components/FeatureCard.astro";
 import BlogPostCard from "../components/BlogPostCard.astro";
+
 
 const posts = (await getCollection("blog", ({ data }) => !data.draft))
   .sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf())
@@ -63,8 +63,7 @@ const schemas = [softwareApplicationSchema()];
         >
       </div>
       <p class="mt-3 text-xs text-[var(--color-fg-subtle)]">
-        Self-host: <code class="font-mono">docker compose up</code>. Hosted: free
-        $1 trial credit, BYOK for LLM spend.
+        Self-host: <code class="font-mono">docker compose up</code>. Hosted: Free trial, BYOK for LLM spend.
       </p>
     </div>
   </section>
@@ -74,7 +73,7 @@ const schemas = [softwareApplicationSchema()];
     <h2 class="font-display text-3xl font-bold mb-3 text-center">Why Open Managed Agents</h2>
     <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12">
       The same shape of platform you'd get from a closed vendor — sessions,
-      sandboxes, tool dispatch, crash recovery, billing — but every layer is
+      sandboxes, tool dispatch, crash recovery, security controls — but every layer is
       inspectable, swappable, and yours to fork.
     </p>
     <div class="grid md:grid-cols-3 gap-8">
@@ -97,59 +96,233 @@ const schemas = [softwareApplicationSchema()];
     </div>
   </section>
 
-  <!-- How it works -->
+  <!-- How Open Managed Agents Works (Architecture & LifeCycle Diagrams) -->
   <section class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal>
     <div class="max-w-5xl mx-auto px-4 py-16">
-      <h2 class="font-display text-3xl font-bold mb-3 text-center">How it works</h2>
-      <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-10">
-        A meta-harness — the platform that runs your agent loop. You write the
-        brain (read events, build context, call the model). The platform manages
-        the infrastructure (sandbox, event log, tools, crash recovery).
+      <h2 class="font-display text-3xl font-bold mb-3 text-center">How Open Managed Agents works</h2>
+      <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-10 leading-relaxed">
+        An open-source meta-harness architecture. The platform manages state, security, and execution boundaries, while your agent code runs the loop.
       </p>
 
-      <div class="grid md:grid-cols-2 gap-8 items-start">
-        <pre class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-4 text-xs leading-relaxed overflow-x-auto"><code>┌────────────────────────────────────┐
-│  Harness — your code               │
-│  reads events, calls the model     │
-├────────────────────────────────────┤
-│  Meta-harness (SessionDO)          │
-│  sandbox, event log, tools, vaults │
-├────────────────────────────────────┤
-│  Cloudflare                         │
-│  Workers + DO + Containers + R2    │
-└────────────────────────────────────┘</code></pre>
-
-        <div>
-          <p class="text-sm text-[var(--color-fg-muted)] mb-3">
-            Five-line quickstart. No SDK, no Cloudflare account needed for
-            local dev — Docker spins up a fully working stack.
-          </p>
-          <pre class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-4 text-xs leading-relaxed overflow-x-auto"><code>git clone https://github.com/duyet/oma
-cd open-managed-agents &amp;&amp; cp .env.example .env
-# Set ANTHROPIC_API_KEY in .env, then:
-docker compose up -d
-curl localhost:8787/v1/agents -d '&#123;"name":"hello", \
-  "model":"claude-sonnet-4-6"&#125;'</code></pre>
-        </div>
+      <!-- Tabs Controller -->
+      <div class="flex justify-center space-x-2 p-1 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl max-w-md mx-auto mb-10">
+        <button
+          id="tab-architecture"
+          type="button"
+          class="flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-200 bg-[var(--color-bg-surface)] shadow-xs text-[var(--color-fg)] cursor-pointer focus:outline-none"
+        >
+          System Architecture
+        </button>
+        <button
+          id="tab-lifecycle"
+          type="button"
+          class="flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-200 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] cursor-pointer focus:outline-none"
+        >
+          Durable Lifecycle
+        </button>
       </div>
 
-      <div class="mt-14">
-        <h3 class="font-display text-xl font-bold mb-3">
-          Sandbox execution is pluggable — not locked to Cloudflare Containers
-        </h3>
-        <p class="text-[var(--color-fg-muted)] leading-relaxed mb-4 max-w-3xl">
-          "Platform vs. harness" is one seam; "harness vs. sandbox" is
-          another. Whichever harness drives the agent loop, it executes tool
-          calls through a small <code class="font-mono text-sm">SandboxExecutor</code>
-          port — run this command, read/write this file. Cloudflare Containers
-          is the default backend on the Cloudflare deployment, but it's one
-          adapter among several already in
-          <code class="font-mono text-sm">packages/sandbox/src/adapters/</code>.
-          Multiple providers can be active simultaneously — environments pick
-          one by ID at session start. No harness or route changes needed.
-        </p>
-        <div class="grid md:grid-cols-2 gap-8 items-start">
-          <pre class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-4 text-xs leading-relaxed overflow-x-auto"><code># Register providers dynamically — bring your own keys (BYOK)
+      <!-- Panel 1: System Architecture Diagram -->
+      <div id="panel-architecture" class="space-y-12">
+        <div class="relative w-full overflow-hidden border border-[var(--color-border)] rounded-2xl bg-[var(--color-bg)] p-6 md:p-10 shadow-xs">
+          <!-- Dot matrix background pattern -->
+          <div class="absolute inset-0 opacity-[0.03] dark:opacity-[0.07] pointer-events-none" style="background-image: radial-gradient(var(--color-fg) 1.5px, transparent 1.5px); background-size: 20px 20px;"></div>
+          
+          <div class="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
+            
+            <!-- Column 1: Client Layer -->
+            <div class="flex flex-col justify-center space-y-4">
+              <div class="text-center lg:text-left">
+                <span class="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand)] bg-[var(--color-brand-subtle)] px-2.5 py-1 rounded-full">1. Client Layer</span>
+              </div>
+              <div class="bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-xl p-5 shadow-xs relative group hover:border-[var(--color-brand)] transition-all duration-300">
+                <div class="flex items-center space-x-3 mb-3">
+                  <div class="p-2.5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-[var(--color-brand)]">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-[var(--color-fg)]">User & Client Apps</h4>
+                    <p class="text-[10px] font-mono text-[var(--color-fg-muted)]">Web UI, CLI, SDK, API</p>
+                  </div>
+                </div>
+                <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                  Triggers agent execution by posting events. Connects to a real-time Server-Sent Events (SSE) stream to receive instant status updates and text chunks.
+                </p>
+              </div>
+            </div>
+
+            <!-- Column 2: Platform Layer -->
+            <div class="flex flex-col justify-center space-y-6 relative">
+              <div class="text-center lg:text-left">
+                <span class="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand)] bg-[var(--color-brand-subtle)] px-2.5 py-1 rounded-full">2. Platform Layer</span>
+              </div>
+              
+              <!-- Session DO Card -->
+              <div class="bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-xl p-5 shadow-xs relative group hover:border-[var(--color-brand)] transition-all duration-300">
+                <div class="absolute -top-3 right-4 px-2 py-0.5 bg-[var(--color-brand)] text-[var(--color-brand-fg)] font-mono text-[9px] rounded-full uppercase font-bold tracking-wider">
+                  Durable Object
+                </div>
+                <div class="flex items-center space-x-3 mb-3">
+                  <div class="p-2.5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-[var(--color-brand)]">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-[var(--color-fg)]">Session DO & SQLite</h4>
+                    <p class="text-[10px] font-mono text-[var(--color-fg-muted)]">State & Audit Store</p>
+                  </div>
+                </div>
+                <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                  Maintains the append-only event log inside SQLite. Stores everything: user prompts, tool requests, logs, and outputs. Highly consistent and fully auditable.
+                </p>
+              </div>
+
+              <!-- Agent Harness Card -->
+              <div class="bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-xl p-5 shadow-xs relative group hover:border-[var(--color-brand)] transition-all duration-300">
+                <div class="absolute -top-3 right-4 px-2 py-0.5 bg-[var(--color-brand-subtle)] text-[var(--color-brand)] font-mono text-[9px] rounded-full uppercase font-bold tracking-wider">
+                  Loop Controller
+                </div>
+                <div class="flex items-center space-x-3 mb-3">
+                  <div class="p-2.5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-[var(--color-brand)]">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3 3L22 4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-[var(--color-fg)]">Agent Harness</h4>
+                    <p class="text-[10px] font-mono text-[var(--color-fg-muted)]">Model Loop Driver</p>
+                  </div>
+                </div>
+                <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                  Compiles session history into optimized LLM prompt contexts, calls the LLM provider, parses response tokens, and schedules tool invocations.
+                </p>
+              </div>
+            </div>
+
+            <!-- Column 3: Sandbox & Secure Resources -->
+            <div class="flex flex-col justify-between space-y-6">
+              <div class="text-center lg:text-left">
+                <span class="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand)] bg-[var(--color-brand-subtle)] px-2.5 py-1 rounded-full">3. Execution & Security</span>
+              </div>
+              
+              <!-- Sandbox Card -->
+              <div class="bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-xl p-5 shadow-xs relative group hover:border-[var(--color-brand)] transition-all duration-300">
+                <div class="flex items-center space-x-3 mb-3">
+                  <div class="p-2.5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-[var(--color-brand)]">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-[var(--color-fg)]">Pluggable Sandbox</h4>
+                    <p class="text-[10px] font-mono text-[var(--color-fg-muted)]">Containers & VM Adapters</p>
+                  </div>
+                </div>
+                <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                  Hardware-isolated runtime executing python, shell commands, and node scripts. Plugs into Cloudflare Containers, Docker, Kubernetes, E2B, or Daytona.
+                </p>
+              </div>
+
+              <!-- Outbound Proxy & Vault Card -->
+              <div class="bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-xl p-5 shadow-xs relative group hover:border-[var(--color-brand)] transition-all duration-300">
+                <div class="absolute -top-3 right-4 px-2 py-0.5 bg-[var(--color-brand-subtle)] text-[var(--color-brand)] font-mono text-[9px] rounded-full uppercase font-bold tracking-wider">
+                  Zero Trust
+                </div>
+                <div class="flex items-center space-x-3 mb-3">
+                  <div class="p-2.5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-[var(--color-brand)]">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-[var(--color-fg)]">Outbound Proxy & Vault</h4>
+                    <p class="text-[10px] font-mono text-[var(--color-fg-muted)]">Secure Key Injection</p>
+                  </div>
+                </div>
+                <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                  Intercepts outgoing HTTPS requests from the sandbox. Injects tokens securely at the network layer. Sandboxes never have access to raw credentials.
+                </p>
+              </div>
+
+              <!-- BYOK Model Gateway -->
+              <div class="bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-xl p-5 shadow-xs relative group hover:border-[var(--color-brand)] transition-all duration-300">
+                <div class="flex items-center space-x-3 mb-3">
+                  <div class="p-2.5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-[var(--color-brand)]">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-[var(--color-fg)]">BYOK Model Gateway</h4>
+                    <p class="text-[10px] font-mono text-[var(--color-fg-muted)]">Anthropic, OpenAI, OpenRouter</p>
+                  </div>
+                </div>
+                <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                  Bring Your Own Key to communicate with models. Supports model cards to customize API endpoints, system parameters, and fallback provider sequences.
+                </p>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Animated SVG Connections -->
+          <div class="absolute inset-0 pointer-events-none hidden lg:block z-0">
+            <svg class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="grad-coral" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="var(--color-brand)" stop-opacity="0.1" />
+                  <stop offset="50%" stop-color="var(--color-brand)" stop-opacity="0.5" />
+                  <stop offset="100%" stop-color="var(--color-brand)" stop-opacity="0.1" />
+                </linearGradient>
+              </defs>
+              
+              <!-- Connection 1: Col 1 Card to Col 2 Top Card -->
+              <path d="M 310,230 Q 360,230 400,185" fill="none" stroke="url(#grad-coral)" stroke-width="2" class="animated-connector" />
+              <path d="M 310,230 Q 360,230 400,345" fill="none" stroke="url(#grad-coral)" stroke-width="2" class="animated-connector" />
+              
+              <!-- Connection 2: Col 2 Cards to Col 3 Cards -->
+              <path d="M 640,185 Q 670,185 710,135" fill="none" stroke="url(#grad-coral)" stroke-width="2" class="animated-connector" />
+              <path d="M 640,345 Q 670,345 710,285" fill="none" stroke="url(#grad-coral)" stroke-width="2" class="animated-connector" />
+              <path d="M 640,345 Q 670,345 710,435" fill="none" stroke="url(#grad-coral)" stroke-width="2" class="animated-connector" />
+              
+              <!-- Connection between Sandbox and Outbound Proxy -->
+              <path d="M 830,195 L 830,225" fill="none" stroke="url(#grad-coral)" stroke-width="2" class="animated-connector" />
+            </svg>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-8">
+          <div>
+            <h3 class="font-display text-xl font-bold mb-3">Modular Seam Architecture</h3>
+            <p class="text-[var(--color-fg-muted)] leading-relaxed text-sm">
+              Open Managed Agents is built on clean boundaries. You write the agent's logic in the <strong>Harness</strong> layer, while the platform hosts the execution environment. The HTTP API behaves exactly like closed agent platforms, providing drop-in compatibility while giving you full source access to customize any execution block.
+            </p>
+          </div>
+          <div>
+            <h3 class="font-display text-xl font-bold mb-3">Five-line quickstart</h3>
+            <p class="text-xs text-[var(--color-fg-muted)] mb-3 leading-relaxed">
+              No SDK or platform account needed for local development. Launch the full environment stack locally using Docker:
+            </p>
+            <pre class="bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-xl p-4 text-xs leading-relaxed overflow-x-auto font-mono text-[var(--color-fg)]"><code>git clone https://github.com/duyet/oma
+cd open-managed-agents && cp .env.example .env
+# Set ANTHROPIC_API_KEY in .env, then:
+docker compose up -d
+curl localhost:8787/v1/agents -d '&#123;"name":"hello", "model":"claude-sonnet-4-6"&#125;'</code></pre>
+          </div>
+        </div>
+
+        <div class="mt-14">
+          <h3 class="font-display text-xl font-bold mb-3">
+            Sandbox execution is pluggable — not locked to Cloudflare Containers
+          </h3>
+          <p class="text-[var(--color-fg-muted)] leading-relaxed mb-4 max-w-3xl">
+            Whichever harness drives the agent loop, it executes tool calls through a small, standardized <code class="font-mono text-sm">SandboxExecutor</code> interface. Cloudflare Containers is the default on the Cloudflare deployment, but adapters are already built for local subprocesses, Kubernetes pods, E2B, Daytona, and LiteBox.
+          </p>
+          <div class="grid md:grid-cols-2 gap-8 items-start">
+            <pre class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-4 text-xs leading-relaxed overflow-x-auto"><code># Register providers dynamically — bring your own keys (BYOK)
 curl -X POST /v1/sandbox_providers \
   -H 'content-type: application/json' \
   -d '&#123;
@@ -163,55 +336,210 @@ curl -X POST /v1/sandbox_providers \
 GET /v1/sandbox_providers
 
 # View usage stats per provider
-GET /v1/sandbox_providers/:id/usage
-
-# Built-in providers are auto-detected from env vars:
-# DAYTONA_API_KEY, E2B_API_KEY, BOXRUN_URL, etc.</code></pre>
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm border border-[var(--color-border)] rounded-lg">
-              <thead>
-                <tr class="bg-[var(--color-bg)] text-left">
-                  <th scope="col" class="px-3 py-2 font-semibold border-b border-[var(--color-border)]">Provider</th>
-                  <th scope="col" class="px-3 py-2 font-semibold border-b border-[var(--color-border)]">What it is</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">subprocess</code></th>
-                  <td class="px-3 py-2 border-b border-[var(--color-border)]">Plain host subprocess — self-host default, no isolation beyond the OS</td>
-                </tr>
-                <tr>
-                  <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">k8s</code></th>
-                  <td class="px-3 py-2 border-b border-[var(--color-border)]">Pod via the kubernetes-sigs <a href="https://github.com/kubernetes-sigs/agent-sandbox" target="_blank" rel="noopener noreferrer">agent-sandbox</a> controller</td>
-                </tr>
-                <tr>
-                  <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">e2b</code></th>
-                  <td class="px-3 py-2 border-b border-[var(--color-border)]">E2B-hosted sandboxes — bring your own E2B_API_KEY</td>
-                </tr>
-                <tr>
-                  <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">daytona</code></th>
-                  <td class="px-3 py-2 border-b border-[var(--color-border)]">Daytona-hosted sandboxes — bring your own DAYTONA_API_KEY</td>
-                </tr>
-                <tr>
-                  <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">litebox</code></th>
-                  <td class="px-3 py-2 border-b border-[var(--color-border)]">Local Firecracker micro-VM via BoxLite — hardware isolation, no daemon</td>
-                </tr>
-                <tr>
-                  <th scope="row" class="px-3 py-2 font-medium"><code class="font-mono text-xs">boxrun</code></th>
-                  <td class="px-3 py-2">Remote BoxLite HTTP control plane — hardware isolation without local KVM</td>
-                </tr>
-              </tbody>
-            </table>
+GET /v1/sandbox_providers/:id/usage</code></pre>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm border border-[var(--color-border)] rounded-lg">
+                <thead>
+                  <tr class="bg-[var(--color-bg)] text-left">
+                    <th scope="col" class="px-3 py-2 font-semibold border-b border-[var(--color-border)]">Provider</th>
+                    <th scope="col" class="px-3 py-2 font-semibold border-b border-[var(--color-border)]">What it is</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">subprocess</code></th>
+                    <td class="px-3 py-2 border-b border-[var(--color-border)]">Plain host subprocess — self-host default, no isolation beyond OS</td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">k8s</code></th>
+                    <td class="px-3 py-2 border-b border-[var(--color-border)]">Pod via kubernetes-sigs agent-sandbox controller</td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">e2b</code></th>
+                    <td class="px-3 py-2 border-b border-[var(--color-border)]">E2B-hosted sandboxes — bring your own E2B_API_KEY</td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">daytona</code></th>
+                    <td class="px-3 py-2 border-b border-[var(--color-border)]">Daytona-hosted sandboxes — bring your own DAYTONA_API_KEY</td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">litebox</code></th>
+                    <td class="px-3 py-2 border-b border-[var(--color-border)]">Local Firecracker micro-VM via BoxLite — hardware isolation</td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="px-3 py-2 font-medium"><code class="font-mono text-xs">boxrun</code></th>
+                    <td class="px-3 py-2">Remote BoxLite HTTP control plane — hardware isolation</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-        <p class="text-xs text-[var(--color-fg-subtle)] mt-4">
-          Same <code class="font-mono text-xs">SandboxExecutor</code> port,
-          same tool calls from the agent's perspective — swapping providers
-          doesn't touch the harness or the routes.
-        </p>
       </div>
+
+      <!-- Panel 2: Durable Lifecycle Diagram -->
+      <div id="panel-lifecycle" class="hidden space-y-12">
+        <div class="relative w-full overflow-hidden border border-[var(--color-border)] rounded-2xl bg-[var(--color-bg)] p-6 md:p-10 shadow-xs">
+          <!-- Dot matrix background pattern -->
+          <div class="absolute inset-0 opacity-[0.03] dark:opacity-[0.07] pointer-events-none" style="background-image: radial-gradient(var(--color-fg) 1.5px, transparent 1.5px); background-size: 20px 20px;"></div>
+          
+          <div class="relative z-10 grid grid-cols-1 md:grid-cols-5 gap-4 items-stretch">
+            
+            <!-- Step 1 -->
+            <div class="bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-xl p-5 shadow-xs relative flex flex-col justify-between hover:border-[var(--color-brand)] transition-all duration-300">
+              <div>
+                <div class="flex items-center justify-between mb-4">
+                  <span class="w-7 h-7 rounded-full bg-[var(--color-brand-subtle)] text-[var(--color-brand)] flex items-center justify-center font-mono text-xs font-bold">01</span>
+                  <span class="text-[10px] uppercase font-mono font-bold tracking-wider text-[var(--color-fg-subtle)]">Bootstrap</span>
+                </div>
+                <h4 class="font-bold text-sm text-[var(--color-fg)] mb-2">Session Start</h4>
+                <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                  SessionDO restores the conversation log from SQLite, binds to the Agent version, and registers environment tools.
+                </p>
+              </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-xl p-5 shadow-xs relative flex flex-col justify-between hover:border-[var(--color-brand)] transition-all duration-300">
+              <div>
+                <div class="flex items-center justify-between mb-4">
+                  <span class="w-7 h-7 rounded-full bg-[var(--color-brand-subtle)] text-[var(--color-brand)] flex items-center justify-center font-mono text-xs font-bold">02</span>
+                  <span class="text-[10px] uppercase font-mono font-bold tracking-wider text-[var(--color-fg-subtle)]">Context</span>
+                </div>
+                <h4 class="font-bold text-sm text-[var(--color-fg)] mb-2">Compile & Query</h4>
+                <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                  The Harness aggregates messages, applies prompt compaction/caching rules, and queries the LLM for the next step.
+                </p>
+              </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-xl p-5 shadow-xs relative flex flex-col justify-between hover:border-[var(--color-brand)] transition-all duration-300">
+              <div>
+                <div class="flex items-center justify-between mb-4">
+                  <span class="w-7 h-7 rounded-full bg-[var(--color-brand-subtle)] text-[var(--color-brand)] flex items-center justify-center font-mono text-xs font-bold">03</span>
+                  <span class="text-[10px] uppercase font-mono font-bold tracking-wider text-[var(--color-fg-subtle)]">Execute</span>
+                </div>
+                <h4 class="font-bold text-sm text-[var(--color-fg)] mb-2">Sandbox Run</h4>
+                <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                  Tool parameters are dispatched to the pluggable sandbox (e.g. executing bash scripts, editing files).
+                </p>
+              </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-xl p-5 shadow-xs relative flex flex-col justify-between hover:border-[var(--color-brand)] transition-all duration-300">
+              <div>
+                <div class="flex items-center justify-between mb-4">
+                  <span class="w-7 h-7 rounded-full bg-[var(--color-brand-subtle)] text-[var(--color-brand)] flex items-center justify-center font-mono text-xs font-bold">04</span>
+                  <span class="text-[10px] uppercase font-mono font-bold tracking-wider text-[var(--color-fg-subtle)]">Proxy</span>
+                </div>
+                <h4 class="font-bold text-sm text-[var(--color-fg)] mb-2">Vault Injection</h4>
+                <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                  Outgoing requests intercept at the Proxy layer, transparently injecting secrets from the Vault.
+                </p>
+              </div>
+            </div>
+
+            <!-- Step 5 -->
+            <div class="bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-xl p-5 shadow-xs relative flex flex-col justify-between hover:border-[var(--color-brand)] transition-all duration-300">
+              <div>
+                <div class="flex items-center justify-between mb-4">
+                  <span class="w-7 h-7 rounded-full bg-[var(--color-brand)] text-[var(--color-brand-fg)] flex items-center justify-center font-mono text-xs font-bold">05</span>
+                  <span class="text-[10px] uppercase font-mono font-bold tracking-wider text-[var(--color-brand-fg)] bg-[var(--color-brand)] px-1.5 py-0.5 rounded">Resilience</span>
+                </div>
+                <h4 class="font-bold text-sm text-[var(--color-fg)] mb-2">Durable Replay</h4>
+                <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                  If the runtime crashes, a fresh instance reads SQLite, replays the event state, and resumes execution seamlessly.
+                </p>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Connecting line background (hidden on mobile) -->
+          <div class="absolute top-[52px] left-[10%] right-[10%] h-0.5 bg-[var(--color-border)] pointer-events-none hidden md:block z-0">
+            <div class="h-full bg-[var(--color-brand)] opacity-60 w-1/3 rounded animate-[ping_3s_linear_infinite]" style="animation: scroll-line 3s linear infinite;"></div>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-8">
+          <div>
+            <h3 class="font-display text-xl font-bold mb-3">100% Crash-Proof State Semantics</h3>
+            <p class="text-[var(--color-fg-muted)] leading-relaxed text-sm">
+              Because all state is tracked through an append-only event log persisted inside SQLite before broadcast, the session can recover from any harness termination, runtime crash, or cloud container restart. Re-instantiating the harness loads the log and catches up step-by-step.
+            </p>
+          </div>
+          <div>
+            <h3 class="font-display text-xl font-bold mb-3">Zero-Trust Vault Credentials</h3>
+            <p class="text-[var(--color-fg-muted)] leading-relaxed text-sm">
+              Secrets never enter the sandboxed execution environment. Instead, vaults configure URL endpoints (e.g. GitHub API). When the sandbox queries them, the platform's Outbound Proxy intercepts the request, maps the endpoint, injects the authorization token, and forwards it securely.
+            </p>
+          </div>
+        </div>
+      </div>
+
     </div>
   </section>
+
+  <!-- Flow and dash animations -->
+  <style>
+    @keyframes flow {
+      to {
+        stroke-dashoffset: -20;
+      }
+    }
+    .animated-connector {
+      stroke-dasharray: 6, 4;
+      animation: flow 1.5s linear infinite;
+    }
+    .dark .animated-connector {
+      opacity: 0.8;
+    }
+    @keyframes scroll-line {
+      0% {
+        transform: translateX(-100%);
+      }
+      100% {
+        transform: translateX(300%);
+      }
+    }
+  </style>
+
+  <!-- Interactive script for tabs toggle -->
+  <script is:inline>
+    // Tabs controller for the How it works diagrams
+    const btnArch = document.getElementById('tab-architecture');
+    const btnLife = document.getElementById('tab-lifecycle');
+    const panelArch = document.getElementById('panel-architecture');
+    const panelLife = document.getElementById('panel-lifecycle');
+
+    if (btnArch && btnLife && panelArch && panelLife) {
+      btnArch.addEventListener('click', () => {
+        // Toggle button styles
+        btnArch.classList.add('bg-[var(--color-bg-surface)]', 'shadow-xs', 'text-[var(--color-fg)]');
+        btnArch.classList.remove('text-[var(--color-fg-muted)]');
+        btnLife.classList.remove('bg-[var(--color-bg-surface)]', 'shadow-xs', 'text-[var(--color-fg)]');
+        btnLife.classList.add('text-[var(--color-fg-muted)]');
+
+        // Toggle panels
+        panelArch.classList.remove('hidden');
+        panelLife.classList.add('hidden');
+      });
+
+      btnLife.addEventListener('click', () => {
+        // Toggle button styles
+        btnLife.classList.add('bg-[var(--color-bg-surface)]', 'shadow-xs', 'text-[var(--color-fg)]');
+        btnLife.classList.remove('text-[var(--color-fg-muted)]');
+        btnArch.classList.remove('bg-[var(--color-bg-surface)]', 'shadow-xs', 'text-[var(--color-fg)]');
+        btnArch.classList.add('text-[var(--color-fg-muted)]');
+
+        // Toggle panels
+        panelLife.classList.remove('hidden');
+        panelArch.classList.add('hidden');
+      });
+    }
+  </script>
 
   <!-- API compatibility -->
   <section class="max-w-5xl mx-auto px-4 py-16" data-reveal>
@@ -570,9 +898,9 @@ GET /v1/sandbox_providers/:id/usage
             <td class="px-4 py-3 border-b border-[var(--color-border)]">Anthropic only, no BYOK</td>
           </tr>
           <tr>
-            <th scope="row" class="px-4 py-3 font-medium border-b border-[var(--color-border)]">Pricing model</th>
-            <td class="px-4 py-3 border-b border-[var(--color-border)]">Sandbox compute only, no token markup; self-host is free</td>
-            <td class="px-4 py-3 border-b border-[var(--color-border)]">Token + platform fees bundled</td>
+            <th scope="row" class="px-4 py-3 font-medium border-b border-[var(--color-border)]">Hosting cost</th>
+            <td class="px-4 py-3 border-b border-[var(--color-border)]">Self-host is free forever; hosted version is free trial (then compute cost)</td>
+            <td class="px-4 py-3 border-b border-[var(--color-border)]">Platform fee + marked up tokens</td>
           </tr>
           <tr>
             <th scope="row" class="px-4 py-3 font-medium border-b border-[var(--color-border)]">Custom harness</th>
@@ -602,51 +930,6 @@ GET /v1/sandbox_providers/:id/usage
     </p>
   </section>
 
-  <!-- Pricing teaser (kept — relevant to hosted CTA) -->
-  <section class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal>
-    <div class="max-w-5xl mx-auto px-4 py-16">
-      <h2 class="font-display text-3xl font-bold text-center mb-2">Hosted pricing (optional)</h2>
-      <p class="text-center text-[var(--color-fg-muted)] mb-12 max-w-2xl mx-auto">
-        Self-host is free forever. The hosted service at oma.duyet.net is for
-        teams who'd rather not run the infra themselves. BYOK for the LLM —
-        we only charge for sandbox compute.
-      </p>
-      <div class="grid md:grid-cols-3 gap-6">
-        <PricingCard
-          name="Free"
-          price="$0"
-          features={[
-            "$1 one-time trial credit",
-            "localRuntime unlimited",
-            "All integrations included",
-          ]}
-        />
-        <PricingCard
-          name="Pro"
-          price="$20"
-          badge="Most popular"
-          features={[
-            '<strong class="text-[var(--color-fg)]">$22</strong> credit (10% bonus)',
-            "~73 hours cloud sandbox",
-            "Auto-renewing wallet top-up",
-          ]}
-        />
-        <PricingCard
-          name="Max"
-          price="$100"
-          features={[
-            '<strong class="text-[var(--color-fg)]">$120</strong> credit (20% bonus)',
-            "~400 hours cloud sandbox",
-            "Priority email support",
-          ]}
-        />
-      </div>
-      <p class="text-center text-xs text-[var(--color-fg-subtle)] mt-8">
-        Self-host always remains free. Hosted is one packaging of the same
-        Apache 2.0 codebase.
-      </p>
-    </div>
-  </section>
 
   <!-- Recent blog -->
   {posts.length > 0 && (
