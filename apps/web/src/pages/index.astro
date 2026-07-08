@@ -31,7 +31,7 @@ const schemas = [softwareApplicationSchema()];
   <section class="border-b border-[var(--color-border)]">
     <div class="max-w-5xl mx-auto px-4 py-20 md:py-28 text-center">
       <p class="text-sm font-mono uppercase tracking-wider text-[var(--color-fg-subtle)] mb-4">
-        Apache 2.0 · Cloudflare-native · Self-hostable
+        Apache 2.0 · Cloudflare-native · Self-hostable · BYOK
       </p>
       <h1 class="font-display text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
         oma — the self-hosted agent platform for any LLM provider
@@ -41,11 +41,13 @@ const schemas = [softwareApplicationSchema()];
       </h1>
       <p class="mt-6 text-base md:text-lg text-[var(--color-fg-muted)] max-w-2xl mx-auto leading-relaxed">
         An open-source, self-hostable agent platform: durable sessions,
-        sandboxed code execution, vault-backed credentials, MCP server hosting,
-        and Claude Code skills — served from Cloudflare Workers + Durable
-        Objects, or a Docker container on your own box. Bring Anthropic, an
-        OpenAI-compatible gateway, or your own model — the source code and
-        the runtime stay under your control.
+        sandboxed code execution across <strong>7 providers</strong> (Cloudflare
+        Containers, local subprocess, Kubernetes, E2B, Daytona, LiteBox, BoxRun),
+        vault-backed credentials, MCP server hosting, and Claude Code skills —
+        served from Cloudflare Workers + Durable Objects, or a Docker container
+        on your own box. BYOK for both LLM <em>and</em> sandbox — bring
+        Anthropic, OpenAI, OpenRouter, <strong>and</strong> your preferred
+        sandbox runtime.
       </p>
       <div class="mt-8 flex items-center justify-center gap-3 flex-wrap">
         <a
