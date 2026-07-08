@@ -33,6 +33,13 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Healthchecks — start
+        if: ${{ vars.HEALTHCHECKS_IO_URL != '' }}
+        run: |
+          curl -fsS -m 10 --retry 3 \
+            "${{ vars.HEALTHCHECKS_IO_URL }}/start" \
+            -d "Deploy main worker started: ${{ github.sha }}"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
 
@@ -55,3 +62,17 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: apps/main
           command: deploy --env production
+
+      - name: Healthchecks — success
+        if: success() && vars.HEALTHCHECKS_IO_URL != ''
+        run: |
+          curl -fsS -m 10 --retry 3 \
+            "${{ vars.HEALTHCHECKS_IO_URL }}" \
+            -d "Deploy main worker succeeded: ${{ github.sha }}"
+
+      - name: Healthchecks — failure
+        if: failure() && vars.HEALTHCHECKS_IO_URL != ''
+        run: |
+          curl -fsS -m 10 --retry 3 \
+            "${{ vars.HEALTHCHECKS_IO_URL }}/fail" \
+            -d "Deploy main worker failed: ${{ github.sha }}"

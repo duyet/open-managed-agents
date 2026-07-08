@@ -11,6 +11,7 @@ import { CfInstallBridge } from "./cf-install-bridge";
 import { webhookRateLimitMiddleware, shouldDropForTenantRateLimit } from "./webhook-rate-limit";
 import { linearDispatchTick } from "@duyet/oma-scheduler/jobs/linear-dispatch";
 import { getLogger } from "@duyet/oma-observability";
+import { pingHealthchecks } from "@duyet/oma-shared";
 import { buildIntegrationsGatewayRoutes } from "@duyet/oma-http-routes";
 
 const log = getLogger("apps.integrations");
@@ -105,6 +106,9 @@ async function scheduled(
   env: Env,
   ctx: ExecutionContext,
 ): Promise<void> {
+  // Ping healthchecks.io start (fire-and-forget)
+  pingHealthchecks(env, "start", "linear-dispatch tick started").catch(() => {});
+
   const tick = linearDispatchTick({
     resolveSweeper: async () => {
       const { linear } = buildProviders(env);
@@ -112,12 +116,20 @@ async function scheduled(
     },
   });
   ctx.waitUntil(
-    tick().catch((err) => {
-      log.error(
-        { err, op: "linear-dispatch-cron.fatal", cron: controller.cron },
-        "linear-dispatch tick failed",
-      );
-    }),
+    tick()
+      .then(() => {
+        // Ping healthchecks.io success (fire-and-forget)
+        pingHealthchecks(env, "success", "linear-dispatch tick completed").catch(() => {});
+      })
+      .catch((err) => {
+        log.error(
+          { err, op: "linear-dispatch-cron.fatal", cron: controller.cron },
+          "linear-dispatch tick failed",
+        );
+        // Ping healthchecks.io failure (fire-and-forget)
+        const msg = err instanceof Error ? err.message : String(err);
+        pingHealthchecks(env, "fail", `linear-dispatch tick failed: ${msg}`).catch(() => {});
+      }),
   );
 }
 

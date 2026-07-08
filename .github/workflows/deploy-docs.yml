@@ -28,6 +28,10 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Healthchecks — start
+        if: ${{ vars.HEALTHCHECKS_IO_URL != '' }}
+        run: curl -fsS -m 10 --retry 3 "${{ vars.HEALTHCHECKS_IO_URL }}/start" -d "Deploy docs site started: ${{ github.sha }}"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
 
@@ -50,3 +54,11 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: apps/docs
           command: deploy
+
+      - name: Healthchecks — success
+        if: success() && vars.HEALTHCHECKS_IO_URL != ''
+        run: curl -fsS -m 10 --retry 3 "${{ vars.HEALTHCHECKS_IO_URL }}" -d "Deploy docs site succeeded: ${{ github.sha }}"
+
+      - name: Healthchecks — failure
+        if: failure() && vars.HEALTHCHECKS_IO_URL != ''
+        run: curl -fsS -m 10 --retry 3 "${{ vars.HEALTHCHECKS_IO_URL }}/fail" -d "Deploy docs site failed: ${{ github.sha }}"

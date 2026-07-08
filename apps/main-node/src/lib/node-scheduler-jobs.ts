@@ -19,6 +19,7 @@ const log = getLogger("node-scheduler");
 import { createNodeScheduler } from "@duyet/oma-scheduler/node";
 import { memoryRetentionTick } from "@duyet/oma-scheduler/jobs/memory-retention";
 import { webhookEventsRetentionTick } from "@duyet/oma-scheduler/jobs/webhook-events-retention";
+import { withHealthchecks } from "@duyet/oma-shared";
 import {
   linearDispatchTick,
   type LinearDispatchSweeper,
@@ -47,6 +48,7 @@ export interface NodeSchedulerDeps {
 
 export function buildNodeScheduler(deps: NodeSchedulerDeps) {
   const env = deps.env ?? process.env;
+  const hcEnv = { HEALTHCHECKS_IO_URL: env.HEALTHCHECKS_IO_URL };
   const cron = (key: string, fallback: string) => {
     const v = env[key];
     return v && v.trim() ? v : fallback;
@@ -66,22 +68,22 @@ export function buildNodeScheduler(deps: NodeSchedulerDeps) {
   scheduler.register({
     name: "eval-tick",
     cron: cron("EVAL_TICK_CRON", "* * * * *"),
-    handler: async () => {
+    handler: withHealthchecks(hcEnv, "eval-tick", async () => {
       try {
         await tickEvalRuns(evalCtx);
       } catch (err) {
         log.warn({ err, op: "scheduler.eval_tick.failed" }, "eval-tick failed");
       }
-    },
+    }),
   });
 
   // Memory retention.
   scheduler.register({
     name: "memory-retention",
     cron: cron("MEMORY_RETENTION_CRON", "* * * * *"),
-    handler: memoryRetentionTick({
+    handler: withHealthchecks(hcEnv, "memory-retention", memoryRetentionTick({
       forEachShard: async (fn) => [await fn({ memory: deps.memory }, "default")],
-    }),
+    })),
   });
 
   // Webhook-events retention — only registered if an integrations DB
@@ -92,9 +94,9 @@ export function buildNodeScheduler(deps: NodeSchedulerDeps) {
     scheduler.register({
       name: "webhook-events-retention",
       cron: cron("WEBHOOK_EVENTS_RETENTION_CRON", "* * * * *"),
-      handler: webhookEventsRetentionTick({
+      handler: withHealthchecks(hcEnv, "webhook-events-retention", webhookEventsRetentionTick({
         resolveIntegrationsDb: () => integrationsSql,
-      }),
+      })),
     });
   }
 
@@ -107,7 +109,7 @@ export function buildNodeScheduler(deps: NodeSchedulerDeps) {
     scheduler.register({
       name: "linear-dispatch",
       cron: cron("LINEAR_DISPATCH_CRON", "* * * * *"),
-      handler: linearDispatchTick({ resolveSweeper }),
+      handler: withHealthchecks(hcEnv, "linear-dispatch", linearDispatchTick({ resolveSweeper })),
     });
   }
 
