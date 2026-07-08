@@ -2,48 +2,38 @@
 
 /* Mirror the Console design tokens so cross-link feel is consistent. */
 @theme {
-  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Source Serif 4", ui-serif, Georgia, serif;
+  --font-sans: "Lora", Georgia, serif;
+  --font-display: "Poppins", Arial, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  --color-bg: #fdfdfc;
-  --color-bg-surface: #f5f5f5;
-  --color-fg: #171717;
-  --color-fg-muted: #737373;
-  /* Tertiary text — small kicker labels, dates, breadcrumbs. #707070 lands
-     at ~4.84:1 against --color-bg (#fdfdfc warm-tinted), comfortably above
-     AA-normal (4.5:1). Earlier #767676 was just under threshold (4.43:1)
-     because the bg isn't pure white. */
-  --color-fg-subtle: #707070;
-  --color-border: #e5e5e5;
-  --color-border-strong: #d4d4d4;
-  /* Coral brand — matches .impeccable.md (#FF6B50) and the console + logo. */
-  --color-brand: #ff6b50;
-  --color-brand-hover: #e85a40;
-  --color-brand-subtle: #fff0ec;
-  /* Dark warm tone — pairs with brand at ~5.4:1 (AA-pass; white would be 2.96:1, AA-fail).
-     Used by anything that puts text on a brand background. */
-  --color-brand-fg: #3d2520;
+  --color-bg: #faf9f5;
+  --color-bg-surface: #e8e6dc;
+  --color-fg: #141413;
+  --color-fg-muted: #61605a;
+  --color-fg-subtle: #828076;
+  --color-border: #e8e6dc;
+  --color-border-strong: #b0aea5;
+  --color-brand: #d97757;
+  --color-brand-hover: #bf6041;
+  --color-brand-subtle: #fbf1ee;
+  --color-brand-fg: #141413;
+  
+  --color-blue: #6a9bcc;
+  --color-green: #788c5d;
 }
 
 .dark {
-  --color-bg: #161616;
-  --color-bg-surface: #222222;
-  --color-fg: #ededed;
-  --color-fg-muted: #999999;
-  /* Tertiary text in dark mode — bumped from #6b6b6b to #9b9b9b for AA
-     contrast (≥4.5:1) against --color-bg. */
-  --color-fg-subtle: #9b9b9b;
-  --color-border: #333333;
-  --color-border-strong: #444444;
-  /* Brand stays #ff6b50 in dark too — spec calls for identical hue both modes;
-     it lands at ~6.5:1 on the dark bg so it passes AA without darkening. */
-  --color-brand: #ff6b50;
-  --color-brand-hover: #ff8068;
-  --color-brand-subtle: #3d2520;
-  /* Same dark fg in dark mode — brand stays coral, the dark-on-coral pair
-     keeps AA contrast (white-on-coral fails at any size below ~24px bold). */
-  --color-brand-fg: #3d2520;
+  --color-bg: #141413;
+  --color-bg-surface: #222221;
+  --color-fg: #faf9f5;
+  --color-fg-muted: #b0aea5;
+  --color-fg-subtle: #828076;
+  --color-border: #2a2a29;
+  --color-border-strong: #40403e;
+  --color-brand: #d97757;
+  --color-brand-hover: #e09278;
+  --color-brand-subtle: #2d1a15;
+  --color-brand-fg: #141413;
 }
 
 html {
