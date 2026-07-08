@@ -34,7 +34,10 @@ jobs:
 
       - name: Healthchecks — start
         if: ${{ vars.HEALTHCHECKS_IO_URL != '' }}
-        run: curl -fsS -m 10 --retry 3 "${{ vars.HEALTHCHECKS_IO_URL }}/start" -d "Deploy agent worker started: ${{ github.sha }}"
+        run: |
+          curl -fsS -m 10 --retry 3 \
+            "${{ vars.HEALTHCHECKS_IO_URL }}/start" \
+            -d "Deploy agent worker started: ${{ github.sha }}"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -58,8 +61,14 @@ jobs:
 
       - name: Healthchecks — success
         if: success() && vars.HEALTHCHECKS_IO_URL != ''
-        run: curl -fsS -m 10 --retry 3 "${{ vars.HEALTHCHECKS_IO_URL }}" -d "Deploy agent worker succeeded: ${{ github.sha }}"
+        run: |
+          curl -fsS -m 10 --retry 3 \
+            "${{ vars.HEALTHCHECKS_IO_URL }}" \
+            -d "Deploy agent worker succeeded: ${{ github.sha }}"
 
       - name: Healthchecks — failure
         if: failure() && vars.HEALTHCHECKS_IO_URL != ''
-        run: curl -fsS -m 10 --retry 3 "${{ vars.HEALTHCHECKS_IO_URL }}/fail" -d "Deploy agent worker failed: ${{ github.sha }}"
+        run: |
+          curl -fsS -m 10 --retry 3 \
+            "${{ vars.HEALTHCHECKS_IO_URL }}/fail" \
+            -d "Deploy agent worker failed: ${{ github.sha }}"
