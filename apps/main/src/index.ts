@@ -104,7 +104,9 @@ app.get("/health", (c) => c.json({ status: "ok" }));
 
 // GET /v1/hosting_types — sandbox providers this host can run (public).
 // Cloudflare Sandbox is always available. External providers (E2B, Modal,
-// …) are advertised only when their API key env var is configured.
+// Kubernetes, …) are advertised only when their API key env var is configured.
+// Mirrors the SandboxProviderRegistry's getHostingTypes() on the Node build
+// so the Console UI shows the same provider list across both deployments.
 app.get("/v1/hosting_types", (c) => {
   const types: Array<{
     id: string;
@@ -114,6 +116,7 @@ app.get("/v1/hosting_types", (c) => {
     requires_key?: string;
   }> = [
     { id: "cloud", label: "Cloudflare Sandbox", description: "Managed sandbox, built in." },
+    { id: "subprocess", label: "Local subprocess", description: "Node child_process on the host. Zero isolation — trusted local dev only." },
   ];
   if (c.env.E2B_API_KEY) {
     types.push({
@@ -127,6 +130,13 @@ app.get("/v1/hosting_types", (c) => {
       id: "modal", label: "Modal",
       description: "gVisor-isolated containers via Modal. Optional GPU access, sub-second cold starts, 50K+ concurrent sessions. Requires a Modal API key.",
       external: true, requires_key: "MODAL_API_KEY",
+    });
+  }
+  if (c.env.OMA_K8S_NAMESPACE) {
+    types.push({
+      id: "k8s", label: "Kubernetes",
+      description: "Pod via the kubernetes-sigs agent-sandbox controller.",
+      external: true, requires_key: "OMA_K8S_NAMESPACE",
     });
   }
   return c.json({ data: types });

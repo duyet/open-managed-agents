@@ -1,6 +1,5 @@
 "use client";
 
-import { useControllableState } from "@radix-ui/react-use-controllable-state";
 import {
   Collapsible,
   CollapsibleContent,
@@ -26,6 +25,32 @@ import {
 import { Streamdown } from "streamdown";
 
 import { Shimmer } from "./shimmer";
+
+/**
+ * Simple controlled/uncontrolled state hook, replacing the previous
+ * @radix-ui/react-use-controllable-state dependency.
+ */
+function useControllableState<T>({
+  defaultProp,
+  prop,
+  onChange,
+}: {
+  defaultProp?: T;
+  prop?: T;
+  onChange?: (value: T) => void;
+}): [T, (value: T) => void] {
+  const [uncontrolled, setUncontrolled] = useState(defaultProp as T);
+  const isControlled = prop !== undefined;
+  const value = isControlled ? (prop as T) : uncontrolled;
+  const setValue = useCallback(
+    (next: T) => {
+      if (!isControlled) setUncontrolled(next);
+      onChange?.(next);
+    },
+    [isControlled, onChange],
+  );
+  return [value, setValue];
+}
 
 interface ReasoningContextValue {
   isStreaming: boolean;

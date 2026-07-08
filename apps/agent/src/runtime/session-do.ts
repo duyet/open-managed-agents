@@ -4228,7 +4228,9 @@ export class SessionDO extends DurableObject<Env> {
       },
     });
     const subModelId = typeof subAgent.model === "string" ? subAgent.model : subAgent.model?.id;
-    const subModel = resolveModel(subModelId || this.env.ANTHROPIC_MODEL || "claude-sonnet-4-6", this.env.ANTHROPIC_API_KEY, this.env.ANTHROPIC_BASE_URL);
+    const subEffectiveHandle = subModelId || this.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+    const subCreds = await this.resolveModelCardCredentials(subEffectiveHandle);
+    const subModel = resolveModel(subCreds.model, subCreds.apiKey, subCreds.baseURL, subCreds.apiCompat, subCreds.customHeaders);
 
     // Per-thread abort controller. Registered in _threadAbortControllers
     // so a `user.interrupt` with this thread's session_thread_id (handled
