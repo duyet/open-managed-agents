@@ -37,7 +37,7 @@ one that matches your hosting story:
 |---|---|---|
 | Where it lives | Your VPS / Mac / Docker host / fly.io / your k8s | Cloudflare Workers + DO + Containers |
 | Storage | SQLite or Postgres + local FS | D1 + KV + R2 |
-| Sandbox | LocalSubprocess / LiteBox / Daytona / E2B / BoxRun | Cloudflare Sandbox (Containers) |
+| Sandbox | Multi-provider: LocalSubprocess / LiteBox / Daytona / E2B / BoxRun / Kubernetes + BYOK | Cloudflare Sandbox (Containers) |
 | Time to running | `docker compose up` (~2 min) | wrangler deploy (~10 min once configured) |
 | Best for | OSS users, on-prem, no CF account, data-resident deploys | Edge scale, no host management, already on CF |
 
@@ -706,8 +706,16 @@ The variables that gate boot and at-rest safety:
 | `ANTHROPIC_API_KEY` | No | Fallback LLM credential used when a tenant has not added a Model Card. **In production, add a Model Card per tenant from the Console** — the key is encrypted at rest under `PLATFORM_ROOT_SECRET`, scoped to the tenant, and rotatable without redeploy. |
 | `ANTHROPIC_BASE_URL` | No | Override for Anthropic-compatible proxies. |
 | `PUBLIC_BASE_URL` | No (dev) / Yes (prod) | Cookie domain + OAuth redirect base. Defaults to `*` trusted-origins — only safe for local dev. |
-| `SANDBOX_PROVIDER` | No | `subprocess` (default, no isolation), `litebox` (Firecracker), `daytona`, `e2b`, or `boxrun`. Use an isolated backend for untrusted agents. |
+| `SANDBOX_PROVIDER` | No | Fallback default when an environment has no explicit provider selection. See multi-provider docs below for per-environment `config.sandbox_provider` and BYOK registration. |
 | `TAVILY_API_KEY` | No | Backend for the `web_search` built-in tool. |
+| `DAYTONA_API_KEY` | No | Enables Daytona sandbox provider (seeded at startup). |
+| `E2B_API_KEY` | No | Enables E2B sandbox provider (seeded at startup). |
+| `BOXRUN_URL` | No | Enables BoxRun sandbox provider (seeded at startup). |
+
+Multi-provider sandbox: providers can be seeded from env vars (system) or added
+via `POST /v1/sandbox_providers` (BYOK). Environments select a provider by ID
+via `config.sandbox_provider` — fallback chain: per-environment ID → legacy
+`config.type` → `SANDBOX_PROVIDER` env → `subprocess`.
 
 Full list (integrations OAuth credentials, Postgres URL, sandbox tunables, memory-bucket config, Google sign-in, etc.) — see **[docs.oma.duyet.net/reference/configuration](https://docs.oma.duyet.net/reference/configuration/)** and `.env.example` / `.dev.vars.example`.
 

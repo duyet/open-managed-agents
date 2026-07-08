@@ -183,7 +183,14 @@ export interface EnvironmentConfig {
     // BoxLite control plane), "daytona" (Daytona SaaS VM), "e2b" (E2B
     // Firecracker microVM), "k8s"/"kubernetes" (agent-sandbox pod). "cloud"
     // or unset falls back to the node's global SANDBOX_PROVIDER.
+    // New: sandbox_provider references a provider by ID from the sandbox
+    // provider registry (system or BYOK). When set, takes priority over
+    // the legacy type field.
     type: string;
+    /** Sandbox provider ID from the registry (system provider or BYOK).
+     *  When set, takes priority over the legacy `type` field. Allows
+     *  selecting a user-registered provider with custom API keys. */
+    sandbox_provider?: string;
     packages?: {
       pip?: string[];
       npm?: string[];

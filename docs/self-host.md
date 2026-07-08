@@ -409,18 +409,80 @@ The same demo works on the Postgres compose unchanged.
 | `/v1/runtimes` (RuntimeRoom DO) | ✗  CF-only (DO + WebSocket-backed) |
 | Cron / queue handlers | ✗  CF-only (P3 will land scheduler abstraction) |
 
-## Sandbox isolation modes
+## Sandbox modes
+
+OMA now supports **multiple sandbox providers simultaneously** through a
+`SandboxProviderRegistry` — not one global `SANDBOX_PROVIDER`. Providers
+can be seeded from env vars at startup (system providers) or added via the
+API at runtime (BYOK — bring your own key).
+
+### Built-in providers
+
+Seeded from env vars at startup. The first matching env key makes the
+provider available:
 
 | Mode | Use when | Configuration |
 |---|---|---|
-| `LocalSubprocessSandbox` (default) | Local dev, trusted agent code | Nothing — host subprocess in `./data/sandboxes/<sessionId>/`. `SANDBOX_PROVIDER=subprocess` (the default). |
-| `DaytonaSandbox` | Production / untrusted code with managed VMs | `SANDBOX_PROVIDER=daytona`, `DAYTONA_API_KEY=...`, optional `DAYTONA_API_URL` (self-hosted) and `SANDBOX_IMAGE=node:22-slim`. Vault CA uploaded into the box on first exec; memory mount via `MEMORY_S3_*` env vars (s3fs installed by the adapter). |
-| `LiteBoxSandbox` | Local hardware isolation without docker | `SANDBOX_PROVIDER=litebox`, optional `LITEBOX_MEMORY_MIB`, `LITEBOX_CPUS`, `SANDBOX_IMAGE`. BoxLite ships its own Firecracker runtime (no daemon). Memory mounts work via host bind-mount; vault CA copied into VM on first exec. |
-| `E2BSandbox` | Firecracker microVM SaaS | `SANDBOX_PROVIDER=e2b`, `E2B_API_KEY=...`, optional `SANDBOX_IMAGE` (template id). Memory via `MEMORY_S3_*` env vars (same s3fs setup as Daytona). Outbound vault CA upload requires a template that allows `sudo` writes to `/etc/ssl/`. |
-| `BoxRunSandbox` | Remote BoxLite REST endpoint (no KVM on the OMA host) | `SANDBOX_PROVIDER=boxrun`, `BOXRUN_URL=http://host:8100/v1/default`, optional `BOXRUN_TOKEN`. No mount primitive — bake a custom image with s3fs preinstalled if you need `/mnt/memory`. |
+| `LocalSubprocessSandbox` (default) | Local dev, trusted agent code | Nothing — host subprocess in `./data/sandboxes/<sessionId>/`. |
+| `DaytonaSandbox` | Production / untrusted code with managed VMs | `DAYTONA_API_KEY=...`, optional `DAYTONA_API_URL` (self-hosted) and `SANDBOX_IMAGE=node:22-slim`. Vault CA uploaded into the box on first exec; memory mount via `MEMORY_S3_*` env vars (s3fs installed by the adapter). |
+| `LiteBoxSandbox` | Local hardware isolation without docker | Host needs `/dev/kvm` (Linux) or Apple Silicon (macOS). Optional `LITEBOX_MEMORY_MIB`, `LITEBOX_CPUS`, `SANDBOX_IMAGE`. BoxLite ships its own Firecracker runtime (no daemon). |
+| `E2BSandbox` | Firecracker microVM SaaS | `E2B_API_KEY=...`, optional `SANDBOX_IMAGE` (template id). Memory via `MEMORY_S3_*` env vars (same s3fs setup as Daytona). Outbound vault CA upload requires a template that allows `sudo` writes to `/etc/ssl/`. |
+| `BoxRunSandbox` | Remote BoxLite REST endpoint (no KVM on the OMA host) | `BOXRUN_URL=http://host:8100/v1/default`, optional `BOXRUN_TOKEN`. No mount primitive — bake a custom image with s3fs preinstalled if you need `/mnt/memory`. |
 | `CloudflareSandbox` | If you happen to deploy on CF Workers + Containers | Use the regular `apps/agent` worker, not main-node. |
 
-### Per-provider capability matrix
+**The old `SANDBOX_PROVIDER` env var still works** as the fallback default
+when an environment has no explicit provider selection. New deployments should
+use per-environment `config.sandbox_provider` (see below) for finer control.
+
+### BYOK (bring your own key)
+
+Register additional sandbox providers at runtime via the REST API:
+
+```bash
+# Register a BYOK provider
+curl -X POST /v1/sandbox_providers \
+  -H 'content-type: application/json' \
+  -d '{
+    "type": "daytona",
+    "label": "My Daytona prod",
+    "apiKey": "dna_...",
+    "baseURL": "https://my-daytona.example.com"
+  }'
+
+# List registered providers (system + BYOK)
+GET /v1/sandbox_providers
+
+# Rotate a provider's key
+PUT /v1/sandbox_providers/:id
+
+# Delete a BYOK provider
+DELETE /v1/sandbox_providers/:id
+```
+
+System providers (seeded from env vars) are read-only and cannot be deleted
+via the API. BYOK providers are ephemeral (in-memory on the Node build) —
+re-register after restart, or use the Console's environment picker to
+re-select a system provider.
+
+### Per-environment provider selection
+
+Environments carry their own sandbox provider reference. Set
+`config.sandbox_provider` to any registered provider ID:
+
+```json
+{
+  "config": {
+    "sandbox_provider": "my-daytona-prod",
+    "packages": { "pip": ["numpy", "pandas"] }
+  }
+}
+```
+
+Fallback chain: `config.sandbox_provider` → `config.type` (legacy) →
+`SANDBOX_PROVIDER` env → `subprocess`. This means existing env configs
+that only set `config.type` continue to work unchanged.
+
+### Multi-provider capability matrix
 
 | Provider | bash | fs | net | `/mnt/memory` | `/mnt/outputs` | vault CA | workspace backup |
 |---|---|---|---|---|---|---|---|

@@ -65,6 +65,12 @@ import { nodeToMarkdown } from "@duyet/oma-markdown/adapters/node";
 import { applyBetterAuthSchema } from "@duyet/oma-schema";
 import { ensureSchema as ensureEventLogSchema } from "@duyet/oma-event-log/sql";
 import {
+  SandboxProviderRegistry,
+  InMemoryQuotaStore,
+  type SandboxProviderConfig,
+  type SandboxUsageRecord,
+} from "@duyet/oma-sandbox";
+import {
   buildAgentRoutes,
   buildVaultRoutes,
   buildEnvironmentRoutes,
@@ -516,27 +522,33 @@ if (usePostgres) {
   hub = new InProcessEventStreamHub();
 }
 
-// ─── Sandbox factory ────────────────────────────────────────────────────
+// ─── Sandbox provider registry ──────────────────────────────────────────
+//
+// Multi-provider sandbox registry. Supports:
+//   - System providers seeded from env vars (SANDBOX_PROVIDER, etc.)
+//   - User BYOK providers added via POST /v1/sandbox_providers
+//   - Per-environment provider selection (environment config.sandbox_provider)
+//   - Quota tracking (in-memory for OSS; CF node has its own billing)
+//   - Dynamic provider management through the REST API
 
-const SANDBOX_PROVIDER_PATHS: Record<string, string> = {
-  subprocess: "@duyet/oma-sandbox/adapters/local-subprocess",
-  litebox: "@duyet/oma-sandbox/adapters/litebox",
-  boxlite: "@duyet/oma-sandbox/adapters/litebox",
-  boxrun: "@duyet/oma-sandbox/adapters/boxrun",
-  daytona: "@duyet/oma-sandbox/adapters/daytona",
-  e2b: "@duyet/oma-sandbox/adapters/e2b",
-  k8s: "@duyet/oma-sandbox/adapters/kubernetes",
-  kubernetes: "@duyet/oma-sandbox/adapters/kubernetes",
-};
+const sandboxRegistry = new SandboxProviderRegistry();
+sandboxRegistry.seedFromEnv(process.env);
+
+const sandboxQuota = new InMemoryQuotaStore();
+
+export function getSandboxRegistry(): SandboxProviderRegistry {
+  return sandboxRegistry;
+}
+
+export function getSandboxQuota(): InMemoryQuotaStore {
+  return sandboxQuota;
+}
 
 // Resolve the sandbox provider for a session from its environment's
-// `config.type` ("Hosting Type"). Returns a provider key ONLY when the
-// environment explicitly selects a non-cloud backend that this node knows
-// how to launch; otherwise returns null so the caller keeps the global
-// SANDBOX_PROVIDER default. "cloud"/unset, an unknown session, a missing
-// environment, or an unrecognized type all degrade to null (with a warning
-// for the unrecognized case) rather than throwing — a misconfigured env
-// must not hard-fail a session.
+// config. First checks `config.sandbox_provider` (direct provider id),
+// then `config.type` (legacy hosting type), then falls back to the
+// global SANDBOX_PROVIDER default. Unknown types degrade gracefully
+// to the default — a misconfigured env must not hard-fail a session.
 async function resolveEnvProvider(sessionId: string): Promise<string | null> {
   try {
     const row = await sql
@@ -548,9 +560,22 @@ async function resolveEnvProvider(sessionId: string): Promise<string | null> {
       tenantId: row.tenant_id,
       environmentId: row.environment_id,
     });
-    const type = env?.config?.type?.toLowerCase();
-    if (!type || type === "cloud") return null;
-    if (SANDBOX_PROVIDER_PATHS[type]) return type;
+    if (!env?.config) return null;
+
+    // Direct provider id reference (new API)
+    if (env.config.sandbox_provider) {
+      const pid = env.config.sandbox_provider;
+      if (sandboxRegistry.get(pid)) return pid;
+      logger.warn(
+        { op: "main-node.sandbox.unknown_provider_id", session_id: sessionId, provider_id: pid },
+        `environment sandbox_provider="${pid}" is not registered; falling back to SANDBOX_PROVIDER`,
+      );
+    }
+
+    // Legacy type-based selection
+    const type = env.config.type?.toLowerCase();
+    if (!type || type === "cloud" || type === "environment") return null;
+    if (sandboxRegistry.get(type)) return type;
     logger.warn(
       { op: "main-node.sandbox.unknown_env_type", session_id: sessionId, config_type: type },
       `environment config.type=${type} is not a known sandbox provider; falling back to SANDBOX_PROVIDER`,
@@ -570,27 +595,26 @@ async function buildSandbox(
   workdir: string,
 ): Promise<import("@duyet/oma-sandbox").SandboxExecutor> {
   const envProvider = await resolveEnvProvider(sessionId);
-  const provider = (
+  const providerId = (
     envProvider ?? process.env.SANDBOX_PROVIDER ?? "subprocess"
   ).toLowerCase();
-  const path = SANDBOX_PROVIDER_PATHS[provider];
-  if (!path) {
-    throw new Error(
-      `SANDBOX_PROVIDER=${provider} not recognized; valid: ${Object.keys(SANDBOX_PROVIDER_PATHS).join(", ")}`,
-    );
-  }
-  const mod = (await import(path)) as {
-    sandboxFactory: import("@duyet/oma-sandbox").SandboxFactory;
-  };
-  return mod.sandboxFactory(
-    {
-      sessionId,
-      workdir,
-      memoryRoot: memoryBlobLocalDir ?? "",
-      outputsRoot,
-    },
+
+  const sandbox = await sandboxRegistry.createExecutor(
+    providerId,
+    { sessionId, workdir, memoryRoot: memoryBlobLocalDir ?? "", outputsRoot },
     process.env,
   );
+
+  // Record usage for quota tracking
+  sandboxQuota.record({
+    providerId,
+    tenantId: "", // filled in by the caller
+    sessionId,
+    action: "session_start",
+    timestamp: new Date().toISOString(),
+  });
+
+  return sandbox;
 }
 
 // ─── Sandbox GC (startup-only) ──────────────────────────────────────────
@@ -1104,70 +1128,131 @@ v1.route("/evals", buildEvalRoutes({
 // above and wired into the `services` bundle.
 v1.route("/environments", buildEnvironmentRoutes({ services }));
 
-// Supported hosting types for this host. main-node-only — the CF app does
-// not expose this route, so the Console treats a 404 here as "cloud only"
-// and hides the multi-provider picker. Descriptions are one-liners drawn
-// from each sandbox adapter's header comment (packages/sandbox/src/adapters).
-// `cloud` maps to the global SANDBOX_PROVIDER default; the others select a
-// per-environment sandbox backend at session warmup (see buildSandbox).
-v1.get("/hosting_types", (c) =>
-  c.json({
-    data: [
-      {
-        id: "cloud",
-        label: "Cloud",
-        description: "Managed sandbox — uses this node's default SANDBOX_PROVIDER.",
-      },
-      {
-        id: "subprocess",
-        label: "Local subprocess",
-        description: "Node child_process on the host. Zero isolation — trusted local dev only.",
-      },
-      {
-        id: "litebox",
-        label: "LiteBox (local micro-VM)",
-        description: "Local Firecracker micro-VM per box. Hardware isolation, no daemon.",
-      },
-      {
-        id: "boxrun",
-        label: "BoxRun (remote micro-VM)",
-        description: "Talks to a remote BoxLite HTTP control plane — hardware isolation without local KVM.",
-      },
-      {
-        id: "daytona",
-        label: "Daytona",
-        description: "Daytona SaaS — a managed Linux VM per session.",
-      },
-      {
-        id: "e2b",
-        label: "E2B",
-        description: "E2B Firecracker microVM per session (~250ms cold from a warm pool).",
-      },
-      {
-        id: "k8s",
-        label: "Kubernetes",
-        description: "Pod provisioned via the kubernetes-sigs agent-sandbox controller.",
-      },
-    ],
-  }),
-);
+// Supported hosting types for this host. Derived from the system provider
+// descriptors in SandboxProviderRegistry. The Console uses this to show
+// a multi-provider picker; CF app doesn't expose this route (404 → "cloud only").
+// Registered providers (system + BYOK) appear here — BYOK ones include
+// their id so the Console can distinguish them from built-in types.
+v1.get("/hosting_types", (c) => {
+  const systemTypes = sandboxRegistry.getHostingTypes();
+  const userProviders = sandboxRegistry.list().filter((p) => !p.isSystem);
+  return c.json([
+    { id: "cloud", label: "Cloud", description: "Managed sandbox — uses this node's default sandbox provider." },
+    ...systemTypes.filter((t) => t.id !== "cloud"),
+    ...userProviders.map((p) => ({
+      id: p.id,
+      label: p.label,
+      description: p.description || `External sandbox provider (${p.type}) — bring your own key.`,
+      external: true,
+    })),
+  ]);
+});
 
-// Stubs for routes the console hits but main-node doesn't yet implement.
-v1.get("/runtimes", (c) => c.json({ data: [] }));
-v1.get("/skills", (c) => c.json({ data: [] }));
-v1.get("/model_cards", (c) => c.json({ data: [] }));
-v1.get("/models/list", (c) =>
-  c.json({
-    data: [
-      { id: "claude-haiku-4-5-20251001", display_name: "Claude Haiku 4.5", speeds: ["standard", "fast"] },
-      { id: "claude-sonnet-4-6", display_name: "Claude Sonnet 4.6", speeds: ["standard"] },
-      { id: "claude-opus-4-7", display_name: "Claude Opus 4.7", speeds: ["standard"] },
-    ],
-  }),
-);
-v1.get("/integrations/github/credentials", (c) => c.json({ data: [] }));
-v1.get("/integrations/linear/credentials", (c) => c.json({ data: [] }));
-v1.get("/integrations/slack/credentials", (c) => c.json({ data: [] }));
+// ─── Sandbox provider management (BYOK) ──────────────────────────────
+//
+// Users can register their own sandbox provider configs (bring your own
+// key), list available providers, rotate keys, and view usage stats.
+// System providers seeded from env vars are read-only.
+
+// POST /v1/sandbox_providers — register a new provider (BYOK)
+v1.post("/sandbox_providers", async (c) => {
+  const body = await c.req.json<{
+    type: string;
+    label: string;
+    description?: string;
+    apiKey?: string;
+    baseURL?: string;
+    config?: Record<string, string>;
+    tenantId?: string;
+  }>();
+  if (!body.type || !body.label) {
+    return c.json({ error: "type and label are required" }, 400);
+  }
+  const id = body.label.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+  const config: SandboxProviderConfig = {
+    id,
+    type: body.type,
+    label: body.label,
+    description: body.description,
+    apiKey: body.apiKey,
+    baseURL: body.baseURL,
+    config: body.config,
+    isSystem: false,
+    tenantId: body.tenantId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  sandboxRegistry.register(config);
+  return c.json({ data: config });
+});
+
+// GET /v1/sandbox_providers — list all providers
+v1.get("/sandbox_providers", (c) => {
+  const providers = sandboxRegistry.list().map((p) => ({
+    ...p,
+    apiKey: p.apiKey ? "••••" + p.apiKey.slice(-4) : undefined,
+  }));
+  return c.json({ data: providers });
+});
+
+// GET /v1/sandbox_providers/:id — get a single provider
+v1.get("/sandbox_providers/:id", (c) => {
+  const p = sandboxRegistry.get(c.req.param("id"));
+  if (!p) return c.json({ error: "Provider not found" }, 404);
+  return c.json({
+    data: {
+      ...p,
+      apiKey: p.apiKey ? "••••" + p.apiKey.slice(-4) : undefined,
+    },
+  });
+});
+
+// PUT /v1/sandbox_providers/:id — update provider (key rotation, label, etc.)
+v1.put("/sandbox_providers/:id", async (c) => {
+  const id = c.req.param("id");
+  const existing = sandboxRegistry.get(id);
+  if (!existing) return c.json({ error: "Provider not found" }, 404);
+
+  const body = await c.req.json<{
+    label?: string;
+    description?: string;
+    apiKey?: string;
+    baseURL?: string;
+    config?: Record<string, string>;
+  }>();
+
+  const updated: SandboxProviderConfig = {
+    ...existing,
+    label: body.label ?? existing.label,
+    description: body.description ?? existing.description,
+    apiKey: body.apiKey ?? existing.apiKey,
+    baseURL: body.baseURL ?? existing.baseURL,
+    config: body.config ?? existing.config,
+    updatedAt: new Date().toISOString(),
+  };
+  sandboxRegistry.register(updated);
+  return c.json({ data: { ...updated, apiKey: updated.apiKey ? "••••" + updated.apiKey.slice(-4) : undefined } });
+});
+
+// DELETE /v1/sandbox_providers/:id — delete a user provider
+v1.delete("/sandbox_providers/:id", (c) => {
+  const id = c.req.param("id");
+  const existing = sandboxRegistry.get(id);
+  if (!existing) return c.json({ error: "Provider not found" }, 404);
+  if (existing.isSystem) return c.json({ error: "Cannot delete a system provider" }, 403);
+  sandboxRegistry.unregister(id);
+  return c.json({ data: { id, deleted: true } });
+});
+
+// GET /v1/sandbox_providers/:id/usage — usage stats for a provider
+v1.get("/sandbox_providers/:id/usage", (c) => {
+  const id = c.req.param("id");
+  const existing = sandboxRegistry.get(id);
+  if (!existing) return c.json({ error: "Provider not found" }, 404);
+  const tenantId = c.req.query("tenant_id") || "";
+  const stats = sandboxQuota.getStats(tenantId, id);
+  return c.json({ data: stats });
+});
 
 // Real integration CRUD + lookup (linear/github/slack publications,
 // installations, dispatch rules). Active only when PLATFORM_ROOT_SECRET is

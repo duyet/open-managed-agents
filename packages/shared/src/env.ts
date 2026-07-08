@@ -99,6 +99,10 @@ export interface Env {
    *  sandbox provider so environments can opt into it. Provisioning logic
    *  for E2B sessions is not yet wired — the flag only gates the option. */
   E2B_API_KEY?: string;
+  /** Kubernetes agent-sandbox namespace. When set, /v1/hosting_types
+   *  advertises Kubernetes as a sandbox provider. The agent-sandbox
+   *  controller CRD is used to provision pods. */
+  OMA_K8S_NAMESPACE?: string;
   /** Modal API key (https://modal.com). When set, /v1/hosting_types
    *  advertises Modal as an external sandbox provider. Modal offers
    *  gVisor-isolated containers with optional GPU access (L4–B200),

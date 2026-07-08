@@ -144,18 +144,29 @@ curl localhost:8787/v1/agents -d '&#123;"name":"hello", \
           port — run this command, read/write this file. Cloudflare Containers
           is the default backend on the Cloudflare deployment, but it's one
           adapter among several already in
-          <code class="font-mono text-sm">packages/sandbox/src/adapters/</code>,
-          selected per-deployment with a single env var — no harness or route
-          changes. More backends are being added.
+          <code class="font-mono text-sm">packages/sandbox/src/adapters/</code>.
+          Multiple providers can be active simultaneously — environments pick
+          one by ID at session start. No harness or route changes needed.
         </p>
         <div class="grid md:grid-cols-2 gap-8 items-start">
-          <pre class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-4 text-xs leading-relaxed overflow-x-auto"><code># self-hosted Node deployment — pick a backend, no code changes
-SANDBOX_PROVIDER=subprocess   # default: plain host subprocess
-SANDBOX_PROVIDER=k8s          # pod via kubernetes-sigs agent-sandbox
-SANDBOX_PROVIDER=e2b          # E2B-hosted sandboxes
-SANDBOX_PROVIDER=daytona      # Daytona-hosted sandboxes
-SANDBOX_PROVIDER=litebox      # lightweight boxed execution
-SANDBOX_PROVIDER=boxrun       # boxrun sandboxed execution</code></pre>
+          <pre class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-4 text-xs leading-relaxed overflow-x-auto"><code># Register providers dynamically — bring your own keys (BYOK)
+curl -X POST /v1/sandbox_providers \
+  -H 'content-type: application/json' \
+  -d '&#123;
+    "type": "daytona",
+    "label": "My Daytona prod",
+    "apiKey": "dna_...",
+    "baseURL": "https://my-daytona.example.com"
+  &#125;'
+
+# List registered providers
+GET /v1/sandbox_providers
+
+# View usage stats per provider
+GET /v1/sandbox_providers/:id/usage
+
+# Built-in providers are auto-detected from env vars:
+# DAYTONA_API_KEY, E2B_API_KEY, BOXRUN_URL, etc.</code></pre>
           <div class="overflow-x-auto">
             <table class="w-full text-sm border border-[var(--color-border)] rounded-lg">
               <thead>
@@ -175,15 +186,19 @@ SANDBOX_PROVIDER=boxrun       # boxrun sandboxed execution</code></pre>
                 </tr>
                 <tr>
                   <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">e2b</code></th>
-                  <td class="px-3 py-2 border-b border-[var(--color-border)]">E2B-hosted sandboxes</td>
+                  <td class="px-3 py-2 border-b border-[var(--color-border)]">E2B-hosted sandboxes — bring your own E2B_API_KEY</td>
                 </tr>
                 <tr>
                   <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">daytona</code></th>
-                  <td class="px-3 py-2 border-b border-[var(--color-border)]">Daytona-hosted sandboxes</td>
+                  <td class="px-3 py-2 border-b border-[var(--color-border)]">Daytona-hosted sandboxes — bring your own DAYTONA_API_KEY</td>
                 </tr>
                 <tr>
-                  <th scope="row" class="px-3 py-2 font-medium"><code class="font-mono text-xs">litebox</code> / <code class="font-mono text-xs">boxrun</code></th>
-                  <td class="px-3 py-2">Lightweight boxed-execution sandboxes</td>
+                  <th scope="row" class="px-3 py-2 font-medium border-b border-[var(--color-border)]"><code class="font-mono text-xs">litebox</code></th>
+                  <td class="px-3 py-2 border-b border-[var(--color-border)]">Local Firecracker micro-VM via BoxLite — hardware isolation, no daemon</td>
+                </tr>
+                <tr>
+                  <th scope="row" class="px-3 py-2 font-medium"><code class="font-mono text-xs">boxrun</code></th>
+                  <td class="px-3 py-2">Remote BoxLite HTTP control plane — hardware isolation without local KVM</td>
                 </tr>
               </tbody>
             </table>
@@ -241,14 +256,14 @@ SANDBOX_PROVIDER=boxrun       # boxrun sandboxed execution</code></pre>
         <h3 class="font-display text-xl font-bold mb-3">Pick a sandbox backend per environment</h3>
         <p class="text-[var(--color-fg-muted)] leading-relaxed mb-4 max-w-3xl">
           Environments — the reusable packages/networking/image config sessions
-          attach to — now carry their own hosting type on self-hosted Node
-          deployments, instead of everything sharing one global
-          <code class="font-mono text-sm">SANDBOX_PROVIDER</code>. The Console's
-          environment-create picker feature-detects what a given host actually
-          supports via <code class="font-mono text-sm">GET /v1/hosting_types</code>
-          rather than assuming: the Cloudflare host doesn't expose that route,
-          so the picker 404s gracefully and falls back to a single, immutable
-          "Cloud" option — no regression there.
+          attach to — now carry their own sandbox provider reference on
+          self-hosted Node deployments, instead of everything sharing one global
+          <code class="font-mono text-sm">SANDBOX_PROVIDER</code>. Set
+          <code class="font-mono text-sm">config.sandbox_provider</code> to any
+          registered provider ID (system or BYOK). The Console's
+          environment-create picker queries
+          <code class="font-mono text-sm">GET /v1/hosting_types</code> to show
+          what's available — including any user-registered BYOK providers.
         </p>
         <div class="grid md:grid-cols-2 gap-8 items-start">
           <pre class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-4 text-xs leading-relaxed overflow-x-auto"><code>GET /v1/hosting_types
@@ -260,16 +275,26 @@ SANDBOX_PROVIDER=boxrun       # boxrun sandboxed execution</code></pre>
     &#123; "id": "boxrun", "label": "BoxRun (remote micro-VM)" &#125;,
     &#123; "id": "daytona", "label": "Daytona" &#125;,
     &#123; "id": "e2b", "label": "E2B" &#125;,
-    &#123; "id": "k8s", "label": "Kubernetes" &#125;
+    &#123; "id": "k8s", "label": "Kubernetes" &#125;,
+    &#123; "id": "my-daytona-prod", "label": "My Daytona prod",
+      "description": "External sandbox provider (daytona) — BYOK", "external": true &#125;
   ]
+&#125;
+
+# Environment config referencing a BYOK provider
+&#123;
+  "config": &#123;
+    "sandbox_provider": "my-daytona-prod",
+    "packages": &#123; "pip": ["numpy", "pandas"] &#125;
+  &#125;
 &#125;</code></pre>
           <p class="text-[var(--color-fg-muted)] leading-relaxed text-sm">
             Mix isolation levels across environments on the same host — trusted
             internal tooling on cheap subprocess isolation, customer-facing
             work on a hardware-isolated micro-VM or Kubernetes pod — without a
-            redeploy or a harness change. It's the same provider list as the
-            pluggable sandbox layer above; this is the per-environment
-            selection surface on top of it.
+            redeploy or a harness change. Add your own provider keys via
+            <code class="font-mono text-sm">POST /v1/sandbox_providers</code>
+            and reference them per-environment.
           </p>
         </div>
       </div>

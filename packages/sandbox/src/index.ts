@@ -16,3 +16,27 @@ export {
   type WorkspaceBackupService,
   type DefaultSandboxOrchestratorDeps,
 } from "./orchestrator";
+
+export {
+  SandboxProviderRegistry,
+} from "./registry";
+
+export type {
+  SandboxProviderConfig,
+  ResolvedSandboxProvider,
+  SystemProviderDescriptor,
+} from "./provider-config";
+
+export {
+  seedSystemProviders,
+  providerConfigToEnv,
+  checkProviderRequirements,
+  SYSTEM_PROVIDERS,
+} from "./provider-config";
+
+export {
+  InMemoryQuotaStore,
+  type SandboxUsageRecord,
+  type UsageStats,
+  type SandboxQuotaStore,
+} from "./quota";
