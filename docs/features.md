@@ -1,0 +1,143 @@
+# Fleet & Advanced Features
+
+Open Managed Agents is built to run multi-agent workloads, orchestrate a fleet of parallel sessions, monitor long-running tasks, and safely isolate untrusted runtimes.
+
+---
+
+## 1. Pick a Sandbox Backend per Environment
+
+Environments — the reusable configurations defining package managers, system packages, and network permissions — can map to their own specific sandbox provider. This allows you to mix isolation levels dynamically on the same host:
+* Run trusted internal scripts on fast, cheap **Host Subprocess** isolation.
+* Route customer-facing code execution to highly secure, hardware-isolated **E2B**, **Daytona**, or **BoxLite (Firecracker)** micro-VMs.
+
+```json
+// Environment config referencing a custom provider
+{
+  "name": "data-analyst",
+  "config": {
+    "sandbox_provider": "my-daytona-prod",
+    "packages": {
+      "pip": ["numpy", "pandas"]
+    }
+  }
+}
+```
+
+### Supported Sandbox Providers
+
+| Provider | Type | Description |
+|---|---|---|
+| `subprocess` | Host Subprocess | Plain OS subprocess. Extremely fast, default for local development. |
+| `k8s` | Kubernetes | Pod isolation managed via Kubernetes agent-sandbox controller. |
+| `e2b` | E2B Sandbox | Sandbox hosting on E2B. Requires `E2B_API_KEY`. |
+| `daytona` | Daytona VM | VM hosting on Daytona. Requires `DAYTONA_API_KEY`. |
+| `litebox` | BoxLite Local | Local Firecracker micro-VM for local hardware isolation. |
+| `boxrun` | BoxLite Remote | Remote BoxLite HTTP control plane for micro-VM orchestration. |
+
+### API Endpoints
+* **List hosting types**: `GET /v1/hosting_types` returns all registered local and BYOK providers.
+* **Register custom provider**: `POST /v1/sandbox_providers` to register external sandbox endpoints.
+
+---
+
+## 2. Session Fleet Kanban Board
+
+Monitor the state of all active sessions across your agent fleet. The status board maps sessions into four status columns derived entirely from existing metadata:
+
+1. **Queued**: An idle session with no events processed yet.
+2. **Running**: A session currently driving the loop or executing tools.
+3. **Blocked**: An idle session waiting on tool execution confirmation (`requires_action` event).
+4. **Done**: A completed session or one that returned to idle without errors.
+
+Because the board is derived directly from the SQLite event log, there is no extra backend database state to sync.
+
+---
+
+## 3. Parallel Sub-Agent Delegation
+
+The default delegation tool `call_agent_*` blocks the parent session until the child reaches `idle`.
+The `call_agents_parallel` tool allows parent agents to fan out concurrent child requests and aggregate results in parallel.
+
+### Usage Example
+Input tool call:
+```json
+{
+  "calls": [
+    { "agent_id": "agent_researcher", "message": "Research topic A" },
+    { "agent_id": "agent_researcher", "message": "Research topic B" },
+    { "agent_id": "agent_writer", "message": "Draft outline C" }
+  ]
+}
+```
+
+Aggregated response output:
+```json
+{
+  "results": [
+    { "agent_id": "agent_researcher", "success": true, "response": "...", "thread_id": "sthr_123" },
+    { "agent_id": "agent_researcher", "success": true, "response": "...", "thread_id": "sthr_456" },
+    { "agent_id": "agent_writer", "success": false, "error": "Sub-agent error: compile failed" }
+  ]
+}
+```
+
+> [!NOTE]
+> Concurrency is configured via the agent's `max_parallel_subagents` field (default is 5, hard ceiling is 10). Excess requests are queued in waves automatically.
+
+---
+
+## 4. Structured Progress for Long-Running Tasks
+
+For tasks that run for minutes or hours, standard text messages are hard to parse. The `agent.status` event sends structured heartbeats directly from the loop controller:
+
+```json
+{
+  "type": "agent.status",
+  "state": "running",
+  "summary": "Executing scikit-learn training...",
+  "step": 14,
+  "total_steps": 20,
+  "blocked_on": null
+}
+```
+
+* **Heartbeat interval**: Fires on every model turn. The `long-running` harness fires wall-clock heartbeats (default every 60s) to indicate liveness during slow tool runs.
+* **Cache optimization**: These heartbeats are stored in the Durable Object log but excluded from prompt context history. This avoids polluting prompt-cache keys or triggering premature token compaction.
+* **Crash recovery**: Re-instantiating the session DO automatically parses the log and catches up step counters without duplicates.
+
+---
+
+## 5. Outbound Notification Dispatcher
+
+Agents can post status transitions (e.g. session done, error, blocked) to external communication channels. Add the `notify` field to your agent configuration:
+
+```json
+{
+  "name": "CI Reviewer",
+  "notify": [
+    {
+      "type": "github_comment",
+      "credential_id": "cred_gh",
+      "owner": "duyet",
+      "repo": "oma",
+      "issue_number": 52
+    },
+    {
+      "type": "slack_message",
+      "credential_id": "cred_slack",
+      "channel": "C0123456"
+    },
+    {
+      "type": "matrix_message",
+      "credential_id": "cred_matrix",
+      "homeserver_url": "https://matrix.org",
+      "room_id": "!abc:matrix.org"
+    }
+  ]
+}
+```
+
+### Formatting Styles
+* **GitHub**: Posted as markdown comments with a status indicator dot (🔴 Error, ⚪ Blocked, 🟢 Success).
+* **Slack**: Formatted using Slack mrkdwn and emoji blocks.
+* **Matrix**: Sent via Matrix Client-Server API room messages.
