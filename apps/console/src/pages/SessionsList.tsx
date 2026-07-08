@@ -14,6 +14,7 @@ import { DataTable, type ColumnDef } from "../components/DataTable";
 import { FacetedFilter } from "../components/FacetedFilter";
 import { FilterChip, CreatedFilterChip } from "../components/FilterChip";
 import { RowActionsMenu } from "../components/RowActionsMenu";
+import { formatDuration } from "../lib/format";
 
 import type { SessionRecord as Session } from "../types/session";
 
@@ -208,6 +209,29 @@ function EvalBadge({ metadata }: { metadata?: Record<string, unknown> }) {
       🧪 {ev.task_id ?? "Eval"}
     </a>
   );
+}
+
+/**
+ * Live elapsed time since a session was created. Ticks every second for
+ * non-terminated sessions; static for terminated ones. Shows a compact
+ * duration like "2m17s", "1h23m", "3d5h".
+ */
+function LiveDuration({ created_at, terminated_at }: { created_at: string; terminated_at?: string }) {
+  const getMs = useCallback(() => {
+    const end = terminated_at ? new Date(terminated_at).getTime() : Date.now();
+    return end - new Date(created_at).getTime();
+  }, [created_at, terminated_at]);
+
+  const [ms, setMs] = useState(getMs);
+
+  useEffect(() => {
+    // Terminated sessions don't need a timer — the value won't change.
+    if (terminated_at) return;
+    const id = setInterval(() => setMs(getMs()), 1000);
+    return () => clearInterval(id);
+  }, [terminated_at, getMs]);
+
+  return <span className="text-fg-subtle text-xs whitespace-nowrap">{formatDuration(ms)}</span>;
 }
 
 export function SessionsList() {
@@ -754,13 +778,14 @@ export function SessionsList() {
         ),
       },
       {
-        id: "created",
+        id: "duration",
         accessorFn: (s) => s.created_at,
-        header: "Created",
+        header: "Duration",
         cell: ({ row }) => (
-          <span className="text-fg-muted">
-            {new Date(row.original.created_at).toLocaleDateString()}
-          </span>
+          <LiveDuration
+            created_at={row.original.created_at}
+            terminated_at={row.original.terminated_at}
+          />
         ),
       },
       {

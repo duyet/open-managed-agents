@@ -15,5 +15,17 @@ export interface SessionRecord {
   status?: string;
   created_at: string;
   archived_at?: string;
+  terminated_at?: string;
   metadata?: Record<string, unknown>;
+  /** Server-computed wall-clock duration (seconds) since creation.
+   *  Present on list/SDK responses; absent on create response. */
+  stats?: {
+    duration_seconds?: number;
+  };
+  /** Sandbox resource usage. Only populated by GET /:id — the list
+   *  endpoint does not overlay live usage yet. */
+  sandbox_usage?: {
+    instance_type?: string;
+    active_seconds: number;
+  };
 }
