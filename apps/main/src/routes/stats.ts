@@ -17,7 +17,7 @@ import { kvPrefix, kvListAll } from "../kv-helpers";
 
 const app = new Hono<{
   Bindings: Env;
-  Variables: { tenant_id: string; services: Services };
+  Variables: { tenant_id: string; services: Services; tenantDb: D1Database };
 }>();
 
 interface StatsResponse {
@@ -28,11 +28,15 @@ interface StatsResponse {
   skills: number;
   model_cards: number;
   api_keys: number;
+  total_sandbox_seconds: number;
+  total_usage_sessions: number;
 }
 
 app.get("/", async (c) => {
   const tenantId = c.get("tenant_id");
   const services = c.var.services;
+
+  const tenantDb = c.get("tenantDb");
 
   const [
     agents,
@@ -42,6 +46,8 @@ app.get("/", async (c) => {
     skillKeys,
     modelCards,
     apiKeyIndex,
+    sandboxSecondsRow,
+    usageSessionsRow,
   ] = await Promise.all([
     services.agents.count({ tenantId }),
     services.sessions.count({ tenantId }),
@@ -52,6 +58,23 @@ app.get("/", async (c) => {
     kvListAll(services.kv, kvPrefix(tenantId, "skill")),
     services.modelCards.list({ tenantId }),
     services.kv.get(`t:${tenantId}:apikeys`),
+    // Usage aggregates
+    tenantDb
+      .prepare(
+        `SELECT COALESCE(SUM(value), 0) AS total
+           FROM usage_events
+          WHERE tenant_id = ? AND kind = 'sandbox_active_seconds'`,
+      )
+      .bind(tenantId)
+      .first<{ total: number }>(),
+    tenantDb
+      .prepare(
+        `SELECT COUNT(DISTINCT session_id) AS count
+           FROM usage_events
+          WHERE tenant_id = ?`,
+      )
+      .bind(tenantId)
+      .first<{ count: number }>(),
   ]);
 
   const apiKeysList = apiKeyIndex
@@ -66,6 +89,8 @@ app.get("/", async (c) => {
     skills: skillKeys.length,
     model_cards: modelCards.filter((c) => c.archived_at === null).length,
     api_keys: apiKeysList.length,
+    total_sandbox_seconds: sandboxSecondsRow?.total ?? 0,
+    total_usage_sessions: usageSessionsRow?.count ?? 0,
   };
   return c.json(body);
 });

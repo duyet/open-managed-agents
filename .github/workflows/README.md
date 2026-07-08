@@ -1,39 +1,33 @@
 # GitHub Actions in this repo
 
-This repo's CI publishes the OSS source — npm packages, sandbox container
-image. **It does NOT deploy any worker to a Cloudflare account.**
-
 | Workflow | Purpose |
 |---|---|
 | `release.yml` | changeset-driven npm publish for the SDK / CLI packages |
 | `build-sandbox-image.yml` | builds the agent sandbox container image and pushes to GHCR for OSS users to pull |
 | `build-example-images.yml` | builds/pushes the `examples/**` demo images to GHCR |
-| `self-improvement-agent.yml` | opt-in cron that calls an already-running OMA instance's REST API to run the `examples/self-improvement-agent` scan (see [#24](https://github.com/duyet/open-managed-agents/issues/24)); no-ops unless an operator sets `OMA_API_KEY` as a repo secret. It's a scheduled *client* of the API, not a deploy workflow — no Cloudflare account involved. |
+| `self-improvement-agent.yml` | opt-in cron that calls an already-running OMA instance's REST API |
+| `deploy-main.yml` | deploys `apps/main` (core API worker → `oma-managed-agents`) |
+| `deploy-agent.yml` | deploys `apps/agent` (SessionDO + sandbox → `oma-sandbox-default`) |
+| `deploy-integrations.yml` | deploys `apps/integrations` (webhook gateway → `oma-managed-agents-integrations`) |
+| `deploy-website.yml` | builds + deploys `apps/web` (marketing site → `oma.duyet.net`) |
+| `deploy-docs.yml` | builds + deploys `apps/docs` (docs site → `docs.oma.duyet.net`) |
 
-## Why no deploy workflows?
+## Deploy workflows
 
-Earlier versions of this repo had `deploy.yml`, `deploy-staging.yml`,
-`deploy-lane.yml`, etc. Those were removed because:
+Each deploy workflow runs on push to `main` when files in its path change.
+All require these repo secrets:
 
-1. **Repo / deploy concern separation.** A deploy workflow in OSS
-   couples this codebase to one operator's CF account. Anyone forking
-   for self-host had to either re-wire the workflows or accept a red
-   CI badge — neither is good.
+| Secret | Description |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API token with Workers permissions |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID |
 
-2. **Hosted overlay needs to win.** The OSS `apps/*/wrangler.jsonc`
-   files are templates; production deployments overlay extra bindings
-   (e.g. a billing-meter service binding, real D1 IDs, custom domains).
-   Letting OSS auto-deploy on `push: main` clobbered those overlays.
+Path triggers are scoped per app plus its key dependency packages
+so changes to `packages/shared/` trigger all workers that depend on it,
+while changes to `apps/main/` only trigger the main worker.
 
 ## Self-host deploy
 
-You're on your own — fork the repo, fill in `apps/*/wrangler.jsonc`
-with your CF resource IDs, run `wrangler deploy` from each app dir.
-The hosted operator's deploy infra (separate private repo) is
-documented in their own README and is not maintained here.
-
-## OMA hosted
-
-Deploys run from the operator's private `openma-hosted` repo via its
-own GitHub Actions workflows. The `.oma-version` file there pins which
-SHA of this repo gets shipped to prod.
+Fork the repo, fill in `apps/*/wrangler.jsonc` with your CF resource IDs,
+add the two secrets above, and the workflows will deploy on push to main.
+Alternatively, run `wrangler deploy` from each app dir.

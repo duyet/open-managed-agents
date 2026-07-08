@@ -1,0 +1,53 @@
+name: Deploy Agent Worker
+
+# Deploy the agent/sandbox worker (apps/agent) to Cloudflare Workers.
+# This runs SessionDO (per-session Durable Objects + event log) and
+# sandbox containers for tool execution.
+# Requires CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repo secrets.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/agent/**'
+      - 'packages/session-runtime/**'
+      - 'packages/sandbox/**'
+      - 'packages/shared/**'
+      - '.github/workflows/deploy-agent.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/agent
+          command: deploy

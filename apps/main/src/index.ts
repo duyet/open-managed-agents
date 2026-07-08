@@ -45,6 +45,7 @@ import internalRoutes from "./routes/internal";
 import integrationsRoutes from "./routes/integrations";
 import { runtimesRoutes, runtimeDaemonRoutes, authenticateRuntimeToken } from "./routes/runtimes";
 import statsRoutes from "./routes/stats";
+import usageRoutes from "./routes/usage";
 import mcpProxyRoutes, {
   resolveProxyTargetByTenant,
   resolveOutboundCredentialByHost,
@@ -423,6 +424,7 @@ app.route("/v1/cost_report", costReportRoutes);
 app.route("/v1/integrations", integrationsRoutes);
 app.route("/v1/runtimes", runtimesRoutes);
 app.route("/v1/stats", statsRoutes);
+app.route("/v1/usage", usageRoutes);
 
 // Billing-API proxy needs the session-resolved tenant_id, so it must
 // run authMiddleware first. The proxy handler below short-circuits

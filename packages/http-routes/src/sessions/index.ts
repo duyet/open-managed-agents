@@ -577,6 +577,7 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
       response.usage = live.usage;
       if (live.outcome_evaluations) response.outcome_evaluations = live.outcome_evaluations;
       if (live.resources) response.resources = live.resources;
+      if (live.sandbox_usage) response.sandbox_usage = live.sandbox_usage;
     }
     return c.json(response);
   });

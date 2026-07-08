@@ -237,6 +237,8 @@ import schema0018 from "../apps/main/migrations/0018_runtime_multi_tenant.sql?ra
 // @ts-expect-error vitest resolves SQL via ?raw
 import schema0019 from "../apps/main/migrations/0002_session_run_summary.sql?raw";
 // @ts-expect-error vitest resolves SQL via ?raw
+import schema0020 from "../apps/main/migrations/0019_add_usage_events_instance_type.sql?raw";
+// @ts-expect-error vitest resolves SQL via ?raw
 import integrationsSchema from "../apps/main/migrations-integrations/0001_consolidated.sql?raw";
 // @ts-expect-error vitest resolves SQL via ?raw
 import routerSchema from "../apps/main/migrations-router/0001_consolidated.sql?raw";
@@ -246,6 +248,7 @@ const MIGRATIONS_RAW: string[] = [
   schema0017 as string,
   schema0018 as string,
   schema0019 as string,
+  schema0020 as string,
 ];
 
 const INTEGRATIONS_MIGRATIONS_RAW: string[] = [integrationsSchema as string];

@@ -1,0 +1,54 @@
+name: Deploy Main Worker
+
+# Deploy the main API worker (apps/main) to Cloudflare Workers.
+# This is the core HTTP API layer: agents, sessions, environments,
+# vaults, memory stores, files, integrations webhooks, billing.
+# Routes: app.oma.duyet.net
+# Requires CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repo secrets.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/main/**'
+      - 'packages/http-routes/**'
+      - 'packages/services/**'
+      - 'packages/shared/**'
+      - '.github/workflows/deploy-main.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/main
+          command: deploy

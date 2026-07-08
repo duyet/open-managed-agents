@@ -1,6 +1,6 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "openma-web",
+  "name": "oma-web",
   "compatibility_date": "2025-04-01",
   "main": "./src/worker.ts",
 
@@ -30,7 +30,7 @@
 
   "env": {
     "staging": {
-      "name": "openma-web-staging",
+      "name": "oma-web-staging",
       "routes": [
         { "pattern": "www.staging.oma.duyet.net", "custom_domain": true }
       ],
