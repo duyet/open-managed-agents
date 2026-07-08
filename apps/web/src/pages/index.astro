@@ -406,6 +406,37 @@ GET /v1/sandbox_providers/:id/usage</code></pre>
                 </tbody>
               </table>
             </div>
+              <!-- Sandbox Routing Mockup -->
+              <div class="mt-4 border border-[var(--color-border)] rounded-xl bg-[var(--color-bg)] p-4 shadow-xs relative overflow-hidden">
+                <div class="absolute inset-0 opacity-[0.02] dark:opacity-[0.05] pointer-events-none" style="background-image: radial-gradient(var(--color-fg) 1px, transparent 1px); background-size: 10px 10px;"></div>
+                <div class="relative z-10 space-y-2.5">
+                  <div class="text-[9px] font-mono font-semibold uppercase tracking-wider text-[var(--color-fg-subtle)]">Sandbox Routing</div>
+                  
+                  <div class="flex items-center justify-between p-2.5 bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-lg">
+                    <div>
+                      <div class="font-bold text-[11px]">production-api</div>
+                      <div class="text-[8px] font-mono text-[var(--color-fg-muted)]">config.sandbox_provider: "e2b"</div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-full text-[8px] font-mono font-bold bg-[var(--color-brand-subtle)] text-[var(--color-brand)] border border-[var(--color-brand)]/20">E2B Sandbox</span>
+                  </div>
+                  
+                  <div class="flex items-center justify-between p-2.5 bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-lg">
+                    <div>
+                      <div class="font-bold text-[11px]">local-dev</div>
+                      <div class="text-[8px] font-mono text-[var(--color-fg-muted)]">config.sandbox_provider: "subprocess"</div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-full text-[8px] font-mono font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700">Host Subprocess</span>
+                  </div>
+                  
+                  <div class="flex items-center justify-between p-2.5 bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-lg">
+                    <div>
+                      <div class="font-bold text-[11px]">customer-job</div>
+                      <div class="text-[8px] font-mono text-[var(--color-fg-muted)]">config.sandbox_provider: "daytona"</div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-full text-[8px] font-mono font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/40">Daytona VM</span>
+                  </div>
+                </div>
+              </div>
           </div>
         </div>
       </div>
@@ -660,21 +691,69 @@ GET /v1/sandbox_providers/:id/usage</code></pre>
         </div>
       </div>
 
-      <div class="mb-14">
-        <h3 class="font-display text-xl font-bold mb-3">A Kanban board across the whole session fleet</h3>
-        <p class="text-[var(--color-fg-muted)] leading-relaxed max-w-3xl">
-          Four columns — Queued, Running, Blocked, Done — derived entirely from
-          data the platform already tracks: a session's <code class="font-mono text-sm">status</code>
-          plus its most recent event's <code class="font-mono text-sm">stop_reason</code>.
-          No new backend state, no separate "board" resource — an idle session
-          with no events yet reads as queued, one whose last event is
-          <code class="font-mono text-sm">session.status_idle</code> with
-          <code class="font-mono text-sm">stop_reason.type === "requires_action"</code>
-          reads as blocked (waiting on a tool confirmation), everything else
-          idle reads as done. Polls every 15s — useful the moment you're
-          running more sessions than fit in one browser tab, e.g. the
-          self-improvement-agent triaging a backlog of issues concurrently.
-        </p>
+      <div class="mb-14 grid lg:grid-cols-12 gap-8 items-center">
+        <div class="lg:col-span-7">
+          <h3 class="font-display text-xl font-bold mb-3">A Kanban board across the whole session fleet</h3>
+          <p class="text-[var(--color-fg-muted)] leading-relaxed text-sm">
+            Four columns — Queued, Running, Blocked, Done — derived entirely from
+            data the platform already tracks: a session's <code class="font-mono text-sm">status</code>
+            plus its most recent event's <code class="font-mono text-sm">stop_reason</code>.
+            No new backend state, no separate "board" resource — an idle session
+            with no events yet reads as queued, one whose last event is
+            <code class="font-mono text-sm">session.status_idle</code> with
+            <code class="font-mono text-sm">stop_reason.type === "requires_action"</code>
+            reads as blocked (waiting on a tool confirmation), everything else
+            idle reads as done. Polls every 15s — useful the moment you're
+            running more sessions than fit in one browser tab, e.g. the
+            self-improvement-agent triaging a backlog of issues concurrently.
+          </p>
+        </div>
+        <div class="lg:col-span-5">
+          <!-- Fleet Kanban Board Mockup -->
+          <div class="border border-[var(--color-border)] rounded-xl bg-[var(--color-bg)] p-4 shadow-xs">
+            <div class="text-[9px] font-mono font-semibold uppercase tracking-wider text-[var(--color-fg-subtle)] mb-3">Session Fleet Dashboard</div>
+            <div class="grid grid-cols-2 gap-2.5">
+              <!-- Queued -->
+              <div class="p-2 bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-lg flex flex-col space-y-1.5 min-h-[90px]">
+                <div class="text-[8px] font-mono font-bold uppercase text-[var(--color-fg-subtle)]">Queued</div>
+                <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded p-1.5 shadow-2xs">
+                  <div class="font-bold text-[9px] text-[var(--color-fg)]">triage-issue</div>
+                  <span class="text-[7px] font-mono text-[var(--color-fg-muted)]">session_xxx</span>
+                </div>
+              </div>
+              <!-- Running -->
+              <div class="p-2 bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-lg flex flex-col space-y-1.5 min-h-[90px]">
+                <div class="text-[8px] font-mono font-bold uppercase text-[var(--color-fg-subtle)] flex items-center justify-between">
+                  <span>Running</span>
+                  <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping"></span>
+                </div>
+                <div class="bg-[var(--color-bg)] border border-[var(--color-brand)]/30 rounded p-1.5 shadow-2xs">
+                  <div class="font-bold text-[9px] text-[var(--color-fg)]">run-scikit</div>
+                  <span class="text-[7px] font-mono text-[var(--color-fg-muted)]">session_yyy</span>
+                </div>
+              </div>
+              <!-- Blocked -->
+              <div class="p-2 bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-lg flex flex-col space-y-1.5 min-h-[90px]">
+                <div class="text-[8px] font-mono font-bold uppercase text-[var(--color-fg-subtle)]">Blocked</div>
+                <div class="bg-[var(--color-bg)] border border-amber-400/30 rounded p-1.5 shadow-2xs">
+                  <div class="font-bold text-[9px] text-[var(--color-fg)] flex items-center justify-between">
+                    <span>deploy-prod</span>
+                    <span class="text-[8px] text-amber-500">⚠️</span>
+                  </div>
+                  <span class="text-[7px] font-mono text-[var(--color-fg-muted)]">session_zzz</span>
+                </div>
+              </div>
+              <!-- Done -->
+              <div class="p-2 bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-lg flex flex-col space-y-1.5 min-h-[90px]">
+                <div class="text-[8px] font-mono font-bold uppercase text-[var(--color-fg-subtle)]">Done</div>
+                <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded p-1.5 shadow-2xs opacity-70">
+                  <div class="font-bold text-[9px] text-[var(--color-fg)]">gen-docs</div>
+                  <span class="text-[7px] font-mono text-[var(--color-fg-muted)]">session_aaa</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="mb-14">
@@ -710,46 +789,88 @@ GET /v1/sandbox_providers/:id/usage</code></pre>
 &#125;</code></pre>
       </div>
 
-      <div class="mb-14">
-        <h3 class="font-display text-xl font-bold mb-3">Structured progress for multi-hour tasks</h3>
-        <p class="text-[var(--color-fg-muted)] leading-relaxed max-w-3xl">
-          A new <code class="font-mono text-sm">agent.status</code> event carries
-          a structured heartbeat — <code class="font-mono text-xs">state</code>,
-          <code class="font-mono text-xs">summary</code>, <code class="font-mono text-xs">step</code>,
-          <code class="font-mono text-xs">total_steps</code>, <code class="font-mono text-xs">blocked_on</code>
-          — instead of free-text progress buried in <code class="font-mono text-sm">agent.message</code>.
-          The default harness emits one per model turn; the <code class="font-mono text-sm">long-running</code>
-          harness additionally fires a wall-clock heartbeat (default every 60s)
-          so a single very long tool call still reports life, and marks
-          <code class="font-mono text-xs">state: "blocked"</code> when a turn
-          ends waiting on tool confirmation. These events are excluded from
-          model context entirely, so heartbeats can't perturb the byte-deterministic
-          prompt-cache prefix or force early compaction — and the step counter
-          reseeds from the durable event log on crash recovery, so numbering
-          survives a restart without gaps or duplicates.
-        </p>
+      <div class="mb-14 grid lg:grid-cols-12 gap-8 items-center">
+        <div class="lg:col-span-7">
+          <h3 class="font-display text-xl font-bold mb-3">Structured progress for multi-hour tasks</h3>
+          <p class="text-[var(--color-fg-muted)] leading-relaxed text-sm">
+            A new <code class="font-mono text-sm">agent.status</code> event carries
+            a structured heartbeat — <code class="font-mono text-xs">state</code>,
+            <code class="font-mono text-xs">summary</code>, <code class="font-mono text-xs">step</code>,
+            <code class="font-mono text-xs">total_steps</code>, <code class="font-mono text-xs">blocked_on</code>
+            — instead of free-text progress buried in <code class="font-mono text-sm">agent.message</code>.
+            The default harness emits one per model turn; the <code class="font-mono text-sm">long-running</code>
+            harness additionally fires a wall-clock heartbeat (default every 60s)
+            so a single very long tool call still reports life, and marks
+            <code class="font-mono text-xs">state: "blocked"</code> when a turn
+            ends waiting on tool confirmation. These events are excluded from
+            model context entirely, so heartbeats can't perturb the byte-deterministic
+            prompt-cache prefix or force early compaction — and the step counter
+            reseeds from the durable event log on crash recovery, so numbering
+            survives a restart without gaps or duplicates.
+          </p>
+        </div>
+        <div class="lg:col-span-5">
+          <!-- Structured Progress Terminal UI Mockup -->
+          <div class="border border-neutral-800 rounded-xl bg-neutral-950 p-4 shadow-md font-mono text-left">
+            <div class="flex items-center justify-between border-b border-neutral-800 pb-2 mb-3">
+              <div class="flex items-center space-x-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-red-500/80"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-green-500/80"></span>
+              </div>
+              <span class="text-[9px] text-neutral-500">agent.status</span>
+            </div>
+            <div class="space-y-2 text-[10px] text-neutral-300">
+              <div class="flex justify-between">
+                <span class="text-neutral-500">STATE:</span>
+                <span class="text-green-400 font-bold flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                  running
+                </span>
+              </div>
+              <div>
+                <span class="text-neutral-500">SUMMARY:</span>
+                <span class="text-neutral-200">Executing scikit-learn training...</span>
+              </div>
+              <div class="space-y-1">
+                <div class="flex justify-between">
+                  <span class="text-neutral-500">STEP:</span>
+                  <span class="text-neutral-200">14 / 20 (70%)</span>
+                </div>
+                <div class="w-full bg-neutral-800 rounded-full h-1.5 overflow-hidden">
+                  <div class="bg-[var(--color-brand)] h-full rounded-full" style="width: 70%;"></div>
+                </div>
+              </div>
+              <div class="flex justify-between text-[9px] text-neutral-500 border-t border-neutral-900 pt-1.5">
+                <span>HEARTBEAT:</span>
+                <span>Active (5s ago)</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="mb-14">
-        <h3 class="font-display text-xl font-bold mb-3">Outbound notifications to GitHub, Slack, and Matrix</h3>
-        <p class="text-[var(--color-fg-muted)] leading-relaxed mb-4 max-w-3xl">
-          A new agent-level <code class="font-mono text-sm">notify</code> field
-          (mirrors <code class="font-mono text-sm">mcp_servers</code>) takes a
-          list of <code class="font-mono text-sm">NotificationTarget</code>s —
-          <code class="font-mono text-sm">github_comment</code>,
-          <code class="font-mono text-sm">slack_message</code>,
-          <code class="font-mono text-sm">matrix_message</code> — each naming a
-          vault credential and a destination. <code class="font-mono text-sm">packages/github</code>
-          and <code class="font-mono text-sm">packages/slack</code> gained a
-          <code class="font-mono text-sm">notify.ts</code>, and a new
-          <code class="font-mono text-sm">packages/matrix</code> package ships
-          an outbound-only Matrix Client-Server API client alongside one — all
-          three format the same shared <code class="font-mono text-sm">summarizeSessionNotifyEvent()</code>
-          text in their own house style (GitHub markdown with a 🔴/⚪/🟢 status
-          dot, Slack mrkdwn emoji codes, Matrix plain text), so the wording
-          stays consistent across channels.
-        </p>
-        <pre class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-4 text-xs leading-relaxed overflow-x-auto"><code>&#123;
+      <div class="mb-14 grid lg:grid-cols-12 gap-8 items-center">
+        <div class="lg:col-span-7">
+          <h3 class="font-display text-xl font-bold mb-3">Outbound notifications to GitHub, Slack, and Matrix</h3>
+          <p class="text-[var(--color-fg-muted)] leading-relaxed mb-4 text-sm">
+            A new agent-level <code class="font-mono text-sm">notify</code> field
+            (mirrors <code class="font-mono text-sm">mcp_servers</code>) takes a
+            list of <code class="font-mono text-sm">NotificationTarget</code>s —
+            <code class="font-mono text-sm">github_comment</code>,
+            <code class="font-mono text-sm">slack_message</code>,
+            <code class="font-mono text-sm">matrix_message</code> — each naming a
+            vault credential and a destination. <code class="font-mono text-sm">packages/github</code>
+            and <code class="font-mono text-sm">packages/slack</code> gained a
+            <code class="font-mono text-sm">notify.ts</code>, and a new
+            <code class="font-mono text-sm">packages/matrix</code> package ships
+            an outbound-only Matrix Client-Server API client alongside one — all
+            three format the same shared <code class="font-mono text-sm">summarizeSessionNotifyEvent()</code>
+            text in their own house style (GitHub markdown with a 🔴/⚪/🟢 status
+            dot, Slack mrkdwn emoji codes, Matrix plain text), so the wording
+            stays consistent across channels.
+          </p>
+          <pre class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-4 text-xs leading-relaxed overflow-x-auto"><code>&#123;
   "notify": [
     &#123; "type": "github_comment", "credential_id": "cred_gh",
       "owner": "duyet", "repo": "oma", "issue_number": 52 &#125;,
@@ -759,16 +880,54 @@ GET /v1/sandbox_providers/:id/usage</code></pre>
       "homeserver_url": "https://matrix.org", "room_id": "!abc:matrix.org" &#125;
   ]
 &#125;</code></pre>
-        <p class="text-xs text-[var(--color-fg-subtle)] mt-4 max-w-3xl">
-          Today this covers the config field, the credential-scoped target
-          types, and a formatter + sender per channel — the field round-trips
-          through <code class="font-mono text-xs">/v1/agents</code> and each
-          package's <code class="font-mono text-xs">notify.ts</code> is ready
-          to call with a resolved token. Wiring the automatic dispatch —
-          calling these on a session's own <code class="font-mono text-xs">session.status_idle</code>
-          / <code class="font-mono text-xs">session.error</code> transitions —
-          is explicit next-up work, not yet in <code class="font-mono text-xs">session-do.ts</code>.
-        </p>
+          <p class="text-xs text-[var(--color-fg-subtle)] mt-4">
+            Today this covers the config field, the credential-scoped target
+            types, and a formatter + sender per channel — the field round-trips
+            through <code class="font-mono text-xs">/v1/agents</code> and each
+            package's <code class="font-mono text-xs">notify.ts</code> is ready
+            to call with a resolved token. Wiring the automatic dispatch —
+            calling these on a session's own <code class="font-mono text-xs">session.status_idle</code>
+            / <code class="font-mono text-xs">session.error</code> transitions —
+            is explicit next-up work, not yet in <code class="font-mono text-xs">session-do.ts</code>.
+          </p>
+        </div>
+        <div class="lg:col-span-5">
+          <!-- Notification Integration Hub Mockup -->
+          <div class="border border-[var(--color-border)] rounded-xl bg-[var(--color-bg)] p-5 shadow-xs relative overflow-hidden">
+            <div class="relative z-10 flex flex-col items-center">
+              <div class="w-full text-[9px] font-mono font-semibold uppercase tracking-wider text-[var(--color-fg-subtle)] mb-4 text-left">Notification Channels</div>
+              
+              <div class="grid grid-cols-3 gap-2.5 w-full">
+                <!-- Slack -->
+                <div class="flex flex-col items-center justify-center p-2.5 bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-lg text-center shadow-3xs">
+                  <svg class="w-6 h-6 text-yellow-500 mb-1" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523 2.528 2.528 0 0 1-2.522-2.523 2.528 2.528 0 0 1 2.522-2.52h2.52v2.52zm1.261 0a2.528 2.528 0 0 1 2.52-2.52h5.043a2.528 2.528 0 0 1 2.522 2.52v5.042a2.528 2.528 0 0 1-2.522 2.52H8.823a2.528 2.528 0 0 1-2.52-2.52v-5.042zM8.823 5.043a2.528 2.528 0 0 1 2.52-2.52 2.528 2.528 0 0 1 2.522 2.52v2.52h-2.522a2.528 2.528 0 0 1-2.52-2.52zm0 1.261a2.528 2.528 0 0 1 2.52 2.52v5.043a2.528 2.528 0 0 1-2.522 2.522H3.78a2.528 2.528 0 0 1-2.522-2.522 2.528 2.528 0 0 1 2.522-2.52h5.043z" />
+                  </svg>
+                  <span class="text-[9px] font-bold">Slack</span>
+                  <span class="text-[7px] text-green-500 mt-1 font-mono">Message ✓</span>
+                </div>
+                
+                <!-- GitHub -->
+                <div class="flex flex-col items-center justify-center p-2.5 bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-lg text-center shadow-3xs">
+                  <svg class="w-6 h-6 text-neutral-800 dark:text-neutral-200 mb-1" viewBox="0 0 24 24" fill="currentColor">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+                  </svg>
+                  <span class="text-[9px] font-bold">GitHub</span>
+                  <span class="text-[7px] text-green-500 mt-1 font-mono">PR Comment ✓</span>
+                </div>
+                
+                <!-- Matrix -->
+                <div class="flex flex-col items-center justify-center p-2.5 bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-lg text-center shadow-3xs">
+                  <svg class="w-6 h-6 text-red-500 mb-1" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M.6 2.4v19.2h2.4v1.2H0V1.2h3v1.2H.6zm22.8 0H21V1.2h3v21.6h-3v-1.2h2.4V2.4zM7.2 6h2.4v1.2h-.03c.3-.43.68-.78 1.15-1.04.47-.26.97-.39 1.48-.39.69 0 1.28.18 1.76.53.48.36.8.84.97 1.45.31-.6.76-1.07 1.33-1.4 1.25-.76 2.54-.75 3.39-.02.43.37.75.86.97 1.47.16.47.25 1.15.25 2.05v7.35h-2.4v-6.9c0-.7-.07-1.2-.23-1.51-.15-.31-.41-.53-.78-.66-.37-.12-.76-.09-1.17.1-.41.19-.71.51-.9 1-.13.34-.2.87-.2 1.6v6.37h-2.4V9.6c0-.73-.07-1.25-.23-1.56-.16-.31-.43-.53-.8-.66-.37-.13-.77-.1-1.18.09-.41.19-.72.5-.9 1-.14.34-.21.87-.21 1.6v6.37H7.2V6z" />
+                  </svg>
+                  <span class="text-[9px] font-bold">Matrix</span>
+                  <span class="text-[7px] text-green-500 mt-1 font-mono">Room Msg ✓</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div>
