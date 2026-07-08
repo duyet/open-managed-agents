@@ -40,14 +40,7 @@ const schemas = [softwareApplicationSchema()];
         </span>
       </h1>
       <p class="mt-6 text-base md:text-lg text-[var(--color-fg-muted)] max-w-2xl mx-auto leading-relaxed">
-        An open-source, self-hostable agent platform: durable sessions,
-        sandboxed code execution across <strong>7 providers</strong> (Cloudflare
-        Containers, local subprocess, Kubernetes, E2B, Daytona, LiteBox, BoxRun),
-        vault-backed credentials, MCP server hosting, and Claude Code skills —
-        served from Cloudflare Workers + Durable Objects, or a Docker container
-        on your own box. BYOK for both LLM <em>and</em> sandbox — bring
-        Anthropic, OpenAI, OpenRouter, <strong>and</strong> your preferred
-        sandbox runtime.
+        An open-source, self-hostable agent platform with durable sessions, secure sandboxed execution, vault-backed credentials, and MCP server hosting. Bring Your Own Key (BYOK) for both LLM and sandboxes.
       </p>
       <div class="mt-8 flex items-center justify-center gap-3 flex-wrap">
         <a
@@ -62,9 +55,7 @@ const schemas = [softwareApplicationSchema()];
           >Try the hosted version</a
         >
       </div>
-      <p class="mt-3 text-xs text-[var(--color-fg-subtle)]">
-        Self-host: <code class="font-mono">docker compose up</code>. Hosted: Free trial, BYOK for LLM spend.
-      </p>
+
     </div>
   </section>
 
@@ -1147,10 +1138,7 @@ GET /v1/sandbox_providers/:id/usage</code></pre>
   <section class="border-t border-[var(--color-border)]" data-reveal>
     <div class="max-w-3xl mx-auto px-4 py-16 text-center">
       <h2 class="font-display text-3xl font-bold mb-3">Get started</h2>
-      <p class="text-[var(--color-fg-muted)] mb-6">
-        Self-host: clone the repo, set <code class="font-mono text-sm">ANTHROPIC_API_KEY</code>,
-        <code class="font-mono text-sm">docker compose up</code>. Hosted: sign in, BYOK, ship.
-      </p>
+
       <div class="flex items-center justify-center gap-3 flex-wrap">
         <a
           href="https://github.com/duyet/oma"
