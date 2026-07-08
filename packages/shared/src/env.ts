@@ -21,6 +21,12 @@ export interface Env {
    *  Optional on workers that don't touch integration tables (sandbox /
    *  agent workers). Required on apps/main and apps/integrations. */
   INTEGRATIONS_DB?: D1Database;
+  /** Healthchecks.io ping URL for cron job monitoring.
+   *  UUID format: https://hc-ping.com/<uuid>
+   *  Slug format: https://hc-ping.com/<ping-key>/<slug>
+   *  When set, OMA sends start/success/failure pings to healthchecks.io
+   *  for each cron job tick. See https://healthchecks.io */
+  HEALTHCHECKS_IO_URL?: string;
   SEND_EMAIL?: SendEmail;
   // SESSION_DO and SANDBOX are only in sandbox workers
   SESSION_DO?: DurableObjectNamespace;

@@ -31,6 +31,11 @@ export interface Env {
   // INTEGRATIONS_INTERNAL_SECRET on the main worker.
   INTEGRATIONS_INTERNAL_SECRET: string;
 
+  // Healthchecks.io ping URL for cron job monitoring.
+  // UUID: https://hc-ping.com/<uuid>  —or—  slug: https://hc-ping.com/<ping-key>/<slug>
+  // When set, OMA sends start/success/failure pings for each cron tick.
+  HEALTHCHECKS_IO_URL?: string;
+
   // Optional override for the GitHub MCP server URL. Defaults to the
   // GitHub-hosted MCP at https://api.githubcopilot.com/mcp/. Set to a
   // self-hosted endpoint (e.g. https://github-mcp.internal/) to point

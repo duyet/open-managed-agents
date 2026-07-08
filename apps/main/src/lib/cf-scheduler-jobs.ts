@@ -13,6 +13,7 @@ import { CfD1SqlClient } from "@duyet/oma-sql-client/adapters/cf-d1";
 import { createCfScheduler, type CfScheduler } from "@duyet/oma-scheduler/cf";
 import { memoryRetentionTick } from "@duyet/oma-scheduler/jobs/memory-retention";
 import { webhookEventsRetentionTick } from "@duyet/oma-scheduler/jobs/webhook-events-retention";
+import { withHealthchecks } from "@duyet/oma-shared";
 import { tickEvalRuns } from "../eval-runner";
 import { dreamRecoveryTick } from "../cron/dream-recovery";
 
@@ -33,7 +34,7 @@ export function buildCfScheduler(env: Env): CfScheduler {
   scheduler.register({
     name: "eval-tick",
     cron: tickCron,
-    handler: () =>
+    handler: withHealthchecks(env, "eval-tick", () =>
       tickEvalRuns(env).then(
         (result) =>
           log(
@@ -48,29 +49,30 @@ export function buildCfScheduler(env: Env): CfScheduler {
           });
         },
       ),
+    ),
   });
 
   scheduler.register({
     name: "memory-retention",
     cron: memoryCron,
-    handler: memoryRetentionTick({
+    handler: withHealthchecks(env, "memory-retention", memoryRetentionTick({
       forEachShard: (fn) => forEachShardServices(env, (s, name) => fn(s, name)),
-    }),
+    })),
   });
 
   scheduler.register({
     name: "webhook-events-retention",
     cron: webhookCron,
-    handler: webhookEventsRetentionTick({
+    handler: withHealthchecks(env, "webhook-events-retention", webhookEventsRetentionTick({
       resolveIntegrationsDb: () =>
         env.INTEGRATIONS_DB ? new CfD1SqlClient(env.INTEGRATIONS_DB) : null,
-    }),
+    })),
   });
 
   scheduler.register({
     name: "dream-recovery",
     cron: dreamsCron,
-    handler: () => dreamRecoveryTick(env),
+    handler: withHealthchecks(env, "dream-recovery", () => dreamRecoveryTick(env)),
   });
 
   return scheduler;
