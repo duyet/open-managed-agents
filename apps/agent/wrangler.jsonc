@@ -123,10 +123,10 @@
         {
           "class_name": "Sandbox",
           "image": "./Dockerfile.sandbox",
-          // small — 0.5 vCPU, 1 GB RAM, 4 GB image limit.
+          // basic — 0.5 vCPU, 1 GB RAM, larger image limit.
           // lite (256 MB, 2 GB image) is too tight for the Python + Node
           // sandbox image which needs ~2.5 GB after toolchain slimming.
-          "instance_type": "small",
+          "instance_type": "basic",
           "max_instances": 50
         }
       ],
