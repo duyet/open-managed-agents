@@ -146,6 +146,7 @@ import {
 } from "./lib/event-stream-hub";
 import { PgEventStreamHub } from "./lib/pg-event-stream-hub";
 import { NodeHarnessRuntime } from "./lib/node-harness-runtime";
+import { selectHarnessName } from "./lib/harness-select";
 import { SessionRegistry } from "./registry.js";
 
 const toMarkdownProvider = nodeToMarkdown();
@@ -672,7 +673,10 @@ function resolveProviderCreds(
   // when that token is set. buildHarnessContext below threads the token
   // itself into ctx.env; buildModel/buildTools never use this empty-string
   // result because ClaudeAgentSdkHarness ignores ctx.model/ctx.tools.
-  if (agent?.metadata?.harness === "claude-agent-sdk" && process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+  if (
+    selectHarnessName(agent?.metadata?.harness, process.env.DEFAULT_HARNESS) === "claude-agent-sdk" &&
+    process.env.CLAUDE_CODE_OAUTH_TOKEN
+  ) {
     return { apiKey: "", baseUrl: process.env.ANTHROPIC_BASE_URL };
   }
 
@@ -747,7 +751,7 @@ const sessionRegistry = new SessionRegistry({
       run: (ctx: unknown) => {
         const c = ctx as HarnessContext;
         const meta = (c.agent as { metadata?: Record<string, unknown> })?.metadata;
-        const harnessName = meta?.harness;
+        const harnessName = selectHarnessName(meta?.harness, process.env.DEFAULT_HARNESS);
         if (harnessName === "flue") return flue.run(c);
         if (harnessName === "claude-agent-sdk") return claudeAgentSdk.run(c);
         return def.run(c);

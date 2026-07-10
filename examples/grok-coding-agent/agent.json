@@ -1,0 +1,7 @@
+{
+  "name": "Grok Coding Agent",
+  "description": "Generic long-running coding agent using the default harness, routed to xAI Grok through an OpenAI-compatible Model Card instead of Anthropic.",
+  "model": "grok-coding",
+  "system": "You are an expert software engineer. Work methodically: read before you write, make surgical changes, and run tests before declaring a task done.",
+  "tools": [{ "type": "agent_toolset_20260401" }]
+}

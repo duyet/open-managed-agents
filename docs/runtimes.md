@@ -1,0 +1,152 @@
+# Runtimes: harnesses, models, and sandbox images
+
+Three independent choices determine how a coding agent runs. They're
+independent on purpose — mixing them (e.g. Grok model + claude-agent-sdk
+harness would be nonsensical, but Grok model + default harness + any
+sandbox image is fine) is a config change, not a code change.
+
+| Choice | Config field | Where it runs |
+|---|---|---|
+| **Harness** (model loop) | `agent.harness` | Platform (`apps/agent` for CF, `apps/main-node` for self-host) |
+| **Model / provider** | `agent.model` (+ a Model Card) | Platform — the LLM API call itself never touches the sandbox |
+| **Sandbox image** | `environment.config.image` (or CF's fixed sandbox-base) | Wherever the sandbox provider runs it (Cloudflare Containers, Daytona, E2B, k8s, local subprocess) |
+
+Only the model call happens off-sandbox; **tool execution** (bash / read /
+write / edit / glob / grep) always happens inside the sandbox regardless of
+which harness or model is driving it — including for the claude-agent-sdk
+harness, whose CLI subprocess bridges its tool calls into the same sandbox
+via an in-process MCP server (see
+`apps/agent/src/harness/claude-agent-sdk-loop.ts`). This is why a single
+sandbox image works across harnesses and providers.
+
+## Harnesses
+
+Registered in `apps/agent/src/index.ts` (Cloudflare) and additionally in
+`apps/main-node/src/index.ts` (self-host only):
+
+| Harness | `agent.harness` | Runs on | Notes |
+|---|---|---|---|
+| Default | `"default"` (or omitted) | CF + self-host | In-process `generateText`/`streamText` loop over `ai-sdk`. |
+| ACP proxy | `"acp-proxy"` | CF + self-host | Bridges an Agent Client Protocol server. |
+| Flue | `"flue"` | CF + self-host | Meta-harness delegating to Flue's own agent runtime. |
+| Long-running | `"long-running"` | CF + self-host | Default loop + periodic `agent.status` heartbeats. |
+| Claude Agent SDK | `"claude-agent-sdk"` | **self-host only** | Spawns Claude Code's CLI as a native subprocess via `@anthropic-ai/claude-agent-sdk`. Requires `child_process` + a real filesystem — unavailable inside a Cloudflare Workers isolate, so it's wired into `apps/main-node`'s harness router only, never the CF worker registry. |
+
+### Recommended default: `claude-agent-sdk` on self-host
+
+If you're self-hosting (`apps/main-node`, `docker compose`) and want agents
+to behave like Claude Code rather than OMA's in-process loop, set
+`harness: "claude-agent-sdk"` on the agent. To make this the default for
+every agent that doesn't set `harness` explicitly, set the node process's
+`DEFAULT_HARNESS` env var:
+
+```bash
+# docker-compose.yml / .env
+DEFAULT_HARNESS=claude-agent-sdk
+```
+
+An agent's own `metadata.harness` (the marker `apps/main-node` actually
+reads per-turn) always wins over `DEFAULT_HARNESS` — the env var only fills
+the gap when neither `harness` nor `metadata.harness` is set. See
+`selectHarnessName` in `apps/main-node/src/lib/harness-select.ts`.
+
+`claude-agent-sdk` also needs auth for its CLI subprocess independently of
+the platform's own model credentials: `ANTHROPIC_API_KEY`, or
+`CLAUDE_CODE_OAUTH_TOKEN` (minted via `claude setup-token`) when that's
+unset. Neither of the other harnesses need this — they use
+`ANTHROPIC_API_KEY` (or a Model Card) through the normal `ai-sdk` path.
+
+## Models: Claude vs. Grok (or any OpenAI-compatible provider)
+
+Model choice is a [Model Card](../AGENTS.md#model-configuration), resolved
+purely by matching `agent.model` against a card's `model_id` — the
+`model_card_id` field some older docs mention is not consulted anywhere in
+resolution and can be omitted. `provider` on the card selects the wire
+format (`apps/agent/src/harness/provider.ts`):
+
+- `"ant"` / `"ant-compatible"` — Anthropic `/v1/messages`.
+- `"oai"` / `"oai-compatible"` — OpenAI `/v1/chat/completions` (never the
+  Responses API — see the comment in `provider.ts` for why: third-party
+  OpenAI-compat gateways, including xAI's Grok API, only implement
+  chat/completions, and the Responses API's server-side function-call-id
+  persistence breaks under Zero Data Retention).
+
+xAI Grok is just another `"oai-compatible"` Model Card pointed at
+`https://api.x.ai/v1`. See [`examples/grok-coding-agent`](../examples/grok-coding-agent)
+for a full working example, side-by-side with
+[`examples/coding-agent`](../examples/coding-agent) (Claude, default
+provider fallback).
+
+## Sandbox image matrix (`docker/`)
+
+`docker/build.sh` builds and tags:
+
+| Image | Kind | Use for |
+|---|---|---|
+| `oma-runtime-base` | `docker/base` | Generic toolset sandbox (git, gh, ripgrep, python3, build-essential). Default `config.image` for daytona/e2b/k8s/boxrun adapters. |
+| `oma-runtime-claude-agent-sdk` | `docker/claude-agent-sdk` | Alias for `oma-runtime-base` today — see the file's own comment for why (the CLI subprocess runs on the platform host, not in the sandbox). Named separately so it's pinnable and can diverge later. |
+| `oma-runtime-coding-agent-openai-compat` | `docker/coding-agent-openai-compat` | Alias for `oma-runtime-base` today, for the same reason. Named separately for the same forward-compat reason. |
+
+```bash
+docker/build.sh                    # build + tag all three
+docker/build.sh claude-agent-sdk   # build just one kind
+```
+
+Cloudflare deployments don't use this matrix — CF sessions always run
+`apps/agent/Dockerfile` (`ghcr.io/duyet/sandbox-base:latest`, built by
+`.github/workflows/build-sandbox-image.yml`), which `docker/base/Dockerfile`
+mirrors but isn't built FROM (that image is pinned to
+`cloudflare/sandbox`'s HTTP exec surface, which the daytona/e2b/k8s
+adapters don't use).
+
+## Choosing a sandbox provider per environment
+
+An environment's `config.sandbox_provider` selects which adapter creates
+its sandboxes (`packages/sandbox/src/provider-config.ts`):
+
+| Provider id | Isolation | Config knob for image |
+|---|---|---|
+| `subprocess` | None — trusted local dev only | N/A (runs on the host) |
+| `litebox` | Firecracker micro-VM, local | N/A (fixed rootfs) |
+| `boxrun` | Firecracker micro-VM, remote control plane | `SANDBOX_IMAGE` / provider config `image` |
+| `daytona` | Managed VM (Daytona SaaS) | provider config `image`, default `node:22-slim` |
+| `e2b` | Firecracker microVM (E2B SaaS) | E2B template, default `node:22-slim`-equivalent |
+| `k8s` | Pod via the agent-sandbox controller | provider config `image`, default `node:22-slim` |
+| `cloud` | Cloudflare Containers | fixed — `ghcr.io/duyet/sandbox-base:latest` |
+
+Point `daytona`/`e2b`/`k8s`/`boxrun` at `oma-runtime-base:latest` (or a
+registry-pushed tag of it) instead of the bare `node:22-slim` default to
+get git/gh/ripgrep/python3 pre-installed instead of cold-installing them
+per session.
+
+## Cross-sandbox sub-agents
+
+**Current behavior: a parent and its `callable_agents` children share the
+same sandbox instance, not separate ones.** `SessionDO.runSubAgent`
+(`apps/agent/src/runtime/session-do.ts`) builds the sub-agent's tools with
+`buildTools(subAgent, sandbox, ...)`, passing through the *same*
+`SandboxExecutor` the parent turn is already using — it does not provision
+a new sandbox from the sub-agent's own environment. The synthesized
+`"general"` sub-agent's system prompt says this explicitly: "You share the
+same sandbox as the calling agent (files persist) but cannot delegate
+further or use MCP tools."
+
+This differs from `AGENTS.md`'s "Multi-Agent Delegation" description
+("Creates a child session for the target agent") — a session-thread row and
+`session.thread_created` event ARE created per delegation (so Console can
+render a delegation tree and thread ids are addressable), but that thread
+runs its harness turn against the parent's sandbox, not a freshly
+provisioned one bound to the child agent's `environment_id`. A child
+`callable_agents` entry's own environment / sandbox provider configuration
+is therefore not honored today — every level of delegation runs inside
+whatever sandbox the top-level session was created with.
+
+Per-child sandboxes (provisioning each `callable_agents` entry's own
+environment/sandbox provider) are on the roadmap but not implemented as of
+this writing.
+
+If you need a sub-agent that genuinely runs in a different sandbox
+provider or runtime image, don't rely on `callable_agents` for that today —
+create a separate top-level session against the desired environment and
+orchestrate between the two sessions from outside OMA (e.g. via the REST
+API), rather than through `call_agent_*` / `call_agents_parallel`.
