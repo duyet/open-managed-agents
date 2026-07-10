@@ -1,11 +1,15 @@
 @import "tailwindcss";
 
-/* Mirror the Console design tokens so cross-link feel is consistent. */
+/* Marketing brand tokens — Anthropic brand-guidelines palette + type.
+   Headings: Poppins (Arial fallback). Body: Lora (Georgia fallback).
+   Mono: JetBrains Mono for code only. Console keeps its own families. */
 @theme {
   --font-sans: "Lora", Georgia, serif;
   --font-display: "Poppins", Arial, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
+  /* Brand anchors: dark #141413, light #faf9f5, mid #b0aea5, light-gray #e8e6dc,
+     orange #d97757, blue #6a9bcc, green #788c5d */
   --color-bg: #faf9f5;
   --color-bg-surface: #e8e6dc;
   --color-fg: #141413;
@@ -17,9 +21,11 @@
   --color-brand-hover: #bf6041;
   --color-brand-subtle: #fbf1ee;
   --color-brand-fg: #141413;
-  
+
   --color-blue: #6a9bcc;
+  --color-blue-subtle: #eaf2f8;
   --color-green: #788c5d;
+  --color-green-subtle: #eef1ea;
 }
 
 .dark {
@@ -34,6 +40,8 @@
   --color-brand-hover: #e09278;
   --color-brand-subtle: #2d1a15;
   --color-brand-fg: #141413;
+  --color-blue-subtle: #1a2833;
+  --color-green-subtle: #1e2418;
 }
 
 html {
@@ -44,6 +52,19 @@ html {
   /* Smooth-scroll for in-page anchors (header is sticky, so we need
      the scroll-margin so anchors clear it). */
   scroll-behavior: smooth;
+}
+
+/* Display type: all headings use Poppins end-to-end so body Lora never
+   bleeds into section titles. Tailwind font-display maps here too. */
+h1, h2, h3, h4, h5, h6,
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+code, pre, kbd, samp,
+.font-mono {
+  font-family: var(--font-mono);
 }
 
 /* Anchor targets clear the sticky header (h-13 at desktop). Anything
@@ -166,7 +187,111 @@ input:focus-visible,
 }
 .prose h1 { font-family: var(--font-display); font-size: 2rem; font-weight: 700; margin-top: 2.5rem; margin-bottom: 1rem; }
 .prose h2 { font-family: var(--font-display); font-size: 1.5rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.75rem; }
-.prose h3 { font-size: 1.2rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+.prose h3 { font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+
+/* Architecture / lifecycle visualization helpers (landing page). */
+.arch-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.arch-layer {
+  position: relative;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  background: var(--color-bg);
+}
+.arch-layer + .arch-layer {
+  margin-top: 0.75rem;
+}
+.arch-layer::before {
+  content: "";
+  position: absolute;
+  left: 1.5rem;
+  top: -0.75rem;
+  width: 2px;
+  height: 0.75rem;
+  background: var(--color-border-strong);
+}
+.arch-layer:first-child::before {
+  display: none;
+}
+.arch-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+}
+.arch-badge-orange {
+  color: var(--color-brand);
+  background: var(--color-brand-subtle);
+}
+.arch-badge-blue {
+  color: var(--color-blue);
+  background: var(--color-blue-subtle);
+}
+.arch-badge-green {
+  color: var(--color-green);
+  background: var(--color-green-subtle);
+}
+.lifecycle-track {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+@media (min-width: 768px) {
+  .lifecycle-track {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0;
+    align-items: stretch;
+  }
+  .lifecycle-step {
+    position: relative;
+    padding-right: 1rem;
+  }
+  .lifecycle-step:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 1.75rem;
+    right: 0;
+    width: 1rem;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      var(--color-brand) 0%,
+      var(--color-blue) 50%,
+      var(--color-green) 100%
+    );
+    opacity: 0.55;
+  }
+}
+.meta-harness-split {
+  display: grid;
+  gap: 1rem;
+}
+@media (min-width: 768px) {
+  .meta-harness-split {
+    grid-template-columns: 1fr auto 1fr;
+    align-items: stretch;
+  }
+}
+.meta-harness-vs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-fg-subtle);
+}
 .prose p { margin: 1rem 0; }
 .prose ul, .prose ol { margin: 1rem 0; padding-left: 1.5rem; }
 .prose li { margin: 0.25rem 0; }

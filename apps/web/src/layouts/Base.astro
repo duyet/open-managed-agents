@@ -86,24 +86,22 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
       }
     </script>
 
-    <!-- Fonts: same set Console uses, so cross-domain feels consistent.
-         Trimmed to weights actually used (no italics, no opsz axis): Source
-         Serif 4 needs 400/600/700, DM Sans needs 400/500/600, JetBrains Mono
-         needs 400/500/700. Loaded via the print-onload pattern so the
-         stylesheet is non-blocking; the <noscript> fallback keeps it
-         working without JS. display=swap on each face avoids CLS. -->
+    <!-- Brand fonts (Anthropic brand-guidelines pairing for marketing):
+         Poppins for headings/display, Lora for body, JetBrains Mono for code
+         only. Loaded via print-onload so the stylesheet is non-blocking;
+         <noscript> fallback keeps fonts without JS. display=swap avoids CLS. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Lora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
       media="print"
       onload="this.media='all'"
     />
     <noscript>
       <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Lora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
       />
     </noscript>
 

@@ -1,23 +1,119 @@
 ---
 import Base from "../layouts/Base.astro";
-import { getCollection } from "astro:content";
 import { softwareApplicationSchema } from "../lib/seo";
 import FeatureCard from "../components/FeatureCard.astro";
-import BlogPostCard from "../components/BlogPostCard.astro";
-
-
-const posts = (await getCollection("blog", ({ data }) => !data.draft))
-  .sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf())
-  .slice(0, 3);
-
-function formatDate(d: Date) {
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-}
 
 // SoftwareApplication is the homepage-only schema — anchors the
 // "Open Managed Agents" entity in Google's knowledge graph and makes
 // the page eligible for software-style rich snippets (price, license).
 const schemas = [softwareApplicationSchema()];
+
+const concepts = [
+  {
+    name: "Agent",
+    badge: "config",
+    accent: "orange" as const,
+    body: "A versioned configuration: model, system prompt, tools, skills, MCP servers, and harness. Sessions bind to a specific agent version at creation — updates never rewrite live runs.",
+  },
+  {
+    name: "Session",
+    badge: "runtime",
+    accent: "blue" as const,
+    body: "A running conversation with an append-only event log. Streaming, crash recovery, and idle/running lifecycle all hang off this unit of durable state.",
+  },
+  {
+    name: "Environment",
+    badge: "sandbox",
+    accent: "green" as const,
+    body: "The execution sandbox — packages, networking policy, and container image. Reusable across agents so fleets share a known runtime shape.",
+  },
+  {
+    name: "Vault",
+    badge: "secrets",
+    accent: "orange" as const,
+    body: "Credential store that never enters the sandbox. Tokens are injected by an outbound proxy at the network layer when requests match a credential URL.",
+  },
+];
+
+const archLayers = [
+  {
+    step: "01",
+    title: "Client & API",
+    badge: "arch-badge-orange",
+    label: "Edge",
+    items: [
+      "HTTP API mirrors Claude Managed Agents (/v1/agents, /v1/sessions)",
+      "SSE event stream for live agent.* and session.* events",
+      "Console, CLI, or any client that speaks the same surface",
+    ],
+  },
+  {
+    step: "02",
+    title: "Platform · SessionDO",
+    badge: "arch-badge-blue",
+    label: "State",
+    items: [
+      "Per-session Durable Object with SQLite event log",
+      "Tool catalog, skills mount, sandbox binding, credential wiring",
+      "Crash recovery: new harness instance rebuilds context from the log",
+    ],
+  },
+  {
+    step: "03",
+    title: "Harness · model loop",
+    badge: "arch-badge-green",
+    label: "Policy",
+    items: [
+      "Decides how to drive the model: context, compaction, tool steps",
+      "Default harness ships; register custom harnesses by name",
+      "Prompt-cache-aware: byte-deterministic system prefix",
+    ],
+  },
+  {
+    step: "04",
+    title: "Sandbox · Vault proxy",
+    badge: "arch-badge-orange",
+    label: "Boundary",
+    items: [
+      "Isolated exec for bash, files, packages (CF Containers, Docker, …)",
+      "Outbound proxy injects vault secrets — never plaintext in the box",
+      "MCP calls route through the platform, not the untrusted runtime",
+    ],
+  },
+];
+
+const lifecycle = [
+  {
+    n: "01",
+    phase: "Bootstrap",
+    title: "Session start",
+    body: "SessionDO restores the event log, binds the agent version, mounts skills, and registers tools for the environment.",
+  },
+  {
+    n: "02",
+    phase: "Context",
+    title: "Compile & query",
+    body: "Harness builds history into a model context, applies compaction, and calls the provider (Anthropic, OpenAI-compat, or model card).",
+  },
+  {
+    n: "03",
+    phase: "Execute",
+    title: "Sandbox run",
+    body: "Tool calls dispatch into the sandbox — shell, read/write/edit, glob/grep, web tools — without exposing vault material.",
+  },
+  {
+    n: "04",
+    phase: "Proxy",
+    title: "Vault injection",
+    body: "Outbound HTTPS matches vault credentials; the proxy attaches Authorization at the network edge of the sandbox.",
+  },
+  {
+    n: "05",
+    phase: "Resilience",
+    title: "Durable replay",
+    body: "On crash, a fresh harness reads SQLite, emits session.error if needed, and continues from durable events — no lost turns.",
+  },
+];
 ---
 
 <Base
@@ -28,180 +124,245 @@ const schemas = [softwareApplicationSchema()];
   schemas={schemas}
 >
   <!-- Hero -->
-  <section class="border-b border-[var(--color-border)]">
-    <div class="max-w-5xl mx-auto px-4 py-20 md:py-28 text-center">
-      <p class="text-sm font-mono uppercase tracking-wider text-[var(--color-fg-subtle)] mb-4">
+  <section class="border-b border-[var(--color-border)] relative overflow-hidden">
+    <div
+      class="pointer-events-none absolute inset-0 opacity-[0.35] dark:opacity-[0.2]"
+      aria-hidden="true"
+      style="background:
+        radial-gradient(ellipse 80% 50% at 50% -20%, color-mix(in srgb, var(--color-brand) 28%, transparent), transparent),
+        radial-gradient(ellipse 40% 40% at 90% 60%, color-mix(in srgb, var(--color-blue) 18%, transparent), transparent),
+        radial-gradient(ellipse 35% 35% at 10% 80%, color-mix(in srgb, var(--color-green) 16%, transparent), transparent);"
+    ></div>
+    <div class="relative max-w-5xl mx-auto px-4 py-20 md:py-28 text-center">
+      <p class="text-sm font-mono uppercase tracking-wider text-[var(--color-fg-subtle)] mb-5">
         Apache 2.0 · Cloudflare-native · Self-hostable · BYOK
       </p>
-      <h1 class="font-display text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
+      <h1 class="font-display text-4xl sm:text-5xl md:text-[3.25rem] font-bold tracking-tight leading-[1.1] max-w-4xl mx-auto">
         oma — the self-hosted agent platform for any LLM provider
-        <span class="block mt-4 text-xl md:text-2xl text-[var(--color-fg-muted)] font-medium">
-          Run your own agents — on Cloudflare or with <code class="font-mono text-base md:text-xl">docker compose up</code>
-        </span>
       </h1>
-      <p class="mt-6 text-base md:text-lg text-[var(--color-fg-muted)] max-w-2xl mx-auto leading-relaxed">
-        An open-source, self-hostable agent platform with durable sessions, secure sandboxed execution, vault-backed credentials, and MCP server hosting. Bring Your Own Key (BYOK) for both LLM and sandboxes.
+      <p class="mt-5 text-lg md:text-xl text-[var(--color-fg-muted)] max-w-2xl mx-auto leading-relaxed font-medium">
+        Run your own agents — on Cloudflare or with
+        <code class="font-mono text-base md:text-lg">docker compose up</code>
       </p>
-      <div class="mt-8 flex items-center justify-center gap-3 flex-wrap">
+      <p class="mt-5 text-base md:text-lg text-[var(--color-fg-muted)] max-w-2xl mx-auto leading-relaxed">
+        An open-source meta-harness: the platform owns state, security, and sandboxes;
+        a harness owns the model loop. Durable sessions, vault-backed credentials, MCP,
+        and Bring Your Own Key for models and compute.
+      </p>
+      <div class="mt-9 flex items-center justify-center gap-3 flex-wrap">
         <a
           href="https://github.com/duyet/oma"
-          target="_blank" rel="noopener noreferrer"
-          class="px-5 py-3 rounded-md bg-[var(--color-fg)] text-[var(--color-bg)] font-medium"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="px-5 py-3 rounded-md bg-[var(--color-fg)] text-[var(--color-bg)] font-medium font-display no-underline hover:no-underline"
           >★ Star on GitHub</a
         >
         <a
           href="https://app.oma.duyet.net/login"
-          class="px-5 py-3 rounded-md border border-[var(--color-border)] font-medium"
+          class="px-5 py-3 rounded-md border border-[var(--color-border-strong)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg-surface)]"
           >Try the hosted version</a
         >
+        <a
+          href="https://docs.oma.duyet.net"
+          class="px-5 py-3 rounded-md border border-[var(--color-border)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg-surface)]"
+          >Read the docs</a
+        >
       </div>
-
     </div>
   </section>
 
-  <!-- Why Open Managed Agents -->
-  <section class="max-w-5xl mx-auto px-4 py-16" data-reveal>
-    <h2 class="font-display text-3xl font-bold mb-3 text-center">Why Open Managed Agents</h2>
-    <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12">
-      The same shape of platform you'd get from a closed vendor — sessions,
-      sandboxes, tool dispatch, crash recovery, security controls — but every layer is
-      inspectable, swappable, and yours to fork.
+  <!-- What it is -->
+  <section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="what-is-oma">
+    <p class="text-center font-mono text-xs uppercase tracking-widest text-[var(--color-brand)] mb-3">
+      Product
     </p>
-    <div class="grid md:grid-cols-3 gap-8">
-      <FeatureCard title="Drop-in compatible">
-        The HTTP API mirrors the Claude Managed Agents API — same
-        <code class="font-mono text-xs">/v1/agents</code>,
-        <code class="font-mono text-xs">/v1/sessions</code>, same event-stream
-        shape. Migrate by swapping the base URL.
-      </FeatureCard>
-      <FeatureCard title="Self-host on Cloudflare">
-        Workers + Durable Objects + Containers + R2. One <code class="font-mono text-xs">wrangler deploy</code>,
-        no servers to patch. Or run the Node + Postgres flavor on your own
-        VPS if you can't be on Cloudflare.
-      </FeatureCard>
-      <FeatureCard title="Apache 2.0">
-        Permissive license. Fork it, ship it inside your product, run a
-        private fleet — no per-seat fee, no usage tax. The hosted service at
-        oma.duyet.net is one deployment of the same code.
-      </FeatureCard>
+    <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
+      What Open Managed Agents is
+    </h2>
+    <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed">
+      A self-hostable reimplementation of the Claude Managed Agents API shape —
+      sessions, agents, tools, streams — with every layer inspectable and yours to fork.
+      Not a single chat UI: a platform for running agent fleets.
+    </p>
+    <div class="grid sm:grid-cols-2 gap-5">
+      {
+        concepts.map((c) => (
+          <article
+            data-lift
+            class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 hover:border-[var(--color-border-strong)]"
+          >
+            <div class="flex items-center justify-between gap-3 mb-3">
+              <h3 class="font-display text-xl font-semibold tracking-tight">{c.name}</h3>
+              <span
+                class:list={[
+                  "arch-badge",
+                  c.accent === "blue"
+                    ? "arch-badge-blue"
+                    : c.accent === "green"
+                      ? "arch-badge-green"
+                      : "arch-badge-orange",
+                ]}
+              >
+                {c.badge}
+              </span>
+            </div>
+            <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">{c.body}</p>
+          </article>
+        ))
+      }
     </div>
   </section>
 
-  <!-- How Open Managed Agents Works -->
-  <section class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal>
-    <div class="max-w-5xl mx-auto px-4 py-16">
-      <h2 class="font-display text-3xl font-bold mb-3 text-center">How Open Managed Agents works</h2>
-      <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed text-sm">
-        An open-source meta-harness architecture. The platform manages state, security, and execution boundaries, while your agent code drives the loop.
+  <!-- How designed: meta-harness -->
+  <section
+    class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]"
+    data-reveal
+    id="how-designed"
+  >
+    <div class="max-w-5xl mx-auto px-4 py-16 md:py-20">
+      <p class="text-center font-mono text-xs uppercase tracking-widest text-[var(--color-blue)] mb-3">
+        Design
+      </p>
+      <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
+        How it is designed
+      </h2>
+      <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed">
+        OMA is a <strong class="text-[var(--color-fg)] font-semibold">meta-harness</strong>:
+        the platform prepares <em>what</em> an agent has (tools, skills, history, sandbox, credentials);
+        a harness decides <em>how</em> to drive the model loop. Same business logic on Cloudflare
+        Workers + Durable Objects or self-hosted Node + Docker.
       </p>
 
-      <div class="space-y-16">
-        <!-- 1. System Architecture -->
-        <div>
-          <h3 class="font-display text-2xl font-bold mb-6 text-center md:text-left">System Architecture</h3>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <!-- Col 1 -->
-            <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl p-5 shadow-2xs">
-              <span class="font-mono text-[9px] font-bold uppercase tracking-wider text-[var(--color-brand)] bg-[var(--color-brand-subtle)] px-2 py-0.5 rounded">1. Client Layer</span>
-              <h4 class="font-bold text-sm text-[var(--color-fg)] mt-3 mb-2">User & Client Apps</h4>
-              <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed">
-                Triggers agent execution by posting events. Connects to a real-time Server-Sent Events (SSE) stream to receive instant status updates and text chunks.
-              </p>
-            </div>
-            <!-- Col 2 -->
-            <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl p-5 shadow-2xs">
-              <span class="font-mono text-[9px] font-bold uppercase tracking-wider text-[var(--color-brand)] bg-[var(--color-brand-subtle)] px-2 py-0.5 rounded">2. Platform Layer</span>
-              <h4 class="font-bold text-sm text-[var(--color-fg)] mt-3 mb-2">Session DO & SQLite</h4>
-              <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed mb-3">
-                Maintains the append-only event log inside SQLite. Stores everything: user prompts, tool requests, logs, and outputs.
-              </p>
-              <h4 class="font-bold text-sm text-[var(--color-fg)] mb-2">Agent Harness</h4>
-              <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed">
-                Compiles session history into optimized LLM prompt contexts, calls the LLM provider, parses response tokens, and schedules tool invocations.
-              </p>
-            </div>
-            <!-- Col 3 -->
-            <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl p-5 shadow-2xs">
-              <span class="font-mono text-[9px] font-bold uppercase tracking-wider text-[var(--color-brand)] bg-[var(--color-brand-subtle)] px-2 py-0.5 rounded">3. Execution & Security</span>
-              <h4 class="font-bold text-sm text-[var(--color-fg)] mt-3 mb-2">Pluggable Sandbox</h4>
-              <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed mb-3">
-                Hardware-isolated runtime executing python, shell commands, and node scripts. Plugs into Cloudflare, Kubernetes, E2B, or Daytona.
-              </p>
-              <h4 class="font-bold text-sm text-[var(--color-fg)] mb-2">Outbound Proxy & Vault</h4>
-              <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed">
-                Intercepts outgoing HTTPS requests from the sandbox. Injects tokens securely at the network layer, preventing raw credential leaks.
-              </p>
-            </div>
-          </div>
+      <div class="meta-harness-split mb-14">
+        <div class="rounded-xl border-2 border-[var(--color-brand)] bg-[var(--color-bg)] p-6">
+          <span class="arch-badge arch-badge-orange mb-3">Platform owns</span>
+          <h3 class="font-display text-lg font-semibold mb-3">What the agent has</h3>
+          <ul class="space-y-2 text-sm text-[var(--color-fg-muted)] leading-relaxed list-disc pl-5">
+            <li>Session event log (append-only SQLite in SessionDO)</li>
+            <li>Tool construction & permission policy</li>
+            <li>Skill mounting & memory store mounts</li>
+            <li>Sandbox lifecycle & network egress policy</li>
+            <li>Vault proxy — credentials never in the box</li>
+            <li>SSE broadcast & crash recovery seams</li>
+          </ul>
         </div>
-
-        <!-- 2. Durable Lifecycle -->
-        <div>
-          <h3 class="font-display text-2xl font-bold mb-6 text-center md:text-left">Durable Lifecycle Loop</h3>
-          <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl p-5 shadow-2xs">
-              <div class="flex items-center justify-between mb-3">
-                <span class="text-xs font-bold font-mono text-[var(--color-brand)]">01</span>
-                <span class="text-[9px] uppercase font-mono font-bold tracking-wider text-[var(--color-fg-subtle)]">Bootstrap</span>
-              </div>
-              <h4 class="font-bold text-xs text-[var(--color-fg)] mb-2">Session Start</h4>
-              <p class="text-[11px] text-[var(--color-fg-muted)] leading-relaxed">
-                SessionDO restores the conversation log from SQLite, binds to the Agent version, and registers environment tools.
-              </p>
-            </div>
-            
-            <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl p-5 shadow-2xs">
-              <div class="flex items-center justify-between mb-3">
-                <span class="text-xs font-bold font-mono text-[var(--color-brand)]">02</span>
-                <span class="text-[9px] uppercase font-mono font-bold tracking-wider text-[var(--color-fg-subtle)]">Context</span>
-              </div>
-              <h4 class="font-bold text-xs text-[var(--color-fg)] mb-2">Compile & Query</h4>
-              <p class="text-[11px] text-[var(--color-fg-muted)] leading-relaxed">
-                Harness compiles history, applies compaction rules, and queries the LLM for the next step.
-              </p>
-            </div>
-
-            <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl p-5 shadow-2xs">
-              <div class="flex items-center justify-between mb-3">
-                <span class="text-xs font-bold font-mono text-[var(--color-brand)]">03</span>
-                <span class="text-[9px] uppercase font-mono font-bold tracking-wider text-[var(--color-fg-subtle)]">Execute</span>
-              </div>
-              <h4 class="font-bold text-xs text-[var(--color-fg)] mb-2">Sandbox Run</h4>
-              <p class="text-[11px] text-[var(--color-fg-muted)] leading-relaxed">
-                Tool parameters are dispatched to the pluggable sandbox (executing bash scripts, editing files).
-              </p>
-            </div>
-
-            <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl p-5 shadow-2xs">
-              <div class="flex items-center justify-between mb-3">
-                <span class="text-xs font-bold font-mono text-[var(--color-brand)]">04</span>
-                <span class="text-[9px] uppercase font-mono font-bold tracking-wider text-[var(--color-fg-subtle)]">Proxy</span>
-              </div>
-              <h4 class="font-bold text-xs text-[var(--color-fg)] mb-2">Vault Injection</h4>
-              <p class="text-[11px] text-[var(--color-fg-muted)] leading-relaxed">
-                Outgoing requests intercept at the Proxy layer, transparently injecting secrets from the Vault.
-              </p>
-            </div>
-
-            <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl p-5 shadow-2xs">
-              <div class="flex items-center justify-between mb-3">
-                <span class="text-xs font-bold font-mono text-[var(--color-brand)]">05</span>
-                <span class="text-[9px] uppercase font-mono font-bold tracking-wider text-[var(--color-fg-subtle)]">Resilience</span>
-              </div>
-              <h4 class="font-bold text-xs text-[var(--color-fg)] mb-2">Durable Replay</h4>
-              <p class="text-[11px] text-[var(--color-fg-muted)] leading-relaxed">
-                If the runtime crashes, a fresh instance reads SQLite, replays the event state, and resumes execution seamlessly.
-              </p>
-            </div>
-          </div>
+        <div class="meta-harness-vs py-2 md:py-0" aria-hidden="true">vs</div>
+        <div class="rounded-xl border-2 border-[var(--color-blue)] bg-[var(--color-bg)] p-6">
+          <span class="arch-badge arch-badge-blue mb-3">Harness owns</span>
+          <h3 class="font-display text-lg font-semibold mb-3">How the loop runs</h3>
+          <ul class="space-y-2 text-sm text-[var(--color-fg-muted)] leading-relaxed list-disc pl-5">
+            <li>Context engineering & prompt packing</li>
+            <li>Model provider calls & streaming parse</li>
+            <li>Tool step budgeting & stop reasons</li>
+            <li>Custom compaction / caching strategy</li>
+            <li>Long-running heartbeats (optional harnesses)</li>
+            <li>Register by name: <code class="font-mono text-xs">harness: "default"</code></li>
+          </ul>
         </div>
+      </div>
+
+      <!-- Layered architecture diagram -->
+      <h3 class="font-display text-2xl font-bold mb-2 text-center md:text-left tracking-tight">
+        System architecture layers
+      </h3>
+      <p class="text-sm text-[var(--color-fg-muted)] mb-8 max-w-2xl leading-relaxed">
+        Request path from client to isolated execution. Each layer has a hard boundary —
+        state stays in the Durable Object; secrets stay outside the sandbox; the harness
+        is swappable without rewriting the platform.
+      </p>
+
+      <div class="arch-stack" role="list" aria-label="System architecture layers">
+        {
+          archLayers.map((layer) => (
+            <div class="arch-layer" role="listitem">
+              <div class="flex flex-wrap items-center gap-2 mb-3">
+                <span class="font-mono text-xs font-bold text-[var(--color-fg-subtle)]">{layer.step}</span>
+                <span class:list={["arch-badge", layer.badge]}>{layer.label}</span>
+                <h4 class="font-display text-base font-semibold tracking-tight">{layer.title}</h4>
+              </div>
+              <ul class="grid sm:grid-cols-3 gap-2 sm:gap-3">
+                {layer.items.map((item) => (
+                  <li class="text-xs sm:text-sm text-[var(--color-fg-muted)] leading-relaxed border border-[var(--color-border)] rounded-lg px-3 py-2 bg-[var(--color-bg-surface)]/60">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- Durable lifecycle visualization -->
+  <section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="lifecycle">
+    <p class="text-center font-mono text-xs uppercase tracking-widest text-[var(--color-green)] mb-3">
+      Runtime
+    </p>
+    <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
+      Durable lifecycle loop
+    </h2>
+    <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed">
+      Every turn is events first: persist, then broadcast. That ordering is why
+      crashes lose no work and a new process can resume mid-run.
+    </p>
+    <div class="lifecycle-track" role="list" aria-label="Durable session lifecycle steps">
+      {
+        lifecycle.map((step) => (
+          <div
+            role="listitem"
+            data-lift
+            class="lifecycle-step rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 shadow-2xs hover:border-[var(--color-border-strong)]"
+          >
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono text-sm font-bold text-[var(--color-brand)]">{step.n}</span>
+              <span class="font-mono text-[9px] uppercase font-bold tracking-wider text-[var(--color-fg-subtle)]">
+                {step.phase}
+              </span>
+            </div>
+            <h3 class="font-display text-sm font-semibold mb-2 tracking-tight">{step.title}</h3>
+            <p class="text-[11px] sm:text-xs text-[var(--color-fg-muted)] leading-relaxed">{step.body}</p>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <!-- Why -->
+  <section class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal>
+    <div class="max-w-5xl mx-auto px-4 py-16">
+      <h2 class="font-display text-3xl font-bold mb-3 text-center tracking-tight">Why Open Managed Agents</h2>
+      <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed">
+        The same shape of platform you'd get from a closed vendor — sessions,
+        sandboxes, tool dispatch, crash recovery, security controls — but every layer is
+        inspectable, swappable, and yours to fork.
+      </p>
+      <div class="grid md:grid-cols-3 gap-6">
+        <FeatureCard title="Drop-in compatible" accent>
+          The HTTP API mirrors the Claude Managed Agents API — same
+          <code class="font-mono text-xs">/v1/agents</code>,
+          <code class="font-mono text-xs">/v1/sessions</code>, same event-stream
+          shape. Migrate by swapping the base URL.
+        </FeatureCard>
+        <FeatureCard title="Self-host on Cloudflare">
+          Workers + Durable Objects + Containers + R2. One <code class="font-mono text-xs">wrangler deploy</code>,
+          no servers to patch. Or run the Node + Postgres flavor on your own
+          VPS if you can't be on Cloudflare.
+        </FeatureCard>
+        <FeatureCard title="Apache 2.0">
+          Permissive license. Fork it, ship it inside your product, run a
+          private fleet — no per-seat fee, no usage tax. The hosted service at
+          oma.duyet.net is one deployment of the same code.
+        </FeatureCard>
       </div>
     </div>
   </section>
 
   <!-- API compatibility -->
   <section class="max-w-5xl mx-auto px-4 py-16" data-reveal>
-    <h2 class="font-display text-3xl font-bold mb-4">Drop-in compatible with the Claude Managed Agents API</h2>
+    <h2 class="font-display text-3xl font-bold mb-4 tracking-tight">
+      Drop-in compatible with the Claude Managed Agents API
+    </h2>
     <p class="text-[var(--color-fg-muted)] leading-relaxed mb-4">
       We track the public surface of the Claude Managed Agents API one-to-one.
       Resources, request shapes, response shapes, the SSE event stream — all
@@ -228,40 +389,78 @@ const schemas = [softwareApplicationSchema()];
 
   <!-- Fleet operations -->
   <section class="border-t border-[var(--color-border)]" data-reveal>
-    <div class="max-w-3xl mx-auto px-4 py-16 text-center">
-      <h2 class="font-display text-3xl font-bold mb-4">Built for Running Multi-Agent Fleets</h2>
-      <p class="text-[var(--color-fg-muted)] leading-relaxed mb-6 text-sm">
-        Open Managed Agents is built from the ground up for multi-agent workloads. It provides environment-isolated sandboxes (Subprocess, E2B, Daytona, Kubernetes), a fleet-wide status board, concurrent sub-agent delegation, structured liveness heartbeats for long-running runs, and native webhook notifications (GitHub comments, Slack messages, Matrix events).
+    <div class="max-w-5xl mx-auto px-4 py-16 text-center">
+      <h2 class="font-display text-3xl font-bold mb-4 tracking-tight">Built for multi-agent fleets</h2>
+      <p class="text-[var(--color-fg-muted)] leading-relaxed mb-10 max-w-3xl mx-auto">
+        Concurrent sub-agent delegation, structured liveness heartbeats for long-running
+        runs, and native webhook notifications (GitHub, Slack, Matrix).
       </p>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10 text-left">
+        <article data-lift class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 hover:border-[var(--color-border-strong)]">
+          <span class="arch-badge arch-badge-green mb-3">any sandbox</span>
+          <h3 class="font-display text-base font-semibold mb-2 tracking-tight">Run on any sandbox</h3>
+          <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
+            Cloudflare Containers, subprocess, E2B, Daytona, or Kubernetes — pick a
+            provider per environment, bring your own account, swap without touching agents.
+          </p>
+        </article>
+        <article data-lift class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 hover:border-[var(--color-border-strong)]">
+          <span class="arch-badge arch-badge-orange mb-3">cost control</span>
+          <h3 class="font-display text-base font-semibold mb-2 tracking-tight">Pause & resume</h3>
+          <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
+            Snapshot the workspace and stop the container between turns; resume restores
+            it exactly where it left off. Idle agents cost nothing.
+          </p>
+        </article>
+        <article data-lift class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 hover:border-[var(--color-border-strong)]">
+          <span class="arch-badge arch-badge-blue mb-3">coding agents</span>
+          <h3 class="font-display text-base font-semibold mb-2 tracking-tight">Coding agents inside</h3>
+          <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
+            Run Claude Agent SDK (the default runtime), Grok, or any OpenAI-compatible
+            coding agent in the sandbox — one Docker image per runtime kind.
+          </p>
+        </article>
+        <article data-lift class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 hover:border-[var(--color-border-strong)]">
+          <span class="arch-badge arch-badge-green mb-3">delegation</span>
+          <h3 class="font-display text-base font-semibold mb-2 tracking-tight">Cross-sandbox sub-agents</h3>
+          <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
+            Parent and child agents run in separate sandboxes — even on different
+            providers — with parallel fan-out and per-call result aggregation.
+          </p>
+        </article>
+      </div>
       <a
         href="https://github.com/duyet/oma/blob/main/docs/features.md"
-        class="inline-block px-5 py-2.5 rounded-md border border-[var(--color-border)] font-medium text-sm hover:bg-[var(--color-bg-surface)] transition"
+        class="inline-block px-5 py-2.5 rounded-md border border-[var(--color-border-strong)] font-medium font-display text-sm no-underline hover:no-underline hover:bg-[var(--color-bg-surface)]"
       >
-        Read the Fleet Features documentation →
+        Read the fleet features docs →
       </a>
     </div>
   </section>
 
   <!-- Get started -->
-  <section class="border-t border-[var(--color-border)]" data-reveal>
+  <section class="border-t border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal id="get-started">
     <div class="max-w-3xl mx-auto px-4 py-16 text-center">
-      <h2 class="font-display text-3xl font-bold mb-3">Get started</h2>
-
+      <h2 class="font-display text-3xl font-bold mb-3 tracking-tight">Get started</h2>
+      <p class="text-[var(--color-fg-muted)] mb-8 leading-relaxed">
+        Clone, deploy, or try the hosted deployment of the same codebase.
+      </p>
       <div class="flex items-center justify-center gap-3 flex-wrap">
         <a
           href="https://github.com/duyet/oma"
-          target="_blank" rel="noopener noreferrer"
-          class="px-5 py-3 rounded-md bg-[var(--color-fg)] text-[var(--color-bg)] font-medium"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="px-5 py-3 rounded-md bg-[var(--color-fg)] text-[var(--color-bg)] font-medium font-display no-underline hover:no-underline"
           >Clone the repo</a
         >
         <a
           href="https://docs.oma.duyet.net"
-          class="px-5 py-3 rounded-md border border-[var(--color-border)] font-medium"
+          class="px-5 py-3 rounded-md border border-[var(--color-border-strong)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg)]"
           >Read the docs</a
         >
         <a
           href="https://app.oma.duyet.net/login"
-          class="px-5 py-3 rounded-md border border-[var(--color-border)] font-medium"
+          class="px-5 py-3 rounded-md border border-[var(--color-border-strong)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg)]"
           >Try hosted</a
         >
       </div>
