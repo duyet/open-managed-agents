@@ -65,6 +65,20 @@ export interface SystemProviderDescriptor {
   envKeys: string[];
   /** Dynamic import path for the factory. */
   factoryPath: string;
+  /**
+   * Whether this adapter is architecturally capable of running inside a
+   * Cloudflare Worker: pure outbound HTTP/fetch calls, no Node-only
+   * builtins (child_process, native FFI bindings, local kubeconfig/
+   * filesystem access). `false` means the adapter cannot run in a Worker
+   * at all, regardless of bundling — a session configured for it on the
+   * Cloudflare deployment must fail clearly, not silently fall back.
+   * See `classifyCfSandboxProvider` below and
+   * apps/agent/src/runtime/sandbox.ts's `resolveCfSandbox`, which reads
+   * this flag (not the registry's lazy `import(factoryPath)` — that path
+   * uses a runtime-variable import target, which esbuild can't statically
+   * bundle for a single-file Worker script, so it's Node-only in practice).
+   */
+  cfCompatible: boolean;
 }
 
 export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
@@ -74,6 +88,7 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     description: "Node child_process on the host. Zero isolation — trusted local dev only.",
     envKeys: [],
     factoryPath: "@duyet/oma-sandbox/adapters/local-subprocess",
+    cfCompatible: false,
   },
   {
     type: "litebox",
@@ -81,6 +96,7 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     description: "Local Firecracker micro-VM per box. Hardware isolation, no daemon.",
     envKeys: ["LITEBOX_MEMORY_MIB"],
     factoryPath: "@duyet/oma-sandbox/adapters/litebox",
+    cfCompatible: false,
   },
   {
     type: "boxrun",
@@ -88,6 +104,7 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     description: "Talks to a remote BoxLite HTTP control plane — hardware isolation without local KVM.",
     envKeys: ["BOXRUN_URL", "BOXRUN_TOKEN"],
     factoryPath: "@duyet/oma-sandbox/adapters/boxrun",
+    cfCompatible: true,
   },
   {
     type: "daytona",
@@ -95,6 +112,7 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     description: "Daytona SaaS — a managed Linux VM per session. Requires DAYTONA_API_KEY.",
     envKeys: ["DAYTONA_API_KEY", "DAYTONA_API_URL"],
     factoryPath: "@duyet/oma-sandbox/adapters/daytona",
+    cfCompatible: true,
   },
   {
     type: "e2b",
@@ -102,6 +120,7 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     description: "E2B Firecracker microVM per session (~250ms cold from a warm pool). Requires E2B_API_KEY.",
     envKeys: ["E2B_API_KEY", "E2B_API_URL"],
     factoryPath: "@duyet/oma-sandbox/adapters/e2b",
+    cfCompatible: true,
   },
   {
     type: "k8s",
@@ -109,6 +128,7 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     description: "Pod provisioned via the kubernetes-sigs agent-sandbox controller.",
     envKeys: ["OMA_K8S_NAMESPACE"],
     factoryPath: "@duyet/oma-sandbox/adapters/kubernetes",
+    cfCompatible: false,
   },
   {
     type: "cloud",
@@ -116,8 +136,49 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     description: "Managed sandbox — uses Cloudflare Containers.",
     envKeys: [],
     factoryPath: "", // CF path is direct, not via adapters
+    cfCompatible: true,
   },
 ];
+
+// ─── Cloudflare-side classification ──────────────────────────────────
+//
+// The registry's `createExecutor` (registry.ts) lazily resolves adapters
+// via `import(desc.factoryPath)`, where `factoryPath` is read off a Map
+// entry at runtime — a non-literal import target. esbuild can't statically
+// bundle that for a single-file Worker script, and workerd has no runtime
+// module resolution to fall back on, so the registry itself cannot be used
+// from a Cloudflare Worker. `resolveCfSandbox` in
+// apps/agent/src/runtime/sandbox.ts uses `classifyCfSandboxProvider`
+// instead, then statically imports only the specific cfCompatible adapters
+// it actually wires up.
+
+export type CfSandboxResolution =
+  | { kind: "cloudflare" }
+  | { kind: "remote"; type: string }
+  | { kind: "unavailable"; type: string };
+
+/**
+ * Classify a `sandbox_provider` id (or legacy `config.type`) for the
+ * Cloudflare deployment. Pure / no I/O so it's unit-testable without any
+ * Workers runtime.
+ *
+ *  - absent, `"cloud"`, or an id this registry doesn't recognize →
+ *    `{ kind: "cloudflare" }` — degrade to the existing CloudflareSandbox
+ *    default rather than hard-failing a misconfigured/unknown id (mirrors
+ *    apps/main-node's `resolveEnvProvider` "unknown → fall back" behavior).
+ *  - a known id with `cfCompatible: true` → `{ kind: "remote", type }`.
+ *  - a known id with `cfCompatible: false` → `{ kind: "unavailable", type }`
+ *    (subprocess / litebox / k8s — Node-only, cannot run in a Worker at all).
+ */
+export function classifyCfSandboxProvider(
+  providerId: string | undefined | null,
+): CfSandboxResolution {
+  const id = (providerId ?? "").trim().toLowerCase();
+  if (!id || id === "cloud") return { kind: "cloudflare" };
+  const desc = SYSTEM_PROVIDERS.find((p) => p.type === id);
+  if (!desc) return { kind: "cloudflare" };
+  return desc.cfCompatible ? { kind: "remote", type: id } : { kind: "unavailable", type: id };
+}
 
 /**
  * Seed system provider configs from env vars. Returns an array of

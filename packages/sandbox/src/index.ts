@@ -25,12 +25,14 @@ export type {
   SandboxProviderConfig,
   ResolvedSandboxProvider,
   SystemProviderDescriptor,
+  CfSandboxResolution,
 } from "./provider-config";
 
 export {
   seedSystemProviders,
   providerConfigToEnv,
   checkProviderRequirements,
+  classifyCfSandboxProvider,
   SYSTEM_PROVIDERS,
 } from "./provider-config";
 

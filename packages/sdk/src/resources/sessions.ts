@@ -112,6 +112,19 @@ export class SessionsResource {
     await this.client.request("DELETE", `/v1/sessions/${sessionId}`);
   }
 
+  /** Snapshot the workspace and destroy the sandbox container to save
+   *  cost while keeping the session resumable. Throws on 409 if the
+   *  session has an in-flight turn. */
+  async pause(sessionId: string): Promise<{ id: string; sandbox_status: "paused" }> {
+    return this.client.request("POST", `/v1/sessions/${sessionId}/pause`);
+  }
+
+  /** Reprovision the sandbox and restore the latest workspace snapshot.
+   *  No-op if the session isn't paused. */
+  async resume(sessionId: string): Promise<{ id: string; sandbox_status: "running" }> {
+    return this.client.request("POST", `/v1/sessions/${sessionId}/resume`);
+  }
+
   /** Paginated JSON event log. Use `chat` / `tail` for live streams. */
   async events(sessionId: string, opts: ListEventsOptions = {}): Promise<PaginatedResponse<StoredEvent>> {
     return this.client.request<PaginatedResponse<StoredEvent>>(

@@ -82,6 +82,28 @@ export class CfSessionRouter implements SessionRouter {
       .catch(() => undefined);
   }
 
+  async pause(sessionId: string): Promise<{ status: number; body: string }> {
+    const binding = await this.bindingForSession(sessionId);
+    if (!binding) {
+      return { status: 503, body: JSON.stringify({ error: "sandbox binding unavailable" }) };
+    }
+    const res = await binding.fetch(`https://sandbox/sessions/${sessionId}/pause`, {
+      method: "POST",
+    });
+    return { status: res.status, body: await res.text() };
+  }
+
+  async resume(sessionId: string): Promise<{ status: number; body: string }> {
+    const binding = await this.bindingForSession(sessionId);
+    if (!binding) {
+      return { status: 503, body: JSON.stringify({ error: "sandbox binding unavailable" }) };
+    }
+    const res = await binding.fetch(`https://sandbox/sessions/${sessionId}/resume`, {
+      method: "POST",
+    });
+    return { status: res.status, body: await res.text() };
+  }
+
   async appendEvent(
     sessionId: string,
     event: SessionEvent,

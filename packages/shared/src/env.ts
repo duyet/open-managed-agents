@@ -105,6 +105,21 @@ export interface Env {
    *  sandbox provider so environments can opt into it. Provisioning logic
    *  for E2B sessions is not yet wired — the flag only gates the option. */
   E2B_API_KEY?: string;
+  /** BoxRun (boxlite serve) base URL, e.g. "http://boxrun:8100/v1/default".
+   *  When set, an environment with `config.sandbox_provider: "boxrun"` (or
+   *  legacy `config.type: "boxrun"`) resolves to a real BoxRunSandbox on
+   *  the Cloudflare deployment instead of CloudflareSandbox — see
+   *  apps/agent/src/runtime/sandbox.ts's `resolveCfSandbox`. Absent →
+   *  selecting boxrun fails clearly with a session.error rather than
+   *  silently falling back. */
+  BOXRUN_URL?: string;
+  /** Optional bearer token for the BoxRun control plane above. */
+  BOXRUN_TOKEN?: string;
+  BOXRUN_CPUS?: string;
+  BOXRUN_MEMORY_MIB?: string;
+  /** Container image passed to remote sandbox adapters (BoxRun / Daytona /
+   *  E2B) that accept one. Default per-adapter (`node:22-slim`) when unset. */
+  SANDBOX_IMAGE?: string;
   /** Kubernetes agent-sandbox namespace. When set, /v1/hosting_types
    *  advertises Kubernetes as a sandbox provider. The agent-sandbox
    *  controller CRD is used to provision pods. */

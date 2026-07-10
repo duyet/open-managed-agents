@@ -83,7 +83,8 @@ import { resolveAppendablePrompts } from "./appendable-prompts";
 import { createCfBrowserHarness } from "@duyet/oma-browser-harness/cf";
 import type { BrowserHarness, BrowserBillingHook, BrowserSession } from "@duyet/oma-browser-harness";
 import { SqliteHistory, InMemoryHistory } from "./history";
-import { createSandbox, CloudflareSandbox } from "./sandbox";
+import { createSandbox, CloudflareSandbox, SandboxProviderUnavailableError } from "./sandbox";
+import { resolveSubAgentSandboxBinding } from "./sub-agent-sandbox";
 import { mountResources } from "./resource-mounter";
 import { spawnStdioMcpServers, type StdioMcpConfig } from "./mcp-spawner";
 import {
@@ -260,6 +261,14 @@ interface SessionState {
    * container restarts within the same session.
    */
   sandbox_usage?: { instance_type?: string; active_seconds: number };
+  /**
+   * ms timestamp when POST /pause snapshotted + destroyed the sandbox to
+   * save cost while keeping the session resumable. null/undefined means
+   * the sandbox is active (or was never paused). Distinct from
+   * `terminated_at` — pause is reversible via POST /resume, termination
+   * is not.
+   */
+  sandbox_paused_at?: number | null;
 }
 
 const INITIAL_SESSION_STATE: SessionState = {
@@ -1706,6 +1715,88 @@ export class SessionDO extends DurableObject<Env> {
       return new Response("ok");
     }
 
+    // POST /pause — snapshot + destroy the sandbox container to save cost
+    // while keeping the session resumable. Refuses while a turn is
+    // in-flight (mid-turn pause would race the harness's own sandbox
+    // calls); pausing an already-paused session is a no-op.
+    if (request.method === "POST" && url.pathname === "/pause") {
+      if (this.deriveStatus() === "running") {
+        return new Response(
+          JSON.stringify({
+            type: "error",
+            error: {
+              type: "invalid_request_error",
+              message: "Cannot pause a session with an in-flight turn",
+            },
+          }),
+          { status: 409, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (this.state.sandbox_paused_at != null) {
+        return Response.json({ sandbox_status: "paused" });
+      }
+      // Force-create the sandbox wrapper if hibernated, mirroring /destroy —
+      // otherwise a hibernated SessionDO would skip both the backup and the
+      // actual container teardown.
+      if (!this.sandbox) {
+        try { this.getOrCreateSandbox(); } catch {}
+      }
+      if (this.sandbox?.snapshotWorkspaceNow) {
+        try { await this.sandbox.snapshotWorkspaceNow(); } catch {}
+      }
+      const sandboxBilling = this.sandbox as unknown as {
+        emitSandboxActiveNow?: () => Promise<number>;
+      } | null;
+      if (sandboxBilling?.emitSandboxActiveNow) {
+        try {
+          const emittedSeconds = await sandboxBilling.emitSandboxActiveNow();
+          if (emittedSeconds > 0) {
+            const existing = this.state.sandbox_usage?.active_seconds ?? 0;
+            this.setState({
+              ...this.state,
+              sandbox_usage: {
+                instance_type: this.state.sandbox_usage?.instance_type,
+                active_seconds: existing + emittedSeconds,
+              },
+            });
+          }
+        } catch (err) {
+          logWarn({ op: "session_do.pause.sandbox_emit", session_id: this.state.session_id, err }, "sandbox usage emit failed");
+        }
+      }
+      if (this.sandbox?.destroy) {
+        try { await this.sandbox.destroy(); } catch (err) {
+          logWarn({ op: "session_do.pause.sandbox", session_id: this.state.session_id, err }, "sandbox destroy failed");
+        }
+      }
+      this.sandbox = null;
+      this.wrappedSandbox = null;
+      this.sandboxWarmupPromise = null;
+      this.setState({ ...this.state, sandbox_paused_at: Date.now() });
+      this.persistAndBroadcastEvent({ type: "session.sandbox_paused" } as SessionEvent);
+      return Response.json({ sandbox_status: "paused" });
+    }
+
+    // POST /resume — reprovision the sandbox container. The lazy warmup
+    // path (doWarmUpSandbox) already restores the latest workspace backup,
+    // so this just clears the paused marker and eagerly warms so the
+    // restore happens now rather than on the next event. Resuming a
+    // non-paused session is a no-op.
+    if (request.method === "POST" && url.pathname === "/resume") {
+      if (this.state.sandbox_paused_at == null) {
+        return Response.json({ sandbox_status: "running" });
+      }
+      this.setState({ ...this.state, sandbox_paused_at: null });
+      try {
+        this.getOrCreateSandbox();
+        await this.warmUpSandbox();
+      } catch (err) {
+        logWarn({ op: "session_do.resume.sandbox", session_id: this.state.session_id, err }, "sandbox warmup failed");
+      }
+      this.persistAndBroadcastEvent({ type: "session.sandbox_resumed" } as SessionEvent);
+      return Response.json({ sandbox_status: "running" });
+    }
+
     // POST /event — receive user event, kick off harness
     if (request.method === "POST" && url.pathname === "/event") {
       // AMA semantics: a terminated session is one-way; reject new
@@ -1723,6 +1814,13 @@ export class SessionDO extends DurableObject<Env> {
           }),
           { status: 409, headers: { "content-type": "application/json" } },
         );
+      }
+      // Auto-resume: a new event implicitly wants the sandbox back. The
+      // lazy warmup path below already restores the workspace on next
+      // sandbox access; clear the paused marker so status reporting
+      // reflects reality instead of a stale "paused".
+      if (this.state.sandbox_paused_at != null) {
+        this.setState({ ...this.state, sandbox_paused_at: null });
       }
       const raw = (await request.json()) as SessionEvent & { _mount_file_ids?: string[] };
       // Sidecar field set by main worker's events POST resolver. Strip it
@@ -2576,6 +2674,7 @@ export class SessionDO extends DurableObject<Env> {
           output_tokens: this.state.output_tokens,
         },
         sandbox_usage: this.state.sandbox_usage,
+        sandbox_status: this.state.sandbox_paused_at != null ? "paused" : "running",
         outcome_evaluations: outcomeEvaluations,
       });
     }
@@ -2650,7 +2749,13 @@ export class SessionDO extends DurableObject<Env> {
     if (!this.sandbox) {
       // Sandbox ID must be 1-63 chars; DO hex ID is 64 chars — truncate to fit
       const sandboxId = this.ctx.id.toString().slice(0, 63);
-      this.sandbox = createSandbox(this.env, sandboxId);
+      // Environment's config.sandbox_provider (or legacy config.type)
+      // selects the adapter — see resolveCfSandbox for the CF-side
+      // classification (remote/HTTP adapters vs Node-only vs default
+      // CloudflareSandbox). Throws SandboxProviderUnavailableError for a
+      // provider this deployment can't serve; that propagates through the
+      // normal turn-processing error path and surfaces as session.error.
+      this.sandbox = createSandbox(this.env, sandboxId, this.state.environment_snapshot?.config);
       this.wrappedSandbox = this.wrapSandboxWithLazyWarmup(this.sandbox);
     }
   }
@@ -4071,6 +4176,13 @@ export class SessionDO extends DurableObject<Env> {
     // existing single-child delegateToAgent callers are untouched).
     // Never fires if agent lookup fails (no thread was created).
     onThreadStarted?: (threadId: string) => void,
+    // The AgentConfig whose `callable_agents` roster is being consulted for
+    // `agentId` — the top-level caller's config for a primary delegate call,
+    // or the current sub-agent's own config for a nested (recursive)
+    // delegate call. Used only to look up the roster entry's
+    // `environment_id` (see resolveSubAgentSandboxBinding below); null for
+    // the reserved "general" sub-agent, which bypasses the roster entirely.
+    callerAgent: AgentConfig | null = null,
   ): Promise<string> {
     // Generate a unique thread ID. Prefix `sthr_` matches AMA spec
     // (BetaManagedAgentsSessionThread.id is `sthr_*`); previous prefix
@@ -4189,9 +4301,83 @@ export class SessionDO extends DurableObject<Env> {
       harness = resolveHarness("default");
     }
 
+    // Cross-sandbox sub-agents: resolve which sandbox this sub-agent turn
+    // runs in. Binding rule (resolveSubAgentSandboxBinding): the roster
+    // entry for `agentId` on `callerAgent.callable_agents` has no
+    // `environment_id`, or it matches the parent session's own
+    // `environment_id` → SHARE the caller's sandbox (cheap, and the only
+    // path every existing agent config takes — none of them set
+    // `environment_id` today). A DIFFERENT `environment_id` mints a
+    // dedicated SandboxExecutor for just this call, torn down (best-effort)
+    // once the sub-agent turn finishes. `callerAgent` is null for the
+    // reserved "general" sub-agent, which has no roster to consult.
+    const rosterEntry = callerAgent?.callable_agents?.find((ca) => ca.id === agentId);
+    const sandboxBinding = resolveSubAgentSandboxBinding(
+      rosterEntry?.environment_id,
+      this.state.environment_id,
+    );
+    let subSandbox = sandbox;
+    let dedicatedChildSandbox = false;
+    if (sandboxBinding.kind === "dedicated") {
+      try {
+        const childEnv = await this.getEnvConfig(sandboxBinding.environmentId);
+        if (childEnv) {
+          // threadId is already unique per sub-agent call; reuse it so the
+          // dedicated container's identity is stable for the lifetime of
+          // this single delegate call (no retries reuse it — a fresh
+          // runSubAgent call always mints a fresh threadId).
+          subSandbox = createSandbox(this.env, `${this.state.session_id}:sub-${threadId}`, childEnv.config);
+          dedicatedChildSandbox = true;
+          // Bare createSandbox() skips everything getOrCreateSandbox's lazy-
+          // warmup wrapper normally does for the parent. Restore vault
+          // credential injection — the whole point of an isolated env is
+          // often to make real outbound calls (gh, package registries),
+          // and those must not silently go out unauthenticated. Workspace
+          // restore, memory/session-outputs mounts, and billing tracking
+          // are NOT wired here; a dedicated sub-agent sandbox starts empty
+          // and its usage isn't metered into sandbox_usage. Acceptable for
+          // this pass (task scope), but a real limitation — see AGENTS.md.
+          if (subSandbox.setOutboundContext) {
+            try {
+              await subSandbox.setOutboundContext({
+                tenantId: this.state.tenant_id,
+                sessionId: this.state.session_id,
+              });
+            } catch (err) {
+              logWarn(
+                { op: "session_do.subagent.dedicated_sandbox_outbound", session_id: this.state.session_id, agent_id: agentId, err },
+                "failed to bind outbound vault-credential context on dedicated sub-agent sandbox",
+              );
+            }
+          }
+        } else {
+          logWarn(
+            { op: "session_do.subagent.env_lookup", session_id: this.state.session_id, agent_id: agentId, environment_id: sandboxBinding.environmentId },
+            "sub-agent callable_agents.environment_id not found; falling back to shared sandbox",
+          );
+        }
+      } catch (err) {
+        // SandboxProviderUnavailableError means the roster's requested
+        // provider is genuinely unusable on this deployment (e.g. a
+        // node-only provider on CF) — silently falling back to the
+        // parent's sandbox would run the sub-agent somewhere the caller
+        // didn't ask for. Fail just this sub-agent call instead, the same
+        // way other per-call delegation failures surface (caught by
+        // call_agents_parallel as `success: false`, or as a tool error for
+        // the single-call path).
+        if (err instanceof SandboxProviderUnavailableError) {
+          throw err;
+        }
+        logWarn(
+          { op: "session_do.subagent.dedicated_sandbox", session_id: this.state.session_id, agent_id: agentId, environment_id: sandboxBinding.environmentId, err },
+          "failed to create dedicated sub-agent sandbox; falling back to shared sandbox",
+        );
+      }
+    }
+
     // Build sub-agent tools and model (platform prepares context for sub-agent too)
     const subAuxResolved = await this.resolveAuxModel(subAgent);
-    const subTools = await buildTools(this.applyMcpUrlFixups(subAgent), sandbox, {
+    const subTools = await buildTools(this.applyMcpUrlFixups(subAgent), subSandbox, {
       ANTHROPIC_API_KEY: this.env.ANTHROPIC_API_KEY,
       ANTHROPIC_BASE_URL: this.env.ANTHROPIC_BASE_URL,
       TAVILY_API_KEY: this.env.TAVILY_API_KEY,
@@ -4216,13 +4402,15 @@ export class SessionDO extends DurableObject<Env> {
       delegateToAgent: async (nestedAgentId: string, nestedMessage: string) => {
         // Nested delegate: this sub-agent's threadId becomes the new
         // child's parent. Lineage chain matches what Console renders.
-        return this.runSubAgent(nestedAgentId, nestedMessage, parentHistory, sandbox, threadId);
+        // subSandbox (not the outer `sandbox` param) so a nested delegate
+        // stays inside this sub-agent's own dedicated environment, if any.
+        return this.runSubAgent(nestedAgentId, nestedMessage, parentHistory, subSandbox, threadId, undefined, subAgent);
       },
       delegateToAgentDetailed: async (nestedAgentId: string, nestedMessage: string) => {
         let nestedThreadId: string | undefined;
         const text = await this.runSubAgent(
-          nestedAgentId, nestedMessage, parentHistory, sandbox, threadId,
-          (id) => { nestedThreadId = id; },
+          nestedAgentId, nestedMessage, parentHistory, subSandbox, threadId,
+          (id) => { nestedThreadId = id; }, subAgent,
         );
         return { text, threadId: nestedThreadId };
       },
@@ -4293,21 +4481,21 @@ export class SessionDO extends DurableObject<Env> {
             }),
         delegateToAgent: async (nestedAgentId: string, nestedMessage: string) => {
           // Nested delegate inside the env block; see runtime block
-          // above for the same lineage rule.
-          return this.runSubAgent(nestedAgentId, nestedMessage, parentHistory, sandbox, threadId);
+          // above for the same lineage rule and subSandbox rationale.
+          return this.runSubAgent(nestedAgentId, nestedMessage, parentHistory, subSandbox, threadId, undefined, subAgent);
         },
         delegateToAgentDetailed: async (nestedAgentId: string, nestedMessage: string) => {
           let nestedThreadId: string | undefined;
           const text = await this.runSubAgent(
-            nestedAgentId, nestedMessage, parentHistory, sandbox, threadId,
-            (id) => { nestedThreadId = id; },
+            nestedAgentId, nestedMessage, parentHistory, subSandbox, threadId,
+            (id) => { nestedThreadId = id; }, subAgent,
           );
           return { text, threadId: nestedThreadId };
         },
       },
       runtime: {
         history: subHistory,
-        sandbox,
+        sandbox: subSandbox,
         broadcast: subAgentBroadcast,
         ...this.buildStreamRuntimeMethods(threadId),
         reportUsage: async (input_tokens: number, output_tokens: number) => {
@@ -4349,6 +4537,33 @@ export class SessionDO extends DurableObject<Env> {
       // would have replaced our slot — don't stomp on its controller.
       if (this._threadAbortControllers.get(threadId) === abortController) {
         this._threadAbortControllers.delete(threadId);
+      }
+      // Best-effort teardown of a dedicated child sandbox (see the binding
+      // resolution above). No workspace-restore contract exists for these —
+      // each runSubAgent call mints a fresh `<session_id>:sub-<threadId>` container and
+      // there's nothing that reads a backup back in — so this is just
+      // destroy(). snapshotWorkspaceNow() is called first anyway, mirroring
+      // POST /destroy's sequence, in case a future "reuse this sub-agent's
+      // sandbox across calls" feature wants a snapshot to build on; today
+      // it's effectively inert (setBackupContext was never called on this
+      // executor, so OmaSandbox has nowhere to persist it — see the
+      // setOutboundContext note above the dedicated-sandbox `if` for what
+      // IS wired vs deferred). Failures here must never mask the
+      // sub-agent's actual result (already captured in responseText / about
+      // to propagate via the rethrown harness.run error), so every step is
+      // independently swallowed + logged, same convention as /destroy and
+      // /pause above.
+      if (dedicatedChildSandbox) {
+        if (subSandbox.snapshotWorkspaceNow) {
+          try { await subSandbox.snapshotWorkspaceNow(); } catch (err) {
+            logWarn({ op: "session_do.subagent.dedicated_sandbox_snapshot", session_id: this.state.session_id, agent_id: agentId, err }, "dedicated sub-agent sandbox snapshot failed");
+          }
+        }
+        if (subSandbox.destroy) {
+          try { await subSandbox.destroy(); } catch (err) {
+            logWarn({ op: "session_do.subagent.dedicated_sandbox_destroy", session_id: this.state.session_id, agent_id: agentId, err }, "dedicated sub-agent sandbox destroy failed");
+          }
+        }
       }
     }
 
@@ -4493,14 +4708,16 @@ export class SessionDO extends DurableObject<Env> {
       delegateToAgent: async (agentId: string, message: string) => {
         // turnThreadId is captured from the enclosing processUserMessage
         // scope (declared at the top of the function) — closure evals
-        // lazily at harness.run time, so TDZ isn't a concern.
-        return this.runSubAgent(agentId, message, history, sandbox, turnThreadId);
+        // lazily at harness.run time, so TDZ isn't a concern. `agent` (the
+        // caller) is consulted for a matching callable_agents.environment_id
+        // — see the binding resolution at the top of runSubAgent.
+        return this.runSubAgent(agentId, message, history, sandbox, turnThreadId, undefined, agent);
       },
       delegateToAgentDetailed: async (agentId: string, message: string) => {
         let childThreadId: string | undefined;
         const text = await this.runSubAgent(
           agentId, message, history, sandbox, turnThreadId,
-          (id) => { childThreadId = id; },
+          (id) => { childThreadId = id; }, agent,
         );
         return { text, threadId: childThreadId };
       },
@@ -4762,13 +4979,15 @@ export class SessionDO extends DurableObject<Env> {
               },
             }),
         delegateToAgent: async (agentId: string, message: string) => {
-          return this.runSubAgent(agentId, message, history, sandbox, turnThreadId);
+          // See buildTools env.delegateToAgent above for the callerAgent /
+          // environment_id binding rule this passes through to.
+          return this.runSubAgent(agentId, message, history, sandbox, turnThreadId, undefined, agent);
         },
         delegateToAgentDetailed: async (agentId: string, message: string) => {
           let childThreadId: string | undefined;
           const text = await this.runSubAgent(
             agentId, message, history, sandbox, turnThreadId,
-            (id) => { childThreadId = id; },
+            (id) => { childThreadId = id; }, agent,
           );
           return { text, threadId: childThreadId };
         },

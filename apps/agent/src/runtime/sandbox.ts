@@ -2,6 +2,19 @@ import type { SandboxExecutor, ProcessHandle } from "../harness/interface";
 import type { Env } from "@duyet/oma-shared";
 import { getSandbox as cfGetSandbox } from "@cloudflare/sandbox";
 import { sessionOutputsPrefix } from "@duyet/oma-shared";
+import { classifyCfSandboxProvider } from "@duyet/oma-sandbox";
+// Static import (not the registry's lazy `import(factoryPath)`) so wrangler's
+// esbuild bundles it like any other dependency — see the resolveCfSandbox
+// doc comment below for why the registry itself can't be used here. BoxRun
+// is the only remote adapter wired on CF today: it's a bare `fetch` client
+// with zero driver-SDK dependency, so bundling it is low-risk. Daytona/E2B
+// are classified `cfCompatible: true` (they're outbound-HTTP-only,
+// architecturally fine for a Worker) but pull in real npm SDKs
+// (`@daytonaio/sdk`, `e2b`) whose bundle-size/cold-start impact on a
+// single-file Worker script can't be verified without an actual
+// `wrangler deploy` — out of scope here. Selecting them on CF fails
+// clearly (see resolveCfSandbox) instead of silently guessing.
+import { BoxRunSandbox } from "@duyet/oma-sandbox/adapters/boxrun";
 // `bash-parser` is CJS; the bundler handles interop for worker builds.
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
@@ -656,6 +669,104 @@ export class TestSandbox implements SandboxExecutor {
   }
 }
 
-export function createSandbox(env: Env, sessionId: string): SandboxExecutor {
-  return new CloudflareSandbox(env, sessionId);
+/**
+ * Thrown when an environment's `config.sandbox_provider` (or legacy
+ * `config.type`) selects a sandbox adapter this Cloudflare deployment
+ * cannot serve — either it's Node-only (subprocess / litebox / k8s: relies
+ * on child_process, a native micro-VM binding, or local kubeconfig/
+ * filesystem access — none of which exist in a Worker) or it's
+ * architecturally CF-capable but not yet bundled here (daytona / e2b —
+ * see the import comment above `BoxRunSandbox`). Callers must let this
+ * propagate into the normal turn-processing error path (session-do.ts's
+ * `drainEventQueue` catch, around the `runAgentTurn` call) so it surfaces
+ * as a `session.error` event instead of crashing the DO or silently
+ * substituting a different sandbox.
+ */
+export class SandboxProviderUnavailableError extends Error {}
+
+function cfProviderEnv(env: Env): Record<string, string | undefined> {
+  const e = env as unknown as Record<string, string | undefined>;
+  return {
+    BOXRUN_URL: e.BOXRUN_URL,
+    BOXRUN_TOKEN: e.BOXRUN_TOKEN,
+    BOXRUN_CPUS: e.BOXRUN_CPUS,
+    BOXRUN_MEMORY_MIB: e.BOXRUN_MEMORY_MIB,
+    SANDBOX_IMAGE: e.SANDBOX_IMAGE,
+  };
+}
+
+/**
+ * Construct the remote SandboxExecutor for a `cfCompatible` provider type.
+ * Constructs the adapter class directly (not the adapter's `sandboxFactory`,
+ * which is `async` to accommodate adapters that truly need to await
+ * creation) so this stays synchronous — `resolveCfSandbox` is called from
+ * `ensureSandboxCreated()` in session-do.ts, which is a synchronous method
+ * with ~14 call sites; making sandbox creation async would ripple through
+ * all of them, well outside this change's scope.
+ */
+function createRemoteSandbox(type: string, env: Env, sessionId: string): SandboxExecutor {
+  const e = cfProviderEnv(env);
+  switch (type) {
+    case "boxrun": {
+      if (!e.BOXRUN_URL) {
+        throw new SandboxProviderUnavailableError(
+          `provider "boxrun" requires BOXRUN_URL to be set on this Cloudflare deployment ` +
+            `(wrangler secret put BOXRUN_URL) — pointing at a running "boxlite serve" instance.`,
+        );
+      }
+      return new BoxRunSandbox({
+        baseUrl: e.BOXRUN_URL,
+        image: e.SANDBOX_IMAGE,
+        cpus: e.BOXRUN_CPUS ? Number(e.BOXRUN_CPUS) : undefined,
+        memoryMib: e.BOXRUN_MEMORY_MIB ? Number(e.BOXRUN_MEMORY_MIB) : undefined,
+        bearerToken: e.BOXRUN_TOKEN,
+        sessionId,
+      });
+    }
+    default:
+      // daytona / e2b — cfCompatible in provider-config.ts's classification
+      // data, but their driver SDKs aren't bundled into this worker. See
+      // the import comment above.
+      throw new SandboxProviderUnavailableError(
+        `provider "${type}" is not available on the Cloudflare deployment yet ` +
+          `(its driver SDK isn't bundled into this worker) — use the self-host runtime instead.`,
+      );
+  }
+}
+
+/**
+ * Resolve a SandboxExecutor for a CF session from its environment's
+ * `config.sandbox_provider` (falls back to legacy `config.type`).
+ *
+ *  - absent / `"cloud"` / an unrecognized id → CloudflareSandbox, the
+ *    unchanged pre-existing default.
+ *  - `"boxrun"` → a real BoxRunSandbox (pure `fetch`, no driver SDK).
+ *  - `"daytona"` / `"e2b"` → throws SandboxProviderUnavailableError —
+ *    architecturally CF-capable but not wired here yet.
+ *  - `"subprocess"` / `"litebox"` / `"k8s"` → throws
+ *    SandboxProviderUnavailableError — Node-only, cannot run in a Worker.
+ */
+export function resolveCfSandbox(
+  env: Env,
+  sessionId: string,
+  envConfig: { sandbox_provider?: string; type?: string } | null | undefined,
+): SandboxExecutor {
+  const providerId = envConfig?.sandbox_provider || envConfig?.type;
+  const resolution = classifyCfSandboxProvider(providerId);
+
+  if (resolution.kind === "cloudflare") return new CloudflareSandbox(env, sessionId);
+  if (resolution.kind === "remote") return createRemoteSandbox(resolution.type, env, sessionId);
+
+  throw new SandboxProviderUnavailableError(
+    `provider "${resolution.type}" is not available on the Cloudflare deployment; ` +
+      `use the self-host runtime (SANDBOX_PROVIDER=${resolution.type}) instead.`,
+  );
+}
+
+export function createSandbox(
+  env: Env,
+  sessionId: string,
+  envConfig?: { sandbox_provider?: string; type?: string } | null,
+): SandboxExecutor {
+  return resolveCfSandbox(env, sessionId, envConfig);
 }

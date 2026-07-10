@@ -105,8 +105,23 @@ interface SessionEntry {
 
 export class SessionRegistry {
   private map = new Map<string, Promise<SessionEntry>>();
+  private paused = new Set<string>();
 
   constructor(private deps: SessionRegistryDeps) {}
+
+  /** Whether the given session's sandbox was destroyed via pause() and
+   *  hasn't been rebuilt (via getOrCreate) since. */
+  isPaused(sessionId: string): boolean {
+    return this.paused.has(sessionId);
+  }
+
+  /** Clear the paused marker without rebuilding the sandbox — the actual
+   *  rebuild happens lazily on the next getOrCreate() (build() also
+   *  clears this, so this is only needed for the resume no-op path
+   *  where no request forces a rebuild immediately). */
+  clearPaused(sessionId: string): void {
+    this.paused.delete(sessionId);
+  }
 
   /**
    * Get-or-create the SessionStateMachine for a session. Lazy: the
@@ -179,6 +194,37 @@ export class SessionRegistry {
    * The machine's adapter handles emitting the session-side
    * agent.message_stream_end(status="aborted") event chain.
    */
+  /**
+   * Destroy the session's sandbox to save cost while keeping it
+   * resumable. Node has no container "pause" primitive — this mirrors
+   * shutdown()'s per-entry teardown, then drops the map entry so the
+   * next getOrCreate() rebuilds the sandbox from scratch, restoring the
+   * workspace backup via SandboxOrchestrator.provision's
+   * `backup: { restoreOnWarm: true }` (see build()).
+   *
+   * Returns `{ conflict: true }` when a turn is in-flight — callers
+   * should surface a 409 rather than pausing mid-turn.
+   */
+  async pause(sessionId: string): Promise<{ conflict: boolean }> {
+    const p = this.map.get(sessionId);
+    if (!p) {
+      this.paused.add(sessionId);
+      return { conflict: false };
+    }
+    const entry = await p;
+    if (entry.machine.hasInflightTurn()) {
+      return { conflict: true };
+    }
+    try {
+      if (entry.sandbox.destroy) await entry.sandbox.destroy();
+    } catch {
+      /* best-effort */
+    }
+    this.map.delete(sessionId);
+    this.paused.add(sessionId);
+    return { conflict: false };
+  }
+
   interrupt(sessionId: string): void {
     const p = this.map.get(sessionId);
     if (!p) return;
@@ -203,6 +249,7 @@ export class SessionRegistry {
     sessionId: string,
     tenantId: string,
   ): Promise<SessionEntry> {
+    this.paused.delete(sessionId);
     const sandboxWorkdir = join(this.deps.sandboxWorkdirRoot, sessionId);
     const sandbox = await this.deps.buildSandbox(sessionId, sandboxWorkdir);
 

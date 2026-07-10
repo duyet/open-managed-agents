@@ -578,8 +578,35 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
       if (live.outcome_evaluations) response.outcome_evaluations = live.outcome_evaluations;
       if (live.resources) response.resources = live.resources;
       if (live.sandbox_usage) response.sandbox_usage = live.sandbox_usage;
+      response.sandbox_status = live.sandbox_status ?? "none";
     }
     return c.json(response);
+  });
+
+  app.post("/:id/pause", async (c) => {
+    const services = resolveServices(deps.services, c);
+    const router = resolveRouter(deps.router, c);
+    const id = c.req.param("id");
+    const sess = await services.sessions.get({ tenantId: c.var.tenant_id, sessionId: id });
+    if (!sess) return c.json({ error: "Session not found" }, 404);
+    const r = await router.pause(id);
+    if (r.status >= 400) {
+      return new Response(r.body, { status: r.status, headers: { "content-type": "application/json" } });
+    }
+    return c.json({ id, sandbox_status: "paused" as const });
+  });
+
+  app.post("/:id/resume", async (c) => {
+    const services = resolveServices(deps.services, c);
+    const router = resolveRouter(deps.router, c);
+    const id = c.req.param("id");
+    const sess = await services.sessions.get({ tenantId: c.var.tenant_id, sessionId: id });
+    if (!sess) return c.json({ error: "Session not found" }, 404);
+    const r = await router.resume(id);
+    if (r.status >= 400) {
+      return new Response(r.body, { status: r.status, headers: { "content-type": "application/json" } });
+    }
+    return c.json({ id, sandbox_status: "running" as const });
   });
 
   app.post("/:id/archive", async (c) => {

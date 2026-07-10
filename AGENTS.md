@@ -254,6 +254,31 @@ it. See [Memory Stores](#memory-stores) below.)
 - **rescheduled** — Container is being provisioned; will resume automatically
 - **terminated** — Session ended (explicit termination or error)
 
+### Sandbox Pause & Resume
+
+Orthogonal to the lifecycle above: `sandbox_status` (`"running"` | `"paused"` |
+`"none"`) tracks whether the session's sandbox container is currently
+provisioned, independent of `idle`/`running`/`terminated`. Pausing is
+reversible — unlike termination — and exists purely to stop paying for an
+idle container.
+
+```bash
+# Snapshot /workspace and destroy the container. Refuses (409) while a
+# turn is in-flight. No-op (200) if already paused.
+curl -s -X POST $BASE/v1/sessions/$ID/pause -H "x-api-key: $KEY"
+# → {"id": "sess_xxx", "sandbox_status": "paused"}
+
+# Reprovision the container and restore the latest workspace snapshot.
+# No-op (200) if not paused.
+curl -s -X POST $BASE/v1/sessions/$ID/resume -H "x-api-key: $KEY"
+# → {"id": "sess_xxx", "sandbox_status": "running"}
+```
+
+Sending a `user.message` to a paused session implicitly resumes it (the
+sandbox warms lazily on first use, same as a fresh session) — an explicit
+`/resume` call is only needed to pay the cold-start cost up front instead
+of on the next message.
+
 ### Event Types
 
 Sessions communicate through a typed event log. Events fall into four categories:
@@ -289,6 +314,8 @@ Sessions communicate through a typed event log. Events fall into four categories
 | `session.status_idle` | Harness finished; includes `stop_reason` |
 | `session.status_rescheduled` | Waiting for container provisioning |
 | `session.status_terminated` | Session ended |
+| `session.sandbox_paused` | Sandbox snapshotted + destroyed via `POST /pause`. OMA extension. |
+| `session.sandbox_resumed` | Sandbox reprovisioned via `POST /resume`. OMA extension. |
 | `session.error` | Error occurred (may be retryable) |
 
 **Observability events** (spans):
@@ -375,6 +402,26 @@ Environments define the sandbox where tools execute:
   }
 }
 ```
+
+### Sandbox Provider on the Cloudflare Deployment
+
+An environment's `config.sandbox_provider` (or legacy `config.type`) selects
+the sandbox adapter. On self-host Node, `apps/main-node` resolves it through
+the full `SandboxProviderRegistry` (`packages/sandbox`) — every adapter is
+available there. On the **Cloudflare deployment**, only a subset works,
+because a Worker is a single-file V8 isolate with no filesystem, no
+`child_process`, and no runtime dynamic-import resolution:
+
+| `sandbox_provider` | Cloudflare behavior |
+|---|---|
+| absent / `"cloud"` / unrecognized id | CloudflareSandbox (unchanged default — Cloudflare Containers) |
+| `"boxrun"` | Works — talks to a remote BoxRun (`boxlite serve`) control plane over plain `fetch`, no driver SDK. Requires `BOXRUN_URL` (`wrangler secret put`); missing it fails clearly with a `session.error` rather than silently falling back. |
+| `"daytona"` / `"e2b"` | Outbound-HTTP-only in principle (no Node builtins), but **not yet wired on Cloudflare** — their driver SDKs (`@daytonaio/sdk`, `e2b`) aren't bundled into the Worker. Selecting either fails clearly with a `session.error`; both already work on the self-host Node runtime. |
+| `"subprocess"` / `"litebox"` / `"k8s"` | Node-only (child_process, a native micro-VM binding, or local kubeconfig/filesystem access) — cannot run in a Worker at all. Selecting one fails clearly with a `session.error` explaining to use the self-host runtime instead. |
+
+See `classifyCfSandboxProvider` (`packages/sandbox/src/provider-config.ts`)
+for the classification and `resolveCfSandbox`
+(`apps/agent/src/runtime/sandbox.ts`) for the resolution + error path.
 
 ### Environment Status
 
@@ -506,12 +553,48 @@ Agents can delegate work to other agents using `callable_agents`:
 }
 ```
 
-This generates a `call_agent_researcher` tool. When invoked, the platform:
+This generates a `call_agent_researcher` tool. When invoked, the platform
+(`runSubAgent` in `apps/agent/src/runtime/session-do.ts`):
 
-1. Creates a child session for the target agent
+1. Spawns a child **thread** for the target agent — its own message history
+   and `sthr_*` id (surfaced as `thread_id`/`session_thread_id`), nested
+   inside the parent *session* rather than a separate top-level session
 2. Forwards the message
 3. Waits for the child to reach `idle`
 4. Returns the child's response to the parent
+
+**Sandbox scope:** by default a sub-agent thread shares the parent's
+sandbox (same `/workspace`, same files) — the cheap path, and what every
+agent config gets today since `environment_id` is unset. A `callable_agents`
+roster entry can opt a specific sub-agent into its own sandbox by setting
+`environment_id` to a different environment than the parent session's own:
+
+```json
+{
+  "callable_agents": [
+    { "type": "agent", "id": "agent_researcher", "environment_id": "env_isolated" }
+  ]
+}
+```
+
+When set and different from the parent session's `environment_id`, the
+platform resolves that environment record and mints a dedicated
+`SandboxExecutor` for just that sub-agent's turn, torn down (best-effort
+destroy) once the call returns. API-only for now — no Console UI to set it
+yet. Known limitations of a dedicated sub-agent sandbox: it starts from an
+empty `/workspace` (no restore-from-backup — nothing persists it across
+calls), memory-store and session-outputs mounts aren't wired, and its usage
+isn't metered into `sandbox_usage`. Vault credential injection (outbound
+proxy) IS wired, so authenticated outbound calls still work. If the target
+environment record can't be found, the sub-agent falls back to the parent's
+sandbox (logged, not surfaced to the caller). If the environment's
+`sandbox_provider` is unavailable on this deployment
+(`SandboxProviderUnavailableError` — e.g. a node-only provider requested on
+the Cloudflare deployment), the fallback is skipped: that sub-agent call
+fails outright, the same way any other per-call delegation failure surfaces
+(`success: false` from `call_agents_parallel`, or a tool error for the
+single-call path) — running the sub-agent on the wrong sandbox silently
+would be worse than failing loudly.
 
 ### Parallel Delegation
 

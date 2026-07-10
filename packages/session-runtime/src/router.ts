@@ -59,6 +59,10 @@ export interface SessionFullStatus {
   status: string;
   usage: { input_tokens: number; output_tokens: number };
   sandbox_usage?: { instance_type?: string; active_seconds: number };
+  /** "paused" once POST /pause has snapshotted + destroyed the sandbox;
+   *  "running" otherwise. Runtimes that don't track pause state (e.g.
+   *  Node before pause support lands) may omit this field. */
+  sandbox_status?: "running" | "paused";
   outcome_evaluations?: Array<{
     outcome_id?: string;
     result: string;
@@ -119,6 +123,15 @@ export interface SessionRouter {
   /** Tear down sandbox + emit final usage. CF: DELETE /destroy. Node:
    *  sandbox.destroy + clear registry entry. */
   destroy(sessionId: string): Promise<void>;
+
+  /** Snapshot the workspace and destroy the sandbox container to save
+   *  cost while keeping the session resumable. Returns 409 when the
+   *  session has an in-flight turn; 200 (no-op) when already paused. */
+  pause(sessionId: string): Promise<{ status: number; body: string }>;
+
+  /** Reprovision the sandbox container, restoring the latest workspace
+   *  snapshot. No-op (200) when the session isn't paused. */
+  resume(sessionId: string): Promise<{ status: number; body: string }>;
 
   /** Submit a user.* event. Returns the underlying status + body so
    *  routes can pass non-202 (terminated 409) verbatim. */

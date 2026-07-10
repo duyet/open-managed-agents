@@ -56,6 +56,46 @@ export class NodeSessionRouter implements SessionRouter {
     this.deps.hub.closeSession?.(sessionId);
   }
 
+  async pause(sessionId: string): Promise<{ status: number; body: string }> {
+    if (this.deps.registry.isPaused(sessionId)) {
+      return { status: 200, body: JSON.stringify({ sandbox_status: "paused" }) };
+    }
+    const { conflict } = await this.deps.registry.pause(sessionId);
+    if (conflict) {
+      return {
+        status: 409,
+        body: JSON.stringify({
+          type: "error",
+          error: {
+            type: "invalid_request_error",
+            message: "Cannot pause a session with an in-flight turn",
+          },
+        }),
+      };
+    }
+    const log = this.deps.newEventLog(sessionId);
+    await log.appendAsync({ type: "session.sandbox_paused" } as unknown as SessionEvent);
+    const stored = await log.getEventsAsync();
+    this.deps.hub.publish(sessionId, stored[stored.length - 1]);
+    return { status: 200, body: JSON.stringify({ sandbox_status: "paused" }) };
+  }
+
+  async resume(sessionId: string): Promise<{ status: number; body: string }> {
+    if (!this.deps.registry.isPaused(sessionId)) {
+      return { status: 200, body: JSON.stringify({ sandbox_status: "running" }) };
+    }
+    // Node has no eager reprovision hook — clearing the paused flag lets
+    // the next getOrCreate() (e.g. the next user.message) rebuild the
+    // sandbox and restore the workspace backup lazily, mirroring how
+    // Node already treats "sandbox not warmed yet" for fresh sessions.
+    this.deps.registry.clearPaused(sessionId);
+    const log = this.deps.newEventLog(sessionId);
+    await log.appendAsync({ type: "session.sandbox_resumed" } as unknown as SessionEvent);
+    const stored = await log.getEventsAsync();
+    this.deps.hub.publish(sessionId, stored[stored.length - 1]);
+    return { status: 200, body: JSON.stringify({ sandbox_status: "running" }) };
+  }
+
   async appendEvent(
     sessionId: string,
     event: SessionEvent,
@@ -284,6 +324,7 @@ export class NodeSessionRouter implements SessionRouter {
     return {
       status: sess.status,
       usage: { input_tokens: input, output_tokens: output },
+      sandbox_status: this.deps.registry.isPaused(sessionId) ? "paused" : "running",
     };
   }
 

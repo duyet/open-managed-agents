@@ -99,7 +99,20 @@ export interface AgentConfig {
     };
   }>;
   skills?: Array<{ skill_id: string; type: string; version?: string }>;
-  callable_agents?: Array<{ type: "agent"; id: string; version?: number }>;
+  callable_agents?: Array<{
+    type: "agent";
+    id: string;
+    version?: number;
+    /**
+     * Environment to run this sub-agent's sandbox in. Unset (the default
+     * for every existing config) or equal to the parent session's own
+     * `environment_id` → the sub-agent shares the parent's sandbox, same
+     * as before this field existed. A different value mints a dedicated
+     * sandbox for this sub-agent's turn, torn down afterward. API-only for
+     * now — no Console UI to set it yet.
+     */
+    environment_id?: string;
+  }>;
   /**
    * Concurrency cap for the `call_agents_parallel` tool (generated when
    * `callable_agents` has 1+ entries). Lowers the platform default (5)
@@ -514,6 +527,17 @@ export interface SessionRunningEvent extends EventBase {
 export interface SessionTerminatedEvent extends EventBase {
   type: "session.status_terminated";
   reason?: string;
+}
+
+// OMA extension — session sandbox pause/resume (cost-saving container
+// teardown that keeps the session resumable, distinct from termination).
+export interface SessionSandboxPausedEvent extends EventBase {
+  type: "session.sandbox_paused";
+  reason?: string;
+}
+
+export interface SessionSandboxResumedEvent extends EventBase {
+  type: "session.sandbox_resumed";
 }
 
 export interface SessionStatusEvent extends EventBase {
@@ -947,6 +971,8 @@ export type SessionEvent =
   | SessionRunningEvent
   | SessionRescheduledEvent
   | SessionTerminatedEvent
+  | SessionSandboxPausedEvent
+  | SessionSandboxResumedEvent
   | SessionStatusEvent
   | SessionErrorEvent
   | SessionWarningEvent
