@@ -305,7 +305,10 @@ export function AgentsList() {
           "Try a different search term."
         ) : (
           <>
-            <p>Create your first agent to get started.</p>
+            <p>
+              An agent is an AI assistant with its own instructions and tools. Create your
+              first one to get started.
+            </p>
             <button
               onClick={() => nav("/")}
               className="inline-flex items-center min-h-11 sm:min-h-0 mt-3 text-sm text-brand hover:underline"

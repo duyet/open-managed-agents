@@ -431,7 +431,7 @@ export function SkillsList() {
       columns={columns}
       emptyTitle="No skills yet"
       emptyKind="skill"
-      emptySubtitle="Create a skill to give your agents domain expertise."
+      emptySubtitle="A skill is a reusable set of instructions and files you can attach to any agent. Create your first one to give your agents domain expertise."
       emptyAction={<Button onClick={() => setShowCreate(true)}>+ New skill</Button>}
     >
       {/* ===== Create Dialog ===== */}

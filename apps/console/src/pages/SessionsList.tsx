@@ -3,7 +3,8 @@ import { useNavigate } from "react-router";
 import { Controller, useFieldArray, useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArchiveIcon, TrashIcon } from "lucide-react";
+import { ArchiveIcon, PauseIcon, PlayIcon, TrashIcon } from "lucide-react";
+import { toast } from "sonner";
 import { useApi, ApiError } from "../lib/api";
 import { useInfiniteApiQuery } from "../lib/useApiQuery";
 import { Modal } from "../components/Modal";
@@ -800,6 +801,27 @@ export function SessionsList() {
               label={`Actions for ${label}`}
               actions={[
                 {
+                  label: s.sandbox_status === "paused" ? "Resume" : "Pause sandbox",
+                  icon:
+                    s.sandbox_status === "paused" ? (
+                      <PlayIcon className="size-4" />
+                    ) : (
+                      <PauseIcon className="size-4" />
+                    ),
+                  disabled: !s.sandbox_status && s.status === "running",
+                  onSelect: async () => {
+                    const path = s.sandbox_status === "paused" ? "resume" : "pause";
+                    try {
+                      await api(`/v1/sessions/${s.id}/${path}`, { method: "POST" });
+                      refreshSessions();
+                    } catch (err) {
+                      if (err instanceof ApiError && err.status === 409) {
+                        toast.error("Wait for the agent to finish its current step, then pause.");
+                      }
+                    }
+                  },
+                },
+                {
                   label: archived ? "Unarchive" : "Archive",
                   icon: <ArchiveIcon className="size-4" />,
                   disabled: archived,
@@ -861,7 +883,7 @@ export function SessionsList() {
       emptySubtitle={
         hasActiveFilter
           ? "Try different filters."
-          : "Sessions will appear here once created through the API."
+          : "A session is a running conversation with one of your agents. Start one to watch it work."
       }
       columns={columns}
     >

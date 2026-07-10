@@ -7,6 +7,7 @@ import { Select, SelectOption } from "../components/Select";
 import { toast } from "sonner";
 import { Page } from "../components/Page";
 import { Field } from "../components/Field";
+import { friendlyHostingDescription, type HostingTypeLike } from "../lib/hostingTypes";
 
 // =================================================================
 // Types
@@ -110,6 +111,25 @@ export function EnvironmentDetail() {
   const [env, setEnv] = useState<Env | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Hosting-type metadata (label + description) for the badge/subtitle
+  // below the name. Mirrors EnvironmentsList's fetch — the CF host 404s
+  // this route, so we silently fall back to just showing the raw type id.
+  const [hostingTypes, setHostingTypes] = useState<HostingTypeLike[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api<{ data: HostingTypeLike[] }>("/v1/hosting_types");
+        if (!cancelled && Array.isArray(res.data)) setHostingTypes(res.data);
+      } catch {
+        // no-op — fall back to raw type id in the badge
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
 
   // Editable form state (kept separate from `env` so Cancel can revert
   // without re-fetching, and so we can diff to detect "dirty" later if
@@ -228,6 +248,15 @@ export function EnvironmentDetail() {
     return <div className="flex-1 p-8 text-fg-muted">Loading...</div>;
   }
 
+  const typeId = env.config.type || "cloud";
+  const providerInfo = hostingTypes.find((t) => t.id === typeId);
+  const providerLabel = providerInfo?.label ?? (typeId === "cloud" ? "Cloudflare Sandbox" : typeId);
+  const providerDescription = providerInfo
+    ? friendlyHostingDescription(providerInfo)
+    : typeId === "cloud"
+      ? friendlyHostingDescription({ id: "cloud", label: providerLabel })
+      : undefined;
+
   return (
     <Page>
       <div className="max-w-3xl space-y-6">
@@ -244,7 +273,7 @@ export function EnvironmentDetail() {
               placeholder="environment name"
             />
             <span className="text-[11px] px-2 py-0.5 rounded border border-border bg-bg-surface text-fg-muted font-medium uppercase tracking-wider">
-              {(env.config.type || "cloud") === "cloud" ? "Cloudflare Sandbox" : env.config.type}
+              {providerLabel}
             </span>
             <span className="text-fg-subtle" aria-hidden="true">
               <GlobeIcon />
@@ -255,6 +284,9 @@ export function EnvironmentDetail() {
                 install errors surface on the first session that uses the
                 env, not at env-creation time. */}
           </div>
+          {providerDescription && (
+            <p className="text-xs text-fg-subtle">{providerDescription}</p>
+          )}
 
           <div>
             <label className="block text-[13px] font-medium text-fg mb-1.5" htmlFor="env-description">

@@ -246,7 +246,7 @@ export function MemoryStoresList() {
           + New store
         </Button>
       }
-      emptySubtitle="Create a memory store to give your agents long-term context across sessions."
+      emptySubtitle="A memory store lets your agents save notes and context that carry over across sessions. Create your first one to get started."
       columns={columns}
     >
       <Modal

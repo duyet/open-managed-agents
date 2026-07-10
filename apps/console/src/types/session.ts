@@ -28,4 +28,9 @@ export interface SessionRecord {
     instance_type?: string;
     active_seconds: number;
   };
+  /** Sandbox lifecycle state — "paused" once POST /pause has snapshotted
+   *  + destroyed the container (no compute billed). Optional/permissive:
+   *  the pause/resume backend contract is landing separately; older rows
+   *  simply omit the field and the UI treats that as "running". */
+  sandbox_status?: "running" | "paused" | "none";
 }

@@ -142,7 +142,7 @@ export function ApiKeysList() {
       getRowId={(k) => k.id}
       emptyTitle="No API keys yet"
       emptyKind="api_key"
-      emptySubtitle="Create an API key to access the platform from CLI or SDK."
+      emptySubtitle="An API key lets you connect to this platform from the command line or your own code. Create one to get started."
       columns={columns}
     >
       <Modal

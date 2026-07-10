@@ -8,25 +8,29 @@
 
 /* ---------- Light theme (default) ---------- */
 :root {
-  --brand: oklch(0.68 0.19 25);        /* #FF6B50 in oklch */
-  --brand-hover: oklch(0.62 0.19 25);  /* darker coral */
-  --brand-subtle: oklch(0.96 0.03 25); /* barely-there coral tint */
-  /* Dark warm tone that pairs with brand for AA contrast (~5.4:1 on coral).
-     White on coral is only 2.96:1 — fails AA-normal at every UI text size,
+  /* Anthropic brand orange — same anchors as the marketing site
+     (apps/web global.css): #d97757 / hover #bf6041 / subtle #fbf1ee. */
+  --brand: #d97757;
+  --brand-hover: #bf6041;
+  --brand-subtle: #fbf1ee;
+  /* Dark warm tone that pairs with brand for AA contrast on the orange.
+     White on the brand orange fails AA-normal at UI text sizes,
      so brand-fg is dark, not white. Visually keeps brand "warm" not "stark". */
   --brand-fg: #3d2520;
 
-  --bg: #fefefe;
-  --bg-sidebar: #f8f8f7;
-  --bg-surface: #f3f3f1;
+  /* Warm paper neutrals — same family as marketing (#faf9f5 / #e8e6dc /
+     #141413) so the two surfaces read as one product. */
+  --bg: #faf9f5;
+  --bg-sidebar: #f4f3ec;
+  --bg-surface: #efeee6;
   --bg-overlay: oklch(0 0 0 / 0.3);
 
-  --fg: #1a1a1a;
-  --fg-muted: #6b6b6b;
-  --fg-subtle: #a1a1a1;
+  --fg: #141413;
+  --fg-muted: #6b6a64;
+  --fg-subtle: #a1a09a;
 
-  --border: #e4e4e2;
-  --border-strong: #d0d0ce;
+  --border: #e8e6dc;
+  --border-strong: #d1cfc4;
 
   --success: oklch(0.6 0.18 145);
   --success-subtle: oklch(0.96 0.04 145);
@@ -66,24 +70,25 @@
 
 /* ---------- Dark theme ---------- */
 .dark {
-  --brand: oklch(0.7 0.18 25);         /* slightly brighter coral for dark bg */
-  --brand-hover: oklch(0.76 0.16 25);
-  --brand-subtle: oklch(0.25 0.06 25);
-  /* Same dark warm tone in dark mode — brand stays coral, fg stays dark.
-     #3d2520 on coral is ~5.4:1 (AA-pass); white would be ~2.96:1 (AA-fail). */
+  /* Same orange as light mode — mirrors marketing dark tokens. */
+  --brand: #d97757;
+  --brand-hover: #e09278;
+  --brand-subtle: #2d1a15;
+  /* Same dark warm tone in dark mode — brand stays warm, fg stays dark. */
   --brand-fg: #3d2520;
 
-  --bg: #151515;
-  --bg-sidebar: #1a1a1a;
-  --bg-surface: #222220;
+  /* Warm dark neutrals — marketing dark anchors (#141413 / #222221). */
+  --bg: #141413;
+  --bg-sidebar: #1a1a19;
+  --bg-surface: #222221;
   --bg-overlay: oklch(0 0 0 / 0.6);
 
-  --fg: #ececec;
-  --fg-muted: #a0a0a0;
-  --fg-subtle: #888;
+  --fg: #faf9f5;
+  --fg-muted: #b0aea5;
+  --fg-subtle: #828076;
 
-  --border: #2e2e2c;
-  --border-strong: #404040;
+  --border: #2a2a29;
+  --border-strong: #40403e;
 
   --success: oklch(0.76 0.16 145);
   --success-subtle: oklch(0.22 0.05 145);
@@ -107,7 +112,10 @@
 /* ---------- Tailwind theme tokens ---------- */
 @theme {
   /* Fonts */
-  --font-display: "Source Serif 4", Georgia, "Times New Roman", serif;
+  /* Display matches the marketing site (Poppins) so oma.duyet.net ↔
+     app.oma.duyet.net feel like one product. Body stays DM Sans — a serif
+     body (marketing's Lora) reads poorly in dense app UI. */
+  --font-display: "Poppins", Arial, sans-serif;
   --font-sans: "DM Sans", -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
 

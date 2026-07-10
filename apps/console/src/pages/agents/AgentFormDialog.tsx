@@ -72,6 +72,9 @@ const INITIAL_FORM = {
   // default cloud agent.
   runtimeId: "",
   acpAgentId: "claude-agent-acp",
+  // Cloud harness — ignored (implicitly "acp-proxy") whenever runtimeId is
+  // set. "default" emits no _oma.harness at all (server default).
+  harness: "default" as "default" | "claude-agent-sdk" | "long-running",
   /** Local skill ids to HIDE from this agent's ACP child. Empty = all
    *  detected local skills are visible (the daemon's default). */
   localSkillBlocklist: [] as string[],
@@ -282,7 +285,9 @@ export function AgentFormDialog({
       }
       // Local-runtime agent: opt into acp-proxy harness when both runtimeId
       // and acpAgentId are set. Partial config silently falls back to the
-      // default cloud loop — same semantics as the CLI flag pair.
+      // default cloud loop — same semantics as the CLI flag pair. Wins over
+      // the plain harness picker below — a runtime binding always implies
+      // acp-proxy regardless of what was selected before it was picked.
       if (form.runtimeId && form.acpAgentId) {
         payload._oma = {
           harness: "acp-proxy",
@@ -294,6 +299,8 @@ export function AgentFormDialog({
               : {}),
           },
         };
+      } else if (form.harness !== "default") {
+        payload._oma = { harness: form.harness };
       }
 
       const agent = await api<Agent>("/v1/agents", {
@@ -385,6 +392,20 @@ export function AgentFormDialog({
     if (form.enableGeneralSubagent) {
       config.enable_general_subagent = true;
     }
+    if (form.runtimeId && form.acpAgentId) {
+      config._oma = {
+        harness: "acp-proxy",
+        runtime_binding: {
+          runtime_id: form.runtimeId,
+          acp_agent_id: form.acpAgentId,
+          ...(form.localSkillBlocklist.length > 0
+            ? { local_skill_blocklist: form.localSkillBlocklist }
+            : {}),
+        },
+      };
+    } else if (form.harness !== "default") {
+      config._oma = { harness: form.harness };
+    }
     return config;
   };
 
@@ -404,9 +425,10 @@ export function AgentFormDialog({
           createMode === "yaml"
             ? (yaml.load(codeValue) as Record<string, unknown>)
             : JSON.parse(codeValue);
-        const rb = parsed.runtime_binding as
-          | { runtime_id?: string; acp_agent_id?: string; local_skill_blocklist?: string[] }
+        const oma = parsed._oma as
+          | { harness?: string; runtime_binding?: { runtime_id?: string; acp_agent_id?: string; local_skill_blocklist?: string[] } }
           | undefined;
+        const rb = oma?.runtime_binding;
         // Tool policy round-trip: extract default + per-tool overrides
         // from the first agent_toolset_20260401 entry. Custom tools and
         // MCP toolsets pass through untouched in YAML/JSON view but
@@ -451,6 +473,10 @@ export function AgentFormDialog({
             : [],
           runtimeId: rb?.runtime_id ?? "",
           acpAgentId: rb?.acp_agent_id ?? "claude-agent-acp",
+          harness:
+            oma?.harness === "claude-agent-sdk" || oma?.harness === "long-running"
+              ? oma.harness
+              : "default",
           localSkillBlocklist: Array.isArray(rb?.local_skill_blocklist)
             ? rb.local_skill_blocklist
             : [],
@@ -936,6 +962,10 @@ function BasicTab({
         <label htmlFor="agent-system" className="text-sm text-fg-muted block mb-1">
           System Prompt
         </label>
+        <p className="text-xs text-fg-subtle mb-1">
+          Instructions the agent follows on every turn — its persona, goals, and any rules
+          it should stick to.
+        </p>
         <textarea
           id="agent-system"
           value={form.system}
@@ -944,6 +974,46 @@ function BasicTab({
           className={`${inputCls} resize-none font-mono text-xs leading-relaxed`}
           placeholder="You are a helpful assistant..."
         />
+      </div>
+      {/* Agent runtime (harness) — which loop implementation drives this
+          agent's turns. Plain-language options map to the `harness` wire
+          values; a bound Local Runtime always implies "acp-proxy" and
+          takes over this field entirely (shown locked below). */}
+      <div>
+        <label className="text-sm text-fg-muted block mb-1">Agent runtime</label>
+        {form.runtimeId ? (
+          <>
+            <Select value="acp-proxy" onValueChange={() => {}} disabled>
+              <SelectOption value="acp-proxy">Local runtime (ACP)</SelectOption>
+            </Select>
+            <p className="text-xs text-fg-subtle mt-1">
+              Determined by the Local Runtime binding below — clear it to pick a cloud
+              runtime instead.
+            </p>
+          </>
+        ) : (
+          <>
+            <Select
+              value={form.harness}
+              onValueChange={(v) => setForm({ ...form, harness: v as typeof form.harness })}
+            >
+              <SelectOption value="default">Standard (recommended)</SelectOption>
+              <SelectOption value="claude-agent-sdk">
+                Claude Agent SDK — full Claude Code experience (self-host)
+              </SelectOption>
+              <SelectOption value="long-running">
+                Long-running — progress heartbeats
+              </SelectOption>
+            </Select>
+            <p className="text-xs text-fg-subtle mt-1">
+              {form.harness === "claude-agent-sdk"
+                ? "Runs the agent through the Claude Agent SDK CLI — the same loop Claude Code uses. Self-hosted deployments only."
+                : form.harness === "long-running"
+                  ? "Emits periodic progress updates on a fixed cadence — good for tasks that run for a long time unattended."
+                  : "The default loop. Works everywhere and is the right choice for most agents."}
+            </p>
+          </>
+        )}
       </div>
       {/* Local Runtime — bind agent's loop to a user-registered machine
           instead of OMA's cloud SessionDO. The "no runtime" option is the
@@ -1163,8 +1233,10 @@ function ToolsTab({
       )}
 
       <p className="text-xs text-fg-subtle leading-relaxed">
-        Built-in toolset (AMA <span className="font-mono">agent_toolset_20260401</span>).
-        Multi-agent delegation lives in its own tab and is a separate AMA field{" "}
+        Tools are the actions the agent can take — running commands, reading and writing
+        files, searching the web. Built-in toolset (AMA{" "}
+        <span className="font-mono">agent_toolset_20260401</span>). Multi-agent delegation
+        lives in its own tab and is a separate AMA field{" "}
         <span className="font-mono">multiagent</span> — not part of this toolset. External MCP
         tools live in the MCP Servers tab.
       </p>
@@ -1277,6 +1349,10 @@ function SkillsTab({
 
   return (
     <div className="space-y-4">
+      <p className="text-xs text-fg-subtle leading-relaxed">
+        A skill is a reusable set of instructions and files — like a mini playbook — that
+        gets mounted into the agent's sandbox and added to its system prompt.
+      </p>
       <div>
         <label className="text-sm font-medium text-fg block mb-2">Anthropic Skills</label>
         <div className="grid grid-cols-2 gap-2">
@@ -1406,6 +1482,10 @@ function McpTab({
 }) {
   return (
     <div className="space-y-3">
+      <p className="text-xs text-fg-subtle leading-relaxed">
+        MCP servers connect the agent to external tools and data — GitHub, Slack, your own
+        APIs — via the Model Context Protocol.
+      </p>
       <div className="flex items-center justify-between mb-1">
         <label className="text-sm font-medium text-fg">MCP Servers</label>
         <div className="flex items-center gap-3">

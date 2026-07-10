@@ -209,6 +209,7 @@ export function VaultsList() {
       emptyAction={
         <Button onClick={() => setShowCreateVault(true)}>+ New vault</Button>
       }
+      emptySubtitle="A vault securely stores credentials like API tokens so agents can use them without ever seeing the raw secret. Create your first one to get started."
       columns={columns}
     >
       {/* Create Vault */}

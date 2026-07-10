@@ -11,6 +11,7 @@ import { DataTable, type ColumnDef } from "../components/DataTable";
 import { FacetedFilter } from "../components/FacetedFilter";
 import { FilterChip, CreatedFilterChip } from "../components/FilterChip";
 import { RowActionsMenu } from "../components/RowActionsMenu";
+import { friendlyHostingDescription } from "../lib/hostingTypes";
 
 interface Env {
   id: string;
@@ -319,7 +320,7 @@ export function EnvironmentsList() {
       emptySubtitle={
         search
           ? "Try a different search term."
-          : "Create your first environment to get started."
+          : "An environment defines the sandbox your agents run in — packages, network access, and hardware. Create your first one to get started."
       }
       columns={columns}
     >
@@ -359,8 +360,10 @@ export function EnvironmentsList() {
                 </SelectOption>
               ))}
             </Select>
-            {selectedType?.description && (
-              <p className="text-xs text-fg-subtle mt-1">{selectedType.description}</p>
+            {selectedType && friendlyHostingDescription(selectedType) && (
+              <p className="text-xs text-fg-subtle mt-1">
+                {friendlyHostingDescription(selectedType)}
+              </p>
             )}
             <p className="text-xs text-fg-subtle mt-1">This cannot be changed after creation.</p>
           </div>

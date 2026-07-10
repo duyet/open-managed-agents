@@ -258,7 +258,8 @@ export function RuntimesList() {
       emptySubtitle={
         status === "any" ? (
           <>
-            Run <code className="text-xs bg-bg-surface px-1 py-0.5 rounded">npx @duyet/oma-cli bridge setup</code> on the machine you want to connect.
+            A runtime lets an agent's loop run on a machine you own instead of the cloud. Run{" "}
+            <code className="text-xs bg-bg-surface px-1 py-0.5 rounded">npx @duyet/oma-cli bridge setup</code> on the machine you want to connect.
           </>
         ) : (
           "Try a different status filter."

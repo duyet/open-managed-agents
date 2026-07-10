@@ -425,7 +425,10 @@ export function ModelCardsList() {
           "Try a different search term."
         ) : (
           <>
-            <p>Add a model card to configure API credentials for your agents.</p>
+            <p>
+              A model card stores the API credentials and model your agents should use. Add
+              one to configure API credentials for your agents.
+            </p>
             <p className="text-xs mt-3">
               Without model cards, agents use the environment ANTHROPIC_API_KEY.
             </p>

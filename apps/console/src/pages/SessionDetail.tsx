@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router";
-import { useApi } from "../lib/api";
+import { useApi, ApiError } from "../lib/api";
 import { toast } from "sonner";
 import { Markdown } from "../components/Markdown";
 import { formatDuration, formatRelative, shortenId } from "../lib/format";
@@ -123,6 +123,14 @@ export function SessionDetail() {
     publicationId?: string;
   } | null>(null);
   const [status, setStatus] = useState("idle");
+  /** Sandbox lifecycle state, separate from `status` (which tracks the
+   *  harness run loop). "paused" means the container was snapshotted +
+   *  destroyed to stop billing; POST /resume reprovisions it lazily on
+   *  the next message. Backend contract: GET /v1/sessions/:id and
+   *  POST .../pause | .../resume all return `sandbox_status`. */
+  const [sandboxStatus, setSandboxStatus] = useState<"running" | "paused" | "none" | undefined>(undefined);
+  const [pausing, setPausing] = useState(false);
+  const [resuming, setResuming] = useState(false);
   /** Lazy-fetched Trajectory v1 envelope. Drives the outcome + reward
    *  chips in the header strip and the Trajectory viewer modal. We don't
    *  block initial render on this — chips render as `—` until it lands.
@@ -466,6 +474,7 @@ export function SessionDetail() {
     setActiveThreadId("sthr_primary");
     setPendingByEventId(new Map());
     setLocalPending(null);
+    setSandboxStatus(undefined);
 
     // Load session info
     api<{
@@ -474,6 +483,10 @@ export function SessionDetail() {
       created_at?: string;
       agent?: { id?: string; name?: string; model?: string | { id: string }; description?: string; version?: number };
       metadata?: Record<string, unknown>;
+      // Permissive — the backend contract for pause/resume is landing
+      // separately; tolerate its absence (treated as "running") until
+      // every deployment serves it.
+      sandbox_status?: "running" | "paused" | "none";
     }>(`/v1/sessions/${id}`)
       .then((s) => {
         setAgentId(s.agent?.id || "");
@@ -483,6 +496,7 @@ export function SessionDetail() {
           createdAt: s.created_at,
           agentSnapshot: s.agent,
         });
+        if (s.sandbox_status) setSandboxStatus(s.sandbox_status);
 
         // Live-resolve env + vault names by id. Per the id-only ref decision
         // (memory: session-resource-refs), the session API does not pre-bake
@@ -748,6 +762,41 @@ export function SessionDetail() {
     setInterrupting(false);
   };
 
+  // Pause / Resume — snapshot + destroy (or reprovision) the sandbox
+  // container to stop billing for compute while the session sits idle.
+  // Pause 409s while the agent is mid-run (server won't tear down a live
+  // turn) — surfaced as a friendly toast rather than the raw server error.
+  const pauseSandbox = async () => {
+    if (!id) return;
+    setPausing(true);
+    try {
+      const res = await api<{ id: string; sandbox_status: "running" | "paused" | "none" }>(
+        `/v1/sessions/${id}/pause`,
+        { method: "POST" },
+      );
+      setSandboxStatus(res.sandbox_status);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        toast.error("Wait for the agent to finish its current step, then pause.");
+      }
+    }
+    setPausing(false);
+  };
+  const resumeSandbox = async () => {
+    if (!id) return;
+    setResuming(true);
+    try {
+      const res = await api<{ id: string; sandbox_status: "running" | "paused" | "none" }>(
+        `/v1/sessions/${id}/resume`,
+        { method: "POST" },
+      );
+      setSandboxStatus(res.sandbox_status);
+    } catch (e) {
+      console.error("resume failed", e);
+    }
+    setResuming(false);
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header — badges row + page-specific action buttons.
@@ -800,6 +849,17 @@ export function SessionDetail() {
           ))}
           <SessionDurationBadge events={events} />
           {sessionMeta.createdAt && <RelativeTimeBadge iso={sessionMeta.createdAt} />}
+          {/* Paused badge — shown once we know the sandbox container was
+              torn down (POST /pause). No compute is billed while paused;
+              the next message reprovisions it lazily. */}
+          {sandboxStatus === "paused" && (
+            <span
+              className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border border-border bg-bg-surface text-fg-muted font-medium"
+              title="Sandbox container is stopped — not billing for compute."
+            >
+              Paused — not billing for compute
+            </span>
+          )}
           <div className="ml-auto flex items-center gap-2">
             {/* Stop / Interrupt — only while the session is actively running.
                 Posts user.interrupt scoped to the active thread; server fires
@@ -815,6 +875,33 @@ export function SessionDetail() {
                 title="Interrupt the active turn on this thread"
               >
                 {interrupting ? "Stopping…" : "Stop"}
+              </button>
+            )}
+            {/* Pause / Resume — stop or restart billing for the sandbox
+                container. Independent of the run-loop Stop button above;
+                a paused session can still be idle or (rarely) running,
+                but pausing while running 409s (surfaced as a toast). */}
+            {sandboxStatus === "paused" ? (
+              <button
+                onClick={() => void resumeSandbox()}
+                disabled={resuming}
+                className="inline-flex items-center justify-center px-2.5 py-1 min-h-11 sm:min-h-0 rounded-md text-xs font-medium bg-bg-surface/60 text-fg-muted hover:bg-bg-surface hover:text-fg disabled:opacity-50 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
+                title="Reprovision the sandbox and resume"
+              >
+                {resuming ? "Resuming…" : "Resume"}
+              </button>
+            ) : (
+              <button
+                onClick={() => void pauseSandbox()}
+                disabled={pausing || status === "running"}
+                className="inline-flex items-center justify-center px-2.5 py-1 min-h-11 sm:min-h-0 rounded-md text-xs font-medium bg-bg-surface/60 text-fg-muted hover:bg-bg-surface hover:text-fg disabled:opacity-50 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
+                title={
+                  status === "running"
+                    ? "Wait for the agent to finish its current step, then pause."
+                    : "Stop the sandbox container to save on compute costs"
+                }
+              >
+                {pausing ? "Pausing…" : "Pause sandbox"}
               </button>
             )}
             <button
