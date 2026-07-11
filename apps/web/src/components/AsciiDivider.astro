@@ -1,0 +1,23 @@
+---
+/**
+ * ASCII-art section divider / banner. Marketing pages lean on monospace
+ * (JetBrains Mono) for code; this extends that into decorative ASCII so the
+ * landing page gets genuine terminal/retro flavor without shipping image
+ * assets. Renders inside a <pre> with the brand mono font + subtle brand
+ * tint, and never wraps (so the box art stays aligned).
+ */
+interface Props {
+  /** The ASCII art. Use box-drawing chars; keep each line equal length. */
+  art: string;
+  /** Optional small mono caption centered under the art. */
+  caption?: string;
+  class?: string;
+}
+
+const { art, caption, class: className = "" } = Astro.props;
+---
+
+<figure class:list={["ascii-figure", className]}>
+  <pre class="ascii-art" aria-hidden="true">{art}</pre>
+  {caption && <figcaption class="ascii-caption">{caption}</figcaption>}
+</figure>

@@ -2,6 +2,7 @@
 import { defineConfig } from "astro/config";
 import tailwindcss from "@tailwindcss/vite";
 import sitemap from "@astrojs/sitemap";
+import react from "@astrojs/react";
 
 // https://astro.build/config
 export default defineConfig({
@@ -11,6 +12,7 @@ export default defineConfig({
   site: "https://oma.duyet.net",
   trailingSlash: "always",
   integrations: [
+    react(),
     sitemap({
       // Per-route priority + changefreq hints. Google ignores priority
       // mostly but Bing + smaller crawlers use them.

@@ -2,6 +2,9 @@
 import Base from "../layouts/Base.astro";
 import { softwareApplicationSchema } from "../lib/seo";
 import FeatureCard from "../components/FeatureCard.astro";
+import PixelAgent from "../components/PixelAgent.astro";
+import ArchDiagram from "../components/ArchDiagram.tsx";
+import AsciiDivider from "../components/AsciiDivider.astro";
 
 // SoftwareApplication is the homepage-only schema — anchors the
 // "Open Managed Agents" entity in Google's knowledge graph and makes
@@ -114,6 +117,122 @@ const lifecycle = [
     body: "On crash, a fresh harness reads SQLite, emits session.error if needed, and continues from durable events — no lost turns.",
   },
 ];
+
+// ASCII hero — a dotted halftone halo (oil-painting ASCII vibe) framing the
+// oma bracket+dot mark. Two stacked <pre> layers: a faint halo behind, the
+// bright brand structure on top. Poppins headline carries it; the ASCII is the
+// texture, not the whole message.
+const heroHalo = `
+                       .    .  .  . .  .    .  .
+               .  .  .  . .  .  . .  .  . .  .
+                .  .  . .  .  . .. .  . .  .  .    .
+              .  .  . .. .  . :: :  .  . .  .    .  .
+            .  .  . .. .  :  : :: :  : .. .  . .  .    .
+          .  .  . .. .  :  : :: :: : :: :  . .  .  .    .
+        .  .  .  . .. :  : :: :: : :: :: : .. .  .    .
+         .  .  . .. :  : :: :: :::: :: :  : .  .    .  .
+       .  .  . .  .  : :: :: :: : :: :: : :: .  . .  .
+     .  .          : :: :: :: :::: :: : :: :       .
+           .  .  .  : :: :: ::::::: :::: :: :  . .  .    .
+               .  : :: :: ::::::: :::: :: :  : .  .    .
+          .  .  . :: :: :::::::    :::: :: : :.    . .  .
+        .  .  . .. :: :: : :: :   ::: :: : :: .  . .  .
+      .  .    .. .  :  : :: ::    : :: : :: :  .    .
+       .  .    .  .  : :: :: :::: :: :::: :: .    .  .
+             .  .  . :: :: :::: :: :: : :: :  .    .    .
+           .     . .. :: :  : :: :: : :: :       .    .
+         .  .  . .. .  :  : :: :: : :: :  . .. .  .    .
+          .  .    .  .  . :: :  : :: :  . .. .  .    .
+                .  .  . .. .  : :: .  .  . .  .    .
+              .  .  . .  .  .  . .  .  . .  .    .
+           :   .    .             .  . .  .    .  .
+             .       .  .  . .  .  . .  .  .    .
+
+`;
+
+// Pixel-art sandbox glyphs for the fleet band (crisp, themeable, brand-tinted).
+const fleet = [
+  {
+    label: "Cloudflare",
+    map: [
+      "....KK....",
+      "...KLLK...",
+      "..KLLLLK..",
+      ".KLLLLLLK.",
+      ".KLLLLLLK.",
+      "..KLLLLK..",
+      "...KLLK...",
+      "....KK....",
+    ],
+  },
+  {
+    label: "Docker",
+    map: [
+      "..KKKKKK..",
+      ".KOOOOOOK.",
+      "KKOOOOOOKK",
+      "KKKOOOKKKK",
+      "KKKOOOKKKK",
+      "KKOOOOOOKK",
+      ".KOOOOOOK.",
+      "..KKKKKK..",
+    ],
+  },
+  {
+    label: "Subprocess",
+    map: [
+      "KKKKKKKKKK",
+      "K........K",
+      "K.KKKK.K.K",
+      "K.K..K.K.K",
+      "K.K..K.K.K",
+      "K.KKKK.K.K",
+      "K........K",
+      "KKKKKKKKKK",
+    ],
+  },
+  {
+    label: "K8s",
+    map: [
+      "...KKKK...",
+      "..KOOOK..",
+      ".KOLOLOK.",
+      "KOLOLOLOK",
+      "KOLOLOLOK",
+      ".KOLOLOK.",
+      "..KOOOK..",
+      "...KKKK...",
+    ],
+  },
+  {
+    label: "E2B",
+    map: [
+      "KK......KK",
+      "KOOK..KOOK",
+      "KOOK..KOOK",
+      "..KKKKKK..",
+      "..KKKKKK..",
+      "KOOK..KOOK",
+      "KOOK..KOOK",
+      "KK......KK",
+    ],
+  },
+];
+const FLEET_PAL: Record<string, string> = {
+  K: "var(--color-fg)",
+  O: "var(--color-brand)",
+  L: "var(--color-brand-fg)",
+};
+function pixelRects(map: string[]) {
+  const r: { x: number; y: number; fill: string }[] = [];
+  map.forEach((row, y) =>
+    [...row].forEach((ch, x) => {
+      if (ch === ".") return;
+      r.push({ x: x * 10, y: y * 10, fill: FLEET_PAL[ch] });
+    }),
+  );
+  return r;
+}
 ---
 
 <Base
@@ -124,7 +243,7 @@ const lifecycle = [
   schemas={schemas}
 >
   <!-- Hero -->
-  <section class="border-b border-[var(--color-border)] relative overflow-hidden">
+  <section class="relative overflow-hidden border-b border-[var(--color-border)]">
     <div
       class="pointer-events-none absolute inset-0 opacity-[0.35] dark:opacity-[0.2]"
       aria-hidden="true"
@@ -133,7 +252,20 @@ const lifecycle = [
         radial-gradient(ellipse 40% 40% at 90% 60%, color-mix(in srgb, var(--color-blue) 18%, transparent), transparent),
         radial-gradient(ellipse 35% 35% at 10% 80%, color-mix(in srgb, var(--color-green) 16%, transparent), transparent);"
     ></div>
-    <div class="relative max-w-5xl mx-auto px-4 py-20 md:py-28 text-center">
+    <div class="relative max-w-5xl mx-auto px-4 py-20 md:py-24 text-center">
+      <!-- ASCII hero: a faint dotted halo frames the interactive component
+           diagram (a hydrated React island) that traces a request through
+           oma's architecture. The CRT scanline overlay sits on top. -->
+      <div class="crt inline-block mb-8 select-none" aria-hidden="true">
+        <pre class="ascii-art ascii-halo">{heroHalo}</pre>
+        <ArchDiagram client:visible />
+      </div>
+
+      <div class="typewriter-line mb-6" data-rotate='["run --sandbox=any","deploy claude-agent-sdk","pause &amp; resume fleet","bridge grok · openai","ship on Cloudflare ☁"]'>
+        <span class="prompt">oma@fleet:~$</span>
+        <span class="tw-static">./</span><span class="tw-rot"></span><span class="typewriter-caret"></span>
+      </div>
+
       <p class="text-sm font-mono uppercase tracking-wider text-[var(--color-fg-subtle)] mb-5">
         Apache 2.0 · Cloudflare-native · Self-hostable · BYOK
       </p>
@@ -144,7 +276,7 @@ const lifecycle = [
         Run your own agents — on Cloudflare or with
         <code class="font-mono text-base md:text-lg">docker compose up</code>
       </p>
-      <p class="mt-5 text-base md:text-lg text-[var(--color-fg-muted)] max-w-2xl mx-auto leading-relaxed">
+      <p class="mt-4 text-base md:text-lg text-[var(--color-fg-muted)] max-w-2xl mx-auto leading-relaxed">
         An open-source meta-harness: the platform owns state, security, and sandboxes;
         a harness owns the model loop. Durable sessions, vault-backed credentials, MCP,
         and Bring Your Own Key for models and compute.
@@ -398,7 +530,9 @@ const lifecycle = [
       <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10 text-left">
         <article data-lift class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 hover:border-[var(--color-border-strong)]">
           <span class="arch-badge arch-badge-green mb-3">any sandbox</span>
-          <h3 class="font-display text-base font-semibold mb-2 tracking-tight">Run on any sandbox</h3>
+          <h3 class="font-display text-base font-semibold mb-2 tracking-tight flex items-center gap-2">
+            <span class="pixel-bullet" aria-hidden="true">[▪]</span> Run on any sandbox
+          </h3>
           <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
             Cloudflare Containers, subprocess, E2B, Daytona, or Kubernetes — pick a
             provider per environment, bring your own account, swap without touching agents.
@@ -406,7 +540,9 @@ const lifecycle = [
         </article>
         <article data-lift class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 hover:border-[var(--color-border-strong)]">
           <span class="arch-badge arch-badge-orange mb-3">cost control</span>
-          <h3 class="font-display text-base font-semibold mb-2 tracking-tight">Pause & resume</h3>
+          <h3 class="font-display text-base font-semibold mb-2 tracking-tight flex items-center gap-2">
+            <span class="pixel-bullet" aria-hidden="true">[▪]</span> Pause &amp; resume
+          </h3>
           <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
             Snapshot the workspace and stop the container between turns; resume restores
             it exactly where it left off. Idle agents cost nothing.
@@ -414,7 +550,9 @@ const lifecycle = [
         </article>
         <article data-lift class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 hover:border-[var(--color-border-strong)]">
           <span class="arch-badge arch-badge-blue mb-3">coding agents</span>
-          <h3 class="font-display text-base font-semibold mb-2 tracking-tight">Coding agents inside</h3>
+          <h3 class="font-display text-base font-semibold mb-2 tracking-tight flex items-center gap-2">
+            <span class="pixel-bullet" aria-hidden="true">[▪]</span> Coding agents inside
+          </h3>
           <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
             Run Claude Agent SDK (the default runtime), Grok, or any OpenAI-compatible
             coding agent in the sandbox — one Docker image per runtime kind.
@@ -422,25 +560,56 @@ const lifecycle = [
         </article>
         <article data-lift class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 hover:border-[var(--color-border-strong)]">
           <span class="arch-badge arch-badge-green mb-3">delegation</span>
-          <h3 class="font-display text-base font-semibold mb-2 tracking-tight">Cross-sandbox sub-agents</h3>
+          <h3 class="font-display text-base font-semibold mb-2 tracking-tight flex items-center gap-2">
+            <span class="pixel-bullet" aria-hidden="true">[▪]</span> Cross-sandbox sub-agents
+          </h3>
           <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
             Parent and child agents run in separate sandboxes — even on different
             providers — with parallel fan-out and per-call result aggregation.
           </p>
         </article>
       </div>
-      <a
-        href="https://github.com/duyet/oma/blob/main/docs/features.md"
-        class="inline-block px-5 py-2.5 rounded-md border border-[var(--color-border-strong)] font-medium font-display text-sm no-underline hover:no-underline hover:bg-[var(--color-bg-surface)]"
-      >
-        Read the fleet features docs →
-      </a>
+
+      <!-- Pixel-art sandbox fleet -->
+      <div class="pixel-fleet" aria-hidden="true">
+        {
+          fleet.map((f) => (
+            <figure>
+              <svg
+                class="pixel-art"
+                width="64"
+                height="64"
+                viewBox="0 0 80 80"
+                shape-rendering="crispEdges"
+                role="img"
+                aria-label={`${f.label} sandbox`}
+              >
+                {pixelRects(f.map).map((r) => (
+                  <rect x={r.x} y={r.y} width="10" height="10" fill={r.fill} />
+                ))}
+              </svg>
+              <figcaption>{f.label}</figcaption>
+            </figure>
+          ))
+        }
+      </div>
     </div>
   </section>
 
-  <!-- Get started -->
+  <!-- ASCII divider -->
+  <AsciiDivider
+    art={`+------------------------------------------------------------------+
+|  run  any  sandbox   ·   pause  to  save  cost   ·  ship  fleet  |
+|  claude-agent-sdk  ·  grok  ·  openai-compat  ·  byok          |
++------------------------------------------------------------------+`}
+    caption="system ready — awaiting your agent"
+    class="border-t border-[var(--color-border)]"
+  />
+
+  <!-- Mascot + Get started -->
   <section class="border-t border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal id="get-started">
     <div class="max-w-3xl mx-auto px-4 py-16 text-center">
+      <PixelAgent size={120} class="mx-auto mb-6" />
       <h2 class="font-display text-3xl font-bold mb-3 tracking-tight">Get started</h2>
       <p class="text-[var(--color-fg-muted)] mb-8 leading-relaxed">
         Clone, deploy, or try the hosted deployment of the same codebase.

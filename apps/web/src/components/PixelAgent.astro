@@ -1,0 +1,81 @@
+---
+/**
+ * Pixel-art agent mascot (v2 — friendlier, more detailed). The oma brand is
+ * brackets + a dot (the harness box wrapping the agent it runs); this renders
+ * that idea as a cheerful pixel robot — dark outline, brand-orange body, light
+ * visor + eyes, little antenna. Uses the site's CSS custom properties so it
+ * follows light/dark + brand tokens, and shape-rendering: crispEdges (set in
+ * .pixel-art global rule) keeps blocks hard-edged at any scale. Eyes blink
+ * via the .pa-eye keyframes.
+ */
+const PALETTE: Record<string, string> = {
+  K: "var(--color-fg)",
+  O: "var(--color-brand)",
+  L: "var(--color-brand-fg)",
+  B: "var(--color-bg-surface)",
+};
+
+// 18×18 grid. `.` = transparent.
+const MAP = [
+  "..................",
+  ".......KKKK.......",
+  ".......KLLKK......",
+  "......KLLLLK......",
+  "......KLLLLK......",
+  ".....KKKKKKKK.....",
+  "....KOOOOOOOOK....",
+  "...KOOOOOOOOOOK...",
+  "...KOOLLOOLLOOK...",
+  "...KOOLLOOLLOOK...",
+  "...KOOOKKKKOOOK...",
+  "...KOOOOOOOOOOK...",
+  "...KOOOOOOOOOOK...",
+  "...KOOOOOOOOOOK...",
+  "....KKOOOOOOOKK...",
+  "......KK....KK....",
+  ".....KK......KK...",
+  "..................",
+];
+
+const PX = 10;
+const cols = MAP[0].length;
+const rows = MAP.length;
+
+const rects = [];
+for (let y = 0; y < rows; y++) {
+  for (let x = 0; x < MAP[y].length; x++) {
+    const ch = MAP[y][x];
+    if (ch === "." || ch === " ") continue;
+    rects.push({ x: x * PX, y: y * PX, fill: PALETTE[ch], eye: ch === "L" });
+  }
+}
+
+interface Props {
+  /** Pixel size of the rendered SVG (CSS px). Scales crisply. */
+  size?: number;
+  class?: string;
+}
+
+const { size = 200, class: className = "" } = Astro.props;
+---
+
+<svg
+  class:list={["pixel-art", className]}
+  width={size}
+  height={size}
+  viewBox={`0 0 ${cols * PX} ${rows * PX}`}
+  role="img"
+  aria-label="oma pixel-art agent mascot"
+  shape-rendering="crispEdges"
+>
+  {rects.map((r) => (
+    <rect
+      x={r.x}
+      y={r.y}
+      width={PX}
+      height={PX}
+      fill={r.fill}
+      class={r.eye ? "pa-eye" : undefined}
+    />
+  ))}
+</svg>

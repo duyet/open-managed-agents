@@ -1,12 +1,20 @@
 @import "tailwindcss";
 
-/* Marketing brand tokens — Anthropic brand-guidelines palette + type.
-   Headings: Poppins (Arial fallback). Body: Lora (Georgia fallback).
-   Mono: JetBrains Mono for code only. Console keeps its own families. */
+/* Brand fonts: Geist (Vercel) — same family Cursor.com ships. Self-hosted
+   via @fontsource-variable so there's no external font request and the
+   marketing site matches the console's type. Geist Sans for everything,
+   Geist Mono for code / terminal / ASCII art. */
+@import "@fontsource-variable/geist/index.css";
+@import "@fontsource-variable/geist-mono/index.css";
+
+/* Marketing brand tokens — Geist type system. Display + body both use
+   Geist Variable (it's a single variable family, so headings and body
+   share the family and differ only by weight/tracking). Mono is Geist
+   Mono for the terminal / ASCII hero. */
 @theme {
-  --font-sans: "Lora", Georgia, serif;
-  --font-display: "Poppins", Arial, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 
   /* Brand anchors: dark #141413, light #faf9f5, mid #b0aea5, light-gray #e8e6dc,
      orange #d97757, blue #6a9bcc, green #788c5d */
@@ -54,7 +62,7 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Display type: all headings use Poppins end-to-end so body Lora never
+/* Display type: all headings use Geist Variable end-to-end so body Geist
    bleeds into section titles. Tailwind font-display maps here too. */
 h1, h2, h3, h4, h5, h6,
 .font-display {
@@ -323,4 +331,275 @@ input:focus-visible,
   max-width: 100%;
   border-radius: 0.5rem;
   margin: 1.5rem 0;
+}
+
+/* =========================================================================
+   ASCII + pixel-art marketing treatment
+   Aesthetic north-star: "dotted / oil-painting ASCII" (halftone dots for
+   shading) rendered like a CRT terminal hero — scanlines + brand glow, no
+   WebGL dependency so it builds on the static Astro pipeline.
+   ========================================================================= */
+
+/* Pixel art: keep blocks hard-edged at any scale (the whole point of pixel
+   art is crisp squares, not anti-aliased blurs). */
+.pixel-art {
+  shape-rendering: crispEdges;
+  image-rendering: pixelated;
+}
+/* Friendly blink on the mascot's eyes — pure CSS, respects reduced-motion. */
+.pa-eye {
+  animation: pa-blink 5.5s steps(1, end) infinite;
+}
+@keyframes pa-blink {
+  0%, 93%, 100% { opacity: 1; }
+  95%, 98% { opacity: 0.12; }
+}
+
+/* ASCII hero / divider art. Monospace, brand-tinted, with a soft glow so it
+   reads like a lit terminal. `white-space: pre` + horizontal scroll keep the
+   box-drawing glyphs aligned at any viewport. */
+.ascii-figure {
+  margin: 0;
+  text-align: center;
+}
+.ascii-art {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: clamp(0.45rem, 1.5vw, 0.85rem);
+  line-height: 1.08;
+  letter-spacing: 0;
+  /* Box-drawing / ASCII glyphs must never substitute via ligatures or
+     proportional kerning — that's what made the hero render misaligned.
+     Force each glyph to render at its own monospace advance width. */
+  font-feature-settings: "liga" 0, "calt" 0;
+  font-variant-ligatures: none;
+  font-kerning: none;
+  color: var(--color-brand);
+  text-shadow: 0 0 16px color-mix(in srgb, var(--color-brand) 45%, transparent);
+  white-space: pre;
+  overflow-x: auto;
+  margin: 0;
+  max-width: 100%;
+}
+/* The dotted halo is rendered fainter than the structure so the shading
+   reads as depth rather than a flat block. It frames the diagram from
+   behind (inset negative so the dots extend past the node edges). */
+.ascii-halo {
+  color: var(--color-brand);
+  opacity: 0.32;
+}
+.ascii-caption {
+  margin-top: 0.85rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-fg-subtle);
+}
+
+/* CRT scanline overlay — wraps the hero for the retro terminal vibe.
+   Non-interactive; sits above the art but never blocks selection/clicks. */
+.crt {
+  position: relative;
+  display: inline-block;
+}
+/* The dotted halo must sit *behind* the diagram, not stacked above or
+   beside it. The diagram stays in normal flow (it defines the box), the
+   halo is absolutely centered behind it with a negative inset so the dots
+   read as a depth halo framing the component diagram. */
+.ascii-halo {
+  position: absolute;
+  inset: -2.5rem;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  overflow: visible;
+}
+.crt::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(20, 20, 19, 0.12) 3px,
+    rgba(0, 0, 0, 0) 4px
+  );
+}
+.dark .crt::after {
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0) 0px,
+    rgba(255, 255, 255, 0) 2px,
+    rgba(250, 249, 245, 0.05) 3px,
+    rgba(255, 255, 255, 0) 4px
+  );
+}
+
+/* Typewriter caret for the rotating tagline in the hero. */
+.typewriter-line {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--color-fg-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4ch;
+}
+.typewriter-line .prompt {
+  color: var(--color-green);
+}
+.typewriter-caret {
+  display: inline-block;
+  width: 0.55ch;
+  height: 1.05em;
+  background: var(--color-brand);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-brand) 60%, transparent);
+  animation: tw-blink 1.05s steps(1, end) infinite;
+}
+@keyframes tw-blink {
+  50% { opacity: 0; }
+}
+
+/* Typewriter rotate: the terminal prompt's verb cycles through a list of
+   verbs pulled from the element's data-rotate JSON. Pure CSS can't swap text,
+   so a tiny inline script (Base.astro) drives .tw-rot; this just styles it. */
+.tw-static { color: var(--color-brand); }
+.tw-rot { color: var(--color-fg); font-weight: 600; }
+.typewriter-line .typewriter-caret { margin-left: 1px; }
+
+/* Pixel section badges — small bracket+dot glyphs used as bullet markers in
+   feature lists, drawn with the brand monospace + a brand halo so the whole
+   page shares one pixel vocabulary. */
+.pixel-bullet {
+  font-family: var(--font-mono);
+  color: var(--color-brand);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--color-brand) 40%, transparent);
+  font-weight: 700;
+}
+
+/* Pixel-art sandbox fleet — small icons row in the fleet section, given a
+   subtle brand halo so the band feels like part of the same system. */
+.pixel-fleet {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.5rem;
+}
+.pixel-fleet figure {
+  margin: 0;
+  text-align: center;
+}
+.pixel-fleet figcaption {
+  margin-top: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-fg-subtle);
+}
+
+/* Reduced-motion: kill the blink / caret / scanline animation, keep static
+   art. The reveal observer already has its own reduced-motion guard. */
+@media (prefers-reduced-motion: reduce) {
+  .pa-eye,
+  .typewriter-caret {
+    animation: none;
+  }
+  .typewriter-caret { opacity: 1; }
+}
+
+/* ── Interactive architecture diagram (React island, hero) ───────────────
+   An SVG component map of oma's parts + their connections, with an animated
+   data-flow trace. Theme-aware: strokes/fills use CSS vars so light + dark
+   apply automatically. The dotted halo sits behind it (inset -2.5rem above). */
+.arch-diagram {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: min(640px, 92vw);
+  height: auto;
+  font-family: var(--font-mono);
+  overflow: visible;
+}
+.arch-diagram .ad-node rect {
+  fill: var(--color-bg-surface);
+  stroke: var(--color-border-strong);
+  stroke-width: 1.5;
+  transition: fill 0.25s ease, stroke 0.25s ease;
+}
+.arch-diagram .ad-node.ad-orange rect { stroke: var(--color-brand); }
+.arch-diagram .ad-node.ad-blue rect { stroke: var(--color-blue); }
+.arch-diagram .ad-node.ad-green rect { stroke: var(--color-green); }
+.arch-diagram .ad-node text {
+  fill: var(--color-fg);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.arch-diagram .ad-node .ad-sub {
+  fill: var(--color-fg-subtle);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+/* Active (data-flow at this step) node lights up in its accent + brand glow */
+.arch-diagram .ad-node.is-active.ad-orange rect {
+  fill: color-mix(in srgb, var(--color-brand) 16%, var(--color-bg-surface));
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-brand) 55%, transparent));
+}
+.arch-diagram .ad-node.is-active.ad-blue rect {
+  fill: color-mix(in srgb, var(--color-blue) 16%, var(--color-bg-surface));
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-blue) 55%, transparent));
+}
+.arch-diagram .ad-node.is-active.ad-green rect {
+  fill: color-mix(in srgb, var(--color-green) 16%, var(--color-bg-surface));
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-green) 55%, transparent));
+}
+.arch-diagram .ad-node.is-active text { fill: var(--color-fg); }
+/* Edges */
+.arch-diagram .ad-edge {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-width: 1.5;
+  transition: stroke 0.25s ease;
+}
+.arch-diagram .ad-edge.is-active {
+  stroke: var(--color-brand);
+  stroke-dasharray: 6 6;
+  animation: ad-flow 0.9s linear infinite;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-brand) 50%, transparent));
+}
+@keyframes ad-flow { to { stroke-dashoffset: -24; } }
+/* Hover/focus caption (HTML, under the SVG) — wraps freely */
+.arch-diagram-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 640px;
+}
+.arch-diagram .ad-node { cursor: pointer; }
+.arch-diagram-caption {
+  margin: 0;
+  max-width: 34rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--color-fg-muted);
+}
+.arch-diagram-caption .ad-caption-label {
+  display: inline-block;
+  color: var(--color-brand);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-right: 0.4ch;
+}
+.arch-diagram-caption .ad-caption-label::after { content: "—"; margin-left: 0.4ch; }
+@media (prefers-reduced-motion: reduce) {
+  .arch-diagram .ad-edge.is-active { animation: none; }
 }
