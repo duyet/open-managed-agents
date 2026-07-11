@@ -11,6 +11,7 @@
     "./adapters/litebox": "./src/adapters/litebox.ts",
     "./adapters/boxrun": "./src/adapters/boxrun.ts",
     "./adapters/kubernetes": "./src/adapters/kubernetes.ts",
+    "./adapters/kubernetes-remote": "./src/adapters/kubernetes-remote.ts",
     "./orchestrator": "./src/orchestrator.ts"
   },
   "scripts": {

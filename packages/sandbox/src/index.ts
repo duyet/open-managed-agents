@@ -36,6 +36,8 @@ export {
   SYSTEM_PROVIDERS,
 } from "./provider-config";
 
+export { KubernetesRemoteSandbox } from "./adapters/kubernetes-remote";
+
 export {
   InMemoryQuotaStore,
   type SandboxUsageRecord,

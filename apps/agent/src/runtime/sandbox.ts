@@ -15,6 +15,11 @@ import { classifyCfSandboxProvider } from "@duyet/oma-sandbox";
 // `wrangler deploy` — out of scope here. Selecting them on CF fails
 // clearly (see resolveCfSandbox) instead of silently guessing.
 import { BoxRunSandbox } from "@duyet/oma-sandbox/adapters/boxrun";
+// Same static-import mandate as BoxRunSandbox: this is a bare `fetch`
+// client against an in-cluster k8s-sandbox-gateway, zero Node builtins,
+// so esbuild bundles it into the single-file Worker cleanly. The registry's
+// lazy `import(factoryPath)` can't bundle here (see the comment above).
+import { KubernetesRemoteSandbox } from "@duyet/oma-sandbox/adapters/kubernetes-remote";
 // `bash-parser` is CJS; the bundler handles interop for worker builds.
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
@@ -692,6 +697,10 @@ function cfProviderEnv(env: Env): Record<string, string | undefined> {
     BOXRUN_CPUS: e.BOXRUN_CPUS,
     BOXRUN_MEMORY_MIB: e.BOXRUN_MEMORY_MIB,
     SANDBOX_IMAGE: e.SANDBOX_IMAGE,
+    K8S_SANDBOX_GATEWAY_URL: e.K8S_SANDBOX_GATEWAY_URL,
+    K8S_SANDBOX_TOKEN: e.K8S_SANDBOX_TOKEN,
+    K8S_SANDBOX_CPUS: e.K8S_SANDBOX_CPUS,
+    K8S_SANDBOX_MEMORY_MIB: e.K8S_SANDBOX_MEMORY_MIB,
   };
 }
 
@@ -720,6 +729,23 @@ function createRemoteSandbox(type: string, env: Env, sessionId: string): Sandbox
         cpus: e.BOXRUN_CPUS ? Number(e.BOXRUN_CPUS) : undefined,
         memoryMib: e.BOXRUN_MEMORY_MIB ? Number(e.BOXRUN_MEMORY_MIB) : undefined,
         bearerToken: e.BOXRUN_TOKEN,
+        sessionId,
+      });
+    }
+    case "k8s-remote": {
+      if (!e.K8S_SANDBOX_GATEWAY_URL) {
+        throw new SandboxProviderUnavailableError(
+          `provider "k8s-remote" requires K8S_SANDBOX_GATEWAY_URL to be set on this Cloudflare ` +
+            `deployment (wrangler secret put K8S_SANDBOX_GATEWAY_URL) — pointing at a running ` +
+            `in-cluster k8s-sandbox-gateway instance.`,
+        );
+      }
+      return new KubernetesRemoteSandbox({
+        baseUrl: e.K8S_SANDBOX_GATEWAY_URL,
+        image: e.SANDBOX_IMAGE,
+        cpus: e.K8S_SANDBOX_CPUS ? Number(e.K8S_SANDBOX_CPUS) : undefined,
+        memoryMib: e.K8S_SANDBOX_MEMORY_MIB ? Number(e.K8S_SANDBOX_MEMORY_MIB) : undefined,
+        bearerToken: e.K8S_SANDBOX_TOKEN,
         sessionId,
       });
     }
