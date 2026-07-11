@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { WorkerEntrypoint } from "cloudflare:workers";
 import type { Env } from "@duyet/oma-shared";
-import { servicesMiddleware, tenantDbMiddleware, getCfServicesForTenant } from "@duyet/oma-services";
+import { servicesMiddleware, tenantDbMiddleware, getCfServicesForTenant, buildCfTenantDbProvider } from "@duyet/oma-services";
 import {
   buildAgentRoutes,
   buildVaultRoutes,
@@ -9,8 +9,14 @@ import {
   buildApiKeyRoutes,
   buildMeRoutes,
   buildTenantRoutes,
+  buildPublicationRoutes,
+  buildAgentPublicationRoutes,
   mintApiKeyOnStorage,
 } from "@duyet/oma-http-routes";
+import {
+  buildPublicPublicationRoutes,
+  publicSessionCaps,
+} from "./routes/publications";
 import {
   createCfShardPoolService,
   createCfTenantShardDirectoryService,
@@ -19,7 +25,7 @@ import { LOCAL_RUNTIME_ENV_ID } from "@duyet/oma-shared";
 import { toEnvironmentConfig } from "@duyet/oma-environments-store";
 import { authMiddleware } from "./auth";
 import { rateLimitMiddleware, authRateLimitMiddleware } from "./rate-limit";
-import { cfRouteServices } from "./lib/cf-route-services";
+import { cfRouteServices, cfRouteServicesForTenant } from "./lib/cf-route-services";
 import { cfApiKeyStorage } from "./lib/cf-api-key-storage";
 import { CfSessionRouter } from "./lib/cf-session-router";
 import {
@@ -212,6 +218,15 @@ type AppCtx = import("hono").Context<{
 const cfRouteServicesFromCtx = (c: AppCtx) =>
   cfRouteServices(c as never);
 
+/** Build the RouteServices bundle for the publication's tenant (public
+ *  /p/:slug surface) from an already-resolved Services container + DB. */
+const cfRouteServicesFromCtxForTenant = (
+  services: Services,
+  tenantDb: D1Database,
+): RouteServices => {
+  return cfRouteServicesForTenant(services, tenantDb);
+};
+
 const agentsRoutes = new Hono<{
   Bindings: Env;
   Variables: { tenant_id: string; user_id?: string };
@@ -328,17 +343,17 @@ const tenantsRoutes = new Hono<{
   return invokePackage(c, app);
 });
 
-const sessionsRoutes = new Hono<{
-  Bindings: Env;
-  Variables: { tenant_id: string; user_id?: string };
-}>().all("*", (c) => {
-  const ctx = c as unknown as AppCtx;
-  const env = ctx.env;
-  const services = ctx.var.services;
-  const tenantId = ctx.var.tenant_id;
+/**
+ * Build the per-request session app. For the authenticated /v1/sessions
+ * mount, `services` is the auth-resolved Services container and `tenantId`
+ * is the auth-resolved tenant. The public /p/:slug surface reuses this same
+ * builder with the publication's tenant + services so public sessions
+ * inherit the exact same create/message/SSE behavior without a logic fork.
+ */
+function buildSessionsApp(services: Services, env: Env, tenantDb: D1Database, ctx: AppCtx | null, tenantId: string) {
   const router = new CfSessionRouter({ env, services, tenantId });
-  const app = buildSessionRoutes({
-    services: () => cfRouteServicesFromCtx(ctx),
+  return buildSessionRoutes({
+    services: () => cfRouteServicesFromCtxForTenant(services, tenantDb),
     router,
     localRuntimeEnvId: LOCAL_RUNTIME_ENV_ID,
     loadEnvironment: async ({ tenantId, environmentId }) => {
@@ -350,8 +365,16 @@ const sessionsRoutes = new Hono<{
       fetchVaultCredentials(services, tenantId, vaultIds),
     outputs: cfOutputsAdapter(env),
     debugRecoveryToken: (env as { DEBUG_TOKEN?: string }).DEBUG_TOKEN,
-    lifecycle: cfSessionLifecycle(c as never),
+    lifecycle: ctx ? cfSessionLifecycle(ctx as never) : undefined,
   });
+}
+
+const sessionsRoutes = new Hono<{
+  Bindings: Env;
+  Variables: { tenant_id: string; user_id?: string };
+}>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  const app = buildSessionsApp(ctx.var.services, ctx.env, ctx.var.tenantDb, ctx, ctx.var.tenant_id);
   return invokePackage(c, app);
 });
 
@@ -414,6 +437,31 @@ function invokePackage(
   );
 }
 app.route("/v1/agents", agentsRoutes);
+
+// Published-agent management API (issue #72) — tenant-authed. Mounted
+// beside /v1/agents; reuses authMiddleware + servicesMiddleware above.
+const agentPublicationsRoutes = new Hono<{
+  Bindings: Env;
+  Variables: { tenant_id: string; user_id?: string };
+}>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  const app = buildAgentPublicationRoutes(
+    { services: () => cfRouteServicesFromCtx(ctx) },
+    "id",
+  );
+  return invokePackage(c, app);
+});
+app.route("/v1/agents/:id/publications", agentPublicationsRoutes);
+
+const publicationsRoutes = new Hono<{
+  Bindings: Env;
+  Variables: { tenant_id: string; user_id?: string };
+}>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  const app = buildPublicationRoutes({ services: () => cfRouteServicesFromCtx(ctx) });
+  return invokePackage(c, app);
+});
+app.route("/v1/publications", publicationsRoutes);
 app.route("/v1/environments", environmentsRoutes);
 app.route("/v1/sessions", sessionsRoutes);
 app.route("/v1/vaults", vaultsRoutes);
@@ -537,6 +585,92 @@ app.get("/agents/runtime/_attach", async (c) => {
 // the route file). Called only by the integrations gateway worker via service
 // binding.
 app.route("/v1/internal", internalRoutes);
+
+// ── Public chat surface for published agents (issue #72) ───────────────
+//
+// /p/:slug/* BYPASSES x-api-key (see auth.ts). Each request resolves the
+// owning tenant from the publication row, applies visibility/status
+// guardrails + per-slug/per-IP caps + ownership scoping, then forwards into
+// the shared session routes. No tenant auth middleware runs here.
+app.use("/p/*", rateLimitMiddleware);
+
+{
+  const envRef = env as unknown as Env;
+
+  const resolvePublication = async (slug: string) => {
+    const services = await getCfServicesForTenant(envRef, "");
+    const pub = await services.publications.getBySlug({ slug });
+    if (!pub) {
+      return new Response(JSON.stringify({ error: "Not found" }), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    // Guardrails: private/draft hidden (404); paused forbidden (403).
+    if (pub.visibility === "private" || pub.status === "draft") {
+      return new Response(JSON.stringify({ error: "Not found" }), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (pub.status === "paused") {
+      return new Response(JSON.stringify({ error: "Publication paused" }), {
+        status: 403,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return pub;
+  };
+
+  const guardSessionCreate = async (opts: {
+    publication: import("@duyet/oma-publications-store").PublicationRow;
+    ip: string;
+  }) => {
+    const services = await getCfServicesForTenant(envRef, opts.publication.tenant_id);
+    const today = new Date().toISOString().slice(0, 10);
+    return publicSessionCaps(services.kv, envRef, {
+      slug: opts.publication.slug,
+      ip: opts.ip,
+      today,
+    });
+  };
+
+  const assertSessionOwnedByPublication = async (
+    publication: import("@duyet/oma-publications-store").PublicationRow,
+    sessionId: string,
+  ): Promise<boolean> => {
+    const services = await getCfServicesForTenant(envRef, publication.tenant_id);
+    const sess = await services.sessions.get({
+      tenantId: publication.tenant_id,
+      sessionId,
+    });
+    if (!sess) return false;
+    const pubId = (sess.metadata as Record<string, unknown> | null)?.publication_id;
+    return pubId === publication.id;
+  };
+
+  // Build the session app bound to a publication tenant. Reuses the exact
+  // Builder/session app the /v1/sessions mount uses, just with the tenant
+  // captured from the publication row instead of the auth middleware.
+  const buildSessionsAppForTenant = async (tenantId: string) => {
+    const services = await getCfServicesForTenant(envRef, tenantId);
+    const provider = buildCfTenantDbProvider(envRef);
+    const tenantDb = await provider.resolve(tenantId);
+    return buildSessionsApp(services, envRef, tenantDb, null, tenantId);
+  };
+
+  const pubRoutes = buildPublicPublicationRoutes({
+    env: envRef,
+    servicesForTenant: (tenantId) => getCfServicesForTenant(envRef, tenantId) as never,
+    buildSessionsApp: buildSessionsAppForTenant,
+    resolvePublication: resolvePublication as never,
+    guardSessionCreate: guardSessionCreate as never,
+    assertSessionOwnedByPublication: assertSessionOwnedByPublication as never,
+  });
+  app.route("/p", pubRoutes);
+}
+
+// Proxy public integrations gateway paths to the INTEGRATIONS service binding
 
 // Proxy public integrations gateway paths to the INTEGRATIONS service binding
 // so Linear/GitHub can hit the OAuth callback / webhook URLs at this worker's

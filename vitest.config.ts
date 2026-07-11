@@ -63,6 +63,8 @@ export default defineConfig({
       { find: "@duyet/oma-model-cards-store", replacement: "./packages/model-cards-store/src/index.ts" },
       { find: "@duyet/oma-agents-store/test-fakes", replacement: "./packages/agents-store/src/test-fakes.ts" },
       { find: "@duyet/oma-agents-store", replacement: "./packages/agents-store/src/index.ts" },
+      { find: "@duyet/oma-publications-store/test-fakes", replacement: "./packages/publications-store/src/test-fakes.ts" },
+      { find: "@duyet/oma-publications-store", replacement: "./packages/publications-store/src/index.ts" },
       { find: "@duyet/oma-environments-store/test-fakes", replacement: "./packages/environments-store/src/test-fakes.ts" },
       { find: "@duyet/oma-environments-store", replacement: "./packages/environments-store/src/index.ts" },
       { find: "@duyet/oma-outbound-snapshots-store/test-fakes", replacement: "./packages/outbound-snapshots-store/src/test-fakes.ts" },

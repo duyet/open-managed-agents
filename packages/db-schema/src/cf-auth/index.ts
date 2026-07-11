@@ -17,6 +17,7 @@ export * from "./sessions";
 export * from "./memory";
 export * from "./vaults";
 export * from "./model-cards";
+export * from "./publications";
 export * from "./environments";
 export * from "./files";
 export * from "./runtimes";

@@ -9,6 +9,7 @@
 
 import type { Context } from "hono";
 import type { AgentService } from "@duyet/oma-agents-store";
+import type { PublicationService } from "@duyet/oma-publications-store";
 import type { VaultService } from "@duyet/oma-vaults-store";
 import type { CredentialService } from "@duyet/oma-credentials-store";
 import type { MemoryStoreService } from "@duyet/oma-memory-store";
@@ -59,6 +60,7 @@ export interface SessionRegistryLike {
 export interface RouteServices {
   sql: SqlClient;
   agents: AgentService;
+  publications: PublicationService;
   vaults: VaultService;
   credentials: CredentialService;
   memory: MemoryStoreService;
