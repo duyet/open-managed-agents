@@ -14,6 +14,7 @@ export * from "./cf-auth-sessions";
 export * from "./cf-auth-memory";
 export * from "./cf-auth-vaults";
 export * from "./cf-auth-model-cards";
+export * from "./cf-auth-publications";
 export * from "./cf-auth-environments";
 export * from "./cf-auth-files";
 export * from "./cf-auth-runtimes";

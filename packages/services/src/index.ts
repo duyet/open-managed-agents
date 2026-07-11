@@ -67,6 +67,10 @@ import {
   createCfAgentService,
 } from "@duyet/oma-agents-store";
 import {
+  PublicationService,
+  createCfPublicationService,
+} from "@duyet/oma-publications-store";
+import {
   EnvironmentService,
   createCfEnvironmentService,
 } from "@duyet/oma-environments-store";
@@ -128,6 +132,7 @@ export interface Services {
   evals: EvalRunService;
   modelCards: ModelCardService;
   agents: AgentService;
+  publications: PublicationService;
   environments: EnvironmentService;
   dreams: DreamService;
   outboundSnapshots: OutboundSnapshotService;
@@ -302,6 +307,10 @@ export function buildServices(env: Env, db: D1Database): Services {
     agents: pickBackend(overrides, "agents", {
       cf: () => createCfAgentService({ db }),
       // pg: () => createPgAgentService({ pg: getPgPool(env) }),
+    }),
+    publications: pickBackend(overrides, "publications", {
+      cf: () => createCfPublicationService({ db }),
+      // pg: () => createPgPublicationService({ pg: getPgPool(env) }),
     }),
     environments: pickBackend(overrides, "environments", {
       cf: () => createCfEnvironmentService({ db }),
