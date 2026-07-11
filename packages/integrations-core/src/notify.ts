@@ -24,6 +24,27 @@ export interface SessionNotifyEvent {
   detail?: string;
   /** Deep link back to the session (e.g. console URL), when available. */
   sessionUrl?: string;
+  /** Publication id, when the session was created via a publish flow. */
+  publicationId?: string;
+  /** End-user id the session is acting on behalf of, when known. */
+  endUserId?: string;
+  /** Final agent message text, when the session reached an idle/terminal state. */
+  finalMessage?: string;
+}
+
+/**
+ * JSON envelope shape POSTed to a `webhook` NotificationTarget. Stable
+ * wire contract — receivers should key off `session_id` + `status`.
+ */
+export interface WebhookEnvelope {
+  session_id: string;
+  publication_id?: string;
+  end_user_id?: string;
+  agent_name?: string;
+  status: SessionNotifyStatus;
+  stop_reason?: string;
+  message?: string;
+  session_url?: string;
 }
 
 const STATUS_LABEL: Record<SessionNotifyStatus, string> = {
