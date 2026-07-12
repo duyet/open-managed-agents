@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { FakeHttpClient } from "@duyet/oma-integrations-core/test-fakes";
+import type { HttpClient } from "@duyet/oma-integrations-core";
 import type { NotificationTarget } from "@duyet/oma-api-types";
 import { dispatchSessionNotifications, signWebhookBody, buildWebhookEnvelope } from "./notify-dispatch";
 
@@ -30,6 +31,7 @@ function depsFor(map: Record<string, string | null>, overrides: Partial<{
   onError: (t: NotificationTarget, e: unknown) => void;
   webhookRateLimitGate: { consume: (k: string) => Promise<{ ok: boolean; retryAfter?: number }> };
   tenantId: string;
+  httpClient: HttpClient;
 }> = {}) {
   return {
     resolveCredentialToken: async (id?: string) => (id ? map[id] ?? null : null),
@@ -91,6 +93,7 @@ describe("webhook notify target", () => {
 
   it("resolves the secret via secret_ref (vault) — never inline", async () => {
     const http = new FakeHttpClient();
+    http.setFallback({ status: 200, headers: {}, body: "" });
     const onError = vi.fn();
     // secret_ref resolves to a different value than credential_id lookups;
     // proves the secret comes from the vault resolveSecret path.
@@ -111,6 +114,7 @@ describe("webhook notify target", () => {
 
   it("sends unsigned + warns when no secret_ref is configured", async () => {
     const http = new FakeHttpClient();
+    http.setFallback({ status: 200, headers: {}, body: "" });
     const onError = vi.fn();
     await dispatchSessionNotifications(
       event,
@@ -124,6 +128,7 @@ describe("webhook notify target", () => {
 
   it("skips + reports when secret_ref is set but unresolved", async () => {
     const http = new FakeHttpClient();
+    http.setFallback({ status: 200, headers: {}, body: "" });
     const onError = vi.fn();
     await dispatchSessionNotifications(
       event,
