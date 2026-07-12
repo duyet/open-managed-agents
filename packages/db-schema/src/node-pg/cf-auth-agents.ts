@@ -1,7 +1,5 @@
 // Agents (Node-PG variant of cf-auth/agents).
 
-import { text } from "drizzle-orm/pg-core";
-
 import { bigint, index, pgTable, primaryKey, text } from "drizzle-orm/pg-core";
 
 export const agents = pgTable(
