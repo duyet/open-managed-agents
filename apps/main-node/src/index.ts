@@ -50,6 +50,7 @@ import { createSqliteSessionService } from "@duyet/oma-sessions-store";
 import { createSqliteFileService } from "@duyet/oma-files-store";
 import { createSqliteEvalRunService } from "@duyet/oma-evals-store";
 import { createSqliteEnvironmentService } from "@duyet/oma-environments-store";
+import { createSqlitePublicationService } from "@duyet/oma-publications-store";
 import { toFileRecord } from "@duyet/oma-files-store";
 import { SqlEventLog } from "@duyet/oma-event-log/sql";
 import type { SessionEvent } from "@duyet/oma-shared";
@@ -362,6 +363,7 @@ const sessionsService = createSqliteSessionService({ db: drizzleDb });
 const filesService = createSqliteFileService({ db: drizzleDb });
 const evalsService = createSqliteEvalRunService({ db: drizzleDb });
 const environmentsService = createSqliteEnvironmentService({ db: drizzleDb });
+const publicationsService = createSqlitePublicationService({ db: drizzleDb });
 
 let memoryBlobs: import("@duyet/oma-memory-store").BlobStore;
 let memoryBlobDescription: string;
@@ -806,6 +808,7 @@ const services: RouteServices = {
   sessions: sessionsService,
   dreams: dreamsService,
   environments: environmentsService,
+  publications: publicationsService,
   kv,
   newEventLog,
   hub: {

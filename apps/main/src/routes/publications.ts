@@ -36,19 +36,22 @@ export interface PublicPublicationRoutesDeps {
   /** Build the per-tenant session app (mirrors the /v1/sessions mount). */
   buildSessionsApp: (
     tenantId: string,
-  ) => Promise<{ fetch(req: Request, env?: unknown, ctx?: unknown): Promise<Response> }>;
+    env: Env,
+  ) => Promise<{ fetch(req: Request, env?: unknown, ctx?: unknown): Promise<Response> | Response }>;
   /** Resolve + guardrail a publication by slug. Returns the row or a
    *  Response when the slug is hidden/forbidden. */
-  resolvePublication: (slug: string) => Promise<PublicationRow | Response>;
+  resolvePublication: (slug: string, env: Env) => Promise<PublicationRow | Response>;
   /** Anti-abuse gates on session create. Returns a Response to reject. */
   guardSessionCreate: (opts: {
     publication: PublicationRow;
     ip: string;
+    env: Env;
   }) => Promise<Response | null>;
   /** Verify a session belongs to this publication (ownership scope). */
   assertSessionOwnedByPublication: (
     publication: PublicationRow,
     sessionId: string,
+    env: Env,
   ) => Promise<boolean>;
 }
 
@@ -60,7 +63,7 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
 
   // GET /p/:slug — publication metadata (no auth).
   app.get("/:slug", async (c) => {
-    const resolved = await deps.resolvePublication(c.req.param("slug"));
+    const resolved = await deps.resolvePublication(c.req.param("slug"), c.env);
     if (resolved instanceof Response) return resolved;
     const pub = resolved;
     return c.json({
@@ -83,12 +86,12 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
   // POST /p/:slug/sessions — create a session bound to the published
   // agent+version, owned by the publication's tenant, tagged publication_id.
   app.post("/:slug/sessions", async (c) => {
-    const resolved = await deps.resolvePublication(c.req.param("slug"));
+    const resolved = await deps.resolvePublication(c.req.param("slug"), c.env);
     if (resolved instanceof Response) return resolved;
     const pub = resolved;
 
     const ip = clientIp(c.req.raw);
-    const gate = await deps.guardSessionCreate({ publication: pub, ip });
+    const gate = await deps.guardSessionCreate({ publication: pub, ip, env: c.env });
     if (gate) return gate;
 
     const services = await deps.servicesForTenant(pub.tenant_id);
@@ -102,7 +105,7 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
     // Forward the create into the per-tenant session app, but rewrite the
     // body to pin the published agent + version + the publication tag.
     const forwarded = await forwardToSessions(c, pub.tenant_id, () => {
-      return deps.buildSessionsApp(pub.tenant_id);
+      return deps.buildSessionsApp(pub.tenant_id, c.env);
     }, async (body) => {
       return {
         ...body,
@@ -121,7 +124,7 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
     const scoped = await scopedSession(c, deps);
     if (scoped instanceof Response) return scoped;
     const { pub } = scoped;
-    return forwardToSessions(c, pub.tenant_id, () => deps.buildSessionsApp(pub.tenant_id));
+    return forwardToSessions(c, pub.tenant_id, () => deps.buildSessionsApp(pub.tenant_id, c.env));
   });
 
   // GET /p/:slug/sessions/:id/events/stream — SSE pass-through (scoped).
@@ -129,7 +132,7 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
     const scoped = await scopedSession(c, deps);
     if (scoped instanceof Response) return scoped;
     const { pub } = scoped;
-    return forwardToSessions(c, pub.tenant_id, () => deps.buildSessionsApp(pub.tenant_id));
+    return forwardToSessions(c, pub.tenant_id, () => deps.buildSessionsApp(pub.tenant_id, c.env));
   });
 
   // GET /p/:slug/sessions/:id/events — JSON events pass-through (scoped).
@@ -137,7 +140,7 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
     const scoped = await scopedSession(c, deps);
     if (scoped instanceof Response) return scoped;
     const { pub } = scoped;
-    return forwardToSessions(c, pub.tenant_id, () => deps.buildSessionsApp(pub.tenant_id));
+    return forwardToSessions(c, pub.tenant_id, () => deps.buildSessionsApp(pub.tenant_id, c.env));
   });
 
   return app;
@@ -148,11 +151,14 @@ async function scopedSession(
   c: import("hono").Context,
   deps: PublicPublicationRoutesDeps,
 ): Promise<{ pub: PublicationRow } | Response> {
-  const resolved = await deps.resolvePublication(c.req.param("slug"));
+  const slug = c.req.param("slug");
+  if (!slug) return c.json({ error: "Publication slug required" }, 400);
+  const resolved = await deps.resolvePublication(slug, c.env);
   if (resolved instanceof Response) return resolved;
   const pub = resolved;
   const sessionId = c.req.param("id");
-  const owned = await deps.assertSessionOwnedByPublication(pub, sessionId);
+  if (!sessionId) return c.json({ error: "Session id required" }, 400);
+  const owned = await deps.assertSessionOwnedByPublication(pub, sessionId, c.env);
   if (!owned) return c.json({ error: "Session not found" }, 404);
   return { pub };
 }
@@ -166,7 +172,7 @@ async function scopedSession(
 async function forwardToSessions(
   c: import("hono").Context,
   tenantId: string,
-  buildApp: () => Promise<{ fetch(req: Request, env?: unknown, ctx?: unknown): Promise<Response> }>,
+  buildApp: () => Promise<{ fetch(req: Request, env?: unknown, ctx?: unknown): Promise<Response> | Response }>,
   rewriteBody?: (body: Record<string, unknown>) => Promise<Record<string, unknown>> | Record<string, unknown>,
 ): Promise<Response> {
   const url = new URL(c.req.url);
@@ -186,6 +192,15 @@ async function forwardToSessions(
   }
 
   const app = await buildApp();
+  // `c.executionCtx` is only present under a real CF request context;
+  // under a plain `app.request()` (tests) the getter throws, so read it
+  // defensively. The inner session app tolerates an absent ctx.
+  let executionCtx: unknown;
+  try {
+    executionCtx = c.executionCtx;
+  } catch {
+    executionCtx = undefined;
+  }
   return app.fetch(
     new Request(url, {
       method: c.req.method,
@@ -193,7 +208,7 @@ async function forwardToSessions(
       body,
     }),
     c.env,
-    c.executionCtx,
+    executionCtx,
   );
 }
 

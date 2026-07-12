@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { WorkerEntrypoint } from "cloudflare:workers";
 import type { Env } from "@duyet/oma-shared";
-import { servicesMiddleware, tenantDbMiddleware, getCfServicesForTenant, buildCfTenantDbProvider } from "@duyet/oma-services";
+import { servicesMiddleware, tenantDbMiddleware, getCfServicesForTenant, buildCfTenantDbProvider, type Services } from "@duyet/oma-services";
 import {
   buildAgentRoutes,
   buildVaultRoutes,
@@ -12,6 +12,7 @@ import {
   buildPublicationRoutes,
   buildAgentPublicationRoutes,
   mintApiKeyOnStorage,
+  type RouteServices,
 } from "@duyet/oma-http-routes";
 import {
   buildPublicPublicationRoutes,
@@ -595,10 +596,8 @@ app.route("/v1/internal", internalRoutes);
 app.use("/p/*", rateLimitMiddleware);
 
 {
-  const envRef = env as unknown as Env;
-
-  const resolvePublication = async (slug: string) => {
-    const services = await getCfServicesForTenant(envRef, "");
+  const resolvePublication = async (slug: string, env: Env) => {
+    const services = await getCfServicesForTenant(env, "");
     const pub = await services.publications.getBySlug({ slug });
     if (!pub) {
       return new Response(JSON.stringify({ error: "Not found" }), {
@@ -625,10 +624,11 @@ app.use("/p/*", rateLimitMiddleware);
   const guardSessionCreate = async (opts: {
     publication: import("@duyet/oma-publications-store").PublicationRow;
     ip: string;
+    env: Env;
   }) => {
-    const services = await getCfServicesForTenant(envRef, opts.publication.tenant_id);
+    const services = await getCfServicesForTenant(opts.env, opts.publication.tenant_id);
     const today = new Date().toISOString().slice(0, 10);
-    return publicSessionCaps(services.kv, envRef, {
+    return publicSessionCaps(services.kv, opts.env, {
       slug: opts.publication.slug,
       ip: opts.ip,
       today,
@@ -638,8 +638,9 @@ app.use("/p/*", rateLimitMiddleware);
   const assertSessionOwnedByPublication = async (
     publication: import("@duyet/oma-publications-store").PublicationRow,
     sessionId: string,
+    env: Env,
   ): Promise<boolean> => {
-    const services = await getCfServicesForTenant(envRef, publication.tenant_id);
+    const services = await getCfServicesForTenant(env, publication.tenant_id);
     const sess = await services.sessions.get({
       tenantId: publication.tenant_id,
       sessionId,
@@ -652,17 +653,17 @@ app.use("/p/*", rateLimitMiddleware);
   // Build the session app bound to a publication tenant. Reuses the exact
   // Builder/session app the /v1/sessions mount uses, just with the tenant
   // captured from the publication row instead of the auth middleware.
-  const buildSessionsAppForTenant = async (tenantId: string) => {
-    const services = await getCfServicesForTenant(envRef, tenantId);
-    const provider = buildCfTenantDbProvider(envRef);
+  const buildSessionsAppForTenant = async (tenantId: string, env: Env) => {
+    const services = await getCfServicesForTenant(env, tenantId);
+    const provider = buildCfTenantDbProvider(env);
     const tenantDb = await provider.resolve(tenantId);
-    return buildSessionsApp(services, envRef, tenantDb, null, tenantId);
+    return buildSessionsApp(services, env, tenantDb, null, tenantId);
   };
 
   const pubRoutes = buildPublicPublicationRoutes({
-    env: envRef,
-    servicesForTenant: (tenantId) => getCfServicesForTenant(envRef, tenantId) as never,
-    buildSessionsApp: buildSessionsAppForTenant,
+    env: {} as never,
+    servicesForTenant: (tenantId) => getCfServicesForTenant({} as never, tenantId) as never,
+    buildSessionsApp: buildSessionsAppForTenant as never,
     resolvePublication: resolvePublication as never,
     guardSessionCreate: guardSessionCreate as never,
     assertSessionOwnedByPublication: assertSessionOwnedByPublication as never,

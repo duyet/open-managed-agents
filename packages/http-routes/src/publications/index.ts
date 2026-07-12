@@ -151,6 +151,7 @@ export function buildAgentPublicationRoutes(
   app.get("/", async (c) => {
     const services = resolveServices(deps.services, c);
     const agentId = c.req.param(agentIdParam);
+    if (!agentId) return c.json({ error: "agent_id is required" }, 400);
     const rows = await services.publications.list({
       tenantId: c.var.tenant_id,
       agentId,
@@ -161,6 +162,7 @@ export function buildAgentPublicationRoutes(
   app.post("/", async (c) => {
     const services = resolveServices(deps.services, c);
     const agentId = c.req.param(agentIdParam);
+    if (!agentId) return c.json({ error: "agent_id is required" }, 400);
     const agent = await services.agents.get({
       tenantId: c.var.tenant_id,
       agentId,

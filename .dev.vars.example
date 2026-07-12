@@ -5,3 +5,9 @@ ANTHROPIC_API_KEY=sk-ant-xxx
 # model_cards.api_key_cipher. Workers throw at first request if missing.
 # Generate with:  openssl rand -base64 32
 PLATFORM_ROOT_SECRET=
+
+# Optional: per-slug and per-IP daily caps on public (/p/:slug) session
+# creation. KV-backed counter in publicSessionCaps. Defaults 50 / 20 when
+# unset (see apps/main/src/routes/publications.ts).
+PUBLIC_SESSION_CAP_PER_SLUG=
+PUBLIC_SESSION_CAP_PER_IP=

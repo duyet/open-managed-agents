@@ -68,6 +68,13 @@ export interface Env {
    *  apps/main/src/quotas.ts. The number is the cap; absent or "0" =
    *  feature off (OSS-friendly). Counter key auto-expires next day. */
   SESSION_DAILY_CAP_PER_TENANT?: number;
+  /** Per-slug daily cap on public (/p/:slug) session creation. KV-backed
+   *  counter in publicSessionCaps (apps/main/src/routes/publications.ts).
+   *  Absent / "0" → feature off; parsed with a default of 50 at read site. */
+  PUBLIC_SESSION_CAP_PER_SLUG?: string;
+  /** Per-IP daily cap on public (/p/:slug) session creation. Same KV
+   *  counter family as PUBLIC_SESSION_CAP_PER_SLUG; default 20. */
+  PUBLIC_SESSION_CAP_PER_IP?: string;
   /** Single-upload body size cap in bytes for POST /v1/files and
    *  POST /v1/skills/:id/versions. Default 25MB if unset. */
   UPLOAD_MAX_BYTES?: number;

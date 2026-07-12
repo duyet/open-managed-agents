@@ -10,7 +10,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { Hono } from "hono";
-import { buildPublicPublicationRoutes } from "./index";
+import { buildPublicPublicationRoutes } from "./publications";
 import type { PublicationRow } from "@duyet/oma-publications-store";
 
 function pubRow(overrides: Partial<PublicationRow> = {}): PublicationRow {
@@ -54,7 +54,29 @@ function makeApp(pubResolver: (slug: string) => PublicationRow | Response) {
         });
         return Promise.resolve(inner) as never;
       },
-      resolvePublication: (slug) => Promise.resolve(pubResolver(slug)) as never,
+      resolvePublication: (slug) => {
+        const pub = pubResolver(slug);
+        if (pub instanceof Response) return Promise.resolve(pub) as never;
+        // Mirror the guardrails the production caller (apps/main/src/index.ts)
+        // enforces inside its resolvePublication closure.
+        if (pub.visibility === "private" || pub.status === "draft") {
+          return Promise.resolve(
+            new Response(JSON.stringify({ error: "Not found" }), {
+              status: 404,
+              headers: { "content-type": "application/json" },
+            }),
+          ) as never;
+        }
+        if (pub.status === "paused") {
+          return Promise.resolve(
+            new Response(JSON.stringify({ error: "Publication paused" }), {
+              status: 403,
+              headers: { "content-type": "application/json" },
+            }),
+          ) as never;
+        }
+        return Promise.resolve(pub) as never;
+      },
       guardSessionCreate: () => Promise.resolve(null) as never,
       assertSessionOwnedByPublication: (pub, sessionId) =>
         Promise.resolve(sessionOwner[sessionId] === pub.id) as never,
@@ -80,7 +102,7 @@ describe("public publication routes — guardrails + scoping", () => {
     const app = makeApp(() => pubRow());
     const res = await app.request("/p/duyetbot");
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as { slug: string; requires_auth: boolean };
     expect(body.slug).toBe("duyetbot");
     expect(body.requires_auth).toBe(false);
   });
