@@ -21,6 +21,7 @@
     "@duyet/oma-model-cards-store": "workspace:*",
     "@duyet/oma-agents-store": "workspace:*",
     "@duyet/oma-environments-store": "workspace:*",
+    "@duyet/oma-publications-store": "workspace:*",
     "@duyet/oma-outbound-snapshots-store": "workspace:*",
     "@duyet/oma-session-secrets-store": "workspace:*",
     "@duyet/oma-sql-client": "workspace:*",

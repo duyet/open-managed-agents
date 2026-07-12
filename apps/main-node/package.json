@@ -29,6 +29,7 @@
     "@duyet/oma-dreams-store": "workspace:*",
     "@duyet/oma-email": "workspace:*",
     "@duyet/oma-environments-store": "workspace:*",
+    "@duyet/oma-publications-store": "workspace:*",
     "@duyet/oma-evals-runner": "workspace:*",
     "@duyet/oma-evals-store": "workspace:*",
     "@duyet/oma-event-log": "workspace:*",
