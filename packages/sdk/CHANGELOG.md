@@ -1,5 +1,11 @@
 # @duyet/oma-sdk
 
+## 1.2.0
+
+### Minor Changes
+
+- 7cc3d50: Add `sessions.pause()` and `sessions.resume()` for sandbox pause/resume.
+
 ## 1.1.0
 
 ### Minor Changes
