@@ -1,7 +1,5 @@
 // Public types for the publications store service.
 
-import type { PageCursor } from "@duyet/oma-shared";
-
 /** Visibility governs who can reach a publication's public slug. */
 export type PublicationVisibility = "public" | "unlisted" | "private";
 
@@ -30,82 +28,4 @@ export interface PublicationRow {
   rate_limit_ref: string | null;
   /** ISO-8601 timestamp. */
   created_at: string;
-}
-
-export interface PublicationRepo {
-  insert(input: NewPublicationInput): Promise<PublicationRow>;
-
-  get(tenantId: string, id: string): Promise<PublicationRow | null>;
-
-  /** Cross-tenant lookup by slug — used by the public route group to
-   *  resolve {tenant_id, agent_id, agent_version} without tenant auth. */
-  getBySlug(slug: string): Promise<PublicationRow | null>;
-
-  list(
-    tenantId: string,
-    opts: { agentId?: string },
-  ): Promise<PublicationRow[]>;
-
-  listPage(
-    tenantId: string,
-    opts: {
-      agentId?: string;
-      limit: number;
-      after?: PageCursor;
-    },
-  ): Promise<{ items: PublicationRow[]; hasMore: boolean }>;
-
-  update(
-    tenantId: string,
-    id: string,
-    fields: PublicationUpdateFields,
-  ): Promise<PublicationRow>;
-
-  delete(tenantId: string, id: string): Promise<void>;
-}
-
-export interface NewPublicationInput {
-  id: string;
-  tenantId: string;
-  agentId: string;
-  agentVersion: number;
-  slug: string;
-  title: string;
-  description: string | null;
-  avatarUrl: string | null;
-  visibility: PublicationVisibility;
-  status: PublicationStatus;
-  greeting: string | null;
-  suggestedPrompts: string[];
-  pricingRef: string | null;
-  rateLimitRef: string | null;
-  createdAt: number;
-}
-
-export interface PublicationUpdateFields {
-  title?: string;
-  description?: string | null;
-  avatarUrl?: string | null;
-  visibility?: PublicationVisibility;
-  status?: PublicationStatus;
-  greeting?: string | null;
-  suggestedPrompts?: string[];
-  pricingRef?: string | null;
-  rateLimitRef?: string | null;
-  /** Slug may be changed by the owner; the unique index enforces global
-   *  uniqueness. Left optional — most updates don't touch the slug. */
-  slug?: string;
-}
-
-export interface Clock {
-  nowMs(): number;
-}
-
-export interface IdGenerator {
-  publicationId(): string;
-  slug(): string;
-}
-
-export interface Logger {
-  warn(msg: string, ctx?: unknown): void;
 }
