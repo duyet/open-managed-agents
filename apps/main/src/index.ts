@@ -46,6 +46,7 @@ import integrationsRoutes from "./routes/integrations";
 import { runtimesRoutes, runtimeDaemonRoutes, authenticateRuntimeToken } from "./routes/runtimes";
 import statsRoutes from "./routes/stats";
 import usageRoutes from "./routes/usage";
+import providersRoutes from "./routes/providers";
 import sandboxProvidersRoutes from "./routes/sandbox-providers";
 import webhookRoutes from "./routes/webhooks";
 import consumerAuthRoutes from "./routes/consumer-auth";
@@ -451,6 +452,7 @@ app.route("/v1/webhooks", webhookRoutes);
 app.route("/v1/stats", statsRoutes);
 app.route("/v1/usage", usageRoutes);
 app.route("/v1/agents", schedulesRoutes);
+app.route("/v1/providers/anyrouter", providersRoutes);
 
 // Billing-API proxy needs the session-resolved tenant_id, so it must
 // run authMiddleware first. The proxy handler below short-circuits

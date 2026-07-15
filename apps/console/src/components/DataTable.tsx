@@ -283,7 +283,7 @@ export function DataTable<T>({
       {loading ? (
         <SkeletonRows colSpan={visibleColumnCount} />
       ) : isEmpty ? (
-        <div className="pl-3 pr-4 py-4">
+        <div className="py-4">
           <EmptyState
             title={emptyTitle}
             body={emptySubtitle}
@@ -294,7 +294,7 @@ export function DataTable<T>({
           />
         </div>
       ) : (
-        <div id="dt-body-scroll" className="pl-3 pr-4 pb-4 overflow-x-auto">
+        <div id="dt-body-scroll" className="pb-4 overflow-x-auto">
           {/* Body sits flush against the frozen header in the slot —
               no extra top padding so the gap between header and first
               row is only the row pill's own `border-spacing-y-1.5`
@@ -401,7 +401,7 @@ function ColumnVisibilityMenu<T>({ table }: { table: TanstackTable<T> }) {
 function SkeletonRows({ colSpan }: { colSpan: number }) {
   const cols = colSpan || 4;
   return (
-    <div className="pl-3 pr-4 pb-4">
+    <div className="pb-4">
       <table className="w-full table-fixed border-separate border-spacing-y-1.5">
         <tbody>
           {Array.from({ length: 10 }).map((_, rowIdx) => (
