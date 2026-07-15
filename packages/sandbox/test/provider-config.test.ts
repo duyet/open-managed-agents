@@ -53,7 +53,11 @@ describe("classifyCfSandboxProvider", () => {
       daytona: true,
       e2b: true,
       k8s: false,
+      "k8s-bridge": true,
       cloud: true,
+      "docker-compose": false,
+      "github-actions": true,
+      "remote-agent": true,
     });
   });
 });
