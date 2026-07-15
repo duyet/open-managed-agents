@@ -189,6 +189,24 @@ export class SandboxProviderRegistry {
    */
   async checkHealth(providerId: string): Promise<ProviderHealth> {
     const start = performance.now();
+
+    // Built-in providers (e.g. "cloud"/Cloudflare Sandbox) have no adapter
+    // factory — they are part of the runtime itself. Skip executor creation
+    // and report healthy immediately.
+    const config = this.providers.get(providerId);
+    if (config) {
+      const desc = SYSTEM_PROVIDERS.find((p) => p.type === config.config.type);
+      if (desc && !desc.factoryPath) {
+        return {
+          id: providerId,
+          status: "ok",
+          latencyMs: Math.round(performance.now() - start),
+          lastChecked: new Date().toISOString(),
+          details: "built-in provider, always available",
+        };
+      }
+    }
+
     try {
       const executor = await this.createExecutor(
         providerId,
