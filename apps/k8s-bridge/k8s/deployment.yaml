@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: k8s-bridge
+  name: oma-k8s-bridge
   labels:
-    app: k8s-bridge
+    app: oma-k8s-bridge
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: k8s-bridge
+      app: oma-k8s-bridge
   template:
     metadata:
       labels:
-        app: k8s-bridge
+        app: oma-k8s-bridge
     spec:
-      serviceAccountName: k8s-bridge
+      serviceAccountName: oma-k8s-bridge
       containers:
       - name: bridge
         image: ghcr.io/duyet/oma-k8s-bridge:latest
@@ -26,48 +26,48 @@ spec:
         - name: K8S_BRIDGE_TOKEN
           valueFrom:
             secretKeyRef:
-              name: k8s-bridge
+              name: oma-k8s-bridge
               key: token
         - name: PORT
           value: "8100"
         - name: OMA_K8S_NAMESPACE
           valueFrom:
             configMapKeyRef:
-              name: k8s-bridge-config
+              name: oma-k8s-bridge-config
               key: namespace
         - name: SANDBOX_IMAGE
           valueFrom:
             configMapKeyRef:
-              name: k8s-bridge-config
+              name: oma-k8s-bridge-config
               key: sandboxImage
         - name: OMA_K8S_RUNTIME_CLASS
           valueFrom:
             configMapKeyRef:
-              name: k8s-bridge-config
+              name: oma-k8s-bridge-config
               key: runtimeClass
               optional: true
         - name: OMA_K8S_SERVICE_ACCOUNT
           valueFrom:
             configMapKeyRef:
-              name: k8s-bridge-config
+              name: oma-k8s-bridge-config
               key: serviceAccount
               optional: true
         - name: OMA_K8S_CPU
           valueFrom:
             configMapKeyRef:
-              name: k8s-bridge-config
+              name: oma-k8s-bridge-config
               key: cpu
               optional: true
         - name: OMA_K8S_MEMORY
           valueFrom:
             configMapKeyRef:
-              name: k8s-bridge-config
+              name: oma-k8s-bridge-config
               key: memory
               optional: true
         - name: OMA_K8S_READY_TIMEOUT_MS
           valueFrom:
             configMapKeyRef:
-              name: k8s-bridge-config
+              name: oma-k8s-bridge-config
               key: readyTimeoutMs
               optional: true
         resources:

@@ -49,7 +49,7 @@ echo "Save this token — you will need it in the OMA sandbox config:"
 echo "$K8S_BRIDGE_TOKEN"
 
 # 3. Install the chart
-helm install k8s-bridge oma/k8s-bridge \
+helm install oma-k8s-bridge oma/oma-k8s-bridge \
   --namespace oma-sandbox \
   --create-namespace \
   --set secret.token=$K8S_BRIDGE_TOKEN \
@@ -57,7 +57,7 @@ helm install k8s-bridge oma/k8s-bridge \
   --set ingress.host=k8s-bridge.example.com
 
 # 4. Wait for the deployment to roll out
-kubectl -n oma-sandbox rollout status deployment/k8s-bridge
+kubectl -n oma-sandbox rollout status deployment/oma-k8s-bridge
 
 # 5. Verify the bridge is healthy
 curl -H "Authorization: Bearer $K8S_BRIDGE_TOKEN" \
@@ -559,7 +559,7 @@ a single namespace when `rbac.namespaced=true`):
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: k8s-bridge
+  name: oma-k8s-bridge
 rules:
   # Cluster capacity reporting — get node count, allocatable resources,
   # and pod density for the /api/v1/cluster/info and /api/v1/cluster/nodes endpoints.
@@ -627,7 +627,7 @@ generated at install time and stored in a Kubernetes Secret:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: k8s-bridge-token
+  name: oma-k8s-bridge-token
   namespace: oma-sandbox
 type: Opaque
 data:
@@ -641,11 +641,11 @@ Rotate the token at any time without redeploying:
 NEW_TOKEN=$(openssl rand -base64 32)
 
 # Update the secret
-kubectl -n oma-sandbox patch secret k8s-bridge-token \
+kubectl -n oma-sandbox patch secret oma-k8s-bridge-token \
   -p "{\"data\":{\"token\":\"$(echo -n "$NEW_TOKEN" | base64 -w0)\"}}"
 
 # Restart the deployment to pick up the new token
-kubectl -n oma-sandbox rollout restart deployment/k8s-bridge
+kubectl -n oma-sandbox rollout restart deployment/oma-k8s-bridge
 
 # Update OMA environment variable
 # (set K8S_BRIDGE_TOKEN=$NEW_TOKEN in your OMA config)
@@ -659,13 +659,13 @@ automatically:
 ```yaml
 ingress:
   enabled: true
-  host: k8s-bridge.example.com
+  host: oma-k8s-bridge.example.com
   tls: true
   clusterIssuer: letsencrypt-prod
 ```
 
 This produces an `Ingress` + `Certificate` pair. The certificate is
-stored in a Secret named `k8s-bridge-tls` and mounted automatically.
+stored in a Secret named `oma-k8s-bridge-tls` and mounted automatically.
 
 ### Pod Security
 
@@ -697,11 +697,11 @@ The chart creates a default-deny NetworkPolicy when `networkPolicy.enabled=true`
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: k8s-bridge
+  name: oma-k8s-bridge
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: k8s-bridge
+      app.kubernetes.io/name: oma-k8s-bridge
   policyTypes:
     - Ingress
     - Egress
@@ -735,7 +735,7 @@ The bridge enforces per-client rate limits at the application layer:
 ### Horizontal Pod Autoscaling
 
 ```bash
-helm upgrade k8s-bridge oma/k8s-bridge \
+helm upgrade oma-k8s-bridge oma/oma-k8s-bridge \
   --set autoscaling.enabled=true \
   --set autoscaling.minReplicas=2 \
   --set autoscaling.maxReplicas=10 \
@@ -748,7 +748,7 @@ helm upgrade k8s-bridge oma/k8s-bridge \
 Control sandbox resource consumption at the bridge level:
 
 ```bash
-helm upgrade k8s-bridge oma/k8s-bridge \
+helm upgrade oma-k8s-bridge oma/oma-k8s-bridge \
   --set box.defaultCpu=1 \
   --set box.defaultMemory=512Mi \
   --set box.maxCpu=4 \
@@ -783,7 +783,7 @@ For Prometheus-native monitoring, deploy the chart with `podAnnotations`
 to enable metric scraping:
 
 ```bash
-helm upgrade k8s-bridge oma/k8s-bridge \
+helm upgrade oma-k8s-bridge oma/oma-k8s-bridge \
   --set podAnnotations."prometheus\.io/scrape"=true \
   --set podAnnotations."prometheus\.io/port"=8080 \
   --set podAnnotations."prometheus\.io/path"=/metrics
@@ -795,7 +795,7 @@ Each OMA deployment (staging, production, team-specific) should use a
 dedicated namespace:
 
 ```bash
-helm install k8s-bridge oma/k8s-bridge \
+helm install oma-k8s-bridge oma/oma-k8s-bridge \
   --namespace oma-sandbox-prod \
   --create-namespace \
   --set rbac.targetNamespace=oma-sandbox-prod \
@@ -813,7 +813,7 @@ This ensures:
 
 ```bash
 helm repo update
-helm upgrade k8s-bridge oma/k8s-bridge \
+helm upgrade oma-k8s-bridge oma/oma-k8s-bridge \
   --namespace oma-sandbox \
   --reuse-values
 ```
@@ -821,7 +821,7 @@ helm upgrade k8s-bridge oma/k8s-bridge \
 Review changes before applying:
 
 ```bash
-helm diff upgrade k8s-bridge oma/k8s-bridge --namespace oma-sandbox
+helm diff upgrade oma-k8s-bridge oma/oma-k8s-bridge --namespace oma-sandbox
 ```
 
 ---
@@ -940,7 +940,7 @@ curl -s -X POST $OMA_BASE/v1/sessions/$SESSION_ID/events \
   -d '{"events":[{"type":"user.message","content":[{"type":"text","text":"Run: echo hello from k8s && uname -a"}]}]}'
 
 # 4. Verify the pod was created on the cluster
-kubectl -n oma-sandbox get pods -l app.kubernetes.io/created-by=k8s-bridge
+kubectl -n oma-sandbox get pods -l app.kubernetes.io/created-by=oma-k8s-bridge
 
 # 5. Check k8s-bridge health for active box count
 curl -H "Authorization: Bearer $K8S_BRIDGE_TOKEN" \
@@ -956,4 +956,4 @@ curl -H "Authorization: Bearer $K8S_BRIDGE_TOKEN" \
 | Pod stuck in `Pending` | Insufficient cluster resources | `kubectl describe pod -n oma-sandbox <box-name>` |
 | Exec hangs or times out | Pod not Ready yet | Check `kubectl get pods -n oma-sandbox -w` |
 | `/api/v1/sandboxes/metrics` returns 500 | Metrics Server not installed | `kubectl get pods -n kube-system -l k8s-app=metrics-server` |
-| Bridge pod crash looping | Invalid config or missing token secret | `kubectl -n oma-sandbox logs deployment/k8s-bridge` |
+| Bridge pod crash looping | Invalid config or missing token secret | `kubectl -n oma-sandbox logs deployment/oma-k8s-bridge` |
