@@ -21,6 +21,13 @@ export {
   type HarnessRunFn,
 } from "./machine";
 
+export {
+  fireAgentHook,
+  makePreToolPayload,
+  makePostToolPayload,
+  type AgentHookConfig,
+} from "./hooks";
+
 export type {
   SessionRouter,
   SessionInitParams,

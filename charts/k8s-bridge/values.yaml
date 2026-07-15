@@ -1,0 +1,48 @@
+image:
+  repository: ghcr.io/duyet/oma-k8s-bridge
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+secret:
+  token: ""
+
+config:
+  namespace: sandboxes
+  sandboxImage: node:22-slim
+  runtimeClass: ""
+  serviceAccount: ""
+
+service:
+  type: ClusterIP
+  port: 8100
+
+ingress:
+  enabled: false
+  host: k8s-bridge.oma.local
+  className: nginx
+  tls:
+    enabled: false
+    secretName: k8s-bridge-tls
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilization: 70
+
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+  name: ""

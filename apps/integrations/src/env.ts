@@ -53,4 +53,8 @@ export interface Env {
   // present a matching `x-debug-token` header. Prod deployments leave it
   // unset and /admin/* always returns 404.
   TEMP_DEBUG_TOKEN?: string;
+
+  // Telegram bot token for incoming webhook processing. When set, the
+  // Telegram webhook route at /telegram/webhook is operational.
+  TELEGRAM_BOT_TOKEN?: string;
 }

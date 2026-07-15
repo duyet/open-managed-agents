@@ -19,6 +19,7 @@ export {
 
 export {
   SandboxProviderRegistry,
+  type ProviderHealth,
 } from "./registry";
 
 export type {

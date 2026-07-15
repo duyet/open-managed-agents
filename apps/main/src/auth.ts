@@ -24,6 +24,10 @@ export const authMiddleware = createMiddleware<{
   if (c.req.path.startsWith("/v1/mcp-proxy/")) {
     return next();
   }
+  // Public routes use their own auth (magic-link consumer tokens, etc.).
+  if (c.req.path.startsWith("/v1/public/")) {
+    return next();
+  }
 
   // 1. Try API Key authentication (for CLI / SDK)
   const apiKey = c.req.header("x-api-key");

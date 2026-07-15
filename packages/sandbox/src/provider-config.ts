@@ -66,6 +66,12 @@ export interface SystemProviderDescriptor {
   /** Dynamic import path for the factory. */
   factoryPath: string;
   /**
+   * Human-readable capability tags surfaced in the Console provider
+   * cards. Each tag advertises a feature the sandbox adapter supports.
+   * Standard values: "exec", "files", "pause_resume", "cf_compatible".
+   */
+  capabilities: string[];
+  /**
    * Whether this adapter is architecturally capable of running inside a
    * Cloudflare Worker: pure outbound HTTP/fetch calls, no Node-only
    * builtins (child_process, native FFI bindings, local kubeconfig/
@@ -89,6 +95,7 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     envKeys: [],
     factoryPath: "@duyet/oma-sandbox/adapters/local-subprocess",
     cfCompatible: false,
+    capabilities: ["exec", "files"],
   },
   {
     type: "litebox",
@@ -97,6 +104,7 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     envKeys: ["LITEBOX_MEMORY_MIB"],
     factoryPath: "@duyet/oma-sandbox/adapters/litebox",
     cfCompatible: false,
+    capabilities: ["exec", "files", "pause_resume"],
   },
   {
     type: "boxrun",
@@ -105,6 +113,7 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     envKeys: ["BOXRUN_URL", "BOXRUN_TOKEN"],
     factoryPath: "@duyet/oma-sandbox/adapters/boxrun",
     cfCompatible: true,
+    capabilities: ["exec", "files", "pause_resume"],
   },
   {
     type: "daytona",
@@ -113,6 +122,7 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     envKeys: ["DAYTONA_API_KEY", "DAYTONA_API_URL"],
     factoryPath: "@duyet/oma-sandbox/adapters/daytona",
     cfCompatible: true,
+    capabilities: ["exec", "files", "pause_resume"],
   },
   {
     type: "e2b",
@@ -121,6 +131,7 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     envKeys: ["E2B_API_KEY", "E2B_API_URL"],
     factoryPath: "@duyet/oma-sandbox/adapters/e2b",
     cfCompatible: true,
+    capabilities: ["exec", "files", "pause_resume"],
   },
   {
     type: "k8s",
@@ -129,6 +140,7 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     envKeys: ["OMA_K8S_NAMESPACE"],
     factoryPath: "@duyet/oma-sandbox/adapters/kubernetes",
     cfCompatible: false,
+    capabilities: ["exec", "files", "pause_resume"],
   },
   {
     type: "k8s-bridge",
@@ -137,6 +149,7 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     envKeys: ["K8S_BRIDGE_URL"],
     factoryPath: "@duyet/oma-sandbox/adapters/k8s-bridge",
     cfCompatible: true,
+    capabilities: ["exec", "files", "pause_resume"],
   },
   {
     type: "cloud",
@@ -145,6 +158,34 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     envKeys: [],
     factoryPath: "", // CF path is direct, not via adapters
     cfCompatible: true,
+    capabilities: ["exec", "files", "pause_resume", "cf_compatible"],
+  },
+  {
+    type: "docker-compose",
+    label: "Docker Compose",
+    description: "Per-session Docker Compose sandbox with docker-compose.yml. Requires a Docker socket.",
+    envKeys: ["DOCKER_COMPOSE_PROJECT_DIR"],
+    factoryPath: "@duyet/oma-sandbox/adapters/docker-compose",
+    cfCompatible: false,
+    capabilities: ["exec", "files"],
+  },
+  {
+    type: "github-actions",
+    label: "GitHub Actions",
+    description: "Run sandbox commands via GitHub Actions workflow_dispatch. Pure fetch, no Node builtins.",
+    envKeys: ["GITHUB_ACTIONS_OWNER", "GITHUB_ACTIONS_REPO", "GITHUB_ACTIONS_WORKFLOW", "GITHUB_TOKEN"],
+    factoryPath: "@duyet/oma-sandbox/adapters/github-actions",
+    cfCompatible: true,
+    capabilities: ["exec", "files"],
+  },
+  {
+    type: "remote-agent",
+    label: "Remote Agent (BYOK)",
+    description: "BYOK remote machine sandbox via a lightweight HTTP agent. Pure fetch, no Node builtins.",
+    envKeys: ["REMOTE_AGENT_URL", "REMOTE_AGENT_TOKEN"],
+    factoryPath: "@duyet/oma-sandbox/adapters/remote-agent",
+    cfCompatible: true,
+    capabilities: ["exec", "files", "pause_resume"],
   },
 ];
 
@@ -250,6 +291,12 @@ export function providerConfigToEnv(config: SandboxProviderConfig): Record<strin
       case "k8s-bridge":
         env.K8S_BRIDGE_TOKEN = config.apiKey;
         break;
+      case "github-actions":
+        env.GITHUB_TOKEN = config.apiKey;
+        break;
+      case "remote-agent":
+        env.REMOTE_AGENT_TOKEN = config.apiKey;
+        break;
     }
   }
 
@@ -266,6 +313,15 @@ export function providerConfigToEnv(config: SandboxProviderConfig): Record<strin
         break;
       case "k8s-bridge":
         env.K8S_BRIDGE_URL = config.baseURL;
+        break;
+      case "github-actions":
+        env.GITHUB_API_BASE_URL = config.baseURL;
+        break;
+      case "remote-agent":
+        env.REMOTE_AGENT_URL = config.baseURL;
+        break;
+      case "docker-compose":
+        env.DOCKER_COMPOSE_PROJECT_DIR = config.baseURL;
         break;
     }
   }

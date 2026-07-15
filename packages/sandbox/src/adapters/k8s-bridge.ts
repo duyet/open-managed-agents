@@ -221,9 +221,10 @@ export class K8sBridgeSandbox implements SandboxExecutor {
 
   /**
    * Health check with RTT measurement.
-   * Returns `{ ok: true, rttMs }` on success, `{ ok: false, error }` on failure.
+   * Returns `{ status: "ok", latencyMs }` on success,
+   * `{ status: "error", latencyMs, details }` on failure.
    */
-  async ping(): Promise<{ ok: boolean; rttMs?: number; error?: string }> {
+  async ping(): Promise<{ status: "ok" | "error"; latencyMs: number; details?: string }> {
     const start = Date.now();
     try {
       const ac = new AbortController();
@@ -231,11 +232,11 @@ export class K8sBridgeSandbox implements SandboxExecutor {
       const res = await this.fetch(`/health`, { signal: ac.signal });
       clearTimeout(t);
       if (!res.ok) {
-        return { ok: false, error: `health check returned ${res.status}` };
+        return { status: "error", latencyMs: Date.now() - start, details: `health check returned ${res.status}` };
       }
-      return { ok: true, rttMs: Date.now() - start };
+      return { status: "ok", latencyMs: Date.now() - start };
     } catch (err) {
-      return { ok: false, error: (err as Error).message };
+      return { status: "error", latencyMs: Date.now() - start, details: (err as Error).message };
     }
   }
 

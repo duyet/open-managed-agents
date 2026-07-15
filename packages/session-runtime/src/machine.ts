@@ -37,6 +37,7 @@ import type { LanguageModel } from "ai";
 import { recoverInterruptedState } from "./recovery";
 import type { OrphanTurn, RuntimeAdapter, TurnId } from "./ports";
 import type { SandboxExecutor } from "@duyet/oma-sandbox";
+import { fireAgentHook, type AgentHookConfig } from "./hooks";
 
 /**
  * Pluggable harness — both CF and Node want the same default-loop
@@ -108,6 +109,11 @@ export interface SessionMachineDeps {
    *  in-process or DO-level hub. */
   publish(event: SessionEvent): void;
 
+  /** Optional agent hook config for lifecycle events
+   *  (session_start, session_end, pre_tool, post_tool). When unset no
+   *  hooks fire. */
+  hooks?: AgentHookConfig;
+
   /** Logger. Defaults to console. */
   logger?: { warn: (msg: string, ctx?: unknown) => void; log: (msg: string) => void };
 }
@@ -145,11 +151,14 @@ export class SessionStateMachine {
     if (!agent) throw new Error(`agent ${agentId} not found`);
 
     const turnId = nanoid();
+    const turnStartMs = Date.now();
     this.activeTurnId = turnId;
     await this.deps.adapter.beginTurn(this.deps.sessionId, turnId);
     this.deps.adapter.hintTurnInFlight?.(this.deps.sessionId, turnId);
 
     try {
+      await fireAgentHook(this.deps.hooks, "session_start", this.deps.sessionId, agentId, { agent_name: agent.name });
+
       // Memory store mounts: optional adapter step, runs once per turn
       // so a session newly bound to a store picks it up on the next
       // user.message without restarting.
@@ -178,6 +187,10 @@ export class SessionStateMachine {
       const harness = this.deps.buildHarness();
       await harness.run(ctx);
     } finally {
+      await fireAgentHook(this.deps.hooks, "session_end", this.deps.sessionId, agentId, {
+        agent_name: agent.name,
+        duration_ms: Date.now() - turnStartMs,
+      });
       this.activeTurnId = null;
       await this.deps.adapter.endTurn(this.deps.sessionId, turnId, "idle");
     }

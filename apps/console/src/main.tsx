@@ -39,6 +39,8 @@ import { ApiKeysList } from "./pages/ApiKeysList";
 import { CliLogin } from "./pages/CliLogin";
 import { RuntimesList } from "./pages/RuntimesList";
 import { ConnectRuntime } from "./pages/ConnectRuntime";
+import { AgentBuilder } from "./pages/AgentBuilder";
+import { AgentChat } from "./pages/AgentChat";
 import { EvalRunsList } from "./pages/EvalRunsList";
 import { EvalRunDetail } from "./pages/EvalRunDetail";
 import {
@@ -88,6 +90,11 @@ const protectedRoutes: RouteObject[] = [
     handle: { crumb: "Agents" },
     children: [
       { index: true, element: <AgentsList /> },
+      {
+        path: "new",
+        element: <AgentBuilder />,
+        handle: { crumb: "New Agent" },
+      },
       {
         path: ":id",
         element: <AgentDetail />,
@@ -241,6 +248,7 @@ const protectedRoutes: RouteObject[] = [
 const router = createBrowserRouter([
   { path: "login", element: <Login /> },
   { path: "cli/login", element: <CliLogin /> },
+  { path: "publish/:agent_id", element: <AgentChat /> },
   { path: "connect-runtime", element: <ConnectRuntime /> },
   {
     element: <AppShell />,

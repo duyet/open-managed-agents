@@ -423,6 +423,9 @@ importers:
       '@duyet/oma-slack':
         specifier: workspace:*
         version: link:../../packages/slack
+      '@duyet/oma-telegram':
+        specifier: workspace:*
+        version: link:../../packages/telegram
       '@duyet/oma-tenant-db':
         specifier: workspace:*
         version: link:../../packages/tenant-db
@@ -432,6 +435,34 @@ importers:
       hono:
         specifier: ^4.7.0
         version: 4.12.12
+
+  apps/k8s-bridge:
+    dependencies:
+      '@duyet/oma-sandbox':
+        specifier: workspace:*
+        version: link:../../packages/sandbox
+      '@hono/node-server':
+        specifier: ^1.13.0
+        version: 1.19.14(hono@4.12.12)
+      '@kubernetes/client-node':
+        specifier: ^1.0.0
+        version: 1.4.0
+      dotenv:
+        specifier: ^16.4.0
+        version: 16.6.1
+      hono:
+        specifier: ^4.7.0
+        version: 4.12.12
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.17
+      tsx:
+        specifier: ^4.19.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
 
   apps/main:
     dependencies:
@@ -504,6 +535,9 @@ importers:
       '@duyet/oma-queue':
         specifier: workspace:*
         version: link:../../packages/queue
+      '@duyet/oma-sandbox':
+        specifier: workspace:*
+        version: link:../../packages/sandbox
       '@duyet/oma-scheduler':
         specifier: workspace:*
         version: link:../../packages/scheduler
@@ -534,12 +568,18 @@ importers:
       '@duyet/oma-vaults-store':
         specifier: workspace:*
         version: link:../../packages/vaults-store
+      '@duyet/oma-webhooks':
+        specifier: workspace:*
+        version: link:../../packages/webhooks
       fflate:
         specifier: ^0.8.2
         version: 0.8.2
       hono:
         specifier: ^4.7.0
         version: 4.12.12
+      nanoid:
+        specifier: ^5.1.0
+        version: 5.1.9
 
   apps/main-node:
     dependencies:
@@ -1252,6 +1292,21 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
+  packages/mcp-sandbox:
+    dependencies:
+      '@duyet/oma-sandbox':
+        specifier: workspace:*
+        version: link:../sandbox
+      '@duyet/oma-shared':
+        specifier: workspace:*
+        version: link:../shared
+      ai:
+        specifier: ^6.0.158
+        version: 6.0.182(zod@3.25.76)
+      zod:
+        specifier: ^3.22.0
+        version: 3.25.76
+
   packages/memory-store:
     dependencies:
       '@aws-sdk/client-s3':
@@ -1418,6 +1473,9 @@ importers:
       croner:
         specifier: ^9.0.0
         version: 9.1.0
+      nanoid:
+        specifier: ^5.1.0
+        version: 5.1.9
 
   packages/schema:
     dependencies:
@@ -1518,6 +1576,9 @@ importers:
       '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../sql-client
+      '@duyet/oma-webhooks':
+        specifier: workspace:*
+        version: link:../webhooks
       ai:
         specifier: ^6.0.158
         version: 6.0.158(zod@4.4.3)
@@ -1586,6 +1647,15 @@ importers:
         specifier: ^3.4.0
         version: 3.4.9
 
+  packages/telegram:
+    dependencies:
+      '@duyet/oma-integrations-core':
+        specifier: workspace:*
+        version: link:../integrations-core
+      '@duyet/oma-shared':
+        specifier: workspace:*
+        version: link:../shared
+
   packages/tenant-db: {}
 
   packages/tenant-dbs-store:
@@ -1627,6 +1697,12 @@ importers:
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@cloudflare/workers-types@4.20260410.1)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(better-sqlite3@11.10.0)(kysely@0.28.16)(pg@8.20.0)(postgres@3.4.9)(sql.js@1.14.1)
+
+  packages/webhooks:
+    dependencies:
+      '@duyet/oma-shared':
+        specifier: workspace:*
+        version: link:../shared
 
 packages:
 
@@ -7358,6 +7434,10 @@ packages:
   domutils@3.2.2:
     resolution: {integrity: sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw==}
 
+  dotenv@16.6.1:
+    resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
+    engines: {node: '>=12'}
+
   dotenv@17.4.2:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
     engines: {node: '>=12'}
@@ -11269,6 +11349,13 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.23(zod@4.3.6)
       zod: 4.3.6
 
+  '@ai-sdk/gateway@3.0.114(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.10
+      '@ai-sdk/provider-utils': 4.0.27(zod@3.25.76)
+      '@vercel/oidc': 3.2.0
+      zod: 3.25.76
+
   '@ai-sdk/gateway@3.0.114(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
@@ -11323,6 +11410,13 @@ snapshots:
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.0.8
       zod: 4.3.6
+
+  '@ai-sdk/provider-utils@4.0.27(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.10
+      '@standard-schema/spec': 1.1.0
+      eventsource-parser: 3.0.8
+      zod: 3.25.76
 
   '@ai-sdk/provider-utils@4.0.27(zod@4.4.3)':
     dependencies:
@@ -12499,7 +12593,7 @@ snapshots:
       jose: 6.2.2
       kysely: 0.28.16
       nanostores: 1.2.0
-      zod: 4.3.6
+      zod: 4.4.3
     optionalDependencies:
       '@cloudflare/workers-types': 4.20260410.1
 
@@ -17062,6 +17156,14 @@ snapshots:
       '@opentelemetry/api': 1.9.0
       zod: 4.4.3
 
+  ai@6.0.182(zod@3.25.76):
+    dependencies:
+      '@ai-sdk/gateway': 3.0.114(zod@3.25.76)
+      '@ai-sdk/provider': 3.0.10
+      '@ai-sdk/provider-utils': 4.0.27(zod@3.25.76)
+      '@opentelemetry/api': 1.9.0
+      zod: 3.25.76
+
   ai@6.0.182(zod@4.4.3):
     dependencies:
       '@ai-sdk/gateway': 3.0.114(zod@4.4.3)
@@ -18182,6 +18284,8 @@ snapshots:
       dom-serializer: 2.0.0
       domelementtype: 2.3.0
       domhandler: 5.0.3
+
+  dotenv@16.6.1: {}
 
   dotenv@17.4.2: {}
 

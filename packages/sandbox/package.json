@@ -12,7 +12,11 @@
     "./adapters/boxrun": "./src/adapters/boxrun.ts",
     "./adapters/k8s-bridge": "./src/adapters/k8s-bridge.ts",
     "./adapters/kubernetes": "./src/adapters/kubernetes.ts",
-    "./orchestrator": "./src/orchestrator.ts"
+    "./adapters/docker-compose": "./src/adapters/docker-compose.ts",
+    "./adapters/github-actions": "./src/adapters/github-actions.ts",
+    "./adapters/remote-agent": "./src/adapters/remote-agent.ts",
+    "./orchestrator": "./src/orchestrator.ts",
+    "./registry": "./src/registry.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

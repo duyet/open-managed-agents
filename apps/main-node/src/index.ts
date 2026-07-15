@@ -67,6 +67,7 @@ import { ensureSchema as ensureEventLogSchema } from "@duyet/oma-event-log/sql";
 import {
   SandboxProviderRegistry,
   InMemoryQuotaStore,
+  SYSTEM_PROVIDERS,
   type SandboxProviderConfig,
   type SandboxUsageRecord,
 } from "@duyet/oma-sandbox";
@@ -1132,24 +1133,40 @@ v1.route("/evals", buildEvalRoutes({
 // above and wired into the `services` bundle.
 v1.route("/environments", buildEnvironmentRoutes({ services }));
 
-// Supported hosting types for this host. Derived from the system provider
-// descriptors in SandboxProviderRegistry. The Console uses this to show
-// a multi-provider picker; CF app doesn't expose this route (404 → "cloud only").
-// Registered providers (system + BYOK) appear here — BYOK ones include
-// their id so the Console can distinguish them from built-in types.
-v1.get("/hosting_types", (c) => {
-  const systemTypes = sandboxRegistry.getHostingTypes();
-  const userProviders = sandboxRegistry.list().filter((p) => !p.isSystem);
-  return c.json([
-    { id: "cloud", label: "Cloud", description: "Managed sandbox — uses this node's default sandbox provider." },
-    ...systemTypes.filter((t) => t.id !== "cloud"),
-    ...userProviders.map((p) => ({
+v1.get("/hosting_types", async (c) => {
+  const providers = sandboxRegistry.list();
+  const healthResults = new Map<string, { status: string; latency_ms: number; last_checked: string }>();
+  for (const p of providers) {
+    try {
+      const h = await sandboxRegistry.checkHealth(p.id).catch(() => null);
+      if (h) {
+        healthResults.set(p.id, {
+          status: h.status === "ok" ? "healthy" : "unhealthy",
+          latency_ms: h.latencyMs,
+          last_checked: h.lastChecked,
+        });
+      }
+    } catch {}
+  }
+
+  const sysCap = (type: string): string[] =>
+    SYSTEM_PROVIDERS.find((d) => d.type === type)?.capabilities ?? [];
+
+  const types = providers.map((p) => {
+    const health = healthResults.get(p.id);
+    return {
       id: p.id,
       label: p.label,
-      description: p.description || `External sandbox provider (${p.type}) — bring your own key.`,
-      external: true,
-    })),
-  ]);
+      description: p.description ?? "",
+      type: p.isSystem ? "system" : "byok",
+      provider: p.type,
+      external: !p.isSystem || !["subprocess", "cloud"].includes(p.type),
+      capabilities: sysCap(p.type),
+      health: health ?? null,
+    };
+  });
+
+  return c.json({ data: types });
 });
 
 // ─── Sandbox provider management (BYOK) ──────────────────────────────

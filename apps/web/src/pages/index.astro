@@ -4,6 +4,9 @@ import { softwareApplicationSchema } from "../lib/seo";
 import FeatureCard from "../components/FeatureCard.astro";
 import PixelAgent from "../components/PixelAgent.astro";
 import ArchDiagram from "../components/ArchDiagram.tsx";
+import ManagedAgentsSection from "../components/ManagedAgentsSection.astro";
+import FeaturesSection from "../components/FeaturesSection.astro";
+import UseCasesSection from "../components/UseCasesSection.astro";
 
 // SoftwareApplication is the homepage-only schema — anchors the
 // "Open Managed Agents" entity in Google's knowledge graph and makes
@@ -365,6 +368,8 @@ function pixelRects(map: string[]) {
     </div>
   </section>
 
+  <ManagedAgentsSection />
+
   <!-- How designed: meta-harness -->
   <section
     class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]"
@@ -479,6 +484,8 @@ function pixelRects(map: string[]) {
       }
     </div>
   </section>
+
+  <FeaturesSection />
 
   <!-- Why -->
   <section class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal>
@@ -615,6 +622,8 @@ function pixelRects(map: string[]) {
       </div>
     </div>
   </section>
+
+  <UseCasesSection />
 
   <!-- Mascot + Get started -->
   <section class="border-t border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal id="get-started">

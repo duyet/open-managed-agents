@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import { K8sManager } from "./k8s-manager";
+import type { SlackNotifier } from "./slack-notifier";
 
-export function createRouter(manager: K8sManager): Hono {
+export function createRouter(manager: K8sManager, notifier?: SlackNotifier): Hono {
   const router = new Hono();
 
   // Health check
@@ -12,6 +13,10 @@ export function createRouter(manager: K8sManager): Hono {
       manager.getNodeCount(),
     ]);
     const latencyMs = Date.now() - start;
+
+    if (notifier && (k8sVersion === "unknown" || nodeCount === 0)) {
+      notifier.notifyHealthDegraded(`k8sVersion=${k8sVersion}, nodeCount=${nodeCount}`).catch(() => {});
+    }
 
     return c.json({
       status: "ok",
@@ -41,9 +46,12 @@ export function createRouter(manager: K8sManager): Hono {
         cpu: body.cpu,
         memory: body.memory,
       });
+      notifier?.notifyBoxCreated(id, body.sessionId).catch(() => {});
       return c.json({ id, status: "created" }, 201);
     } catch (err) {
-      return c.json({ error: "create_failed", message: (err as Error).message }, 500);
+      const msg = (err as Error).message;
+      notifier?.notifyBoxError(body.sessionId ?? "unknown", msg).catch(() => {});
+      return c.json({ error: "create_failed", message: msg }, 500);
     }
   });
 
@@ -55,6 +63,7 @@ export function createRouter(manager: K8sManager): Hono {
       return c.json({ error: "not_found", message: `Box ${id} not found` }, 404);
     }
     await manager.destroyBox(id);
+    notifier?.notifyBoxDestroyed(id).catch(() => {});
     return c.body(null, 204);
   });
 
@@ -160,6 +169,65 @@ export function createRouter(manager: K8sManager): Hono {
       status: "running",
       conditions: [{ type: "Ready", status: "True" }],
     });
+  });
+
+  // ── Cluster endpoints ────────────────────────────────────────────
+
+  // Get cluster info (versions, capacity, node count)
+  router.get("/api/v1/cluster/info", async (c) => {
+    try {
+      const info = await manager.getClusterInfo();
+      return c.json(info);
+    } catch (err) {
+      return c.json({ error: "cluster_info_failed", message: (err as Error).message }, 500);
+    }
+  });
+
+  // List cluster nodes with status and capacity
+  router.get("/api/v1/cluster/nodes", async (c) => {
+    try {
+      const nodes = await manager.getNodes();
+      return c.json({ nodes });
+    } catch (err) {
+      return c.json({ error: "nodes_failed", message: (err as Error).message }, 500);
+    }
+  });
+
+  // ── Sandbox discovery & metrics ──────────────────────────────────
+
+  // Discover all sandbox pods in the namespace
+  router.get("/api/v1/sandboxes", async (c) => {
+    try {
+      const sandboxes = await manager.discoverSandboxes();
+      return c.json({ sandboxes });
+    } catch (err) {
+      return c.json({ error: "sandboxes_failed", message: (err as Error).message }, 500);
+    }
+  });
+
+  // Get logs from a sandbox pod
+  router.get("/api/v1/sandboxes/:podName/logs", async (c) => {
+    const { podName } = c.req.param();
+    const tailLines = c.req.query("tailLines")
+      ? parseInt(c.req.query("tailLines")!, 10)
+      : undefined;
+
+    try {
+      const logs = await manager.getSandboxLogs(podName, tailLines);
+      return c.text(logs);
+    } catch (err) {
+      return c.json({ error: "logs_failed", message: (err as Error).message }, 500);
+    }
+  });
+
+  // Get pod metrics (requires metrics-server)
+  router.get("/api/v1/sandboxes/metrics", async (c) => {
+    try {
+      const metrics = await manager.getPodMetrics();
+      return c.json({ metrics });
+    } catch (err) {
+      return c.json({ error: "metrics_failed", message: (err as Error).message }, 500);
+    }
   });
 
   return router;

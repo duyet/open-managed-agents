@@ -19,6 +19,7 @@ import {
   DEFAULT_SLACK_BOT_SCOPES,
   DEFAULT_SLACK_USER_SCOPES,
 } from "@duyet/oma-slack";
+import { TelegramClient } from "@duyet/oma-telegram";
 import type { LinearContainer } from "@duyet/oma-linear";
 import { buildContainer, buildGitHubContainer, buildSlackContainer } from "./wire";
 import type { Env } from "./env";
@@ -27,6 +28,7 @@ export interface ProviderBundle {
   linear: LinearProvider;
   github: GitHubProvider;
   slack: SlackProvider;
+  telegram: TelegramClient | null;
 }
 
 /**
@@ -59,5 +61,9 @@ export function buildProviders(env: Env, linearContainer?: LinearContainer): Pro
     defaultCapabilities: ALL_SLACK_CAPABILITIES,
   });
 
-  return { linear, github, slack };
+  const telegram = env.TELEGRAM_BOT_TOKEN
+    ? new TelegramClient(env.TELEGRAM_BOT_TOKEN)
+    : null;
+
+  return { linear, github, slack, telegram };
 }

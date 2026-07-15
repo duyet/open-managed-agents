@@ -14,6 +14,7 @@
     "@duyet/oma-scheduler": "workspace:*",
     "@duyet/oma-shared": "workspace:*",
     "@duyet/oma-slack": "workspace:*",
+    "@duyet/oma-telegram": "workspace:*",
     "@duyet/oma-tenant-db": "workspace:*",
     "@duyet/oma-tenant-dbs-store": "workspace:*",
     "hono": "^4.7.0"

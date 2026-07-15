@@ -46,6 +46,11 @@ import integrationsRoutes from "./routes/integrations";
 import { runtimesRoutes, runtimeDaemonRoutes, authenticateRuntimeToken } from "./routes/runtimes";
 import statsRoutes from "./routes/stats";
 import usageRoutes from "./routes/usage";
+import sandboxProvidersRoutes from "./routes/sandbox-providers";
+import webhookRoutes from "./routes/webhooks";
+import consumerAuthRoutes from "./routes/consumer-auth";
+import consumerMeteringRoutes from "./routes/consumer-metering";
+import schedulesRoutes from "./routes/schedules";
 import mcpProxyRoutes, {
   resolveProxyTargetByTenant,
   resolveOutboundCredentialByHost,
@@ -54,6 +59,7 @@ import mcpProxyRoutes, {
 import { resolveGithubCredentials } from "./lib/github-creds";
 import { buildCfScheduler } from "./lib/cf-scheduler-jobs";
 import { buildCfMemoryQueue, dispatchCfMemoryQueueBatch } from "./lib/cf-queue-handlers";
+import { SandboxProviderRegistry, seedSystemProviders, SYSTEM_PROVIDERS } from "@duyet/oma-sandbox";
 import { logError, recordEvent, errFields } from "@duyet/oma-shared";
 import { globalErrorHandler, requestMetricsMiddleware } from "./lib/observability";
 import { errorEnvelopeMiddleware } from "./lib/error-envelope";
@@ -103,44 +109,51 @@ app.notFound((c) =>
 app.get("/health", (c) => c.json({ status: "ok" }));
 
 // GET /v1/hosting_types — sandbox providers this host can run (public).
-// Cloudflare Sandbox is always available. External providers (E2B, Modal,
-// Kubernetes, …) are advertised only when their API key env var is configured.
 // Mirrors the SandboxProviderRegistry's getHostingTypes() on the Node build
 // so the Console UI shows the same provider list across both deployments.
-app.get("/v1/hosting_types", (c) => {
-  const types: Array<{
-    id: string;
-    label: string;
-    description: string;
-    external?: boolean;
-    requires_key?: string;
-  }> = [
-    { id: "cloud", label: "Cloudflare Sandbox", description: "Managed sandbox, built in." },
-    { id: "subprocess", label: "Local subprocess", description: "Node child_process on the host. Zero isolation — trusted local dev only." },
-  ];
-  if (c.env.E2B_API_KEY) {
-    types.push({
-      id: "e2b", label: "E2B",
-      description: "Ephemeral VMs via E2B. Requires an E2B API key.",
-      external: true, requires_key: "E2B_API_KEY",
-    });
+app.get("/v1/hosting_types", async (c) => {
+  const registry = new SandboxProviderRegistry();
+  registry.seedFromEnv(c.env as unknown as Record<string, string | undefined>);
+  const providers = registry.list();
+
+  const healthResults = new Map<string, { status: string; latency_ms: number; last_checked: string }>();
+  for (const p of providers) {
+    try {
+      const h = await registry.checkHealth(p.id).catch(() => null);
+      if (h) {
+        healthResults.set(p.id, {
+          status: h.status === "ok" ? "healthy" : "unhealthy",
+          latency_ms: h.latencyMs,
+          last_checked: h.lastChecked,
+        });
+      }
+    } catch {}
   }
-  if (c.env.MODAL_API_KEY) {
-    types.push({
-      id: "modal", label: "Modal",
-      description: "gVisor-isolated containers via Modal. Optional GPU access, sub-second cold starts, 50K+ concurrent sessions. Requires a Modal API key.",
-      external: true, requires_key: "MODAL_API_KEY",
-    });
-  }
-  if (c.env.OMA_K8S_NAMESPACE) {
-    types.push({
-      id: "k8s", label: "Kubernetes",
-      description: "Pod via the kubernetes-sigs agent-sandbox controller.",
-      external: true, requires_key: "OMA_K8S_NAMESPACE",
-    });
-  }
+
+  const sysCap = (type: string): string[] =>
+    SYSTEM_PROVIDERS.find((d) => d.type === type)?.capabilities ?? [];
+
+  const types = providers.map((p) => {
+    const health = healthResults.get(p.id);
+    return {
+      id: p.id,
+      label: p.label,
+      description: p.description ?? "",
+      type: p.isSystem ? "system" : "byok",
+      provider: p.type,
+      external: !p.isSystem || !["subprocess", "cloud"].includes(p.type),
+      capabilities: sysCap(p.type),
+      health: health ?? null,
+    };
+  });
+
   return c.json({ data: types });
 });
+
+// Public consumer endpoints — no authMiddleware, use their own consumer
+// token auth. Mounted before /v1/* auth so they bypass the standard gate.
+app.route("/v1/public", consumerAuthRoutes);
+app.route("/v1/public", consumerMeteringRoutes);
 
 // Auth routes (public — no authMiddleware, but rate-limited per-IP and
 // per-email so a stranger can't spam OTP sends and burn the mail budget).
@@ -433,8 +446,11 @@ app.route("/v1/evals", evalsRoutes);
 app.route("/v1/cost_report", costReportRoutes);
 app.route("/v1/integrations", integrationsRoutes);
 app.route("/v1/runtimes", runtimesRoutes);
+app.route("/v1/sandbox_providers", sandboxProvidersRoutes);
+app.route("/v1/webhooks", webhookRoutes);
 app.route("/v1/stats", statsRoutes);
 app.route("/v1/usage", usageRoutes);
+app.route("/v1/agents", schedulesRoutes);
 
 // Billing-API proxy needs the session-resolved tenant_id, so it must
 // run authMiddleware first. The proxy handler below short-circuits
@@ -503,6 +519,8 @@ app.route("/v1/oma/integrations", integrationsRoutes);
 app.route("/v1/oma/runtimes", runtimesRoutes);
 app.route("/v1/oma/oauth", oauthRoutes);
 app.route("/v1/oma/model_cards", modelCardsRoutes);
+app.route("/v1/oma/sandbox_providers", sandboxProvidersRoutes);
+app.route("/v1/oma/webhooks", webhookRoutes);
 // /v1/mcp-proxy is intentionally NOT aliased: auth.ts path-prefix skip is
 // scoped to that exact prefix, and the proxy does its own session-ownership
 // check downstream. Re-mounting under /v1/oma/mcp-proxy would route through

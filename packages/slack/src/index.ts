@@ -29,6 +29,7 @@ export {
   buildManifestLaunchUrl,
   type SlackManifestInput,
 } from "./oauth/manifest";
+export { generateSlackManifest } from "./manifest";
 export {
   buildBaseString,
   parseSignatureHeader,

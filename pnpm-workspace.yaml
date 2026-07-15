@@ -8,6 +8,10 @@ packages:
   - 'apps/integrations'
   - 'apps/docs'
   - 'apps/web'
+  - 'apps/k8s-bridge'
+  - 'packages/webhooks'
+  - 'packages/mcp-sandbox'
+  - 'packages/telegram'
 
 # pnpm v11 reads ALL pnpm config from this file — `pnpm` block in
 # package.json is no longer honored. Keep peerDependencyRules + the

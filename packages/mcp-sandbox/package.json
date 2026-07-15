@@ -1,0 +1,19 @@
+{
+  "name": "@duyet/oma-mcp-sandbox",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@duyet/oma-sandbox": "workspace:*",
+    "@duyet/oma-shared": "workspace:*",
+    "ai": "^6.0.158",
+    "zod": "^3.22.0"
+  }
+}
