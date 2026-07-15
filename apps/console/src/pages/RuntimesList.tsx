@@ -93,7 +93,7 @@ function formatLatency(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-function ProviderCard({ p, onSetup }: { p: HostingType; onSetup?: (p: HostingType) => void }) {
+function ProviderCard({ p, onSetup, onRemove }: { p: HostingType; onSetup?: (p: HostingType) => void; onRemove?: (p: HostingType) => void }) {
   const health = p.health;
   const status = health?.status ?? "na";
   const healthDot =
@@ -198,6 +198,13 @@ function ProviderCard({ p, onSetup }: { p: HostingType; onSetup?: (p: HostingTyp
               )}
             </div>
           )}
+
+          {/* BYOK → allow removal */}
+          {p.type === "byok" && onRemove && (
+            <Button size="sm" variant="ghost" className="w-full text-destructive hover:text-destructive" onClick={() => onRemove(p)}>
+              Remove
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -278,6 +285,14 @@ export function RuntimesList() {
     try {
       await api(`/v1/runtimes/${id}`, { method: "DELETE" });
       void refetch();
+    } catch { /* ignore */ }
+  };
+
+  const removeProvider = async (p: HostingType) => {
+    if (!confirm("Remove this sandbox provider? Environments pinned to it will fail to provision.")) return;
+    try {
+      await api(`/v1/sandbox_providers/${p.id}`, { method: "DELETE" });
+      void loadProviders();
     } catch { /* ignore */ }
   };
 
@@ -445,6 +460,9 @@ export function RuntimesList() {
               Sandbox providers available on this host
             </p>
           </div>
+          <Button size="sm" variant="secondary" onClick={() => setShowAddProvider(true)}>
+            + Add provider
+          </Button>
         </div>
 
         {providersLoading && (
@@ -467,7 +485,7 @@ export function RuntimesList() {
 
         {!providersLoading && !providersError && providers.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {providers.map((p) => <ProviderCard key={p.id} p={p} onSetup={setSetupProvider} />)}
+            {providers.map((p) => <ProviderCard key={p.id} p={p} onSetup={setSetupProvider} onRemove={removeProvider} />)}
           </div>
         )}
       </section>
@@ -602,6 +620,13 @@ export function RuntimesList() {
           </Modal>
         </DataTable>
       </section>
+
+      {/* Add sandbox provider (BYOK) dialog */}
+      <AddSandboxProviderDialog
+        open={showAddProvider}
+        onClose={() => setShowAddProvider(false)}
+        onCreated={() => void loadProviders()}
+      />
 
       {/* Set-up dialog for a not-configured provider (e.g. Local subprocess) */}
       <Modal
