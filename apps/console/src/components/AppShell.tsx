@@ -186,7 +186,7 @@ export function AppShell() {
                   // Cleanup handled when ref unmounts (el = null branch above).
                 }}
                 key={pathname}
-                className="flex-1 min-h-0 overflow-y-auto bg-bg [scrollbar-gutter:stable] [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
+                className="flex-1 min-h-0 overflow-y-auto bg-bg pl-3 pr-4 py-3 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
               >
                 <Outlet context={outletContext} />
               </main>
