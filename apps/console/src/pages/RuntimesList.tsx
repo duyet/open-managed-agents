@@ -436,9 +436,9 @@ export function RuntimesList() {
   );
 
   return (
-    <div className="pl-3 pr-4 py-6 space-y-10">
+    <div role="main" aria-label="Sandbox Runtime" className="py-6 space-y-10">
       {/* Section 1: System Providers */}
-      <section>
+      <section role="region" aria-label="System Providers">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-lg font-semibold text-fg">System Providers</h2>
@@ -508,7 +508,7 @@ export function RuntimesList() {
       </details>
 
       {/* Section 2: Custom Runtimes */}
-      <section>
+      <section role="region" aria-label="Custom Runtimes">
         <div className="mb-4 flex items-center justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-fg">Custom Runtimes</h2>
