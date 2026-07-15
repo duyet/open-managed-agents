@@ -40,6 +40,7 @@ import { CliLogin } from "./pages/CliLogin";
 import { CliDevice } from "./pages/CliDevice";
 import { RuntimesList } from "./pages/RuntimesList";
 import { ConnectRuntime } from "./pages/ConnectRuntime";
+import { CrashPage } from "./pages/CrashPage";
 import { AgentBuilder } from "./pages/AgentBuilder";
 import { AgentChat } from "./pages/AgentChat";
 import { EvalRunsList } from "./pages/EvalRunsList";
@@ -253,6 +254,7 @@ const router = createBrowserRouter([
   { path: "connect-runtime", element: <ConnectRuntime /> },
   {
     element: <AppShell />,
+    errorElement: <CrashPage />,
     children: protectedRoutes,
   },
 ]);
