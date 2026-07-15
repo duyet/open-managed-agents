@@ -436,7 +436,7 @@ export function RuntimesList() {
   );
 
   return (
-    <div role="main" aria-label="Sandbox Runtime" className="py-6 space-y-10">
+    <div role="main" aria-label="Sandbox Runtime" className="-m-3 p-4 space-y-10">
       {/* Section 1: System Providers */}
       <section role="region" aria-label="System Providers">
         <div className="flex items-center justify-between mb-4">
