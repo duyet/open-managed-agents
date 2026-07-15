@@ -80,6 +80,7 @@ import {
   buildDreamRoutes,
   buildTenantRoutes,
   buildMeRoutes,
+  buildDeviceRoutes,
   buildApiKeyRoutes,
   buildEvalRoutes,
   buildIntegrationsRoutes,
@@ -995,7 +996,13 @@ if (auth) {
 // (Node/self-host only for now — see the env var block above).
 const authMw = buildAuthMw({
   disabled: authDisabled,
-  bypassPath: (path) => path === "/health" || path.startsWith("/auth/"),
+  bypassPath: (path) =>
+    path === "/health" ||
+    path.startsWith("/auth/") ||
+    path === "/v1/device/code" ||
+    path === "/v1/device/token" ||
+    path === "/v1/oma/device/code" ||
+    path === "/v1/oma/device/token",
   resolveSession: async (headers) => {
     if (!auth) return null;
     const session = (await auth.api.getSession({ headers })) as
@@ -1119,6 +1126,26 @@ v1.route("/me", buildMeRoutes({
   mintApiKey: (input) => mintApiKeyOnStorage(apiKeyStorage, input),
 }));
 v1.route("/tenants", buildTenantRoutes({ services }));
+v1.route("/device", buildDeviceRoutes({
+  services,
+  mintApiKey: (input) => mintApiKeyOnStorage(apiKeyStorage, input),
+  hasMembership: async (userId, tenantId) => {
+    const row = await sql
+      .prepare(
+        `SELECT 1 AS one FROM membership WHERE user_id = ? AND tenant_id = ? LIMIT 1`,
+      )
+      .bind(userId, tenantId)
+      .first<{ one: number }>();
+    return row !== null;
+  },
+  loadTenant: async (tenantId) => {
+    const r = await sql
+      .prepare(`SELECT id, name FROM "tenant" WHERE id = ?`)
+      .bind(tenantId)
+      .first<{ id: string; name: string }>();
+    return r ?? null;
+  },
+}));
 v1.route("/api_keys", buildApiKeyRoutes({ storage: apiKeyStorage }));
 v1.route("/evals", buildEvalRoutes({
   evals: evalsService,
@@ -1472,6 +1499,26 @@ app.route("/v1/oma/me", buildMeRoutes({
   mintApiKey: (input) => mintApiKeyOnStorage(apiKeyStorage, input),
 }));
 app.route("/v1/oma/tenants", buildTenantRoutes({ services }));
+app.route("/v1/oma/device", buildDeviceRoutes({
+  services,
+  mintApiKey: (input) => mintApiKeyOnStorage(apiKeyStorage, input),
+  hasMembership: async (userId, tenantId) => {
+    const row = await sql
+      .prepare(
+        `SELECT 1 AS one FROM membership WHERE user_id = ? AND tenant_id = ? LIMIT 1`,
+      )
+      .bind(userId, tenantId)
+      .first<{ one: number }>();
+    return row !== null;
+  },
+  loadTenant: async (tenantId) => {
+    const r = await sql
+      .prepare(`SELECT id, name FROM "tenant" WHERE id = ?`)
+      .bind(tenantId)
+      .first<{ id: string; name: string }>();
+    return r ?? null;
+  },
+}));
 app.route("/v1/oma/api_keys", buildApiKeyRoutes({ storage: apiKeyStorage }));
 app.route("/v1/oma/evals", buildEvalRoutes({
   evals: evalsService,

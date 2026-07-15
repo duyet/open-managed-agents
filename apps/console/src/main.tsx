@@ -37,6 +37,7 @@ import { MemoryStoreDetail } from "./pages/MemoryStoreDetail";
 import { ModelCardsList } from "./pages/ModelCardsList";
 import { ApiKeysList } from "./pages/ApiKeysList";
 import { CliLogin } from "./pages/CliLogin";
+import { CliDevice } from "./pages/CliDevice";
 import { RuntimesList } from "./pages/RuntimesList";
 import { ConnectRuntime } from "./pages/ConnectRuntime";
 import { AgentBuilder } from "./pages/AgentBuilder";

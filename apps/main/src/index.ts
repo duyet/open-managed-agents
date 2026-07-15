@@ -9,6 +9,7 @@ import {
   buildApiKeyRoutes,
   buildMeRoutes,
   buildTenantRoutes,
+  buildDeviceRoutes,
   mintApiKeyOnStorage,
 } from "@duyet/oma-http-routes";
 import {
@@ -337,6 +338,33 @@ const meRoutes = new Hono<{
   return invokePackage(c, app);
 });
 
+// Device Authorization Grant (RFC 8628) for `oma auth login --device`.
+// /code + /token are public (auth bypassed in auth.ts); /approve requires
+// a cookie session (c.var.user_id populated by authMiddleware on the
+// protected /v1/device/approve path only — see auth.ts skip list).
+const deviceRoutes = new Hono<{
+  Bindings: Env;
+  Variables: { tenant_id: string; user_id?: string };
+}>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  const env = ctx.env;
+  const services = ctx.var.services;
+  const app = buildDeviceRoutes({
+    services: () => cfRouteServicesFromCtx(ctx),
+    mintApiKey: (input) => mintApiKeyOnStorage(cfApiKeyStorage(services.kv), input),
+    hasMembership: (userId, tenantId) => hasMembership(env.MAIN_DB, userId, tenantId),
+    loadTenant: async (tenantId) => {
+      if (!env.MAIN_DB) return null;
+      const r = await env.MAIN_DB
+        .prepare(`SELECT id, name FROM tenant WHERE id = ?`)
+        .bind(tenantId)
+        .first<{ id: string; name: string }>();
+      return r ?? null;
+    },
+  });
+  return invokePackage(c, app);
+});
+
 const tenantsRoutes = new Hono<{
   Bindings: Env;
   Variables: { tenant_id: string; user_id?: string };
@@ -543,6 +571,7 @@ app.route("/v1/mcp-proxy", mcpProxyRoutes);
 app.route("/v1/oma/clawhub", clawhubRoutes);
 app.route("/v1/oma/api_keys", apiKeysRoutes);
 app.route("/v1/oma/me", meRoutes);
+app.route("/v1/oma/device", deviceRoutes);
 app.route("/v1/oma/tenants", tenantsRoutes);
 app.route("/v1/oma/evals", evalsRoutes);
 app.route("/v1/oma/cost_report", costReportRoutes);
