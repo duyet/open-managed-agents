@@ -1,6 +1,6 @@
 {
   "name": "@duyet/oma-cli",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "CLI for the oma managed agents platform",
   "type": "module",
   "bin": {
