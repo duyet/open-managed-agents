@@ -143,7 +143,7 @@ function loadConfig(): Config {
   const stored = readCredentials();
   if (envKey) {
     return {
-      baseUrl: envBase || stored?.base_url || "https://oma.duyet.net",
+      baseUrl: envBase || stored?.base_url || "https://app.oma.duyet.net",
       apiKey: envKey,
       json: false,
       source: "env",
@@ -178,7 +178,7 @@ function loadConfigOptional(): Config {
   const envTenant = process.env.OMA_TENANT_ID;
   const stored = readCredentials();
   if (envKey) {
-    return { baseUrl: envBase || stored?.base_url || "https://oma.duyet.net", apiKey: envKey, json: false, source: "env" };
+    return { baseUrl: envBase || stored?.base_url || "https://app.oma.duyet.net", apiKey: envKey, json: false, source: "env" };
   }
   if (stored) {
     const activeId = envTenant || stored.active_tenant_id;
@@ -187,7 +187,7 @@ function loadConfigOptional(): Config {
       return { baseUrl: envBase || stored.base_url, apiKey: profile.token, json: false, source: "stored" };
     }
   }
-  return { baseUrl: envBase || "https://oma.duyet.net", apiKey: "", json: false, source: "missing" };
+  return { baseUrl: envBase || "https://app.oma.duyet.net", apiKey: "", json: false, source: "missing" };
 }
 
 // ─── API Client ───
@@ -780,7 +780,7 @@ const commands: Cmd[] = [
     usage: "oma auth login [--base-url <url>] [--tenant <id>] [--device] [--paste-token]", desc: "Authenticate: browser (default), device-code, or paste-token for headless",
     http: "POST   /v1/me/cli-tokens (browser handoff) | POST /v1/device/* (--device)",
     async run(config, args) {
-      const baseUrl = (flag(args, "--base-url") ?? process.env.OMA_BASE_URL ?? "https://oma.duyet.net").replace(/\/+$/, "");
+      const baseUrl = (flag(args, "--base-url") ?? process.env.OMA_BASE_URL ?? "https://app.oma.duyet.net").replace(/\/+$/, "");
       const tenant = flag(args, "--tenant");
       if (flag(args, "--paste-token")) return authLoginPasteToken(baseUrl, tenant, config);
       if (flag(args, "--device")) return authLoginDevice(baseUrl, tenant, config);
@@ -2343,7 +2343,7 @@ function usage() {
     oma api <resource>                         Show endpoints for a resource
 
 Environment:
-  OMA_BASE_URL   API base (default: https://oma.duyet.net)
+  OMA_BASE_URL   API base (default: https://app.oma.duyet.net)
   OMA_API_KEY    API key — overrides stored credentials when set
   XDG_CONFIG_HOME  Base dir for credentials (default: ~/.config)
 
@@ -2406,7 +2406,7 @@ async function main() {
         // would fail at exchange ("invalid code"). Two separate flags are
         // still useful for split dev setups (web on one host, api on
         // another) — keep --browser-origin as an explicit override.
-        const serverUrl = flag(args, "--server-url") ?? "https://oma.duyet.net";
+        const serverUrl = flag(args, "--server-url") ?? "https://app.oma.duyet.net";
         const { runSetup } = await import("./bridge/commands/setup.js");
         await runSetup({
           serverUrl,
