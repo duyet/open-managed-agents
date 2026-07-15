@@ -171,7 +171,7 @@ export function AppShell() {
                 role="region"
                 aria-label="Page header"
                 className={[
-                  "empty:hidden shrink-0 transition-[border-color] duration-150",
+                  "empty:hidden shrink-0 px-3 py-3 transition-[border-color] duration-150",
                   scrolled ? "border-b border-border" : "border-b border-transparent",
                 ].join(" ")}
               />

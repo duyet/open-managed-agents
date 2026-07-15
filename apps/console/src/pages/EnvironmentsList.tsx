@@ -98,7 +98,11 @@ export function EnvironmentsList() {
       try {
         const res = await api<{ data: HostingType[] }>("/v1/hosting_types");
         if (!cancelled && Array.isArray(res.data) && res.data.length > 0) {
-          setHostingTypes(res.data);
+          // Drop entries with an empty id — Radix Select throws
+          // "A <Select.Item /> must have a value prop that is not an empty
+          // string" if such an entry is rendered, which crashes the page.
+          const cleaned = res.data.filter((t) => !!t.id && t.id.trim().length > 0);
+          setHostingTypes(cleaned);
         }
       } catch {
         // 404 on the CF host (or any failure) → keep Cloudflare Sandbox only.
