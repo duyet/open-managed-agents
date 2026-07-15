@@ -112,20 +112,49 @@ app.get("/health", (c) => c.json({ status: "ok" }));
 // GET /v1/hosting_types — sandbox providers this host can run (public).
 // Mirrors the SandboxProviderRegistry's getHostingTypes() on the Node build
 // so the Console UI shows the same provider list across both deployments.
+//
+// `health.status` is one of "healthy" | "unhealthy" | "not_configured":
+//   - "not_configured" — provider is seeded but has no credentials/env
+//     wired up yet (e.g. Local subprocess before the daemon is connected).
+//     The Console shows a "Set up" affordance for these.
+// `health.reason` carries a human-readable explanation for unhealthy /
+// not_configured states so the UI can tell the user *why*.
 app.get("/v1/hosting_types", async (c) => {
   const registry = new SandboxProviderRegistry();
   registry.seedFromEnv(c.env as unknown as Record<string, string | undefined>);
   const providers = registry.list();
 
-  const healthResults = new Map<string, { status: string; latency_ms: number; last_checked: string }>();
+  const env = c.env as unknown as Record<string, string | undefined>;
+
+  const healthResults = new Map<string, {
+    status: "healthy" | "unhealthy" | "not_configured";
+    latency_ms: number;
+    last_checked: string;
+    reason?: string;
+  }>();
+
   for (const p of providers) {
     try {
+      const desc = SYSTEM_PROVIDERS.find((d) => d.type === p.type);
+      // Local subprocess is always seeded but only "healthy" once a daemon
+      // is connected. With no daemon it reports not_configured so the UI
+      // can offer a connect dialog instead of a confusing "unhealthy".
+      if (p.type === "subprocess" && !desc?.envKeys.some((k) => env[k])) {
+        healthResults.set(p.id, {
+          status: "not_configured",
+          latency_ms: 0,
+          last_checked: new Date().toISOString(),
+          reason: "No local runtime connected. Start the oma bridge daemon on this machine to enable it.",
+        });
+        continue;
+      }
       const h = await registry.checkHealth(p.id).catch(() => null);
       if (h) {
         healthResults.set(p.id, {
           status: h.status === "ok" ? "healthy" : "unhealthy",
           latency_ms: h.latencyMs,
           last_checked: h.lastChecked,
+          reason: h.status === "ok" ? undefined : (h.details ?? "Health check failed."),
         });
       }
     } catch {}

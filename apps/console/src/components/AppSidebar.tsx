@@ -69,7 +69,7 @@ const navGroups: NavGroup[] = [
     label: "Infrastructure",
     items: [
       { to: "/environments", label: "Environments", icon: EnvIcon },
-      { to: "/runtimes", label: "Sandbox Providers", icon: RuntimesIcon },
+      { to: "/runtimes", label: "Sandbox Runtime", icon: RuntimesIcon },
       { to: "/vaults", label: "Credential Vaults", icon: VaultIcon },
       { to: "/model-cards", label: "Model Cards", icon: ModelCardsIcon },
     ],

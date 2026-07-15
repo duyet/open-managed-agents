@@ -44,9 +44,10 @@ interface HostingType {
   external: boolean;
   capabilities: string[];
   health: {
-    status: "healthy" | "unhealthy";
+    status: "healthy" | "unhealthy" | "not_configured";
     latency_ms: number;
     last_checked: string;
+    reason?: string;
   } | null;
 }
 
@@ -90,18 +91,25 @@ function formatLatency(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-function ProviderCard({ p }: { p: HostingType }) {
+function ProviderCard({ p, onSetup }: { p: HostingType; onSetup?: (p: HostingType) => void }) {
   const health = p.health;
-  const healthDot = health
-    ? health.status === "healthy"
+  const status = health?.status ?? "na";
+  const healthDot =
+    status === "healthy"
       ? "bg-success"
-      : "bg-destructive"
-    : "bg-fg-subtle";
-  const healthLabel = health
-    ? health.status === "healthy"
+      : status === "unhealthy"
+        ? "bg-destructive"
+        : status === "not_configured"
+          ? "bg-fg-subtle"
+          : "bg-fg-subtle";
+  const healthLabel =
+    status === "healthy"
       ? "Healthy"
-      : "Unhealthy"
-    : "N/A";
+      : status === "unhealthy"
+        ? "Unhealthy"
+        : status === "not_configured"
+          ? "Not configured"
+          : "N/A";
 
   return (
     <Card size="sm" className="flex flex-col">
@@ -136,27 +144,57 @@ function ProviderCard({ p }: { p: HostingType }) {
           </div>
         )}
 
-        <div className="mt-auto flex items-center gap-3 text-[11px] text-fg-subtle">
-          {health && (
-            <>
+        <div className="mt-auto flex flex-col gap-2">
+          {/* Status line */}
+          <div className="flex items-center gap-3 text-[11px] text-fg-subtle">
+            {health && (
+              <>
+                <span className="inline-flex items-center gap-1">
+                  <span className={cn("w-1.5 h-1.5 rounded-full", healthDot)} />
+                  {healthLabel}
+                </span>
+                {status === "healthy" && (
+                  <>
+                    <span className="inline-flex items-center gap-1">
+                      <TimerIcon className="size-3" />
+                      {formatLatency(health.latency_ms)}
+                    </span>
+                    <span className="font-mono">
+                      {new Date(health.last_checked).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </>
+                )}
+              </>
+            )}
+            {!health && (
               <span className="inline-flex items-center gap-1">
-                <span className={cn("w-1.5 h-1.5 rounded-full", healthDot)} />
-                {healthLabel}
+                <span className="w-1.5 h-1.5 rounded-full bg-fg-subtle" />
+                Health N/A
               </span>
-              <span className="inline-flex items-center gap-1">
-                <TimerIcon className="size-3" />
-                {formatLatency(health.latency_ms)}
-              </span>
-              <span className="font-mono">
-                {new Date(health.last_checked).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </span>
-            </>
+            )}
+          </div>
+
+          {/* Unhealthy reason */}
+          {status === "unhealthy" && health?.reason && (
+            <p className="text-[11px] text-destructive leading-relaxed rounded-md bg-destructive/10 px-2 py-1.5">
+              {health.reason}
+            </p>
           )}
-          {!health && (
-            <span className="inline-flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-fg-subtle" />
-              Health N/A
-            </span>
+
+          {/* Not configured → offer setup */}
+          {status === "not_configured" && (
+            <div className="flex flex-col gap-2">
+              {health?.reason && (
+                <p className="text-[11px] text-fg-muted leading-relaxed">
+                  {health.reason}
+                </p>
+              )}
+              {onSetup && (
+                <Button size="sm" variant="secondary" className="w-full" onClick={() => onSetup(p)}>
+                  Set up
+                </Button>
+              )}
+            </div>
           )}
         </div>
       </CardContent>
@@ -193,6 +231,7 @@ export function RuntimesList() {
   const { api } = useApi();
   const [showInstructions, setShowInstructions] = useState(false);
   const [status, setStatus] = useState<StatusValue>("any");
+  const [setupProvider, setSetupProvider] = useState<HostingType | null>(null);
 
   const [providers, setProviders] = useState<HostingType[]>([]);
   const [providersLoading, setProvidersLoading] = useState(true);
@@ -429,7 +468,7 @@ export function RuntimesList() {
 
         {!providersLoading && !providersError && providers.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {providers.map((p) => <ProviderCard key={p.id} p={p} />)}
+            {providers.map((p) => <ProviderCard key={p.id} p={p} onSetup={setSetupProvider} />)}
           </div>
         )}
       </section>
@@ -455,12 +494,8 @@ export function RuntimesList() {
           <p>
             For BYOK (bring-your-own-key) providers, register via the API:
           </p>
-          <div className="bg-bg border border-border rounded-lg p-3 font-mono text-xs">
-            <div className="text-fg select-all">
-              curl -X POST /v1/sandbox_providers \<br />
-              &nbsp;&nbsp;-H "x-api-key: $KEY" \<br />
-              &nbsp;&nbsp;-d '{"name":"My K8s","type":"k8s","config":{"base_url":"https://..."}}'
-            </div>
+          <div className="bg-bg border border-border rounded-lg p-3 font-mono text-xs whitespace-pre">
+            <div className="text-fg select-all">{"curl -X POST /v1/sandbox_providers \\\n  -H \"x-api-key: $KEY\" \\\n  -d '{\"name\":\"My K8s\",\"type\":\"k8s\",\"config\":{\"base_url\":\"https://...\"}}'"}</div>
           </div>
           <p className="text-xs text-fg-subtle">
             The full provider API is documented at{" "}
@@ -568,6 +603,31 @@ export function RuntimesList() {
           </Modal>
         </DataTable>
       </section>
+
+      {/* Set-up dialog for a not-configured provider (e.g. Local subprocess) */}
+      <Modal
+        open={setupProvider !== null}
+        onClose={() => setSetupProvider(null)}
+        title={`Set up ${setupProvider?.label ?? "provider"}`}
+        subtitle="Run this on the machine you want to connect."
+        footer={<Button onClick={() => setSetupProvider(null)}>Done</Button>}
+      >
+        <div className="space-y-4 text-sm">
+          <p className="text-fg-muted">
+            Connect this host's local runtime by starting the bridge daemon:
+          </p>
+          <div className="bg-bg-surface border border-border rounded-lg p-3 font-mono text-xs space-y-1">
+            <div className="text-fg select-all">npx @duyet/oma-cli@beta bridge setup</div>
+          </div>
+          <p className="text-fg-muted text-xs">
+            Setup opens this browser for OAuth, writes credentials to{" "}
+            <code className="bg-bg-surface px-1 rounded">~/.oma/bridge/</code>, and (on macOS) installs a launchd job
+            that keeps the daemon running across reboots. Once connected, this provider flips to{" "}
+            <span className="text-success">Healthy</span> and any ACP agents on <code className="bg-bg-surface px-1 rounded">$PATH</code> appear under
+            Custom Runtimes.
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 }

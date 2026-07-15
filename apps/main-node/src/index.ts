@@ -1135,15 +1135,37 @@ v1.route("/environments", buildEnvironmentRoutes({ services }));
 
 v1.get("/hosting_types", async (c) => {
   const providers = sandboxRegistry.list();
-  const healthResults = new Map<string, { status: string; latency_ms: number; last_checked: string }>();
+  const env = (sandboxRegistry as unknown as { providers?: unknown })
+    ? (process.env as Record<string, string | undefined>)
+    : {};
+  const healthResults = new Map<string, {
+    status: "healthy" | "unhealthy" | "not_configured";
+    latency_ms: number;
+    last_checked: string;
+    reason?: string;
+  }>();
   for (const p of providers) {
     try {
+      const desc = SYSTEM_PROVIDERS.find((d) => d.type === p.type);
+      // Local subprocess is always seeded but only "healthy" once a daemon
+      // is connected. With no daemon it reports not_configured so the UI
+      // can offer a connect dialog instead of a confusing "unhealthy".
+      if (p.type === "subprocess" && !desc?.envKeys.some((k) => env[k])) {
+        healthResults.set(p.id, {
+          status: "not_configured",
+          latency_ms: 0,
+          last_checked: new Date().toISOString(),
+          reason: "No local runtime connected. Start the oma bridge daemon on this machine to enable it.",
+        });
+        continue;
+      }
       const h = await sandboxRegistry.checkHealth(p.id).catch(() => null);
       if (h) {
         healthResults.set(p.id, {
           status: h.status === "ok" ? "healthy" : "unhealthy",
           latency_ms: h.latencyMs,
           last_checked: h.lastChecked,
+          reason: h.status === "ok" ? undefined : (h.details ?? "Health check failed."),
         });
       }
     } catch {}
