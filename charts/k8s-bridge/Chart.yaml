@@ -1,6 +1,0 @@
-apiVersion: v2
-name: k8s-bridge
-description: HTTP bridge between OMA Cloudflare Workers and Kubernetes sandbox pods
-type: application
-version: 0.1.0
-appVersion: "0.1.0"
