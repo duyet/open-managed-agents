@@ -12,6 +12,7 @@ on:
     branches: [main]
     paths:
       - 'apps/main/**'
+      - 'apps/console/**'
       - 'packages/http-routes/**'
       - 'packages/services/**'
       - 'packages/shared/**'
