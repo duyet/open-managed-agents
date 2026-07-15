@@ -367,8 +367,12 @@ export function EnvironmentDetail() {
             <Field label="Instance Type">
               <div className="w-full max-w-xs">
                 <Select
-                  value={resources.instance_type ?? ""}
+                  value={resources.instance_type ?? "__provider_default__"}
                   onValueChange={(v) => {
+                    if (v === "__provider_default__") {
+                      setResources({ instance_type: undefined });
+                      return;
+                    }
                     const preset = instanceTypesForProvider(env.config.type).find((t) => t.id === v);
                     setResources({
                       instance_type: v,
@@ -378,7 +382,7 @@ export function EnvironmentDetail() {
                     });
                   }}
                 >
-                  <SelectOption value="">Provider default</SelectOption>
+                  <SelectOption value="__provider_default__">Provider default</SelectOption>
                   {instanceTypesForProvider(env.config.type).map((t) => (
                     <SelectOption key={t.id} value={t.id}>
                       {t.label} — {t.cpu}, {t.memory}, {t.disk}
