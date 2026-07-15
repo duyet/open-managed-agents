@@ -33,6 +33,7 @@ Environments — the reusable configurations defining package managers, system p
 | `daytona` | Daytona VM | VM hosting on Daytona. Requires `DAYTONA_API_KEY`. |
 | `litebox` | BoxLite Local | Local Firecracker micro-VM for local hardware isolation. |
 | `boxrun` | BoxLite Remote | Remote BoxLite HTTP control plane for micro-VM orchestration. |
+| `openshell` | NVIDIA OpenShell | Policy-enforced, isolated agent sandboxes driven by an OpenShell gateway (gRPC). Requires `OPENSHELL_GATEWAY_ENDPOINT`. |
 
 ### API Endpoints
 * **List hosting types**: `GET /v1/hosting_types` returns all registered local and BYOK providers.

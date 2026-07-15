@@ -187,6 +187,15 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     cfCompatible: true,
     capabilities: ["exec", "files", "pause_resume"],
   },
+  {
+    type: "openshell",
+    label: "NVIDIA OpenShell",
+    description: "NVIDIA OpenShell gateway (gRPC) — policy-enforced, isolated agent sandboxes with credential + network governance.",
+    envKeys: ["OPENSHELL_GATEWAY_ENDPOINT"],
+    factoryPath: "@duyet/oma-sandbox/adapters/openshell",
+    cfCompatible: false,
+    capabilities: ["exec", "files"],
+  },
 ];
 
 // ─── Cloudflare-side classification ──────────────────────────────────
@@ -297,6 +306,9 @@ export function providerConfigToEnv(config: SandboxProviderConfig): Record<strin
       case "remote-agent":
         env.REMOTE_AGENT_TOKEN = config.apiKey;
         break;
+      case "openshell":
+        env.OPENSHELL_TOKEN = config.apiKey;
+        break;
     }
   }
 
@@ -319,6 +331,9 @@ export function providerConfigToEnv(config: SandboxProviderConfig): Record<strin
         break;
       case "remote-agent":
         env.REMOTE_AGENT_URL = config.baseURL;
+        break;
+      case "openshell":
+        env.OPENSHELL_GATEWAY_ENDPOINT = config.baseURL;
         break;
       case "docker-compose":
         env.DOCKER_COMPOSE_PROJECT_DIR = config.baseURL;

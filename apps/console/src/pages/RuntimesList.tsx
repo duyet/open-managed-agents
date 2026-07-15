@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { XCircleIcon, TimerIcon } from "lucide-react";
 import { useApi } from "../lib/api";
 import { useApiQuery } from "../lib/useApiQuery";
@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PopoverContent } from "@/components/ui/popover";
 import { Modal } from "../components/Modal";
+import { AddSandboxProviderDialog } from "./AddSandboxProviderDialog";
 import { DataTable, type ColumnDef } from "../components/DataTable";
 import { FacetedFilter } from "../components/FacetedFilter";
 import { FilterChip } from "../components/FilterChip";
@@ -68,6 +69,7 @@ const SYSTEM_PROVIDER_ENVS = [
   { env: "DOCKER_COMPOSE_PROJECT_DIR", label: "Docker Compose" },
   { env: "GITHUB_ACTIONS_OWNER", label: "GitHub Actions sandbox" },
   { env: "REMOTE_AGENT_URL", label: "Remote Agent (BYOK)" },
+  { env: "OPENSHELL_GATEWAY_ENDPOINT", label: "NVIDIA OpenShell gateway" },
 ];
 
 type StatusValue = "any" | "online" | "offline";
@@ -232,31 +234,28 @@ export function RuntimesList() {
   const [showInstructions, setShowInstructions] = useState(false);
   const [status, setStatus] = useState<StatusValue>("any");
   const [setupProvider, setSetupProvider] = useState<HostingType | null>(null);
+  const [showAddProvider, setShowAddProvider] = useState(false);
 
   const [providers, setProviders] = useState<HostingType[]>([]);
   const [providersLoading, setProvidersLoading] = useState(true);
   const [providersError, setProvidersError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setProvidersLoading(true);
-      setProvidersError(null);
-      try {
-        const res = await api<{ data: HostingType[] }>("/v1/hosting_types");
-        if (!cancelled && Array.isArray(res.data)) {
-          setProviders(res.data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setProvidersError(err instanceof Error ? err.message : "Failed to load");
-        }
-      } finally {
-        if (!cancelled) setProvidersLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+  const loadProviders = useCallback(async () => {
+    setProvidersLoading(true);
+    setProvidersError(null);
+    try {
+      const res = await api<{ data: HostingType[] }>("/v1/hosting_types");
+      if (Array.isArray(res.data)) setProviders(res.data);
+    } catch (err) {
+      setProvidersError(err instanceof Error ? err.message : "Failed to load");
+    } finally {
+      setProvidersLoading(false);
+    }
   }, [api]);
+
+  useEffect(() => {
+    void loadProviders();
+  }, [loadProviders]);
 
   const {
     data: runtimesRes,

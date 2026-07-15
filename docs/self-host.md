@@ -428,6 +428,7 @@ provider available:
 | `LiteBoxSandbox` | Local hardware isolation without docker | Host needs `/dev/kvm` (Linux) or Apple Silicon (macOS). Optional `LITEBOX_MEMORY_MIB`, `LITEBOX_CPUS`, `SANDBOX_IMAGE`. BoxLite ships its own Firecracker runtime (no daemon). |
 | `E2BSandbox` | Firecracker microVM SaaS | `E2B_API_KEY=...`, optional `SANDBOX_IMAGE` (template id). Memory via `MEMORY_S3_*` env vars (same s3fs setup as Daytona). Outbound vault CA upload requires a template that allows `sudo` writes to `/etc/ssl/`. |
 | `BoxRunSandbox` | Remote BoxLite REST endpoint (no KVM on the OMA host) | `BOXRUN_URL=http://host:8100/v1/default`, optional `BOXRUN_TOKEN`. No mount primitive — bake a custom image with s3fs preinstalled if you need `/mnt/memory`. |
+| `OpenShellSandbox` | NVIDIA OpenShell gateway (gRPC) | `OPENSHELL_GATEWAY_ENDPOINT=host:port`, optional `OPENSHELL_TOKEN` (bearer). Policy-enforced, isolated agent sandboxes. `OPENSHELL_GATEWAY_TLS=1` + `OPENSHELL_GATEWAY_CA_PATH` (and `..._CERT_PATH`/`..._KEY_PATH` for mTLS) enable TLS. Self-host Node only — not CF-compatible. |
 | `CloudflareSandbox` | If you happen to deploy on CF Workers + Containers | Use the regular `apps/agent` worker, not main-node. |
 
 **The old `SANDBOX_PROVIDER` env var still works** as the fallback default

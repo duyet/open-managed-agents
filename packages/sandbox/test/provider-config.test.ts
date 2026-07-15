@@ -58,6 +58,13 @@ describe("classifyCfSandboxProvider", () => {
       "docker-compose": false,
       "github-actions": true,
       "remote-agent": true,
+      openshell: false,
     });
+  });
+
+  it("classifies openshell as Node-only (cfCompatible: false)", () => {
+    expect(classifyCfSandboxProvider("openshell")).toEqual({ kind: "unavailable", type: "openshell" });
+    // case-insensitive
+    expect(classifyCfSandboxProvider("OpenShell")).toEqual({ kind: "unavailable", type: "openshell" });
   });
 });

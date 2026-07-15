@@ -15,6 +15,7 @@
     "./adapters/docker-compose": "./src/adapters/docker-compose.ts",
     "./adapters/github-actions": "./src/adapters/github-actions.ts",
     "./adapters/remote-agent": "./src/adapters/remote-agent.ts",
+    "./adapters/openshell": "./src/adapters/openshell.ts",
     "./orchestrator": "./src/orchestrator.ts",
     "./registry": "./src/registry.ts"
   },
@@ -23,6 +24,8 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
+    "@grpc/grpc-js": "^1.12.0",
+    "@grpc/proto-loader": "^0.7.13",
     "@duyet/oma-observability": "workspace:*",
     "@duyet/oma-shared": "workspace:*"
   },
