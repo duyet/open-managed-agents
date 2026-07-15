@@ -57,6 +57,18 @@ const CAP_DISPLAY: Record<string, string> = {
   files: "Files",
 };
 
+const SYSTEM_PROVIDER_ENVS = [
+  { env: "LITEBOX_MEMORY_MIB", label: "LiteBox (local micro-VM)" },
+  { env: "BOXRUN_URL", label: "BoxRun (remote micro-VM)" },
+  { env: "DAYTONA_API_KEY", label: "Daytona SaaS" },
+  { env: "E2B_API_KEY", label: "E2B Firecracker microVM" },
+  { env: "OMA_K8S_NAMESPACE", label: "Kubernetes" },
+  { env: "K8S_BRIDGE_URL", label: "K8s Bridge (remote)" },
+  { env: "DOCKER_COMPOSE_PROJECT_DIR", label: "Docker Compose" },
+  { env: "GITHUB_ACTIONS_OWNER", label: "GitHub Actions sandbox" },
+  { env: "REMOTE_AGENT_URL", label: "Remote Agent (BYOK)" },
+];
+
 type StatusValue = "any" | "online" | "offline";
 
 const STATUS_OPTIONS: { value: StatusValue; label: string }[] = [
@@ -385,7 +397,7 @@ export function RuntimesList() {
   );
 
   return (
-    <div className="space-y-10">
+    <div className="pl-3 pr-4 py-6 space-y-10">
       {/* Section 1: System Providers */}
       <section>
         <div className="flex items-center justify-between mb-4">
@@ -422,13 +434,67 @@ export function RuntimesList() {
         )}
       </section>
 
+      {/* System Providers: registration help */}
+      <details className="rounded-lg border border-border bg-bg-surface/50">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-fg select-none hover:text-fg">
+          How to enable additional sandbox providers
+        </summary>
+        <div className="px-4 pb-4 space-y-3 text-sm text-fg-muted">
+          <p>
+            System providers are seeded from environment variables at startup. Set the
+            corresponding env var on the host and restart to enable the provider:
+          </p>
+          <div className="bg-bg border border-border rounded-lg p-3 font-mono text-xs space-y-1">
+            {SYSTEM_PROVIDER_ENVS.map(({ env, label }) => (
+              <div key={env}>
+                <span className="text-fg">{env}</span>
+                <span className="text-fg-subtle ml-2">— {label}</span>
+              </div>
+            ))}
+          </div>
+          <p>
+            For BYOK (bring-your-own-key) providers, register via the API:
+          </p>
+          <div className="bg-bg border border-border rounded-lg p-3 font-mono text-xs">
+            <div className="text-fg select-all">
+              curl -X POST /v1/sandbox_providers \<br />
+              &nbsp;&nbsp;-H "x-api-key: $KEY" \<br />
+              &nbsp;&nbsp;-d '{"name":"My K8s","type":"k8s","config":{"base_url":"https://..."}}'
+            </div>
+          </div>
+          <p className="text-xs text-fg-subtle">
+            The full provider API is documented at{" "}
+            <a href="https://docs.oma.duyet.net/build/sandbox-providers" target="_blank" rel="noreferrer" className="underline hover:text-fg">
+              docs.oma.duyet.net/build/sandbox-providers
+            </a>
+            .
+          </p>
+        </div>
+      </details>
+
       {/* Section 2: Custom Runtimes */}
       <section>
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold text-fg">Custom Runtimes</h2>
-          <p className="text-sm text-fg-subtle mt-0.5">
-            User-registered machines running <code className="text-xs bg-bg-surface px-1 py-0.5 rounded font-mono">oma bridge daemon</code>
-          </p>
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-fg">Custom Runtimes</h2>
+            <p className="text-sm text-fg-subtle mt-0.5">
+              User-registered machines running <code className="text-xs bg-bg-surface px-1 py-0.5 rounded font-mono">oma bridge daemon</code>
+            </p>
+          </div>
+        </div>
+
+        {/* Install CLI card */}
+        <div className="mb-4 rounded-lg border border-border bg-bg-surface px-4 py-3 flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-medium text-fg">Install the CLI</div>
+            <div className="text-xs text-fg-subtle mt-0.5">
+              The <code className="bg-bg px-1 rounded font-mono">oma</code> CLI lets you connect machines, manage agents, and
+              configure integrations from the terminal.
+            </div>
+          </div>
+          <code className="shrink-0 bg-bg border border-border rounded-md px-3 py-1.5 font-mono text-xs text-fg select-all">
+            npm install -g @duyet/oma-cli
+          </code>
         </div>
 
         <DataTable<Runtime>

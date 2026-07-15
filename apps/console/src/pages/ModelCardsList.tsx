@@ -395,7 +395,7 @@ export function ModelCardsList() {
   );
 
   return (
-    <>
+    <div className="pl-3 pr-4 py-6 space-y-10">
       <AnyRouterConnectCard />
       <DataTable<ModelCard>
       createLabel="+ New model card"
@@ -571,6 +571,6 @@ export function ModelCardsList() {
         </form>
       </Modal>
       </DataTable>
-    </>
+    </div>
   );
 }
