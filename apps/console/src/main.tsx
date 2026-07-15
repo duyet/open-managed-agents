@@ -167,7 +167,7 @@ const protectedRoutes: RouteObject[] = [
   },
   { path: "model-cards", element: <ModelCardsList />, handle: { crumb: "Model Cards" } },
   { path: "api-keys", element: <ApiKeysList />, handle: { crumb: "API Keys" } },
-  { path: "runtimes", element: <RuntimesList />, handle: { crumb: "Local Runtimes" } },
+  { path: "runtimes", element: <RuntimesList />, handle: { crumb: "Sandbox Providers" } },
   {
     path: "integrations",
     handle: { crumb: "Integrations" },

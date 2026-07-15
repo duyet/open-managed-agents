@@ -76,7 +76,7 @@ const navGroups: NavGroup[] = [
       { to: "/memory", label: "Memory Stores", icon: MemoryIcon },
       { to: "/model-cards", label: "Model Cards", icon: ModelCardsIcon },
       { to: "/api-keys", label: "API Keys", icon: ApiKeysIcon },
-      { to: "/runtimes", label: "Local Runtimes", icon: RuntimesIcon },
+      { to: "/runtimes", label: "Sandbox Providers", icon: RuntimesIcon },
     ],
   },
   {

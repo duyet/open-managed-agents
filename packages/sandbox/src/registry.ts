@@ -21,6 +21,14 @@ import type {
 import type { SandboxProviderConfig, ResolvedSandboxProvider } from "./provider-config";
 import { seedSystemProviders, providerConfigToEnv, SYSTEM_PROVIDERS } from "./provider-config";
 
+export interface ProviderHealth {
+  id: string;
+  status: "ok" | "error";
+  latencyMs: number;
+  lastChecked: string;
+  details?: string;
+}
+
 export class SandboxProviderRegistry {
   private providers = new Map<string, ResolvedSandboxProvider>();
   private factoryCache = new Map<string, SandboxFactory>();
@@ -172,6 +180,60 @@ export class SandboxProviderRegistry {
    */
   get size(): number {
     return this.providers.size;
+  }
+
+  /**
+   * Health-check a single provider by id. Creates a short-lived executor,
+   * calls ping(), and returns the health result. Does not throw — returns
+   * error status on any failure.
+   */
+  async checkHealth(providerId: string): Promise<ProviderHealth> {
+    const start = performance.now();
+    try {
+      const executor = await this.createExecutor(
+        providerId,
+        { sessionId: `healthcheck-${providerId}`, workdir: "/tmp" },
+        {},
+      );
+      const result = await (executor.ping?.() ?? Promise.resolve({ status: "error" as const, latencyMs: 0, details: "ping not implemented" }));
+      return {
+        id: providerId,
+        status: result.status,
+        latencyMs: Math.round(performance.now() - start),
+        lastChecked: new Date().toISOString(),
+        details: result.details,
+      };
+    } catch (err) {
+      return {
+        id: providerId,
+        status: "error",
+        latencyMs: Math.round(performance.now() - start),
+        lastChecked: new Date().toISOString(),
+        details: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  /**
+   * Health-check all registered providers in parallel. Returns one result
+   * per provider. Does not throw.
+   */
+  async checkAllHealth(): Promise<ProviderHealth[]> {
+    const ids = Array.from(this.providers.keys());
+    const results = await Promise.allSettled(
+      ids.map((id) => this.checkHealth(id)),
+    );
+    return results.map((r, i) =>
+      r.status === "fulfilled"
+        ? r.value
+        : {
+            id: ids[i],
+            status: "error" as const,
+            latencyMs: 0,
+            lastChecked: new Date().toISOString(),
+            details: r.reason instanceof Error ? r.reason.message : String(r.reason),
+          },
+    );
   }
 
   // ── Private ──

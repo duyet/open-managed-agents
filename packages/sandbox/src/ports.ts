@@ -117,6 +117,12 @@ export interface SandboxExecutor {
    * via this. No-op on impls that don't auto-sleep.
    */
   renewActivityTimeout?(): Promise<void>;
+  /**
+   * Quick health check: run a trivial command (`true`) and report RTT.
+   * Returns `{ status: "ok", latencyMs }` on success,
+   * `{ status: "error", details? }` on failure. Does not throw.
+   */
+  ping?(): Promise<{ status: "ok" | "error"; latencyMs: number; details?: string }>;
 }
 
 // ─── Factory contract ──────────────────────────────────────────────────

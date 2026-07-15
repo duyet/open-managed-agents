@@ -391,6 +391,20 @@ export class LocalSubprocessSandbox implements SandboxExecutor {
     return full;
   }
 
+  async ping(): Promise<{ status: "ok" | "error"; latencyMs: number; details?: string }> {
+    const start = performance.now();
+    try {
+      await this.exec("true", 10_000);
+      return { status: "ok", latencyMs: Math.round(performance.now() - start) };
+    } catch (err) {
+      return {
+        status: "error",
+        latencyMs: Math.round(performance.now() - start),
+        details: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
   async destroy(): Promise<void> {
     for (const proc of this.processes.values()) {
       try { await proc.kill("SIGKILL"); } catch { /* best-effort */ }

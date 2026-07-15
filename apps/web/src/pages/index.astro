@@ -4,7 +4,6 @@ import { softwareApplicationSchema } from "../lib/seo";
 import FeatureCard from "../components/FeatureCard.astro";
 import PixelAgent from "../components/PixelAgent.astro";
 import ArchDiagram from "../components/ArchDiagram.tsx";
-import AsciiDivider from "../components/AsciiDivider.astro";
 
 // SoftwareApplication is the homepage-only schema — anchors the
 // "Open Managed Agents" entity in Google's knowledge graph and makes
@@ -252,53 +251,74 @@ function pixelRects(map: string[]) {
         radial-gradient(ellipse 40% 40% at 90% 60%, color-mix(in srgb, var(--color-blue) 18%, transparent), transparent),
         radial-gradient(ellipse 35% 35% at 10% 80%, color-mix(in srgb, var(--color-green) 16%, transparent), transparent);"
     ></div>
-    <div class="relative max-w-5xl mx-auto px-4 py-20 md:py-24 text-center">
-      <!-- ASCII hero: a faint dotted halo frames the interactive component
-           diagram (a hydrated React island) that traces a request through
-           oma's architecture. The CRT scanline overlay sits on top. -->
-      <div class="crt inline-block mb-8 select-none" aria-hidden="true">
-        <pre class="ascii-art ascii-halo">{heroHalo}</pre>
-        <ArchDiagram client:visible />
-      </div>
+    <div class="relative max-w-5xl mx-auto px-4 py-16 md:py-20">
+      <div class="hero-grid">
+        <!-- Left: pitch -->
+        <div class="hero-pitch text-left">
+          <h1 class="font-display text-4xl sm:text-5xl md:text-[3.1rem] lg:text-[3.4rem] font-bold tracking-tight leading-[1.07]">
+            The self-hosted agent platform for <span class="hero-accent">any&nbsp;LLM&nbsp;provider</span>
+          </h1>
+          <p class="mt-5 text-lg md:text-xl text-[var(--color-fg-muted)] leading-relaxed font-medium max-w-xl">
+            Run your own agents — on Cloudflare or with
+            <code class="font-mono text-base md:text-lg">docker compose up</code>.
+          </p>
+          <p class="mt-3 text-base md:text-lg text-[var(--color-fg-muted)] leading-relaxed max-w-xl">
+            An open-source meta-harness: the platform owns state, security, and sandboxes;
+            a harness owns the model loop. Durable sessions, vault-backed credentials, MCP,
+            and Bring Your Own Key for models and compute.
+          </p>
 
-      <div class="typewriter-line mb-6" data-rotate='["run --sandbox=any","deploy claude-agent-sdk","pause &amp; resume fleet","bridge grok · openai","ship on Cloudflare ☁"]'>
-        <span class="prompt">oma@fleet:~$</span>
-        <span class="tw-static">./</span><span class="tw-rot"></span><span class="typewriter-caret"></span>
-      </div>
+          <div class="mt-8 flex items-center gap-3 flex-wrap">
+            <a
+              href="https://github.com/duyet/oma"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="px-5 py-3 rounded-md bg-[var(--color-fg)] text-[var(--color-bg)] font-medium font-display no-underline hover:no-underline"
+              >★ Star on GitHub</a
+            >
+            <a
+              href="https://app.oma.duyet.net/login"
+              class="px-5 py-3 rounded-md border border-[var(--color-border-strong)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg-surface)]"
+              >Try the hosted version</a
+            >
+            <a
+              href="https://docs.oma.duyet.net"
+              class="px-5 py-3 rounded-md border border-[var(--color-border)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg-surface)]"
+              >Read the docs</a
+            >
+          </div>
 
-      <p class="text-sm font-mono uppercase tracking-wider text-[var(--color-fg-subtle)] mb-5">
-        Apache 2.0 · Cloudflare-native · Self-hostable · BYOK
-      </p>
-      <h1 class="font-display text-4xl sm:text-5xl md:text-[3.25rem] font-bold tracking-tight leading-[1.1] max-w-4xl mx-auto">
-        oma — the self-hosted agent platform for any LLM provider
-      </h1>
-      <p class="mt-5 text-lg md:text-xl text-[var(--color-fg-muted)] max-w-2xl mx-auto leading-relaxed font-medium">
-        Run your own agents — on Cloudflare or with
-        <code class="font-mono text-base md:text-lg">docker compose up</code>
-      </p>
-      <p class="mt-4 text-base md:text-lg text-[var(--color-fg-muted)] max-w-2xl mx-auto leading-relaxed">
-        An open-source meta-harness: the platform owns state, security, and sandboxes;
-        a harness owns the model loop. Durable sessions, vault-backed credentials, MCP,
-        and Bring Your Own Key for models and compute.
-      </p>
-      <div class="mt-9 flex items-center justify-center gap-3 flex-wrap">
-        <a
-          href="https://github.com/duyet/oma"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="px-5 py-3 rounded-md bg-[var(--color-fg)] text-[var(--color-bg)] font-medium font-display no-underline hover:no-underline"
-          >★ Star on GitHub</a
-        >
-        <a
-          href="https://app.oma.duyet.net/login"
-          class="px-5 py-3 rounded-md border border-[var(--color-border-strong)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg-surface)]"
-          >Try the hosted version</a
-        >
-        <a
-          href="https://docs.oma.duyet.net"
-          class="px-5 py-3 rounded-md border border-[var(--color-border)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg-surface)]"
-          >Read the docs</a
-        >
+          <!-- Proof chips: compact, scannable differentiators under the CTAs. -->
+          <ul class="hero-chips mt-7">
+            <li>Apache&nbsp;2.0</li>
+            <li>Cloudflare-native</li>
+            <li>Self-hostable</li>
+            <li>Bring&nbsp;Your&nbsp;Own&nbsp;Key</li>
+          </ul>
+        </div>
+
+        <!-- Right: framed terminal housing the interactive architecture diagram.
+             The dotted halo frames it from behind; CRT scanlines sit on top. -->
+        <div class="hero-visual">
+          <figure class="terminal-frame">
+            <figcaption class="terminal-bar">
+              <span class="terminal-dot" aria-hidden="true"></span>
+              <span class="terminal-dot" aria-hidden="true"></span>
+              <span class="terminal-dot" aria-hidden="true"></span>
+              <span class="terminal-title">oma://architecture — request trace</span>
+            </figcaption>
+            <div class="terminal-prompt select-none" aria-hidden="true">
+              <span class="typewriter-line" data-rotate='["run --sandbox=any","deploy claude-agent-sdk","pause &amp; resume fleet","bridge grok · openai","ship on Cloudflare ☁"]'>
+                <span class="prompt">oma@fleet:~$</span>
+                <span class="tw-static">./</span><span class="tw-rot"></span><span class="typewriter-caret"></span>
+              </span>
+            </div>
+            <div class="crt terminal-body select-none" aria-hidden="true">
+              <pre class="ascii-art ascii-halo">{heroHalo}</pre>
+              <ArchDiagram client:visible />
+            </div>
+          </figure>
+        </div>
       </div>
     </div>
   </section>
@@ -595,16 +615,6 @@ function pixelRects(map: string[]) {
       </div>
     </div>
   </section>
-
-  <!-- ASCII divider -->
-  <AsciiDivider
-    art={`+------------------------------------------------------------------+
-|  run  any  sandbox   ·   pause  to  save  cost   ·  ship  fleet  |
-|  claude-agent-sdk  ·  grok  ·  openai-compat  ·  byok          |
-+------------------------------------------------------------------+`}
-    caption="system ready — awaiting your agent"
-    class="border-t border-[var(--color-border)]"
-  />
 
   <!-- Mascot + Get started -->
   <section class="border-t border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal id="get-started">

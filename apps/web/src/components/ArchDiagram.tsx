@@ -70,7 +70,7 @@ const NODES: Node[] = [
   {
     id: "sandbox",
     label: "Sandbox",
-    sub: "CF · Docker · subprocess",
+    sub: "CF · Docker · k8s · subprocess",
     accent: "blue",
     x: 448,
     y: 150,
@@ -246,6 +246,21 @@ export default function ArchDiagram() {
               <text className="ad-sub" x={n.x + n.w / 2} y={n.y + n.h / 2 + 13} textAnchor="middle">
                 {n.sub}
               </text>
+              {/* Brand mark (bracket+dot) drawn inline so it's theme-aware —
+                  the brackets + dot inherit the node's accent via currentColor. */}
+              {n.id === "client" && (
+                <g className="ad-brand" transform={`translate(${n.x + n.w / 2}, ${n.y - 14})`}>
+                  <path
+                    className="ad-brand-bracket"
+                    d="M-11 -7 H-16 V7 H-11 M11 -7 H16 V7 H11"
+                    fill="none"
+                    strokeWidth={2.4}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <circle className="ad-brand-dot" cx="0" cy="0" r="3.4" />
+                </g>
+              )}
             </g>
           );
         })}

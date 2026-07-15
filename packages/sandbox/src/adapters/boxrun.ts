@@ -258,6 +258,20 @@ export class BoxRunSandbox implements SandboxExecutor {
 
   private pendingCaUpload: { hostPath: string; guestPath: string } | null = null;
 
+  async ping(): Promise<{ status: "ok" | "error"; latencyMs: number; details?: string }> {
+    const start = performance.now();
+    try {
+      await this.exec("true", 10_000);
+      return { status: "ok", latencyMs: Math.round(performance.now() - start) };
+    } catch (err) {
+      return {
+        status: "error",
+        latencyMs: Math.round(performance.now() - start),
+        details: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
   async destroy(): Promise<void> {
     // Idempotent — DELETE on a never-created box returns 404 which we
     // treat as already-gone. Best-effort: log warnings, don't throw.

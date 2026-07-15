@@ -131,6 +131,14 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     cfCompatible: false,
   },
   {
+    type: "k8s-bridge",
+    label: "K8s Bridge (remote)",
+    description: "Remote sandbox via HTTP bridge to a Kubernetes cluster.",
+    envKeys: ["K8S_BRIDGE_URL"],
+    factoryPath: "@duyet/oma-sandbox/adapters/k8s-bridge",
+    cfCompatible: true,
+  },
+  {
     type: "cloud",
     label: "Cloudflare Sandbox",
     description: "Managed sandbox — uses Cloudflare Containers.",
@@ -239,6 +247,9 @@ export function providerConfigToEnv(config: SandboxProviderConfig): Record<strin
       case "boxrun":
         env.BOXRUN_TOKEN = config.apiKey;
         break;
+      case "k8s-bridge":
+        env.K8S_BRIDGE_TOKEN = config.apiKey;
+        break;
     }
   }
 
@@ -252,6 +263,9 @@ export function providerConfigToEnv(config: SandboxProviderConfig): Record<strin
         break;
       case "boxrun":
         env.BOXRUN_URL = config.baseURL;
+        break;
+      case "k8s-bridge":
+        env.K8S_BRIDGE_URL = config.baseURL;
         break;
     }
   }

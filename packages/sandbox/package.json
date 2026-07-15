@@ -10,6 +10,7 @@
     "./adapters/daytona": "./src/adapters/daytona.ts",
     "./adapters/litebox": "./src/adapters/litebox.ts",
     "./adapters/boxrun": "./src/adapters/boxrun.ts",
+    "./adapters/k8s-bridge": "./src/adapters/k8s-bridge.ts",
     "./adapters/kubernetes": "./src/adapters/kubernetes.ts",
     "./orchestrator": "./src/orchestrator.ts"
   },
