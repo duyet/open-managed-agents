@@ -49,6 +49,7 @@ const CONSOLE_PATH_PREFIXES = [
 ];
 
 const LEGACY_MARKETING_REDIRECTS: Record<string, string> = {
+  "/claude-tag-alternative/": "/open-tag/",
   "/slack-ai-agent/": "/self-hosted-claude-tag/",
   "/blog/claude-tag-alternative-open-source-slack-ai-teammate/":
     "/blog/claude-tag-open-source-alternative/",

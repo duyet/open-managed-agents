@@ -261,35 +261,17 @@ function pixelRects(map: string[]) {
           <h1 class="font-display text-4xl sm:text-5xl md:text-[3.1rem] lg:text-[3.4rem] font-bold tracking-tight leading-[1.07]">
             The self-hosted agent platform for <span class="hero-accent">any&nbsp;LLM&nbsp;provider</span>
           </h1>
-          <p class="mt-5 text-lg md:text-xl text-[var(--color-fg-muted)] leading-relaxed font-medium max-w-xl">
+          <p class="mt-5 text-lg md:text-xl text-[var(--color-fg-muted)] leading-relaxed font-medium max-w-xl line-clamp-2">
             Run your own agents — on Cloudflare or with
             <code class="font-mono text-base md:text-lg">docker compose up</code>.
           </p>
-          <p class="mt-3 text-base md:text-lg text-[var(--color-fg-muted)] leading-relaxed max-w-xl">
+          <p
+            class="mt-3 text-base md:text-lg text-[var(--color-fg-muted)] leading-relaxed max-w-xl line-clamp-2"
+          >
             An open-source meta-harness: the platform owns state, security, and sandboxes;
             a harness owns the model loop. Durable sessions, vault-backed credentials, MCP,
             and Bring Your Own Key for models and compute.
           </p>
-
-          <div class="mt-8 flex items-center gap-3 flex-wrap">
-            <a
-              href="https://github.com/duyet/oma"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="px-5 py-3 rounded-md bg-[var(--color-fg)] text-[var(--color-bg)] font-medium font-display no-underline hover:no-underline"
-              >★ Star on GitHub</a
-            >
-            <a
-              href="https://app.oma.duyet.net/login"
-              class="px-5 py-3 rounded-md border border-[var(--color-border-strong)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg-surface)]"
-              >Try the hosted version</a
-            >
-            <a
-              href="https://docs.oma.duyet.net"
-              class="px-5 py-3 rounded-md border border-[var(--color-border)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg-surface)]"
-              >Read the docs</a
-            >
-          </div>
 
           <!-- Proof chips: compact, scannable differentiators under the CTAs. -->
           <ul class="hero-chips mt-7">

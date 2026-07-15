@@ -2,7 +2,7 @@
 title: "How to Self-Host an Agent Platform on Cloudflare Workers"
 description: "End-to-end guide to deploying Open Managed Agents on Cloudflare. Workers + Durable Objects + Containers + R2. Wrangler config, secrets, custom domains, and what to do when each piece breaks."
 publishedAt: 2026-05-11
-author: openma
+author: OMA
 tags: ["self-host", "cloudflare", "workers", "durable-objects", "guide"]
 ---
 

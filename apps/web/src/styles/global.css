@@ -332,6 +332,29 @@ input:focus-visible,
   border-radius: 0.5rem;
   margin: 1.5rem 0;
 }
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+.prose th, .prose td {
+  border: 1px solid var(--color-border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+.prose th {
+  background: var(--color-bg-surface);
+  font-weight: 600;
+  font-family: var(--font-display);
+}
+.prose tr:nth-child(even) td {
+  background: var(--color-bg-surface);
+}
+.prose thead {
+  border-bottom: 2px solid var(--color-border-strong);
+}
 
 /* =========================================================================
    ASCII + pixel-art marketing treatment

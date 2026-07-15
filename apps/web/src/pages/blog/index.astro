@@ -5,50 +5,230 @@ import { getCollection } from "astro:content";
 const posts = (await getCollection("blog", ({ data }) => !data.draft))
   .sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf());
 
+const [featured, ...rest] = posts;
+
 function formatDate(d: Date) {
   return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function readingTime(body: string): string {
+  const words = body?.split(/\s+/).length ?? 0;
+  const min = Math.max(1, Math.ceil(words / 200));
+  return `${min} min read`;
 }
 ---
 
 <Base
   title="Blog"
-  description="oma blog — posts about agents, infrastructure, and the people building them."
+  description="Open Managed Agents blog — posts about agents, infrastructure, and the people building them."
   canonical="/blog/"
 >
-  <div class="max-w-3xl mx-auto px-4 py-12">
-    <h1 class="font-display text-4xl font-bold mb-2">Blog</h1>
-    <p class="text-[var(--color-fg-muted)] mb-12">
-      Notes from building oma. Agent design, integrations, billing, the
-      occasional postmortem.
-    </p>
+  <div class="max-w-5xl mx-auto px-4 py-12">
+    <div class="mb-10">
+      <h1 class="font-display text-4xl font-bold mb-2">Blog</h1>
+      <p class="text-lg text-[var(--color-fg-muted)] max-w-2xl">
+        Notes from building OMA. Agent design, integrations, deployments,
+        architecture, and the occasional postmortem.
+      </p>
+    </div>
 
     {posts.length === 0 && (
       <p class="text-[var(--color-fg-muted)]">No posts yet — first one's coming soon.</p>
     )}
 
-    <ul class="space-y-8">
-      {posts.map((post) => (
-        <li>
-          <article>
-            <div class="text-xs text-[var(--color-fg-subtle)] uppercase tracking-wider mb-1">
-              {formatDate(post.data.publishedAt)}
-              {post.data.tags.length > 0 && (
-                <span class="ml-2">
-                  {post.data.tags.map((t) => (
-                    <span class="ml-1 inline-block px-1.5 py-0.5 rounded bg-[var(--color-bg-surface)] text-[var(--color-fg-muted)] normal-case">
-                      {t}
-                    </span>
-                  ))}
-                </span>
-              )}
-            </div>
-            <h2 class="font-display text-2xl font-semibold mb-1">
-              <a href={`/blog/${post.id}/`} class="text-[var(--color-fg)]">{post.data.title}</a>
-            </h2>
-            <p class="text-[var(--color-fg-muted)]">{post.data.description}</p>
+    {featured && (
+      <article class="bento-card bento-featured mb-8">
+        <a href={`/blog/${featured.id}/`} class="bento-link">
+          <div class="bento-meta">
+            <time datetime={featured.data.publishedAt.toISOString()}>
+              {formatDate(featured.data.publishedAt)}
+            </time>
+            {featured.data.tags.length > 0 && (
+              <span class="bento-tags">
+                {featured.data.tags.map((t) => (
+                  <span class="bento-tag">{t}</span>
+                ))}
+              </span>
+            )}
+          </div>
+          <h2 class="bento-title bento-title-lg">{featured.data.title}</h2>
+          <p class="bento-desc">{featured.data.description}</p>
+          <span class="bento-read">{readingTime(featured.body ?? "")}</span>
+        </a>
+      </article>
+    )}
+
+    {rest.length > 0 && (
+      <div class="bento-grid">
+        {rest.map((post) => (
+          <article class="bento-card">
+            <a href={`/blog/${post.id}/`} class="bento-link">
+              <div class="bento-meta">
+                <time datetime={post.data.publishedAt.toISOString()}>
+                  {formatDate(post.data.publishedAt)}
+                </time>
+                {post.data.tags.length > 0 && (
+                  <span class="bento-tags">
+                    {post.data.tags.slice(0, 2).map((t) => (
+                      <span class="bento-tag">{t}</span>
+                    ))}
+                  </span>
+                )}
+              </div>
+              <h2 class="bento-title">{post.data.title}</h2>
+              <p class="bento-desc line-clamp-2">{post.data.description}</p>
+              <span class="bento-read">{readingTime(post.body ?? "")}</span>
+            </a>
           </article>
-        </li>
-      ))}
-    </ul>
+        ))}
+      </div>
+    )}
   </div>
 </Base>
+
+<style>
+  .bento-grid {
+    display: grid;
+    gap: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .bento-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .bento-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .bento-card {
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    background: var(--color-bg);
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .bento-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 0.75rem;
+    background: radial-gradient(
+      120% 80% at 50% 0%,
+      color-mix(in srgb, var(--color-brand) 6%, transparent),
+      transparent
+    );
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+
+  .bento-card:hover {
+    border-color: var(--color-border-strong);
+    box-shadow: 0 2px 12px color-mix(in srgb, var(--color-brand) 8%, transparent);
+    transform: translateY(-2px);
+  }
+
+  .bento-card:hover::before {
+    opacity: 1;
+  }
+
+  .bento-featured {
+    grid-column: 1 / -1;
+  }
+
+  @media (min-width: 640px) {
+    .bento-featured {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .bento-featured .bento-link {
+    padding: 1.75rem;
+  }
+
+  @media (min-width: 640px) {
+    .bento-featured .bento-link {
+      padding: 2rem;
+    }
+  }
+
+  .bento-link {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.25rem;
+    text-decoration: none;
+    color: inherit;
+    height: 100%;
+  }
+
+  .bento-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    font-size: 0.75rem;
+    color: var(--color-fg-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-family: var(--font-mono);
+  }
+
+  .bento-tags {
+    display: flex;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+  }
+
+  .bento-tag {
+    display: inline-block;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: var(--color-bg-surface);
+    color: var(--color-fg-muted);
+    font-size: 0.65rem;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .bento-title {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 650;
+    line-height: 1.3;
+    color: var(--color-fg);
+    margin: 0;
+  }
+
+  .bento-title-lg {
+    font-size: 1.5rem;
+  }
+
+  @media (min-width: 640px) {
+    .bento-title-lg {
+      font-size: 1.75rem;
+    }
+  }
+
+  .bento-desc {
+    font-size: 0.875rem;
+    color: var(--color-fg-muted);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .bento-read {
+    margin-top: auto;
+    font-size: 0.75rem;
+    color: var(--color-fg-subtle);
+    font-family: var(--font-mono);
+  }
+</style>

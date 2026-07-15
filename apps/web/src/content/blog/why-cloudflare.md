@@ -2,11 +2,11 @@
 title: "Why we run on Cloudflare (and how to swap it out)"
 description: "Workers + Containers + D1 + R2 = an agent platform with very little ops. The substitution guide for anyone who can't be on Cloudflare."
 publishedAt: 2026-05-09
-author: openma
+author: OMA
 tags: ["architecture", "cloudflare"]
 ---
 
-Default openma deployment is Cloudflare. We pick this stack because it
+Default OMA deployment is Cloudflare. We pick this stack because it
 gets us to "running" in minutes, not weeks:
 
 - **Workers** for the API + Console (no servers to patch)
@@ -26,7 +26,7 @@ Some teams can't, for legit reasons:
 - Cost ceiling on a specific workload
 - Existing infra investment (already on AWS, want to stay)
 
-For them: openma's `packages/services` is a backend abstraction layer. Each
+For them: OMA's `packages/services` is a backend abstraction layer. Each
 "store" — `agents`, `sessions`, `vaults`, `memory`, etc. — has a `cf`
 adapter (D1) and a `pg` adapter (Postgres). Choice is per-store via the
 `STORE_BACKENDS` env var:

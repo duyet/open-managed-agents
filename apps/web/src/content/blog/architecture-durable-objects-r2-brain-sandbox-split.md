@@ -2,7 +2,7 @@
 title: "The Architecture of Open Managed Agents: Durable Objects, R2, and the Brain/Sandbox Split"
 description: "How Open Managed Agents is structured under the hood. Durable Objects with embedded SQLite as the per-session log, Cloudflare Containers as the sandbox, R2 for blobs, and the deliberate split between the brain (harness) and the body (sandbox)."
 publishedAt: 2026-05-12
-author: openma
+author: OMA
 tags: ["architecture", "cloudflare", "durable-objects", "design"]
 ---
 

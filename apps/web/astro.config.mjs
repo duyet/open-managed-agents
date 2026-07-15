@@ -22,7 +22,7 @@ export default defineConfig({
           item.priority = 1.0;
           item.changefreq = "weekly";
         } else if (
-          url.pathname === "/claude-tag-alternative/" ||
+          url.pathname === "/open-tag/" ||
           url.pathname === "/claude-tag-open-source/" ||
           url.pathname === "/self-hosted-claude-tag/"
         ) {

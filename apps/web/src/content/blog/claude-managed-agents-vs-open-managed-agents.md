@@ -3,7 +3,7 @@ title: "Claude Managed Agents vs Open Managed Agents: A Technical Comparison"
 description: "Side-by-side technical comparison of Claude Managed Agents and the open-source Open Managed Agents project. API surface, runtime model, sandbox, billing, and where each one actually fits."
 publishedAt: 2026-05-09
 updatedAt: 2026-05-26
-author: openma
+author: OMA
 tags: ["comparison", "claude", "managed-agents", "architecture"]
 ---
 

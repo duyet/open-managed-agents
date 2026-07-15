@@ -24,7 +24,7 @@ Use Open Managed Agents when you want:
 - An open-source, self-hosted Claude Tag-style workflow with BYOK model credentials.
 - MCP, private tools, encrypted vaults, and durable sessions under your own deployment boundary.
 
-Compare: [Claude Tag alternative](https://oma.duyet.net/claude-tag-alternative/) · [Open-source Claude Tag](https://oma.duyet.net/claude-tag-open-source/) · [Self-hosted Claude Tag](https://oma.duyet.net/self-hosted-claude-tag/)
+Compare: [Open Tag](https://oma.duyet.net/open-tag/) · [Open-source Claude Tag](https://oma.duyet.net/claude-tag-open-source/) · [Self-hosted Claude Tag](https://oma.duyet.net/self-hosted-claude-tag/)
 
 ---
 
