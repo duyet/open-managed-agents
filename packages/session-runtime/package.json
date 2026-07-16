@@ -17,6 +17,7 @@
   "dependencies": {
     "@duyet/oma-event-log": "workspace:*",
     "@duyet/oma-sandbox": "workspace:*",
+    "@duyet/oma-webhooks": "workspace:*",
     "@duyet/oma-shared": "workspace:*",
     "@duyet/oma-sql-client": "workspace:*",
     "ai": "^6.0.158",

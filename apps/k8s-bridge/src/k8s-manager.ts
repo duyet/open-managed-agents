@@ -1,0 +1,491 @@
+interface KubernetesSandboxOptions {
+  sessionId: string;
+  namespace?: string;
+  image?: string;
+  command?: string[];
+  runtimeClassName?: string;
+  serviceAccountName?: string;
+  cpu?: string;
+  memory?: string;
+  readyTimeoutMs?: number;
+  defaultTimeoutMs?: number;
+  memoryBucket?: {
+    endpoint: string;
+    accessKey: string;
+    secretKey: string;
+    bucketName: string;
+  };
+  logger?: { warn: (msg: string, ctx?: unknown) => void; log: (msg: string) => void };
+}
+
+interface KubernetesSandboxExecutorLike {
+  exec(command: string, timeout?: number): Promise<string>;
+  readFile(path: string): Promise<string>;
+  writeFile(path: string, content: string): Promise<string>;
+  setEnvVars(envVars: Record<string, string>): Promise<void>;
+  destroy(): Promise<void>;
+}
+
+interface ManagedBox {
+  executor: KubernetesSandboxExecutorLike;
+  sessionId: string;
+  createdAt: Date;
+}
+
+// ─── Cluster info types ─────────────────────────────────────────────
+
+export interface NodeInfo {
+  name: string;
+  status: "Ready" | "NotReady" | "Unknown";
+  cpuCapacity: string;
+  cpuAllocatable: string;
+  memoryCapacity: string;
+  memoryAllocatable: string;
+  podCapacity: number;
+  architecture: string;
+  osImage: string;
+  kernelVersion: string;
+  taints: Array<{ key: string; value?: string; effect: string }>;
+  labels: Record<string, string>;
+}
+
+export interface ClusterInfo {
+  k8sVersion: string;
+  platform: string;
+  nodeCount: number;
+  totalCpu: string;
+  totalMemory: string;
+  allocatableCpu: string;
+  allocatableMemory: string;
+  maxPods: number;
+}
+
+export interface SandboxPodInfo {
+  id: string;
+  boxId: string | null;
+  sessionId: string | null;
+  namespace: string;
+  podName: string;
+  nodeName: string;
+  status: "Pending" | "Running" | "Succeeded" | "Failed" | "Unknown";
+  phase: string;
+  containerStatuses: Array<{
+    name: string;
+    ready: boolean;
+    restartCount: number;
+    state: string;
+  }>;
+  cpuRequest: string;
+  memoryRequest: string;
+  createdAt: string;
+  durationSeconds: number;
+  labels: Record<string, string>;
+}
+
+export interface PodMetrics {
+  podName: string;
+  namespace: string;
+  cpuUsage: string;
+  memoryUsage: string;
+  timestamp: string;
+  containers: Array<{
+    name: string;
+    cpuUsage: string;
+    memoryUsage: string;
+  }>;
+}
+
+// ─── K8s API client types ───────────────────────────────────────────
+
+interface K8sClientModule {
+  KubeConfig: new () => {
+    loadFromCluster(): void;
+    loadFromDefault(): void;
+    makeApiClient<T>(ctor: new (...args: never[]) => T): T;
+  };
+  CoreV1Api: new (...args: never[]) => CoreV1ApiInstance;
+}
+
+type CoreV1ApiInstance = {
+  getAPIVersions(): Promise<{ body?: { versions?: string[]; serverAddressByClientCIDRs?: unknown[] } } | unknown>;
+  listNode(): Promise<{ body?: { items?: unknown[] } } | unknown>;
+  listNamespacedPod(namespace: string): Promise<{ body?: { items?: unknown[] } } | unknown>;
+  readNamespacedPod(name: string, namespace: string): Promise<{ body?: unknown } | unknown>;
+  readNamespacedPodLog(name: string, namespace: string): Promise<{ body?: string } | unknown>;
+};
+
+// ─── K8sManager ─────────────────────────────────────────────────────
+
+export class K8sManager {
+  private boxes = new Map<string, ManagedBox>();
+  private clientPromise: Promise<CoreV1ApiInstance> | null = null;
+  private namespace: string;
+
+  constructor(namespace?: string) {
+    this.namespace = namespace ?? process.env.OMA_K8S_NAMESPACE ?? "default";
+  }
+
+  getNamespace(): string {
+    return this.namespace;
+  }
+
+  // ── Private helpers ──────────────────────────────────────────────
+
+  private async getCoreApi(): Promise<CoreV1ApiInstance> {
+    if (!this.clientPromise) this.clientPromise = this.loadCoreApi();
+    return this.clientPromise;
+  }
+
+  private async loadCoreApi(): Promise<CoreV1ApiInstance> {
+    const mod = (await import(/* @vite-ignore */ "@kubernetes/client-node" as string)) as unknown as K8sClientModule;
+    const kc = new mod.KubeConfig();
+    if (process.env.KUBERNETES_SERVICE_HOST) {
+      kc.loadFromCluster();
+    } else {
+      kc.loadFromDefault();
+    }
+    return kc.makeApiClient(mod.CoreV1Api);
+  }
+
+  private async listNodesRaw(): Promise<unknown[]> {
+    const coreApi = await this.getCoreApi();
+    const res = await coreApi.listNode();
+    const body = unwrapBody<{ items?: unknown[] }>(res);
+    return body?.items ?? [];
+  }
+
+  private parseResourceQuantity(val: string | undefined | null): number {
+    if (!val) return 0;
+    val = val.trim();
+    // Convert K8s CPU/memory quantities to millicores/MiB
+    const cpuMatch = val.match(/^(\d+(?:\.\d+)?)(m?)$/);
+    if (cpuMatch) {
+      return cpuMatch[2] === "m" ? parseFloat(cpuMatch[1]) : parseFloat(cpuMatch[1]) * 1000;
+    }
+    const memMatch = val.match(/^(\d+)(Ki|Mi|Gi|Ti|k|M|G|T)?$/);
+    if (memMatch) {
+      const num = parseInt(memMatch[1], 10);
+      const unit = memMatch[2] ?? "";
+      switch (unit) {
+        case "Ki": return Math.round(num / 1024);
+        case "Mi": return num;
+        case "Gi": return num * 1024;
+        case "Ti": return num * 1024 * 1024;
+        case "k": return Math.round(num / 1000);
+        case "M": return num;
+        case "G": return num * 1000;
+        case "T": return num * 1000 * 1000;
+        default: return num;
+      }
+    }
+    return 0;
+  }
+
+  private formatMillicores(mcpu: number): string {
+    if (mcpu >= 1000) return `${(mcpu / 1000).toFixed(2)}`;
+    return `${mcpu}m`;
+  }
+
+  private formatMemoryMi(mib: number): string {
+    if (mib >= 1024) return `${(mib / 1024).toFixed(2)}`;
+    return `${Math.round(mib)}Mi`;
+  }
+
+  // ── Cluster info ─────────────────────────────────────────────────
+
+  async getK8sVersion(): Promise<string> {
+    try {
+      const coreApi = await this.getCoreApi();
+      const res = await coreApi.getAPIVersions();
+      const body = unwrapBody<{ versions?: string[] }>(res);
+      return body?.versions?.join(", ") ?? "unknown";
+    } catch {
+      return "unknown";
+    }
+  }
+
+  async getNodeCount(): Promise<number> {
+    try {
+      return (await this.listNodesRaw()).length;
+    } catch {
+      return 0;
+    }
+  }
+
+  async getClusterInfo(): Promise<ClusterInfo> {
+    const nodes = await this.listNodesRaw();
+    let totalCpuMcpu = 0;
+    let totalMemMi = 0;
+    let allocCpuMcpu = 0;
+    let allocMemMi = 0;
+    let maxPods = 0;
+
+    for (const raw of nodes) {
+      const node = raw as {
+        status?: { capacity?: Record<string, string>; allocatable?: Record<string, string> };
+      };
+      if (node.status?.capacity) {
+        totalCpuMcpu += this.parseResourceQuantity(node.status.capacity.cpu);
+        totalMemMi += this.parseResourceQuantity(node.status.capacity.memory);
+      }
+      if (node.status?.allocatable) {
+        allocCpuMcpu += this.parseResourceQuantity(node.status.allocatable.cpu);
+        allocMemMi += this.parseResourceQuantity(node.status.allocatable.memory);
+      }
+      maxPods += this.parseResourceQuantity(
+        (node as { status?: { capacity?: Record<string, string> } })?.status?.capacity?.["pods"] ?? "0",
+      );
+    }
+
+    const version = await this.getK8sVersion();
+
+    return {
+      k8sVersion: version,
+      platform: process.arch,
+      nodeCount: nodes.length,
+      totalCpu: this.formatMillicores(totalCpuMcpu),
+      totalMemory: this.formatMemoryMi(totalMemMi),
+      allocatableCpu: this.formatMillicores(allocCpuMcpu),
+      allocatableMemory: this.formatMemoryMi(allocMemMi),
+      maxPods,
+    };
+  }
+
+  async getNodes(): Promise<NodeInfo[]> {
+    const nodes = await this.listNodesRaw();
+    return nodes.map((raw) => {
+      const node = raw as {
+        metadata?: { name?: string; labels?: Record<string, string> };
+        spec?: { taints?: Array<{ key: string; value?: string; effect: string }> };
+        status?: {
+          capacity?: Record<string, string>;
+          allocatable?: Record<string, string>;
+          conditions?: Array<{ type: string; status: string }>;
+          nodeInfo?: { architecture?: string; osImage?: string; kernelVersion?: string };
+        };
+      };
+
+      const readyCondition = node.status?.conditions?.find((c) => c.type === "Ready");
+      const status: "Ready" | "NotReady" | "Unknown" =
+        readyCondition?.status === "True" ? "Ready"
+        : readyCondition?.status === "False" ? "NotReady"
+        : "Unknown";
+
+      return {
+        name: node.metadata?.name ?? "unknown",
+        status,
+        cpuCapacity: node.status?.capacity?.cpu ?? "0",
+        cpuAllocatable: node.status?.allocatable?.cpu ?? "0",
+        memoryCapacity: node.status?.capacity?.memory ?? "0",
+        memoryAllocatable: node.status?.allocatable?.memory ?? "0",
+        podCapacity: this.parseResourceQuantity(node.status?.capacity?.["pods"] ?? "0"),
+        architecture: node.status?.nodeInfo?.architecture ?? "",
+        osImage: node.status?.nodeInfo?.osImage ?? "",
+        kernelVersion: node.status?.nodeInfo?.kernelVersion ?? "",
+        taints: node.spec?.taints ?? [],
+        labels: node.metadata?.labels ?? {},
+      };
+    });
+  }
+
+  // ── Sandbox discovery ────────────────────────────────────────────
+
+  async discoverSandboxes(): Promise<SandboxPodInfo[]> {
+    try {
+      const coreApi = await this.getCoreApi();
+      const res = await coreApi.listNamespacedPod(this.namespace);
+      const body = unwrapBody<{ items?: unknown[] }>(res);
+      const pods = body?.items ?? [];
+
+      return pods.map((raw) => {
+        const pod = raw as {
+          metadata?: {
+            name?: string;
+            namespace?: string;
+            labels?: Record<string, string>;
+            creationTimestamp?: string;
+          };
+          spec?: {
+            nodeName?: string;
+            containers?: Array<{
+              name?: string;
+              resources?: { requests?: { cpu?: string; memory?: string } };
+            }>;
+          };
+          status?: {
+            phase?: string;
+            containerStatuses?: Array<{
+              name?: string;
+              ready?: boolean;
+              restartCount?: number;
+              state?: Record<string, unknown>;
+            }>;
+          };
+        };
+
+        const podName = pod.metadata?.name ?? "unknown";
+        // Box managed by this bridge has ID in label; fall back to discovering from name
+        const isManaged = pod.metadata?.labels?.["oma.dev/managed"] === "true" ||
+                          pod.metadata?.labels?.["app.kubernetes.io/managed-by"] === "oma-k8s-bridge" ||
+                          podName.startsWith("box-");
+        const boxId = isManaged ? this.findBoxIdByPodName(podName) : null;
+
+        const containerResources = pod.spec?.containers?.[0]?.resources?.requests;
+        const createdAt = pod.metadata?.creationTimestamp ?? new Date().toISOString();
+        const durationSeconds = createdAt
+          ? Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000)
+          : 0;
+
+        const containerStatuses = (pod.status?.containerStatuses ?? []).map((cs) => {
+          const stateKeys = cs.state ? Object.keys(cs.state) : ["unknown"];
+          return {
+            name: cs.name ?? "",
+            ready: cs.ready ?? false,
+            restartCount: cs.restartCount ?? 0,
+            state: stateKeys[0] ?? "unknown",
+          };
+        });
+
+        return {
+          id: podName,
+          boxId,
+          sessionId: isManaged ? pod.metadata?.labels?.["oma.dev/session-id"] ?? boxId : null,
+          namespace: pod.metadata?.namespace ?? this.namespace,
+          podName,
+          nodeName: pod.spec?.nodeName ?? "unknown",
+          status: pod.status?.phase as SandboxPodInfo["status"] ?? "Unknown",
+          phase: pod.status?.phase ?? "Unknown",
+          containerStatuses,
+          cpuRequest: containerResources?.cpu ?? "0",
+          memoryRequest: containerResources?.memory ?? "0",
+          createdAt: pod.metadata?.creationTimestamp ?? new Date().toISOString(),
+          durationSeconds,
+          labels: pod.metadata?.labels ?? {},
+        };
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  async getSandboxLogs(podName: string, tailLines?: number): Promise<string> {
+    try {
+      const coreApi = await this.getCoreApi();
+      // The K8s client-node API signature for logs
+      const res = await (coreApi as unknown as {
+        readNamespacedPodLog(name: string, namespace: string, opts?: { tailLines?: number }): Promise<{ body?: string }>;
+      }).readNamespacedPodLog(podName, this.namespace, { tailLines });
+      const body = unwrapBody<string>(res);
+      return body ?? "";
+    } catch (err) {
+      return `Error fetching logs: ${(err as Error).message}`;
+    }
+  }
+
+  private findBoxIdByPodName(podName: string): string | null {
+    // Check if any managed box maps to this pod name
+    for (const [boxId, box] of this.boxes) {
+      if (box.sessionId && podName.includes(box.sessionId.replace(/[^a-zA-Z0-9-]/g, "-").slice(0, 40))) {
+        return boxId;
+      }
+    }
+    // Fallback: podName itself is the boxId
+    if (this.boxes.has(podName)) return podName;
+    return null;
+  }
+
+  // ── Box management ───────────────────────────────────────────────
+
+  async createBox(sessionId: string, options?: {
+    image?: string;
+    cpu?: string;
+    memory?: string;
+    runtimeClassName?: string;
+    serviceAccountName?: string;
+    namespace?: string;
+    readyTimeoutMs?: number;
+  }): Promise<string> {
+    const boxId = "box-" + sessionId.replace(/[^a-zA-Z0-9-]/g, "-").slice(0, 60);
+
+    const mod = await import("@duyet/oma-sandbox/adapters/kubernetes");
+    const executor: KubernetesSandboxExecutorLike = new mod.KubernetesSandboxExecutor({
+      sessionId,
+      namespace: options?.namespace ?? this.namespace,
+      image: options?.image ?? process.env.SANDBOX_IMAGE ?? "node:22-slim",
+      cpu: options?.cpu ?? process.env.OMA_K8S_CPU,
+      memory: options?.memory ?? process.env.OMA_K8S_MEMORY,
+      runtimeClassName: options?.runtimeClassName ?? process.env.OMA_K8S_RUNTIME_CLASS,
+      serviceAccountName: options?.serviceAccountName ?? process.env.OMA_K8S_SERVICE_ACCOUNT,
+      readyTimeoutMs: Number(options?.readyTimeoutMs ?? process.env.OMA_K8S_READY_TIMEOUT_MS ?? 120_000),
+    } as KubernetesSandboxOptions);
+
+    this.boxes.set(boxId, { executor, sessionId, createdAt: new Date() });
+    return boxId;
+  }
+
+  getBox(boxId: string): { executor: KubernetesSandboxExecutorLike; sessionId: string } | undefined {
+    const box = this.boxes.get(boxId);
+    if (!box) return undefined;
+    return { executor: box.executor, sessionId: box.sessionId };
+  }
+
+  async destroyBox(boxId: string): Promise<void> {
+    const box = this.boxes.get(boxId);
+    if (!box) return;
+    try {
+      await box.executor.destroy();
+    } finally {
+      this.boxes.delete(boxId);
+    }
+  }
+
+  activeCount(): number {
+    return this.boxes.size;
+  }
+
+  listBoxes(): Array<{ id: string; sessionId: string; createdAt: Date }> {
+    return Array.from(this.boxes.entries()).map(([id, box]) => ({
+      id,
+      sessionId: box.sessionId,
+      createdAt: box.createdAt,
+    }));
+  }
+
+  // ── Metrics ──────────────────────────────────────────────────────
+
+  async getPodMetrics(): Promise<PodMetrics[]> {
+    try {
+      // metrics.k8s.io is optional — if not available, return empty
+      const mod = await import("@kubernetes/client-node");
+      const kc = new mod.KubeConfig();
+      if (process.env.KUBERNETES_SERVICE_HOST) {
+        kc.loadFromCluster();
+      } else {
+        kc.loadFromDefault();
+      }
+      const metrics = new mod.Metrics(kc);
+      const res = await metrics.getPodMetrics(this.namespace);
+
+      return (res.items ?? []).map((pm) => ({
+        podName: pm.metadata?.name ?? "unknown",
+        namespace: this.namespace,
+        cpuUsage: pm.containers?.[0]?.usage?.cpu ?? "0",
+        memoryUsage: pm.containers?.[0]?.usage?.memory ?? "0",
+        timestamp: pm.timestamp ?? new Date().toISOString(),
+        containers: (pm.containers ?? []).map((c) => ({
+          name: c.name ?? "",
+          cpuUsage: c.usage?.cpu ?? "0",
+          memoryUsage: c.usage?.memory ?? "0",
+        })),
+      }));
+    } catch {
+      // metrics-server not installed, return empty
+      return [];
+    }
+  }
+}
+
+function unwrapBody<T>(res: { body?: unknown } | unknown): T {
+  if (res && typeof res === "object" && "body" in res) return (res as { body: T }).body;
+  return res as T;
+}

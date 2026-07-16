@@ -10,7 +10,13 @@
   "assets": {
     "binding": "ASSETS",
     "directory": "./dist",
-    "not_found_handling": "404-page"
+    "not_found_handling": "404-page",
+    // Run this worker BEFORE serving assets so the console-path 301
+    // redirects (/cli/login → app.oma.duyet.net/cli/login, etc.) and
+    // the http→https / www→apex redirects fire. Without this, the asset
+    // layer short-circuits /cli/login and returns a 404 before the
+    // worker ever runs (see worker.ts top comment).
+    "run_worker_first": true
   },
 
   // OSS template defaults to oma.duyet.net only — the hosted overlay

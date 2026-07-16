@@ -1,0 +1,81 @@
+---
+// "What is a Managed Agent?" section — 3 explainer cards + screenshot placeholder.
+---
+
+<section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="managed-agents">
+  <p class="text-center font-mono text-xs uppercase tracking-widest text-[var(--color-brand)] mb-3">
+    Overview
+  </p>
+  <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
+    What is a Managed Agent?
+  </h2>
+  <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed">
+    A managed agent is a stateful, sandboxed AI service with durable sessions,
+    built-in tools, secure credential injection, and crash recovery — deployable
+    as a backend, not a chat widget.
+  </p>
+
+  <div class="grid md:grid-cols-3 gap-5">
+    <article data-lift class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 hover:border-[var(--color-border-strong)]">
+      <div class="w-10 h-10 rounded-lg bg-[var(--color-brand-subtle)] flex items-center justify-center mb-3 shrink-0">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="2" width="20" height="8" rx="2" />
+          <rect x="2" y="14" width="20" height="8" rx="2" />
+          <circle cx="6" cy="6" r="1" />
+          <circle cx="6" cy="18" r="1" />
+        </svg>
+      </div>
+      <h3 class="font-display text-lg font-semibold mb-2 tracking-tight">A New Kind of Backend</h3>
+      <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
+        Agents aren&rsquo;t chatbots. They&rsquo;re stateful services with tools, sessions, crash recovery, and real integrations.
+      </p>
+    </article>
+
+    <article data-lift class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 hover:border-[var(--color-border-strong)]">
+      <div class="w-10 h-10 rounded-lg bg-[var(--color-blue-subtle)] flex items-center justify-center mb-3 shrink-0">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 18 22 12 16 6" />
+          <polyline points="8 6 2 12 8 18" />
+        </svg>
+      </div>
+      <h3 class="font-display text-lg font-semibold mb-2 tracking-tight">For Developers</h3>
+      <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
+        Write a harness in TypeScript. Deploy to Cloudflare or your own infra. The platform handles sandboxes, tools, memory, vaults, and integrations.
+      </p>
+    </article>
+
+    <article data-lift class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 hover:border-[var(--color-border-strong)]">
+      <div class="w-10 h-10 rounded-lg bg-[var(--color-green-subtle)] flex items-center justify-center mb-3 shrink-0">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      </div>
+      <h3 class="font-display text-lg font-semibold mb-2 tracking-tight">For Teams</h3>
+      <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
+        Multi-agent delegation, Linear/GitHub/Slack integrations, OAuth, audit trails, per-tenant model cards. Built for collaboration.
+      </p>
+    </article>
+  </div>
+
+  <!-- Screenshot placeholder -->
+  <div class="relative mt-12 rounded-xl border-2 border-dashed border-[var(--color-border-strong)] bg-[var(--color-bg-surface)] overflow-hidden">
+    <div class="flex items-center gap-1.5 px-4 py-2.5 border-b border-[var(--color-border)]">
+      <span class="w-3 h-3 rounded-full bg-[#d97757]"></span>
+      <span class="w-3 h-3 rounded-full bg-[#6a9bcc]"></span>
+      <span class="w-3 h-3 rounded-full bg-[#788c5d]"></span>
+      <span class="ml-2 font-mono text-[10px] text-[var(--color-fg-subtle)]">Console Dashboard</span>
+    </div>
+    <div class="py-14 px-6 text-center">
+      <div class="text-4xl mb-3">📸</div>
+      <p class="font-display text-base font-semibold text-[var(--color-fg-muted)] tracking-tight">
+        Console Dashboard Preview
+      </p>
+      <p class="text-xs text-[var(--color-fg-subtle)] mt-1">
+        Session management, agent config, vault setup, and live event streams
+      </p>
+    </div>
+  </div>
+</section>

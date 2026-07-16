@@ -81,7 +81,7 @@ export function Dashboard() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="pl-3 pr-4 py-6 space-y-10">
+      <div className="py-6 space-y-10">
         {/* Header */}
         <header>
           <h1 className="font-display text-[32px] leading-tight font-semibold tracking-tight text-fg">

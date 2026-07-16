@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: oma-k8s-bridge
+  labels:
+    app: oma-k8s-bridge
+spec:
+  type: ClusterIP
+  selector:
+    app: oma-k8s-bridge
+  ports:
+  - port: 8100
+    targetPort: 8100
+    protocol: TCP
+    name: http

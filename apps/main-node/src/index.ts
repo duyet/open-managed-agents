@@ -68,6 +68,7 @@ import { ensureSchema as ensureEventLogSchema } from "@duyet/oma-event-log/sql";
 import {
   SandboxProviderRegistry,
   InMemoryQuotaStore,
+  SYSTEM_PROVIDERS,
   type SandboxProviderConfig,
   type SandboxUsageRecord,
 } from "@duyet/oma-sandbox";
@@ -80,6 +81,7 @@ import {
   buildDreamRoutes,
   buildTenantRoutes,
   buildMeRoutes,
+  buildDeviceRoutes,
   buildApiKeyRoutes,
   buildEvalRoutes,
   buildIntegrationsRoutes,
@@ -997,7 +999,13 @@ if (auth) {
 // (Node/self-host only for now — see the env var block above).
 const authMw = buildAuthMw({
   disabled: authDisabled,
-  bypassPath: (path) => path === "/health" || path.startsWith("/auth/"),
+  bypassPath: (path) =>
+    path === "/health" ||
+    path.startsWith("/auth/") ||
+    path === "/v1/device/code" ||
+    path === "/v1/device/token" ||
+    path === "/v1/oma/device/code" ||
+    path === "/v1/oma/device/token",
   resolveSession: async (headers) => {
     if (!auth) return null;
     const session = (await auth.api.getSession({ headers })) as
@@ -1121,6 +1129,26 @@ v1.route("/me", buildMeRoutes({
   mintApiKey: (input) => mintApiKeyOnStorage(apiKeyStorage, input),
 }));
 v1.route("/tenants", buildTenantRoutes({ services }));
+v1.route("/device", buildDeviceRoutes({
+  services,
+  mintApiKey: (input) => mintApiKeyOnStorage(apiKeyStorage, input),
+  hasMembership: async (userId, tenantId) => {
+    const row = await sql
+      .prepare(
+        `SELECT 1 AS one FROM membership WHERE user_id = ? AND tenant_id = ? LIMIT 1`,
+      )
+      .bind(userId, tenantId)
+      .first<{ one: number }>();
+    return row !== null;
+  },
+  loadTenant: async (tenantId) => {
+    const r = await sql
+      .prepare(`SELECT id, name FROM "tenant" WHERE id = ?`)
+      .bind(tenantId)
+      .first<{ id: string; name: string }>();
+    return r ?? null;
+  },
+}));
 v1.route("/api_keys", buildApiKeyRoutes({ storage: apiKeyStorage }));
 v1.route("/evals", buildEvalRoutes({
   evals: evalsService,
@@ -1135,24 +1163,62 @@ v1.route("/evals", buildEvalRoutes({
 // above and wired into the `services` bundle.
 v1.route("/environments", buildEnvironmentRoutes({ services }));
 
-// Supported hosting types for this host. Derived from the system provider
-// descriptors in SandboxProviderRegistry. The Console uses this to show
-// a multi-provider picker; CF app doesn't expose this route (404 → "cloud only").
-// Registered providers (system + BYOK) appear here — BYOK ones include
-// their id so the Console can distinguish them from built-in types.
-v1.get("/hosting_types", (c) => {
-  const systemTypes = sandboxRegistry.getHostingTypes();
-  const userProviders = sandboxRegistry.list().filter((p) => !p.isSystem);
-  return c.json([
-    { id: "cloud", label: "Cloud", description: "Managed sandbox — uses this node's default sandbox provider." },
-    ...systemTypes.filter((t) => t.id !== "cloud"),
-    ...userProviders.map((p) => ({
+v1.get("/hosting_types", async (c) => {
+  const providers = sandboxRegistry.list();
+  const env = (sandboxRegistry as unknown as { providers?: unknown })
+    ? (process.env as Record<string, string | undefined>)
+    : {};
+  const healthResults = new Map<string, {
+    status: "healthy" | "unhealthy" | "not_configured";
+    latency_ms: number;
+    last_checked: string;
+    reason?: string;
+  }>();
+  for (const p of providers) {
+    try {
+      const desc = SYSTEM_PROVIDERS.find((d) => d.type === p.type);
+      // Local subprocess is always seeded but only "healthy" once a daemon
+      // is connected. With no daemon it reports not_configured so the UI
+      // can offer a connect dialog instead of a confusing "unhealthy".
+      if (p.type === "subprocess" && !desc?.envKeys.some((k) => env[k])) {
+        healthResults.set(p.id, {
+          status: "not_configured",
+          latency_ms: 0,
+          last_checked: new Date().toISOString(),
+          reason: "No local runtime connected. Start the oma bridge daemon on this machine to enable it.",
+        });
+        continue;
+      }
+      const h = await sandboxRegistry.checkHealth(p.id).catch(() => null);
+      if (h) {
+        healthResults.set(p.id, {
+          status: h.status === "ok" ? "healthy" : "unhealthy",
+          latency_ms: h.latencyMs,
+          last_checked: h.lastChecked,
+          reason: h.status === "ok" ? undefined : (h.details ?? "Health check failed."),
+        });
+      }
+    } catch {}
+  }
+
+  const sysCap = (type: string): string[] =>
+    SYSTEM_PROVIDERS.find((d) => d.type === type)?.capabilities ?? [];
+
+  const types = providers.map((p) => {
+    const health = healthResults.get(p.id);
+    return {
       id: p.id,
       label: p.label,
-      description: p.description || `External sandbox provider (${p.type}) — bring your own key.`,
-      external: true,
-    })),
-  ]);
+      description: p.description ?? "",
+      type: p.isSystem ? "system" : "byok",
+      provider: p.type,
+      external: !p.isSystem || !["subprocess", "cloud"].includes(p.type),
+      capabilities: sysCap(p.type),
+      health: health ?? null,
+    };
+  });
+
+  return c.json({ data: types });
 });
 
 // ─── Sandbox provider management (BYOK) ──────────────────────────────
@@ -1436,6 +1502,26 @@ app.route("/v1/oma/me", buildMeRoutes({
   mintApiKey: (input) => mintApiKeyOnStorage(apiKeyStorage, input),
 }));
 app.route("/v1/oma/tenants", buildTenantRoutes({ services }));
+app.route("/v1/oma/device", buildDeviceRoutes({
+  services,
+  mintApiKey: (input) => mintApiKeyOnStorage(apiKeyStorage, input),
+  hasMembership: async (userId, tenantId) => {
+    const row = await sql
+      .prepare(
+        `SELECT 1 AS one FROM membership WHERE user_id = ? AND tenant_id = ? LIMIT 1`,
+      )
+      .bind(userId, tenantId)
+      .first<{ one: number }>();
+    return row !== null;
+  },
+  loadTenant: async (tenantId) => {
+    const r = await sql
+      .prepare(`SELECT id, name FROM "tenant" WHERE id = ?`)
+      .bind(tenantId)
+      .first<{ id: string; name: string }>();
+    return r ?? null;
+  },
+}));
 app.route("/v1/oma/api_keys", buildApiKeyRoutes({ storage: apiKeyStorage }));
 app.route("/v1/oma/evals", buildEvalRoutes({
   evals: evalsService,

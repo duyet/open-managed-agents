@@ -113,6 +113,7 @@ its sandboxes (`packages/sandbox/src/provider-config.ts`):
 | `e2b` | Firecracker microVM (E2B SaaS) | E2B template, default `node:22-slim`-equivalent |
 | `k8s` | Pod via the agent-sandbox controller | provider config `image`, default `node:22-slim` |
 | `cloud` | Cloudflare Containers | fixed — `ghcr.io/duyet/sandbox-base:latest` |
+| `openshell` | NVIDIA OpenShell gateway (gRPC) | provider config `image`, default `ghcr.io/nvidia/openshell-community/sandboxes/base:latest` |
 
 Point `daytona`/`e2b`/`k8s`/`boxrun` at `oma-runtime-base:latest` (or a
 registry-pushed tag of it) instead of the bare `node:22-slim` default to

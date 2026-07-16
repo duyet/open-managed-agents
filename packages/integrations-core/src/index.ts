@@ -14,3 +14,4 @@ export * from "./provider";
 export * from "./avatars";
 export * from "./install-bridge";
 export * from "./notify";
+export * from "./oauth";

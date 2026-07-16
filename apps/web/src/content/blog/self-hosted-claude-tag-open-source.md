@@ -2,7 +2,7 @@
 title: "How to Self-Host a Claude Tag-Style Agent"
 description: "Claude Tag is hosted. This guide maps the same product shape onto an open-source, self-hosted Open Managed Agents deployment."
 publishedAt: 2026-06-25
-author: openma
+author: OMA
 tags: ["claude-tag", "self-hosted", "open-source", "guide", "integrations"]
 ---
 
@@ -49,7 +49,7 @@ For a Slack-first deployment, the core flow looks like this:
 ```text
 Slack channel
   -> Slack Events API
-  -> openma integrations gateway
+  -> OMA integrations gateway
   -> session dispatch
   -> agent harness
   -> model + tools + sandbox

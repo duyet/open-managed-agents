@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oma-k8s-bridge
+  labels:
+    app: oma-k8s-bridge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oma-k8s-bridge
+  template:
+    metadata:
+      labels:
+        app: oma-k8s-bridge
+    spec:
+      serviceAccountName: oma-k8s-bridge
+      containers:
+      - name: bridge
+        image: ghcr.io/duyet/oma-k8s-bridge:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8100
+          protocol: TCP
+        env:
+        - name: K8S_BRIDGE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: oma-k8s-bridge
+              key: token
+        - name: PORT
+          value: "8100"
+        - name: OMA_K8S_NAMESPACE
+          valueFrom:
+            configMapKeyRef:
+              name: oma-k8s-bridge-config
+              key: namespace
+        - name: SANDBOX_IMAGE
+          valueFrom:
+            configMapKeyRef:
+              name: oma-k8s-bridge-config
+              key: sandboxImage
+        - name: OMA_K8S_RUNTIME_CLASS
+          valueFrom:
+            configMapKeyRef:
+              name: oma-k8s-bridge-config
+              key: runtimeClass
+              optional: true
+        - name: OMA_K8S_SERVICE_ACCOUNT
+          valueFrom:
+            configMapKeyRef:
+              name: oma-k8s-bridge-config
+              key: serviceAccount
+              optional: true
+        - name: OMA_K8S_CPU
+          valueFrom:
+            configMapKeyRef:
+              name: oma-k8s-bridge-config
+              key: cpu
+              optional: true
+        - name: OMA_K8S_MEMORY
+          valueFrom:
+            configMapKeyRef:
+              name: oma-k8s-bridge-config
+              key: memory
+              optional: true
+        - name: OMA_K8S_READY_TIMEOUT_MS
+          valueFrom:
+            configMapKeyRef:
+              name: oma-k8s-bridge-config
+              key: readyTimeoutMs
+              optional: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi

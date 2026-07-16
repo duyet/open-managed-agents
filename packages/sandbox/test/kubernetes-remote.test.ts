@@ -12,7 +12,7 @@
 // same pure-USTAR routines boxrun uses, so the writeFile/readFile round
 // trip exercises them end-to-end without any filesystem.
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 
 // Re-import the private tar helpers indirectly by round-tripping through
 // the adapter's public writeFileBytes/readFileBytes — those are the only
@@ -32,16 +32,28 @@ function sse(...events: Array<[string, Record<string, unknown>]>): string {
 
 // Minimal request/response capture for the mocked fetch.
 const calls: Array<{ url: string; method: string; headers: Record<string, string>; body?: string }> = [];
-let nextResponse: () => Partial<Response> & { status: number; ok: boolean };
 
 function makeResponse(overrides: Partial<Response> & { status: number; ok: boolean }): Response {
   return overrides as unknown as Response;
+}
+
+/** SSE stream Response body for a successful no-output exec. */
+function emptyExitStream(): ReadableStream<Uint8Array> {
+  const bytes = new TextEncoder().encode(sse(["exit", { exit_code: 0 }]));
+  return new ReadableStream({
+    start(c) {
+      c.enqueue(new Uint8Array(bytes));
+      c.close();
+    },
+  });
 }
 
 const realFetch = globalThis.fetch;
 beforeEach(() => {
   calls.length = 0;
   vi.restoreAllMocks();
+  // Default routed mock covering the full boxrun-shaped contract; individual
+  // tests override globalThis.fetch when they need bespoke responses.
   (globalThis as { fetch: typeof fetch }).fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input.toString();
     const method = init?.method ?? "GET";
@@ -51,15 +63,17 @@ beforeEach(() => {
     }
     const body = init?.body != null ? (typeof init.body === "string" ? init.body : "<bytes>") : undefined;
     calls.push({ url, method, headers, body });
-    const res = nextResponse();
-    return makeResponse({
-      status: res.status,
-      ok: res.ok,
-      text: async () => (res.text ? String(res.text()) : ""),
-      json: async () => res.json?.(),
-      arrayBuffer: async () => res.arrayBuffer?.() ?? new ArrayBuffer(0),
-      body: res.body,
-    } as Partial<Response> & { status: number; ok: boolean });
+    if (method === "POST" && url.endsWith("/boxes")) {
+      return makeResponse({ status: 200, ok: true, json: async () => ({ box_id: "box-abc" }) } as Partial<Response> & { status: number; ok: boolean });
+    }
+    if (method === "POST" && url.includes("/exec")) {
+      return makeResponse({ status: 200, ok: true, json: async () => ({ execution_id: "exec-1" }) } as Partial<Response> & { status: number; ok: boolean });
+    }
+    if (method === "DELETE") {
+      return makeResponse({ status: 204, ok: true, text: async () => "" } as Partial<Response> & { status: number; ok: boolean });
+    }
+    // GET executions/:eid/output — SSE stream
+    return makeResponse({ status: 200, ok: true, body: emptyExitStream() } as Partial<Response> & { status: number; ok: boolean });
   }) as unknown as typeof fetch;
 });
 
@@ -70,7 +84,6 @@ describe("KubernetesRemoteSandbox", () => {
       baseUrl: "http://gw/v1/default",
       sessionId: "sess_1",
     });
-    nextResponse = () => ({ status: 200, ok: true, json: async () => ({ box_id: "box-abc" }) });
     await sandbox.exec("echo hi");
 
     const createCall = calls.find((c) => c.method === "POST" && c.url.endsWith("/boxes"));
@@ -81,14 +94,11 @@ describe("KubernetesRemoteSandbox", () => {
   it("exec() POSTs /exec then parses the SSE stream into stdout + exit", async () => {
     const sandbox = new KubernetesRemoteSandbox({ baseUrl: "http://gw/v1/default" });
 
-    nextResponse = () => ({ status: 200, ok: true, json: async () => ({ box_id: "box-1" }) });
-    const boxCall = 0;
     // exec start, then SSE stream. We need response per-call matching by URL.
-    let callIndex = -1;
     (globalThis as { fetch: typeof fetch }).fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = (typeof input === "string" ? input : input.toString());
       const method = init?.method ?? "GET";
-      callIndex++;
+      calls.push({ url, method, headers: {} });
       if (method === "POST" && url.endsWith("/boxes")) {
         return makeResponse({ status: 200, ok: true, json: async () => ({ box_id: "box-1" }) });
       }
@@ -115,7 +125,6 @@ describe("KubernetesRemoteSandbox", () => {
     const result = await sandbox.exec("echo hello world");
     expect(result).toBe("exit=0\nhello world\n");
     expect(calls.length).toBeGreaterThan(0);
-    void boxCall;
   });
 
   it("exec() appends stderr when present", async () => {
@@ -206,11 +215,8 @@ describe("KubernetesRemoteSandbox", () => {
 
   it("destroy() issues DELETE /boxes/:id and is idempotent", async () => {
     const sandbox = new KubernetesRemoteSandbox({ baseUrl: "http://gw/v1/default" });
-    nextResponse = () => ({ status: 200, ok: true, json: async () => ({ box_id: "box-5" }) });
     await sandbox.exec("echo x"); // ensure box created
-    nextResponse = () => ({ status: 204, ok: true, text: async () => "" });
     await sandbox.destroy();
-    nextResponse = () => ({ status: 204, ok: true, text: async () => "" });
     await sandbox.destroy(); // second destroy is a no-op (no boxId)
 
     const deletes = calls.filter((c) => c.method === "DELETE" && c.url.includes("/boxes/"));

@@ -2,7 +2,7 @@
 title: "Claude Tag Open-Source Alternative: Self-Hosted with OpenMA"
 description: "Claude Tag is hosted and closed. Here is how Open Managed Agents becomes the open-source, self-hosted foundation for a Claude Tag-style agent."
 publishedAt: 2026-06-25
-author: openma
+author: OMA
 tags: ["claude-tag", "open-source", "self-hosted", "alternatives", "integrations"]
 ---
 

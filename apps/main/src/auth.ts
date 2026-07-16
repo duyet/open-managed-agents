@@ -31,6 +31,20 @@ export const authMiddleware = createMiddleware<{
   if (c.req.path === "/p" || c.req.path.startsWith("/p/")) {
     return next();
   }
+  // Public routes use their own auth (magic-link consumer tokens, etc.).
+  if (c.req.path.startsWith("/v1/public/")) {
+    return next();
+  }
+  // Device Authorization Grant (RFC 8628) — /code (issue) + /token (poll)
+  // are unauthenticated; /approve keeps the cookie-session guard below.
+  if (
+    c.req.path === "/v1/device/code" ||
+    c.req.path === "/v1/device/token" ||
+    c.req.path === "/v1/oma/device/code" ||
+    c.req.path === "/v1/oma/device/token"
+  ) {
+    return next();
+  }
 
   // 1. Try API Key authentication (for CLI / SDK)
   const apiKey = c.req.header("x-api-key");

@@ -160,7 +160,7 @@ export function AppShell() {
           <AppSidebar />
 
           <div className="flex-1 min-w-0 flex flex-col min-h-0">
-            <header className="h-11 flex items-center gap-1.5 pl-2 pr-4 bg-sidebar shrink-0">
+            <header className="h-11 flex items-center gap-1.5 pl-2 pr-4 bg-sidebar shrink-0" role="banner">
               <SidebarTrigger className="h-6 w-6 text-fg-muted hover:text-fg hover:bg-sidebar-accent" />
               <AppBreadcrumb />
             </header>
@@ -168,8 +168,10 @@ export function AppShell() {
             <div className="flex-1 min-h-0 rounded-tl-lg bg-bg flex flex-col overflow-hidden">
               <div
                 ref={setPageHeaderSlot}
+                role="region"
+                aria-label="Page header"
                 className={[
-                  "empty:hidden shrink-0 transition-[border-color] duration-150",
+                  "empty:hidden shrink-0 px-3 py-3 transition-[border-color] duration-150",
                   scrolled ? "border-b border-border" : "border-b border-transparent",
                 ].join(" ")}
               />
@@ -186,7 +188,9 @@ export function AppShell() {
                   // Cleanup handled when ref unmounts (el = null branch above).
                 }}
                 key={pathname}
-                className="flex-1 min-h-0 overflow-y-auto bg-bg [scrollbar-gutter:stable] [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
+                role="main"
+                aria-label="Page content"
+                className="flex-1 min-h-0 overflow-y-auto bg-bg pl-3 pr-4 py-3 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
               >
                 <Outlet context={outletContext} />
               </main>

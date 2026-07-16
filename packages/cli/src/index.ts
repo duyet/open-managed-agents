@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { createInterface } from "node:readline";
 import { execSync } from "node:child_process";
 import { homedir, hostname } from "node:os";
 import { join, dirname } from "node:path";
@@ -142,7 +143,7 @@ function loadConfig(): Config {
   const stored = readCredentials();
   if (envKey) {
     return {
-      baseUrl: envBase || stored?.base_url || "https://oma.duyet.net",
+      baseUrl: envBase || stored?.base_url || "https://app.oma.duyet.net",
       apiKey: envKey,
       json: false,
       source: "env",
@@ -177,7 +178,7 @@ function loadConfigOptional(): Config {
   const envTenant = process.env.OMA_TENANT_ID;
   const stored = readCredentials();
   if (envKey) {
-    return { baseUrl: envBase || stored?.base_url || "https://oma.duyet.net", apiKey: envKey, json: false, source: "env" };
+    return { baseUrl: envBase || stored?.base_url || "https://app.oma.duyet.net", apiKey: envKey, json: false, source: "env" };
   }
   if (stored) {
     const activeId = envTenant || stored.active_tenant_id;
@@ -186,7 +187,7 @@ function loadConfigOptional(): Config {
       return { baseUrl: envBase || stored.base_url, apiKey: profile.token, json: false, source: "stored" };
     }
   }
-  return { baseUrl: envBase || "https://oma.duyet.net", apiKey: "", json: false, source: "missing" };
+  return { baseUrl: envBase || "https://app.oma.duyet.net", apiKey: "", json: false, source: "missing" };
 }
 
 // ─── API Client ───
@@ -453,15 +454,6 @@ async function authLogin(baseUrl: string, requestedTenant?: string): Promise<voi
   if (requestedTenant) params.set("tenant", requestedTenant);
   const loginUrl = `${baseUrl}/cli/login?${params.toString()}`;
 
-  interface CallbackToken {
-    tenant_id: string;
-    tenant_name: string;
-    role: string;
-    token: string;
-    key_id: string;
-  }
-  type CallbackResult = { tokens: CallbackToken[]; user: string };
-
   const result = await new Promise<CallbackResult>((resolve, reject) => {
     const timeout = setTimeout(() => {
       server.close();
@@ -546,6 +538,28 @@ async function authLogin(baseUrl: string, requestedTenant?: string): Promise<voi
     openBrowser(loginUrl);
   });
 
+  await completeLogin(baseUrl, result, requestedTenant);
+}
+
+interface CallbackToken {
+  tenant_id: string;
+  tenant_name: string;
+  role: string;
+  token: string;
+  key_id: string;
+}
+
+type CallbackResult = { tokens: CallbackToken[]; user: string };
+
+// Shared completion path for every login flow (browser/loopback, device,
+// paste-token). Fetches identity with the first minted token, merges the
+// minted per-tenant tokens into the stored credential file, and prints the
+// usual "Signed in" summary. Single source of truth for credential writes.
+async function completeLogin(
+  baseUrl: string,
+  result: CallbackResult,
+  requestedTenant?: string,
+): Promise<void> {
   // Use the first minted token to fetch full identity, so the credentials
   // file carries useful display fields for `oma whoami`. All tokens share
   // the same user; we only need one /v1/me call.
@@ -610,6 +624,115 @@ async function authLogin(baseUrl: string, requestedTenant?: string): Promise<voi
   }
 }
 
+/** Read a single line from the terminal (interactive prompt). Used by the
+ *  `--paste-token` headless flow. Falls back to piped stdin. */
+function promptLine(question: string): Promise<string> {
+  return new Promise((resolve) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(question, (ans) => {
+      rl.close();
+      resolve(ans.trim());
+    });
+  });
+}
+
+// ─── Auth login: device flow (RFC 8628) ───
+//
+// CLI prints an approval URL + short code; the user opens it on any device,
+// logs in, and approves. The CLI polls /v1/device/token until the server
+// returns the minted tokens. No browser/loopback needed on the CLI box.
+async function authLoginDevice(baseUrl: string, requestedTenant: string | undefined, config: Config): Promise<void> {
+  // /v1/device/code + /token are public (auth bypassed server-side); use an
+  // empty apiKey so apiFetch doesn't send a stale one.
+  const anon: Config = { baseUrl, apiKey: "", json: config.json, source: "missing" };
+  const issued = await apiFetch<{
+    device_code: string;
+    user_code: string;
+    verification_uri: string;
+    interval: number;
+    expires_in: number;
+  }>(anon, "/v1/device/code");
+
+  const approveUrl = `${baseUrl}${issued.verification_uri}?device_code=${encodeURIComponent(issued.device_code)}&user_code=${encodeURIComponent(issued.user_code)}`;
+  if (config.json) {
+    console.log(JSON.stringify({
+      verification_uri: approveUrl,
+      user_code: issued.user_code,
+      device_code: issued.device_code,
+      expires_in: issued.expires_in,
+    }));
+  } else {
+    console.log(`To authenticate, visit:`);
+    console.log(`  ${approveUrl}`);
+    console.log(`and enter this code when prompted: ${issued.user_code}`);
+    console.log(`Waiting for approval… (expires in ${Math.round(issued.expires_in / 60)} min)`);
+  }
+
+  const deadline = Date.now() + issued.expires_in * 1000;
+  const intervalMs = Math.max(issued.interval, 1) * 1000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, intervalMs));
+    let poll: { tokens?: CallbackToken[]; error?: string; error_description?: string };
+    try {
+      poll = await apiFetch(anon, "/v1/device/token", {
+        method: "POST",
+        body: JSON.stringify({ device_code: issued.device_code }),
+      });
+    } catch (err: any) {
+      const status = err?.message ?? "";
+      if (/40\d/.test(status)) {
+        const m = /(\{.*\})/.exec(status);
+        const body = m ? JSON.parse(m[1]) : {};
+        if (body.error === "expired_token") throw new Error("The device code expired. Run `oma auth login --device` again.");
+        if (body.error === "authorization_pending" || body.error === "slow_down") continue;
+      }
+      throw err;
+    }
+    if (poll.tokens && poll.tokens.length > 0) {
+      await completeLogin(baseUrl, { tokens: poll.tokens, user: "" }, requestedTenant);
+      return;
+    }
+  }
+  throw new Error("Timed out waiting for approval.");
+}
+
+// ─── Auth login: paste-token flow ───
+//
+// CLI prints an approval URL (mode=token); the browser page shows a copyable
+// token string; the user pastes it back into the terminal. No loopback server.
+async function authLoginPasteToken(baseUrl: string, requestedTenant: string | undefined, config: Config): Promise<void> {
+  const params = new URLSearchParams({ mode: "token", hostname: hostname() });
+  if (requestedTenant) params.set("tenant", requestedTenant);
+  const loginUrl = `${baseUrl}/cli/login?${params.toString()}`;
+
+  if (config.json) {
+    console.log(JSON.stringify({ verification_uri: loginUrl }));
+  } else {
+    console.log(`Open this URL in a browser, approve, and copy the token:`);
+    console.log(`  ${loginUrl}`);
+  }
+  const raw = await promptLine("Paste token: ");
+  const trimmed = raw.trim();
+  if (!trimmed) throw new Error("No token pasted.");
+
+  // The page hands back the same base64(JSON array) the loopback callback
+  // uses. Fall back to a single-line "token|tenant|key_id" form for legacy.
+  let tokens: CallbackToken[] = [];
+  try {
+    const json = Buffer.from(trimmed, "base64").toString("utf8");
+    tokens = JSON.parse(json) as CallbackToken[];
+    if (!Array.isArray(tokens)) tokens = [tokens as unknown as CallbackToken];
+  } catch {
+    const parts = trimmed.split("|");
+    if (parts.length >= 2) {
+      tokens = [{ tenant_id: parts[1] ?? "", tenant_name: "", role: "owner", token: parts[0], key_id: parts[2] ?? "" }];
+    }
+  }
+  if (tokens.length === 0) throw new Error("Could not parse the pasted token.");
+
+  await completeLogin(baseUrl, { tokens, user: "" }, requestedTenant);
+}
+
 /** Friendly fallback for legacy tenants whose name was generated as
  *  "'s workspace" (empty user.name in old ensureTenant). Once the DB is
  *  fixed those rows go away — this defensively cleans display either way. */
@@ -654,11 +777,13 @@ const commands: Cmd[] = [
   // Auth
   {
     group: "Auth", match: ["auth", "login"],
-    usage: "oma auth login [--base-url <url>] [--tenant <id>]", desc: "Open browser to authenticate; --tenant pre-picks a workspace",
-    http: "POST   /v1/me/cli-tokens (browser handoff via /cli/login)",
-    async run(_config, args) {
-      const baseUrl = (flag(args, "--base-url") ?? process.env.OMA_BASE_URL ?? "https://oma.duyet.net").replace(/\/+$/, "");
+    usage: "oma auth login [--base-url <url>] [--tenant <id>] [--device] [--paste-token]", desc: "Authenticate: browser (default), device-code, or paste-token for headless",
+    http: "POST   /v1/me/cli-tokens (browser handoff) | POST /v1/device/* (--device)",
+    async run(config, args) {
+      const baseUrl = (flag(args, "--base-url") ?? process.env.OMA_BASE_URL ?? "https://app.oma.duyet.net").replace(/\/+$/, "");
       const tenant = flag(args, "--tenant");
+      if (flag(args, "--paste-token")) return authLoginPasteToken(baseUrl, tenant, config);
+      if (flag(args, "--device")) return authLoginDevice(baseUrl, tenant, config);
       await authLogin(baseUrl, tenant);
     },
   },
@@ -2218,7 +2343,7 @@ function usage() {
     oma api <resource>                         Show endpoints for a resource
 
 Environment:
-  OMA_BASE_URL   API base (default: https://oma.duyet.net)
+  OMA_BASE_URL   API base (default: https://app.oma.duyet.net)
   OMA_API_KEY    API key — overrides stored credentials when set
   XDG_CONFIG_HOME  Base dir for credentials (default: ~/.config)
 
@@ -2281,7 +2406,7 @@ async function main() {
         // would fail at exchange ("invalid code"). Two separate flags are
         // still useful for split dev setups (web on one host, api on
         // another) — keep --browser-origin as an explicit override.
-        const serverUrl = flag(args, "--server-url") ?? "https://oma.duyet.net";
+        const serverUrl = flag(args, "--server-url") ?? "https://app.oma.duyet.net";
         const { runSetup } = await import("./bridge/commands/setup.js");
         await runSetup({
           serverUrl,

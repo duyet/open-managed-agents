@@ -14,6 +14,7 @@ const FRIENDLY_DESCRIPTIONS: Record<string, string> = {
   daytona: "Daytona — bring your own account, cloud dev environments.",
   k8s: "Kubernetes — bring your own cluster, pod-per-sandbox.",
   kubernetes: "Kubernetes — bring your own cluster, pod-per-sandbox.",
+  openshell: "NVIDIA OpenShell — bring your own gateway, policy-enforced agent sandboxes.",
 };
 
 export interface HostingTypeLike {

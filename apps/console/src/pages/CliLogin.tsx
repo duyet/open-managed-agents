@@ -80,10 +80,14 @@ export function CliLogin() {
   const state = params.get("state") ?? "";
   const hostname = params.get("hostname") ?? "this device";
   const requestedTenant = params.get("tenant") ?? "";
-  const callbackOk = isLoopback(callback);
+  // `mode=token` is the paste-token headless flow: no loopback redirect —
+  // the page shows the token string for the user to copy into the terminal.
+  const tokenMode = params.get("mode") === "token";
+  const callbackOk = isLoopback(callback) || tokenMode;
 
   const [me, setMe] = useState<MeResponse | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [tokenString, setTokenString] = useState<string>("");
   const [authNeeded, setAuthNeeded] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string>("");
@@ -187,6 +191,13 @@ export function CliLogin() {
           } satisfies MintedToken;
         }),
       );
+      if (tokenMode) {
+        // Headless paste-token flow: surface the encoded token string for
+        // the user to copy into the terminal instead of a loopback redirect.
+        setTokenString(encodeTokensParam(minted));
+        setWorking(false);
+        return;
+      }
       const url = new URL(callback);
       url.searchParams.set("tokens", encodeTokensParam(minted));
       url.searchParams.set("user", me.user?.id ?? minted[0]?.tenant_id ?? "");
@@ -323,6 +334,22 @@ export function CliLogin() {
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {tokenString && (
+              <div className="mb-5">
+                <div className="text-xs uppercase tracking-wider text-fg-subtle mb-2">
+                  Copy this token to your terminal
+                </div>
+                <div className="bg-bg border border-border rounded-lg px-3 py-2.5">
+                  <code className="font-mono text-xs break-all text-fg select-all">
+                    {tokenString}
+                  </code>
+                </div>
+                <p className="text-xs text-fg-subtle mt-2">
+                  Paste it after the prompt from <span className="font-mono">oma auth login --paste-token</span>.
+                </p>
               </div>
             )}
 

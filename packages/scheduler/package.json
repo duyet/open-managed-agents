@@ -16,6 +16,7 @@
     "@duyet/oma-sql-client": "workspace:*",
     "@duyet/oma-memory-store": "workspace:*",
     "@duyet/oma-observability": "workspace:*",
+    "nanoid": "^5.1.0",
     "@duyet/oma-services": "workspace:*"
   },
   "peerDependencies": {

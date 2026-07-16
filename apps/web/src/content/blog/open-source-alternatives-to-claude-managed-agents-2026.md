@@ -3,7 +3,7 @@ title: "Open Source Alternatives to Claude Managed Agents in 2026"
 description: "What's actually shipping in 2026 if you want an open-source alternative to Claude Managed Agents. Honest comparison: Open Managed Agents, LangGraph, AutoGen, CrewAI, plus what's still missing."
 publishedAt: 2026-05-10
 updatedAt: 2026-05-26
-author: openma
+author: OMA
 tags: ["alternatives", "open-source", "comparison", "claude"]
 ---
 

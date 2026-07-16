@@ -86,24 +86,10 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
       }
     </script>
 
-    <!-- Brand fonts (Anthropic brand-guidelines pairing for marketing):
-         Poppins for headings/display, Lora for body, JetBrains Mono for code
-         only. Loaded via print-onload so the stylesheet is non-blocking;
-         <noscript> fallback keeps fonts without JS. display=swap avoids CLS. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Lora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
-      media="print"
-      onload="this.media='all'"
-    />
-    <noscript>
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Lora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
-      />
-    </noscript>
+    <!-- Brand fonts are self-hosted via @fontsource-variable/geist +
+         @fontsource-variable/geist-mono (imported in global.css) — Geist,
+         the same family Cursor.com ships. No external font request, so we
+         drop the Google Fonts <link> that the old Poppins/Lora setup used. -->
 
     <!-- Open Graph -->
     <meta property="og:title" content={fullTitle} />
@@ -168,7 +154,7 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
 
         <!-- Desktop nav -->
         <nav class="hidden md:flex items-center gap-1 text-sm" aria-label="Primary">
-          <a href="/claude-tag-alternative/" class="px-3 py-2 rounded-md text-[var(--color-fg)] hover:text-[var(--color-brand)]">Claude Tag</a>
+          <a href="/open-tag/" class="px-3 py-2 rounded-md text-[var(--color-fg)] hover:text-[var(--color-brand)]">Open Tag</a>
           <a href="/blog/" class="px-3 py-2 rounded-md text-[var(--color-fg)] hover:text-[var(--color-brand)]">Blog</a>
           <a href="https://docs.oma.duyet.net" class="px-3 py-2 rounded-md text-[var(--color-fg)] hover:text-[var(--color-brand)]">Docs</a>
           <a
@@ -257,7 +243,7 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
               class="absolute right-0 top-full mt-2 min-w-[180px] py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-md shadow-lg flex flex-col text-sm z-40"
               aria-label="Mobile primary"
             >
-              <a href="/claude-tag-alternative/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Claude Tag</a>
+              <a href="/open-tag/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Open Tag</a>
               <a href="/blog/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Blog</a>
               <a href="https://docs.oma.duyet.net" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Docs</a>
               <a
@@ -286,7 +272,7 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
       <div class="max-w-5xl mx-auto px-4 py-8 text-sm text-[var(--color-fg-muted)] flex flex-wrap gap-x-8 gap-y-2 justify-between">
         <div>© {new Date().getFullYear()} Open Managed Agents. Apache 2.0 licensed.</div>
         <nav class="flex flex-wrap gap-x-3 gap-y-1" aria-label="Footer">
-          <a href="/claude-tag-alternative/" class="py-2 px-2 -mx-2 rounded hover:bg-[var(--color-bg-surface)]">Claude Tag</a>
+          <a href="/open-tag/" class="py-2 px-2 -mx-2 rounded hover:bg-[var(--color-bg-surface)]">Open Tag</a>
           <a href="/claude-tag-open-source/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Open Source Tag</a>
           <a href="/self-hosted-claude-tag/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Self-hosted Tag</a>
           <a href="/blog/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Blog</a>
@@ -376,6 +362,28 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
       } else {
         // No-motion / no-IO fallback: show everything immediately.
         for (const el of revealTargets) el.classList.add('is-visible');
+      }
+
+      // Typewriter rotate: cycle the .tw-rot verb through data-rotate JSON on
+      // any element. Char-by-char type + delete; skip entirely under
+      // reduced-motion (the first verb stays put).
+      if (!reduceMotion) {
+        for (const el of document.querySelectorAll('[data-rotate]')) {
+          const words = (() => { try { return JSON.parse(el.getAttribute('data-rotate') || '[]'); } catch { return []; } })();
+          const out = el.querySelector('.tw-rot');
+          if (!out || !words.length) continue;
+          let w = 0, i = 0, deleting = false;
+          const tick = () => {
+            const word = words[w];
+            out.textContent = word.slice(0, i);
+            if (!deleting && i < word.length) i++;
+            else if (!deleting && i === word.length) { deleting = true; setTimeout(tick, 1400); return; }
+            else if (deleting && i > 0) i--;
+            else { deleting = false; w = (w + 1) % words.length; }
+            setTimeout(tick, deleting ? 45 : 95);
+          };
+          tick();
+        }
       }
     </script>
   </body>

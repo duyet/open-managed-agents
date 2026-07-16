@@ -5,6 +5,7 @@ import githubPublications from "./routes/github/publications";
 import slackPublications from "./routes/slack/publications";
 import slackSetupPage from "./routes/slack/setup-page";
 import githubManifest from "./routes/github/manifest";
+import telegramWebhook from "./routes/telegram/webhook";
 import { buildProviders } from "./providers";
 import { buildContainer } from "./wire";
 import { CfInstallBridge } from "./cf-install-bridge";
@@ -57,6 +58,7 @@ app.all("/admin/*", (c) => {
 app.use("/linear/webhook/*", webhookRateLimitMiddleware);
 app.use("/github/webhook/*", webhookRateLimitMiddleware);
 app.use("/slack/webhook/*", webhookRateLimitMiddleware);
+app.use("/telegram/webhook/*", webhookRateLimitMiddleware);
 
 // Publications/manifest-start CF-side wrappers (kept). These accept
 // formToken POSTs from the browser and publish setup flows. Mounted
@@ -66,6 +68,7 @@ app.route("/github/publications", githubPublications);
 app.route("/github/manifest", githubManifest);
 app.route("/slack/publications", slackPublications);
 app.route("/slack-setup", slackSetupPage);
+app.route("/telegram", telegramWebhook);
 
 // Package routes: OAuth callbacks, setup pages, Linear MCP, GitHub
 // internal refresh, webhook receivers. The CfInstallBridge wraps the

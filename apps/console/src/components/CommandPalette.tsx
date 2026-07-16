@@ -56,7 +56,7 @@ const COMMANDS: NavCommand[] = [
   { label: "Memory Stores",      to: "/memory",                    group: "Configuration",  icon: MemoryIcon },
   { label: "Model Cards",        to: "/model-cards",               group: "Configuration",  icon: ModelCardsIcon },
   { label: "API Keys",           to: "/api-keys",                  group: "Configuration",  icon: ApiKeysIcon, aliases: "tokens" },
-  { label: "Local Runtimes",     to: "/runtimes",                  group: "Configuration",  icon: RuntimesIcon },
+  { label: "Sandbox Runtime",     to: "/runtimes",                  group: "Configuration",  icon: RuntimesIcon },
   { label: "Linear",             to: "/integrations/linear",       group: "Integrations",   icon: LinearIcon },
   { label: "GitHub",             to: "/integrations/github",       group: "Integrations",   icon: GitHubIcon },
   { label: "Slack",              to: "/integrations/slack",        group: "Integrations",   icon: SlackIcon },

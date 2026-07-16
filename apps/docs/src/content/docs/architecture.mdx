@@ -9,23 +9,34 @@ oma is built around a **meta-harness** architecture. Instead of prescribing _how
 
 ## High-level picture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  Harness (the brain — your code)                        │
-│  - Reads events, builds context, calls the model        │
-│  - Decides HOW: caching, compaction, tool delivery      │
-│  - Stateless: crash → rebuild from event log → resume   │
-├─────────────────────────────────────────────────────────┤
-│  Meta-Harness (the platform — SessionDO)                │
-│  - Prepares WHAT is available: tools, skills, history   │
-│  - Manages lifecycle: sandbox, events, WebSocket        │
-│  - Crash recovery, credential isolation, usage tracking │
-├─────────────────────────────────────────────────────────┤
-│  Infrastructure (Cloudflare or Node self-host)          │
-│  - Event log: Durable-Object SQLite (CF) or SQLite/Pg   │
-│  - Sandbox: CF Containers / subprocess / LiteBox / E2B  │
-│  - Storage: KV + R2 (CF) or local FS (self-host)        │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Harness["Harness (the brain — your code)"]
+        direction TB
+        H1["Reads events, builds context, calls the model"]
+        H2["Decides HOW: caching, compaction, tool delivery"]
+        H3["Stateless: crash → rebuild from event log → resume"]
+    end
+
+    subgraph Platform["Meta-Harness (the platform — SessionDO)"]
+        direction TB
+        P1["Prepares WHAT is available: tools, skills, history"]
+        P2["Manages lifecycle: sandbox, events, WebSocket"]
+        P3["Crash recovery, credential isolation, usage tracking"]
+    end
+
+    subgraph Infra["Infrastructure (Cloudflare or Node self-host)"]
+        direction TB
+        I1["Event log: Durable-Object SQLite (CF) or SQLite/Pg"]
+        I2["Sandbox: CF Containers / subprocess / LiteBox / E2B / K8s"]
+        I3["Storage: KV + R2 (CF) or local FS (self-host)"]
+    end
+
+    Harness --> Platform --> Infra
+
+    style Harness fill:#e6f3ff,stroke:#4a90d9,stroke-width:2px
+    style Platform fill:#fff3e6,stroke:#d97a2e,stroke-width:2px
+    style Infra fill:#f0f0f0,stroke:#666,stroke-width:2px
 ```
 
 The platform prepares _what_ is available. The harness decides _how_ to deliver it to the model.
@@ -39,6 +50,34 @@ The platform prepares _what_ is available. The harness decides _how_ to deliver 
 | Crash recovery | Stop conditions (max steps, completion signals) |
 | Credential isolation (vaults) | System prompt construction |
 | Memory (vector search) | Tool delivery (all at once vs. progressive) |
+
+## Deployment options
+
+```mermaid
+graph LR
+    subgraph CF["☁️ Cloudflare Deployment"]
+        CFW[Workers + DO] --> CFCT[Cloudflare Containers]
+        CFW --> D1[(D1 + KV + R2)]
+    end
+
+    subgraph K8s["☸️ Kubernetes Deployment"]
+        K8sB[k8s-bridge] --> K8sP[Sandbox Pods]
+        K8sB --> K8sDB[(Postgres<br/>or SQLite)]
+    end
+
+    subgraph Self["🐳 Self-host (Node)"]
+        Node[Node Server] --> Sub[subprocess / LiteBox]
+        Node --> SQL[(SQLite<br/>or Postgres)]
+    end
+
+    User((User)) --> CF
+    User((User)) --> K8s
+    User((User)) --> Self
+
+    style CF fill:#e6faff,stroke:#4a90d9
+    style K8s fill:#f0f0ff,stroke:#6666cc
+    style Self fill:#f5f5f5,stroke:#888
+```
 
 ## Two deployment modes
 
@@ -57,23 +96,34 @@ oma runs the same code in two different environments. The harness, business logi
 
 A typical request flows through the system like this:
 
-```
-User (HTTP/SSE)
-    │
-    ▼
-Main Worker (apps/main)
-    ├─ Auth middleware (better-auth, API key)
-    ├─ Rate limiter
-    ├─ Tenant resolution (tenantDb from D1)
-    ├─ Route handler (create session, send message, etc.)
-    │
-    ▼
-SessionDO (Durable Object — apps/agent)
-    ├─ Append-only event log (SQLite in DO)
-    ├─ Harness: reads events, builds context, calls LLM
-    ├─ Tool execution → Sandbox container
-    │   └─ Outbound proxy → Vault injects credentials
-    └─ Events broadcast (SSE / WebSocket)
+```mermaid
+sequenceDiagram
+    participant User as User (HTTP/SSE)
+    participant Main as Main Worker<br/>(apps/main)
+    participant DO as SessionDO<br/>(Durable Object)
+    participant Sandbox as Sandbox Container
+    participant Vault as Vault Proxy
+
+    User->>Main: POST /v1/sessions/:id/events
+    Main->>Main: Auth middleware (better-auth, API key)
+    Main->>Main: Rate limiter
+    Main->>Main: Tenant resolution (tenantDb from D1)
+    Main->>DO: Route to SessionDO
+
+    DO->>DO: Append event to SQLite log
+    DO->>DO: Harness reads events, builds context
+
+    DO->>DO: Call LLM with tools
+    DO->>Sandbox: Execute tool (bash, read, write)
+    Sandbox->>Vault: Outbound HTTP request
+    Vault->>Vault: Look up credentials by hostname
+    Vault->>External: Forward with auth header
+    External-->>Vault: Response
+    Vault-->>Sandbox: Response (token stripped)
+    Sandbox-->>DO: Tool result
+
+    DO->>DO: Write result to event log
+    DO-->>User: SSE / WebSocket event stream
 ```
 
 ### Step by step
@@ -178,13 +228,29 @@ The event log makes crash recovery automatic:
 
 No data is lost because events are durably written to SQLite **before** being broadcast. The client sees a brief delay while the new instance boots, then the event stream resumes.
 
-```
-Normal flow:
-  [user message] → [event written] → [harness processes] → [event written] → [broadcast]
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant DO1 as SessionDO (v1)
+    participant Log as Event Log (SQLite)
+    participant DO2 as SessionDO (v2)
 
-Crash recovery:
-  [user message] → [event written] → DO crashes
-  [next request] → [new DO reads log] → [rebuilds context] → [continues]
+    Note over User,DO2: Normal flow
+    User->>DO1: Send message
+    DO1->>Log: Write event (durable)
+    DO1->>DO1: Harness processes
+    DO1->>Log: Write result event
+    DO1-->>User: Broadcast via SSE
+
+    Note over User,DO2: Crash recovery
+    User->>DO1: Send message
+    DO1->>Log: Write event (durable)
+    DO1-xDO1: 💥 DO crashes
+    User->>DO2: Next request (new DO instance)
+    DO2->>Log: Read full event log
+    DO2->>DO2: Rebuild harness context
+    DO2->>DO2: Continue processing
+    DO2-->>User: Resume SSE stream
 ```
 
 ## Multi-agent delegation
@@ -193,6 +259,31 @@ Agents can delegate work to other agents using `callable_agents`. When an agent 
 
 - **`call_agent_<name>`** — one-at-a-time delegation (blocks until the child reaches idle)
 - **`call_agents_parallel`** — fan-out to multiple children concurrently (capped at 5-10 parallel calls)
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Parent as Parent Agent
+    participant Child1 as Sub-agent A
+    participant Child2 as Sub-agent B
+    participant Child3 as Sub-agent C
+
+    User->>Parent: "Research and summarize X"
+    Parent->>Parent: call_agents_parallel
+
+    par Parallel delegation
+        Parent->>Child1: Research topic A
+        Parent->>Child2: Research topic B
+        Parent->>Child3: Research topic C
+    end
+
+    Child1-->>Parent: Results A
+    Child2-->>Parent: Results B
+    Child3-->>Parent: Results C
+
+    Parent->>Parent: Synthesize results
+    Parent-->>User: Summary with all findings
+```
 
 Each child session gets its own SessionDO with its own event log, sandbox, and credential bindings. Results are aggregated back to the parent.
 

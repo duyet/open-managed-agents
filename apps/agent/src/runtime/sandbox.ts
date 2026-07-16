@@ -20,6 +20,7 @@ import { BoxRunSandbox } from "@duyet/oma-sandbox/adapters/boxrun";
 // so esbuild bundles it into the single-file Worker cleanly. The registry's
 // lazy `import(factoryPath)` can't bundle here (see the comment above).
 import { KubernetesRemoteSandbox } from "@duyet/oma-sandbox/adapters/kubernetes-remote";
+import { K8sBridgeSandbox } from "@duyet/oma-sandbox/adapters/k8s-bridge";
 // `bash-parser` is CJS; the bundler handles interop for worker builds.
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
@@ -583,6 +584,20 @@ export class CloudflareSandbox implements SandboxExecutor {
    * running `python script.py &` survives past sleepAfter without us doing
    * any actual work for it. Fail-soft if SDK doesn't expose the method.
    */
+  async ping(): Promise<{ status: "ok" | "error"; latencyMs: number; details?: string }> {
+    const start = performance.now();
+    try {
+      await this.exec("true", 10_000);
+      return { status: "ok", latencyMs: Math.round(performance.now() - start) };
+    } catch (err) {
+      return {
+        status: "error",
+        latencyMs: Math.round(performance.now() - start),
+        details: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
   async renewActivityTimeout(): Promise<void> {
     try {
       const sandbox = await this.getSandbox();
@@ -672,6 +687,9 @@ export class TestSandbox implements SandboxExecutor {
   async writeFileBytes(_path: string, _bytes: Uint8Array): Promise<string> {
     return "ok";
   }
+  async ping(): Promise<{ status: "ok" | "error"; latencyMs: number; details?: string }> {
+    return { status: "ok", latencyMs: 0 };
+  }
 }
 
 /**
@@ -701,6 +719,10 @@ function cfProviderEnv(env: Env): Record<string, string | undefined> {
     K8S_SANDBOX_TOKEN: e.K8S_SANDBOX_TOKEN,
     K8S_SANDBOX_CPUS: e.K8S_SANDBOX_CPUS,
     K8S_SANDBOX_MEMORY_MIB: e.K8S_SANDBOX_MEMORY_MIB,
+    K8S_BRIDGE_URL: e.K8S_BRIDGE_URL,
+    K8S_BRIDGE_TOKEN: e.K8S_BRIDGE_TOKEN,
+    K8S_CPU: e.K8S_CPU,
+    K8S_MEMORY: e.K8S_MEMORY,
   };
 }
 
@@ -747,6 +769,22 @@ function createRemoteSandbox(type: string, env: Env, sessionId: string): Sandbox
         memoryMib: e.K8S_SANDBOX_MEMORY_MIB ? Number(e.K8S_SANDBOX_MEMORY_MIB) : undefined,
         bearerToken: e.K8S_SANDBOX_TOKEN,
         sessionId,
+      });
+    }
+    case "k8s-bridge": {
+      if (!e.K8S_BRIDGE_URL) {
+        throw new SandboxProviderUnavailableError(
+          `provider "k8s-bridge" requires K8S_BRIDGE_URL to be set on this Cloudflare deployment ` +
+            `(wrangler secret put K8S_BRIDGE_URL) — pointing at a running K8s bridge instance.`,
+        );
+      }
+      return new K8sBridgeSandbox({
+        baseUrl: `${e.K8S_BRIDGE_URL.replace(/\/$/, "")}/api/v1`,
+        bearerToken: e.K8S_BRIDGE_TOKEN ?? "",
+        sessionId,
+        image: e.SANDBOX_IMAGE,
+        cpu: e.K8S_CPU ? Number(e.K8S_CPU) : undefined,
+        memory: e.K8S_MEMORY ? Number(e.K8S_MEMORY) : undefined,
       });
     }
     default:

@@ -3,7 +3,7 @@ title: "Migrating from Claude Managed Agents to Open Managed Agents"
 description: "Practical migration guide. What stays the same, what changes, and the exact steps to switch your client code, sessions, vaults, and integrations to the open-source platform."
 publishedAt: 2026-05-12
 updatedAt: 2026-05-26
-author: openma
+author: OMA
 tags: ["migration", "claude", "managed-agents", "guide"]
 ---
 

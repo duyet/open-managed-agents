@@ -1,5 +1,11 @@
 # @duyet/oma-cli
 
+## 0.7.1
+
+### Patch Changes
+
+- 12661af: Add headless `oma auth login --device` (RFC 8628 device authorization: prints a URL + code, polls until approved) and `oma auth login --paste-token` (prints a URL, paste the token back) flows for non-interactive/CI environments.
+
 ## 0.7.0
 
 ### Minor Changes

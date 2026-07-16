@@ -37,8 +37,12 @@ import { MemoryStoreDetail } from "./pages/MemoryStoreDetail";
 import { ModelCardsList } from "./pages/ModelCardsList";
 import { ApiKeysList } from "./pages/ApiKeysList";
 import { CliLogin } from "./pages/CliLogin";
+import { CliDevice } from "./pages/CliDevice";
 import { RuntimesList } from "./pages/RuntimesList";
 import { ConnectRuntime } from "./pages/ConnectRuntime";
+import { CrashPage } from "./pages/CrashPage";
+import { AgentBuilder } from "./pages/AgentBuilder";
+import { AgentChat } from "./pages/AgentChat";
 import { EvalRunsList } from "./pages/EvalRunsList";
 import { EvalRunDetail } from "./pages/EvalRunDetail";
 import {
@@ -88,6 +92,11 @@ const protectedRoutes: RouteObject[] = [
     handle: { crumb: "Agents" },
     children: [
       { index: true, element: <AgentsList /> },
+      {
+        path: "new",
+        element: <AgentBuilder />,
+        handle: { crumb: "New Agent" },
+      },
       {
         path: ":id",
         element: <AgentDetail />,
@@ -167,7 +176,7 @@ const protectedRoutes: RouteObject[] = [
   },
   { path: "model-cards", element: <ModelCardsList />, handle: { crumb: "Model Cards" } },
   { path: "api-keys", element: <ApiKeysList />, handle: { crumb: "API Keys" } },
-  { path: "runtimes", element: <RuntimesList />, handle: { crumb: "Local Runtimes" } },
+  { path: "runtimes", element: <RuntimesList />, handle: { crumb: "Sandbox Runtime" } },
   {
     path: "integrations",
     handle: { crumb: "Integrations" },
@@ -241,9 +250,11 @@ const protectedRoutes: RouteObject[] = [
 const router = createBrowserRouter([
   { path: "login", element: <Login /> },
   { path: "cli/login", element: <CliLogin /> },
+  { path: "publish/:agent_id", element: <AgentChat /> },
   { path: "connect-runtime", element: <ConnectRuntime /> },
   {
     element: <AppShell />,
+    errorElement: <CrashPage />,
     children: protectedRoutes,
   },
 ]);

@@ -22,15 +22,16 @@ const BRAND_HEX = ["#141413", "#faf9f5", "#b0aea5", "#e8e6dc", "#d97757", "#6a9b
 // --- Source: global.css tokens ---
 const cssPath = join(root, "src/styles/global.css");
 const css = readFileSync(cssPath, "utf8");
-if (!css.includes('"Poppins"') || !css.includes('"Lora"')) {
-  fail("global.css must set Poppins display + Lora body");
+// Brand fonts are now Geist (Cursor.com-style), self-hosted via fontsource.
+if (!css.includes('"Geist Variable"') || !css.includes('"Geist Mono Variable"')) {
+  fail("global.css must set Geist Variable (sans/display) + Geist Mono Variable");
 } else {
-  ok("global.css Poppins + Lora tokens");
+  ok("global.css Geist Variable + Geist Mono tokens");
 }
-if (css.includes("Source Serif") || css.includes("DM Sans")) {
-  fail("global.css must not default marketing to Source Serif / DM Sans");
+if (css.includes("Source Serif") || css.includes("DM Sans") || css.includes("Poppins") || css.includes("Lora")) {
+  fail("global.css must not default marketing to Source Serif / DM Sans / Poppins / Lora");
 } else {
-  ok("no Console font families as marketing default in global.css");
+  ok("no legacy Console/marketing font families as marketing default in global.css");
 }
 for (const hex of BRAND_HEX) {
   if (!css.toLowerCase().includes(hex.toLowerCase())) {
@@ -41,15 +42,21 @@ if (!process.exitCode) ok("brand color anchors present in global.css");
 
 // --- Source: Base.astro font load ---
 const base = readFileSync(join(root, "src/layouts/Base.astro"), "utf8");
-if (!base.includes("family=Poppins") || !base.includes("family=Lora")) {
-  fail("Base.astro must load Google Fonts Poppins + Lora");
+// Fonts are self-hosted (fontsource import in global.css) — no Google Fonts
+// <link> for Poppins/Lora any more. Assert we dropped the legacy link and
+// don't load Source Serif / DM Sans.
+if (/fonts\.googleapis\.com\/css2\?family=Poppins|family=Lora/.test(base)) {
+  fail("Base.astro still loads Google Fonts Poppins + Lora");
 } else {
-  ok("Base.astro loads Poppins + Lora");
+  ok("Base.astro no longer loads Google Fonts Poppins + Lora");
 }
 if (/Source\+Serif|DM\+Sans/.test(base)) {
   fail("Base.astro still loads Source Serif / DM Sans for marketing");
 } else {
   ok("Base.astro free of Source Serif / DM Sans font URLs");
+}
+if (!base.includes("@fontsource-variable/geist")) {
+  fail("Base.astro/global.css must self-host Geist via @fontsource-variable/geist");
 }
 
 // --- Source: index.astro sections ---
@@ -80,10 +87,12 @@ if (!process.exitCode) ok("landing source sections + concepts + viz + CTAs");
 const distIndex = join(root, "dist/index.html");
 if (existsSync(distIndex)) {
   const html = readFileSync(distIndex, "utf8");
-  if (!/Poppins/i.test(html) || !/Lora/i.test(html)) {
-    fail("built dist/index.html must reference Poppins and Lora");
+  // Geist is self-hosted: the built HTML references the fontsource CSS
+  // (and the @font-face family name), not a Google Fonts URL.
+  if (!/Geist/i.test(html)) {
+    fail("built dist/index.html must reference Geist");
   } else {
-    ok("dist/index.html references Poppins + Lora");
+    ok("dist/index.html references Geist");
   }
   if (!html.includes("What Open Managed Agents is") || !html.includes("How it is designed")) {
     fail("built HTML missing product/design explainer headings");
@@ -110,7 +119,7 @@ if (url) {
     if (!body.includes("How it is designed") && !body.includes("System architecture")) {
       fail(`fetch #${i}: missing design/architecture heading`);
     }
-    if (!/Poppins/i.test(body) || !/Lora/i.test(body)) fail(`fetch #${i}: missing font refs`);
+    if (!/Geist/i.test(body)) fail(`fetch #${i}: missing Geist font ref`);
     if (!process.exitCode) ok(`live fetch #${i} ${url} observables ok`);
   }
 }

@@ -451,6 +451,29 @@ export class KubernetesSandboxExecutor implements SandboxExecutor {
     this.logger.log(`mounted session outputs -> ${target}`);
   }
 
+  /**
+   * Health check with RTT — proves the whole control path works:
+   * client load → pod resolve → pods/exec subresource. We run a trivial
+   * `true` with a short timeout rather than relying on a backend `ping`
+   * (the agent-sandbox controller exposes no such endpoint). Without this,
+   * SandboxProviderRegistry.checkHealth() falls back to
+   * `{ status: "error", details: "ping not implemented" }` and the k8s
+   * provider shows as Unhealthy in the console even when fully reachable.
+   */
+  async ping(): Promise<{ status: "ok" | "error"; latencyMs: number; details?: string }> {
+    const start = Date.now();
+    try {
+      await this.runExec(["/bin/sh", "-c", "true"], 10_000);
+      return { status: "ok", latencyMs: Date.now() - start };
+    } catch (err) {
+      return {
+        status: "error",
+        latencyMs: Date.now() - start,
+        details: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
   async destroy(): Promise<void> {
     // Idempotent + independent of pod readiness: delete the Sandbox
     // object even if it never became Ready. The agent-sandbox controller
