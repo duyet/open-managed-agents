@@ -71,6 +71,7 @@ export default defineConfig({
             { label: 'Quickstart', slug: 'quickstart' },
             { label: 'Concepts', slug: 'concepts' },
             { label: 'Architecture', slug: 'architecture' },
+            { label: 'How it works & the hard parts', slug: 'how-it-works' },
           ],
         },
         {
