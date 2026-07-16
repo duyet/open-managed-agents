@@ -86,6 +86,20 @@ describe("<AgentPublishingTab />", () => {
     expect(screen.getByDisplayValue("My Agent")).toBeInTheDocument();
   });
 
+  it("links to the agent's test-chat page in a new tab (issue #227)", async () => {
+    mountAgentHandlers();
+    server.use(http.get("/v1/agents/agent_1/publications", () => HttpResponse.json({ data: [] })));
+    renderTab();
+
+    await waitFor(() => expect(screen.getByText("Not published")).toBeInTheDocument());
+
+    const link = screen.getByRole("link", { name: /open test chat/i });
+    expect(link).toHaveAttribute("href", "/publish/agent_1");
+    expect(link).toHaveAttribute("target", "_blank");
+    // Keyboard accessible: real <a>, focusable and activatable — no onClick-only handler.
+    expect(link.tagName).toBe("A");
+  });
+
   it("publishes an agent live and lists it", async () => {
     mountAgentHandlers();
     const pubs: Publication[] = [];
