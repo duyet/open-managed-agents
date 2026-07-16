@@ -223,8 +223,6 @@ export function EnvironmentDetail() {
         name: name.trim(),
         description: description.trim() || undefined,
         config,
-        // metadata isn't currently parsed by the PUT route — sent here so
-        // the field is present once the backend wires it up. No-op today.
         metadata: rowsToMetadata(metadataRows),
       };
 
@@ -258,6 +256,10 @@ export function EnvironmentDetail() {
   if (!env) {
     return <div className="flex-1 p-8 text-fg-muted">Loading...</div>;
   }
+
+  const metadataHasError = metadataRows.some(
+    (row) => row.key.length > 0 && !isValidMetadataKey(row.key),
+  );
 
   const typeId = env.config.type || "cloud";
   const providerInfo = hostingTypes.find((t) => t.id === typeId);
@@ -323,7 +325,7 @@ export function EnvironmentDetail() {
         {/* Networking */}
         <SectionCard
           title="Networking"
-          subtitle="Configure network access policies for sandboxes built from this environment."
+          subtitle="Configure network access policies for this environment."
         >
           <div className="space-y-4">
             <Field label="Type">
@@ -430,7 +432,7 @@ export function EnvironmentDetail() {
         {/* Packages */}
         <SectionCard
           title="Packages"
-          subtitle="Specify packages and their versions to install when sandboxes are built."
+          subtitle="Specify packages and their versions available in this environment. Separate multiple values with spaces."
           action={
             <IconButton
               label="Add package row"
@@ -501,7 +503,7 @@ export function EnvironmentDetail() {
         {/* Metadata */}
         <SectionCard
           title="Metadata"
-          subtitle="Add custom key-value pairs to tag this environment."
+          subtitle="Add custom key-value pairs to tag and organize this environment. Keys must be lowercase."
           action={
             <IconButton
               label="Add metadata row"
@@ -517,42 +519,57 @@ export function EnvironmentDetail() {
             <p className="text-[13px] text-fg-subtle italic">No metadata.</p>
           ) : (
             <div className="space-y-2">
-              {metadataRows.map((row, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input
-                    value={row.key}
-                    onChange={(e) =>
-                      setMetadataRows((rows) =>
-                        rows.map((r, j) =>
-                          j === i ? { ...r, key: e.target.value } : r,
-                        ),
-                      )
-                    }
-                    placeholder="client_key"
-                    className="flex-1 min-w-0 border border-border rounded-md px-3 py-2 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle font-mono"
-                  />
-                  <input
-                    value={row.value}
-                    onChange={(e) =>
-                      setMetadataRows((rows) =>
-                        rows.map((r, j) =>
-                          j === i ? { ...r, value: e.target.value } : r,
-                        ),
-                      )
-                    }
-                    placeholder="Value"
-                    className="flex-1 min-w-0 border border-border rounded-md px-3 py-2 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle"
-                  />
-                  <IconButton
-                    label="Remove metadata row"
-                    onClick={() =>
-                      setMetadataRows((rows) => rows.filter((_, j) => j !== i))
-                    }
-                  >
-                    <TrashIcon />
-                  </IconButton>
-                </div>
-              ))}
+              {metadataRows.map((row, i) => {
+                const keyInvalid = row.key.length > 0 && !isValidMetadataKey(row.key);
+                return (
+                  <div key={i}>
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={row.key}
+                        onChange={(e) =>
+                          setMetadataRows((rows) =>
+                            rows.map((r, j) =>
+                              j === i ? { ...r, key: e.target.value } : r,
+                            ),
+                          )
+                        }
+                        placeholder="client_key"
+                        aria-label="Metadata key"
+                        aria-invalid={keyInvalid}
+                        className={`flex-1 min-w-0 border rounded-md px-3 py-2 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle font-mono ${
+                          keyInvalid ? "border-danger" : "border-border"
+                        }`}
+                      />
+                      <input
+                        value={row.value}
+                        onChange={(e) =>
+                          setMetadataRows((rows) =>
+                            rows.map((r, j) =>
+                              j === i ? { ...r, value: e.target.value } : r,
+                            ),
+                          )
+                        }
+                        placeholder="Value"
+                        aria-label="Metadata value"
+                        className="flex-1 min-w-0 border border-border rounded-md px-3 py-2 text-[13px] bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle"
+                      />
+                      <IconButton
+                        label="Remove metadata row"
+                        onClick={() =>
+                          setMetadataRows((rows) => rows.filter((_, j) => j !== i))
+                        }
+                      >
+                        <TrashIcon />
+                      </IconButton>
+                    </div>
+                    {keyInvalid && (
+                      <p className="mt-1 text-[12px] text-danger">
+                        Keys must be lowercase.
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </SectionCard>
@@ -570,7 +587,11 @@ export function EnvironmentDetail() {
 
         {/* Footer actions */}
         <div className="flex items-center gap-3 pt-2">
-          <Button onClick={save} loading={saving} disabled={!name.trim()}>
+          <Button
+            onClick={save}
+            loading={saving}
+            disabled={!name.trim() || metadataHasError}
+          >
             Save changes
           </Button>
           <Button variant="ghost" onClick={cancel} disabled={saving}>
@@ -709,7 +730,7 @@ function GlobeIcon() {
 // packages and metadata.
 // =================================================================
 
-function packagesToRows(
+export function packagesToRows(
   packages: Partial<Record<AnyManager, string[]>> | undefined,
 ): PackageRow[] {
   if (!packages) return [];
@@ -723,7 +744,7 @@ function packagesToRows(
   return rows;
 }
 
-function rowsToPackages(
+export function rowsToPackages(
   rows: PackageRow[],
   preservedGem?: string[],
 ): Partial<Record<AnyManager, string[]>> {
@@ -745,7 +766,7 @@ function rowsToPackages(
   return out;
 }
 
-function metadataToRows(
+export function metadataToRows(
   metadata: Record<string, unknown> | undefined,
 ): MetadataRow[] {
   if (!metadata) return [];
@@ -755,7 +776,7 @@ function metadataToRows(
   }));
 }
 
-function rowsToMetadata(rows: MetadataRow[]): Record<string, unknown> {
+export function rowsToMetadata(rows: MetadataRow[]): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const row of rows) {
     const k = row.key.trim();
@@ -763,6 +784,13 @@ function rowsToMetadata(rows: MetadataRow[]): Record<string, unknown> {
     out[k] = row.value;
   }
   return out;
+}
+
+/** Metadata keys must be lowercase — mirrors the copy in the Metadata
+ *  section subtitle. An empty key is treated as valid here (it's simply
+ *  dropped by `rowsToMetadata`, not flagged as an error to the user). */
+export function isValidMetadataKey(key: string): boolean {
+  return key === key.toLowerCase();
 }
 
 function buildResources(res: ResourcesConfig, provider: string): ResourcesConfig {
