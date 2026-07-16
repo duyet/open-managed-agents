@@ -416,6 +416,7 @@ because a Worker is a single-file V8 isolate with no filesystem, no
 |---|---|
 | absent / `"cloud"` / unrecognized id | CloudflareSandbox (unchanged default — Cloudflare Containers) |
 | `"boxrun"` | Works — talks to a remote BoxRun (`boxlite serve`) control plane over plain `fetch`, no driver SDK. Requires `BOXRUN_URL` (`wrangler secret put`); missing it fails clearly with a `session.error` rather than silently falling back. |
+| `"k8s-remote"` | Works — talks to an in-cluster **k8s-sandbox-gateway** over plain `fetch` (boxrun-shaped HTTP API: create / exec+SSE / files-as-tar / destroy), no Node builtins. Requires `K8S_SANDBOX_GATEWAY_URL` (`wrangler secret put`); missing it fails clearly with a `session.error` (parity with boxrun's missing-`BOXRUN_URL`). The self-host Node path keeps using the direct `KubernetesSandboxExecutor` (in-cluster, unchanged). **Limitation:** memory-store / session-outputs bind-mounts aren't available over the HTTP tar API — like boxrun, those mounts aren't exposed by the gateway. |
 | `"daytona"` / `"e2b"` | Outbound-HTTP-only in principle (no Node builtins), but **not yet wired on Cloudflare** — their driver SDKs (`@daytonaio/sdk`, `e2b`) aren't bundled into the Worker. Selecting either fails clearly with a `session.error`; both already work on the self-host Node runtime. |
 | `"subprocess"` / `"litebox"` / `"k8s"` | Node-only (child_process, a native micro-VM binding, or local kubeconfig/filesystem access) — cannot run in a Worker at all. Selecting one fails clearly with a `session.error` explaining to use the self-host runtime instead. |
 
@@ -826,6 +827,74 @@ Attach external resources to a session at runtime:
   "memory_store_id": "ms_xxx"
 }
 ```
+
+---
+
+## Notify Targets
+
+`agent.notify` is an array of `NotificationTarget`s. Each session created from
+the agent inherits them via its `agent_snapshot` and, when the session reaches
+a terminal-ish status (`session.status_idle`, `session.error`,
+`session.status_terminated`), the platform fans out a session-status
+notification to every target. This lives in
+`apps/agent/src/runtime/notify-dispatch.ts` (extracted from `session-do.ts` so
+it's unit-testable without a Durable Object) and never throws back into the
+session loop — a misconfigured target is logged and skipped, it never blocks the
+session.
+
+Four target variants:
+
+```json
+{ "type": "github_comment", "credential_id": "cred_xxx", "owner": "acme", "repo": "widgets", "issue_number": 7 }
+```
+
+```json
+{ "type": "slack_message", "credential_id": "cred_xxx", "channel": "C123" }
+```
+
+```json
+{ "type": "matrix_message", "credential_id": "cred_xxx", "homeserver_url": "https://matrix.example.com", "room_id": "!room:example.com" }
+```
+
+### `webhook` — generic outbound webhook
+
+Posts a signed JSON envelope to an arbitrary customer URL so a creator can wire
+duyetbot into their own backend. The body is HMAC-SHA256-signed over the raw
+payload with the `X-OMA-Signature` header (`sha256=<hex>`), computed with Web
+Crypto `crypto.subtle` so it runs identically on Cloudflare Workers and Node.
+
+```json
+{
+  "type": "webhook",
+  "url": "https://hooks.example.com/agent",
+  "secret_ref": "cred_webhook_secret",
+  "events": ["idle", "terminated"]
+}
+```
+
+- **`secret_ref`** references a vault credential id whose `static_bearer` token
+  is the HMAC secret. The secret is **never stored inline** on the agent config
+  — it's resolved from the vault at dispatch time. When `secret_ref` is unset,
+  the envelope is sent **unsigned** and a warning is logged (fail-open, so a
+  customer endpoint that accepts unsigned deliveries still works). When
+  `secret_ref` is set but can't be resolved, the delivery is skipped + warned.
+- **`events`** is an optional filter over `idle | error | terminated`. Omit it
+  to deliver on all three.
+- **Envelope** (`WebhookEnvelope`): `{ session_id, publication_id?, end_user_id?,
+  agent_name?, status, stop_reason?, message?, session_url? }`. Field order is
+  fixed so a receiver can reproduce the exact signed bytes. Receivers verify
+  with `HMAC-SHA256(secret, raw_body)` and compare to the `sha256=…` value in
+  `X-OMA-Signature`.
+- **Rate limiting**: outbound webhook volume is capped **per tenant** via
+  `packages/rate-limit` (a `webhook:<tenantId>` bucket). On exhaustion the
+  delivery is dropped (fail-open) rather than blocking the session.
+
+### Validation
+
+The `notify` array is zod-validated at agent create/update in
+`packages/http-routes/src/agents/index.ts` via `notificationTargetsSchema`
+(`packages/api-types/src/notify-schema.ts`). An invalid target (e.g. a
+non-URL `webhook.url`, or an unknown `events` value) is rejected with HTTP 422.
 
 ---
 

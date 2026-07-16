@@ -56,6 +56,11 @@ export type {
 export { buildEvalRoutes } from "./evals";
 export type { EvalRoutesDeps, EvalTaskSpec } from "./evals";
 
+export { buildPublicationRoutes, buildAgentPublicationRoutes } from "./publications";
+export type {
+  PublicationRoutesDeps,
+} from "./publications";
+
 export { buildIntegrationsRoutes } from "./integrations";
 export type {
   IntegrationsRoutesDeps,

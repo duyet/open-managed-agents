@@ -22,6 +22,7 @@
     "@duyet/oma-kv-store": "workspace:*",
     "@duyet/oma-memory-store": "workspace:*",
     "@duyet/oma-observability": "workspace:*",
+    "@duyet/oma-publications-store": "workspace:*",
     "@duyet/oma-quotas": "workspace:*",
     "@duyet/oma-session-runtime": "workspace:*",
     "@duyet/oma-sessions-store": "workspace:*",

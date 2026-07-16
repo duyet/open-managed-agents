@@ -152,6 +152,15 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     capabilities: ["exec", "files", "pause_resume"],
   },
   {
+    type: "k8s-remote",
+    label: "Kubernetes (remote gateway)",
+    description: "Talks to an in-cluster k8s-sandbox-gateway over plain fetch — k8s pods without a Worker-side kubeconfig.",
+    envKeys: ["K8S_SANDBOX_GATEWAY_URL", "K8S_SANDBOX_TOKEN"],
+    factoryPath: "@duyet/oma-sandbox/adapters/kubernetes-remote",
+    cfCompatible: true,
+    capabilities: ["exec", "files", "pause_resume"],
+  },
+  {
     type: "cloud",
     label: "Cloudflare Sandbox",
     description: "Managed sandbox — uses Cloudflare Containers.",

@@ -53,6 +53,7 @@ describe("dispatchSessionNotifications", () => {
         cred_slack: "xoxb-token",
         cred_matrix: "mat_token",
       }),
+      resolveSecret: async () => null,
       httpClient,
     });
 
@@ -95,6 +96,7 @@ describe("dispatchSessionNotifications", () => {
           cred_slack: "xoxb-token",
           cred_matrix: "mat_token",
         }),
+        resolveSecret: async () => null,
         httpClient,
         onError,
       }),
@@ -123,6 +125,7 @@ describe("dispatchSessionNotifications", () => {
         cred_slack: "xoxb-token",
         cred_matrix: "mat_token",
       }),
+      resolveSecret: async () => null,
       httpClient: {
         fetch: async (req) => {
           if (req.url.includes("matrix.example.com")) {
@@ -148,6 +151,7 @@ describe("dispatchSessionNotifications", () => {
         resolveCredentialToken: async () => {
           throw new Error("boom");
         },
+        resolveSecret: async () => null,
         httpClient: new FakeHttpClient(),
       }),
     ).resolves.toBeUndefined();
@@ -155,7 +159,7 @@ describe("dispatchSessionNotifications", () => {
 
   it("is a no-op when there are no targets", async () => {
     const http = new FakeHttpClient();
-    await dispatchSessionNotifications(event, [], { resolveCredentialToken: async () => null, httpClient: http });
+    await dispatchSessionNotifications(event, [], { resolveCredentialToken: async () => null, resolveSecret: async () => null, httpClient: http });
     expect(http.calls).toHaveLength(0);
   });
 });

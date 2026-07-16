@@ -532,6 +532,9 @@ importers:
       '@duyet/oma-outbound-snapshots-store':
         specifier: workspace:*
         version: link:../../packages/outbound-snapshots-store
+      '@duyet/oma-publications-store':
+        specifier: workspace:*
+        version: link:../../packages/publications-store
       '@duyet/oma-queue':
         specifier: workspace:*
         version: link:../../packages/queue
@@ -670,6 +673,9 @@ importers:
       '@duyet/oma-observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@duyet/oma-publications-store':
+        specifier: workspace:*
+        version: link:../../packages/publications-store
       '@duyet/oma-queue':
         specifier: workspace:*
         version: link:../../packages/queue
@@ -878,7 +884,11 @@ importers:
 
   packages/anyrouter: {}
 
-  packages/api-types: {}
+  packages/api-types:
+    dependencies:
+      zod:
+        specifier: 4.3.6
+        version: 4.3.6
 
   packages/auth:
     dependencies:
@@ -1161,6 +1171,9 @@ importers:
       '@duyet/oma-observability':
         specifier: workspace:*
         version: link:../observability
+      '@duyet/oma-publications-store':
+        specifier: workspace:*
+        version: link:../publications-store
       '@duyet/oma-quotas':
         specifier: workspace:*
         version: link:../quotas
@@ -1401,6 +1414,21 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
+  packages/publications-store:
+    dependencies:
+      '@duyet/oma-db-schema':
+        specifier: workspace:*
+        version: link:../db-schema
+      '@duyet/oma-shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@duyet/oma-sql-client':
+        specifier: workspace:*
+        version: link:../sql-client
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@cloudflare/workers-types@4.20260410.1)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(better-sqlite3@11.10.0)(kysely@0.28.16)(pg@8.20.0)(postgres@3.4.9)(sql.js@1.14.1)
+
   packages/queue:
     dependencies:
       '@duyet/oma-memory-store':
@@ -1543,6 +1571,9 @@ importers:
       '@duyet/oma-outbound-snapshots-store':
         specifier: workspace:*
         version: link:../outbound-snapshots-store
+      '@duyet/oma-publications-store':
+        specifier: workspace:*
+        version: link:../publications-store
       '@duyet/oma-session-secrets-store':
         specifier: workspace:*
         version: link:../session-secrets-store

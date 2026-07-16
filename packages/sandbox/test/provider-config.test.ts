@@ -24,7 +24,7 @@ describe("classifyCfSandboxProvider", () => {
     expect(classifyCfSandboxProvider("totally-unknown-provider")).toEqual({ kind: "cloudflare" });
   });
 
-  it.each(["boxrun", "daytona", "e2b"])(
+  it.each(["boxrun", "daytona", "e2b", "k8s-remote"])(
     "classifies remote HTTP-API adapter %s as remote",
     (type) => {
       expect(classifyCfSandboxProvider(type)).toEqual({ kind: "remote", type });
@@ -53,6 +53,7 @@ describe("classifyCfSandboxProvider", () => {
       daytona: true,
       e2b: true,
       k8s: false,
+      "k8s-remote": true,
       "k8s-bridge": true,
       cloud: true,
       "docker-compose": false,

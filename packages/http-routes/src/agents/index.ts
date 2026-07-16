@@ -17,6 +17,7 @@ import { Hono } from "hono";
 import type {
   AgentConfig,
 } from "@duyet/oma-shared";
+import { notificationTargetsSchema } from "@duyet/oma-api-types";
 import {
   AgentNotFoundError,
   AgentVersionMismatchError,
@@ -228,6 +229,13 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
       appendable_prompts: raw._oma?.appendable_prompts,
       notify: raw._oma?.notify,
     };
+
+    if (raw._oma?.notify !== undefined) {
+      const parsed = notificationTargetsSchema.safeParse(raw._oma.notify);
+      if (!parsed.success) {
+        return c.json({ error: "invalid notify config", details: parsed.error.issues }, 422);
+      }
+    }
 
     if (!body.name) return c.json({ error: "name is required" }, 400);
     if (!body.runtime_binding && !body.model) {

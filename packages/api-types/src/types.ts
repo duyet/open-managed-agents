@@ -70,6 +70,24 @@ export type NotificationTarget =
       credential_id: string;
       homeserver_url: string;
       room_id: string;
+    }
+  | {
+      /**
+       * POST a signed JSON envelope to an arbitrary customer URL. Used by
+       * creators integrating duyetbot with their own backend. The body is
+       * HMAC-SHA256 signed over the raw payload with `X-OMA-Signature`.
+       *
+       * `secret_ref` references a vault credential id whose `static_bearer`
+       * token is the HMAC secret — it is NEVER inlined into the agent config.
+       * When `secret_ref` is unset the envelope is sent unsigned and a
+       * warning is logged (fail-open, since a customer webhook may choose to
+       * accept unsigned deliveries).
+       */
+      type: "webhook";
+      url: string;
+      secret_ref?: string;
+      /** Subset of statuses to deliver. Default = all three when omitted. */
+      events?: Array<"idle" | "error" | "terminated">;
     };
 
 export interface AgentConfig {

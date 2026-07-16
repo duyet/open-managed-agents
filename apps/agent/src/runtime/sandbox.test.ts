@@ -1,13 +1,15 @@
 // Unit tests for resolveCfSandbox / createSandbox — the Cloudflare-side
 // sandbox provider resolution seam. Covers: default CloudflareSandbox
-// behavior (absent / "cloud" / unknown provider id), the boxrun remote
-// adapter (success + missing-config error), and the clear-failure path for
-// providers this deployment can't serve (Node-only, and daytona/e2b which
-// are cf-compatible in principle but not bundled here yet).
+// behavior (absent / "cloud" / unknown provider id), the boxrun and
+// k8s-remote remote adapters (success + missing-config error), and the
+// clear-failure path for providers this deployment can't serve (Node-only,
+// and daytona/e2b which are cf-compatible in principle but not bundled here
+// yet).
 
 import { describe, it, expect } from "vitest";
 import type { Env } from "@duyet/oma-shared";
 import { BoxRunSandbox } from "@duyet/oma-sandbox/adapters/boxrun";
+import { KubernetesRemoteSandbox } from "@duyet/oma-sandbox/adapters/kubernetes-remote";
 import {
   CloudflareSandbox,
   createSandbox,
@@ -63,6 +65,21 @@ describe("resolveCfSandbox", () => {
     );
   });
 
+  it("resolves k8s-remote to a real KubernetesRemoteSandbox when K8S_SANDBOX_GATEWAY_URL is set", () => {
+    const env = {
+      ...baseEnv,
+      K8S_SANDBOX_GATEWAY_URL: "https://k8s-gateway.oma.internal/v1/default",
+    } as unknown as Env;
+    const sandbox = resolveCfSandbox(env, "sess_1", { sandbox_provider: "k8s-remote" });
+    expect(sandbox).toBeInstanceOf(KubernetesRemoteSandbox);
+  });
+
+  it("throws SandboxProviderUnavailableError for k8s-remote without K8S_SANDBOX_GATEWAY_URL configured", () => {
+    expect(() =>
+      resolveCfSandbox(baseEnv, "sess_1", { sandbox_provider: "k8s-remote" }),
+    ).toThrow(SandboxProviderUnavailableError);
+  });
+
   it.each(["subprocess", "litebox", "k8s"])(
     "throws SandboxProviderUnavailableError for the Node-only provider %s",
     (type) => {
@@ -95,9 +112,12 @@ describe("resolveCfSandbox", () => {
 
 describe("createSandbox", () => {
   it("delegates to resolveCfSandbox with the given envConfig", () => {
-    const env = { ...baseEnv, BOXRUN_URL: "http://boxrun:8100/v1/default" } as unknown as Env;
-    const sandbox = createSandbox(env, "sess_1", { sandbox_provider: "boxrun" });
-    expect(sandbox).toBeInstanceOf(BoxRunSandbox);
+    const env = {
+      ...baseEnv,
+      K8S_SANDBOX_GATEWAY_URL: "https://k8s-gateway.oma.internal/v1/default",
+    } as unknown as Env;
+    const sandbox = createSandbox(env, "sess_1", { sandbox_provider: "k8s-remote" });
+    expect(sandbox).toBeInstanceOf(KubernetesRemoteSandbox);
   });
 
   it("defaults to CloudflareSandbox when envConfig is omitted (back-compat call shape)", () => {
