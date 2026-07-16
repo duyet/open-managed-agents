@@ -1,38 +1,42 @@
-# oma Quickstart (CLI)
+# Quickstart: Your First Agent in 5 Minutes
 
-Get oma running locally in under 5 minutes.
+Get OMA running on your machine (or in the cloud) and send your first agent message — pick your path below.
 
-## Prerequisites
+## Pick Your Path
 
-- **Node.js 22+** — `node --version` should show v22 or higher
-- **pnpm 9+** — `npm i -g pnpm` if you don't have it
-- **Docker** — `docker compose version` should work
+| Path | Best for | Time |
+|------|----------|------|
+| 🐳 **Docker** (recommended) | Trying OMA locally | ~5 min |
+| ☁️ **Cloudflare** | Production deployment | ~10 min |
+| 🚢 **Kubernetes** | Scale-out deployment | ~15 min |
 
-## 1. Clone
+---
+
+## 🐳 Docker (Recommended for Trying)
+
+### 1. Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) (with Compose)
+- [curl](https://curl.se) (or any HTTP client)
+
+### 2. Clone & Configure
 
 ```bash
 git clone https://github.com/duyet/oma.git
 cd oma
+cp .env.example .env
 ```
 
-## 2. Configure
+Generate secrets and add them to `.env`:
 
 ```bash
-cp .env.example .env
-
-# Generate required secrets
 echo "BETTER_AUTH_SECRET=$(openssl rand -hex 32)" >> .env
 echo "PLATFORM_ROOT_SECRET=$(openssl rand -base64 32)" >> .env
 ```
 
-Edit `.env` and set your API key:
+**Important**: Back up `PLATFORM_ROOT_SECRET` — losing it makes all encrypted data unreadable.
 
-```bash
-# .env
-API_KEY=my-dev-key
-```
-
-## 3. Launch
+### 3. Launch
 
 ```bash
 docker compose up -d
@@ -44,68 +48,143 @@ Verify it's running:
 curl localhost:8787/health
 ```
 
-Expected: `{"status":"ok","backends":{"db":"sqlite"},"version":"0.1.0"}`
+Expected response:
+```json
+{"status":"ok","backends":{"db":"sqlite"},"version":"0.1.0"}
+```
 
-## 4. Create an agent
+### 4. Create Your First Agent
+
+Open [http://localhost:8787](http://localhost:8787) in your browser, sign up, and use the Console to create an agent — or use the CLI:
 
 ```bash
-BASE=http://localhost:8787
-KEY=my-dev-key
+export OMA_BASE="http://localhost:8787"
+export OMA_KEY="dev-test-key"
 
-AID=$(curl -s -X POST $BASE/v1/agents \
-  -H "x-api-key: $KEY" \
-  -H 'content-type: application/json' \
+AGENT_ID=$(curl -s -X POST "$OMA_BASE/v1/agents" \
+  -H "x-api-key: $OMA_KEY" \
+  -H "content-type: application/json" \
   -d '{
-    "name":"hello",
-    "model":"claude-sonnet-4-6",
-    "system":"Say hello briefly.",
-    "tools":[]
-  }' | jq -r .id)
-echo "Agent: $AID"
+    "name": "hello-agent",
+    "model": "claude-sonnet-4-6",
+    "system": "You are a helpful assistant. Keep replies short.",
+    "tools": [{"type": "agent_toolset_20260401", "default_config": {"enabled": true}}]
+  }' | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
+
+echo "Agent: $AGENT_ID"
 ```
 
-## 5. Start a session
+### 5. Send a Message
 
 ```bash
-SID=$(curl -s -X POST $BASE/v1/sessions \
-  -H "x-api-key: $KEY" \
-  -H 'content-type: application/json' \
-  -d "{\"agent\":\"$AID\"}" | jq -r .id)
-echo "Session: $SID"
+SESSION_ID=$(curl -s -X POST "$OMA_BASE/v1/sessions" \
+  -H "x-api-key: $OMA_KEY" \
+  -H "content-type: application/json" \
+  -d "{\"agent\": \"$AGENT_ID\"}" | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
+
+curl -N -X POST "$OMA_BASE/v1/sessions/$SESSION_ID/messages" \
+  -H "x-api-key: $OMA_KEY" \
+  -H "content-type: application/json" \
+  -d '{"content": "Say hello and tell me what tools you have available."}'
 ```
 
-## 6. Send a message (streaming)
+You'll see the agent's reply stream in real-time.
+
+### Next Steps with Docker
+
+- [Docker deploy guide](deploy/docker.md) — Postgres, custom config, production tuning
+- [Self-host overview](../self-host/overview.md)
+
+---
+
+## ☁️ Cloudflare (Production)
+
+### 1. Prerequisites
+
+- [Node.js](https://nodejs.org) 22+
+- [pnpm](https://pnpm.io/installation) 10+ (`npm i -g pnpm`)
+- A [Cloudflare](https://cloudflare.com) account on **Workers Paid** plan ($5/mo)
+- `wrangler` logged in (`npx wrangler login`)
+- An [Anthropic API key](https://console.anthropic.com) (or OpenAI compatible)
+
+### 2. Deploy
 
 ```bash
-curl -N -X POST $BASE/v1/sessions/$SID/messages \
-  -H "x-api-key: $KEY" \
-  -H 'content-type: application/json' \
-  -d '{"content":"Hello! What tools do you have?"}'
+git clone https://github.com/duyet/oma.git
+cd oma
+pnpm install
+npx wrangler login
+./scripts/setup-cf.sh
 ```
 
-You'll see SSE events streaming the model's reply.
+The wizard will:
+1. Create D1 databases, KV namespace, and R2 buckets
+2. Set secrets and deploy 3 workers (main + agent + integrations)
+3. Print your Console URL
 
-## 7. Open the Console
+### 3. Open Console
 
-Browse to **http://localhost:8787** and:
-1. Add a **Model Card** (LLM credentials)
-2. Create an **Environment** (sandbox config)
-3. Build an **Agent** with the visual builder
+Open the URL printed by the wizard (e.g. `https://oma-main.xxx.workers.dev`). Sign up — your first user becomes the tenant owner. Create an agent and start a session.
+
+### Next Steps with Cloudflare
+
+- [Cloudflare deploy guide](deploy/cloudflare.md) — custom domains, OAuth apps, monitoring
+
+---
+
+## 🚢 Kubernetes (Scale)
+
+### 1. Prerequisites
+
+- Kubernetes cluster v1.25+
+- [Helm 3](https://helm.sh)
+- `kubectl` configured with cluster access
+- cert-manager installed (for TLS)
+- OMA deployed via Cloudflare or self-hosted Node
+
+### 2. Install k8s-bridge
+
+```bash
+helm repo add oma https://charts.oma.duyet.net
+helm repo update
+
+export K8S_BRIDGE_TOKEN=$(openssl rand -base64 32)
+
+helm install oma-k8s-bridge oma/oma-k8s-bridge \
+  --namespace oma-sandbox \
+  --create-namespace \
+  --set secret.token=$K8S_BRIDGE_TOKEN \
+  --set ingress.enabled=true \
+  --set ingress.host=k8s-bridge.example.com
+```
+
+### 3. Verify
+
+```bash
+kubectl -n oma-sandbox rollout status deployment/oma-k8s-bridge
+
+curl -H "Authorization: Bearer $K8S_BRIDGE_TOKEN" \
+  https://k8s-bridge.example.com/api/v1/health
+```
+
+### Next Steps with Kubernetes
+
+- [Kubernetes deploy guide](deploy/kubernetes.md) — scaling, monitoring, advanced config
+
+---
 
 ## Troubleshooting
 
-| Problem | Check |
-|---|---|
-| `docker compose up` fails | Port 8787 already in use? Try `lsof -i :8787` |
-| Health returns 503 | Wait for migrations: `docker compose logs oma --tail=20` |
-| 401 on API calls | Does `API_KEY` in `.env` match the header you're sending? |
-| Session hangs at "running" | Add `ANTHROPIC_API_KEY` to `.env` or create a Model Card in the Console |
-| `jq: command not found` | Install jq: `apt install jq` / `brew install jq` |
-| Docker daemon not running | Start Docker Desktop or `systemctl start docker` |
+| Symptom | Likely cause | Fix |
+|---------|-------------|-----|
+| `docker compose up` fails | Port 8787 in use | Stop the conflicting process or change port in `docker-compose.yml` |
+| `health` returns 503 | Migrations not finished | Wait 10s and retry, check `docker compose logs oma` |
+| Session returns no reply | No model card configured | Add a Model Card in Console or set `ANTHROPIC_API_KEY` in `.env` |
+| `setup-cf.sh` fails on secret | Wrangler not logged in | Run `npx wrangler login` first |
 
-## What's next?
+## What's Next
 
-- [Full self-host guide](./deploy/self-host.md)
-- [Custom harness examples](./examples/)
-- [API reference](https://docs.oma.duyet.net/build/api/)
-- [Deploy to Cloudflare](./deploy/cloudflare.md)
+- **Deploy guides**: [Docker](deploy/docker.md) · [Cloudflare](deploy/cloudflare.md) · [Kubernetes](deploy/kubernetes.md)
+- **Build with the API**: [API reference](./reference/api.md) · [CLI/SDK](./build/cli-sdk.md)
+- **Add integrations**: Slack · GitHub · Linear
+- **Custom harness**: Replace the default agent loop with your own logic
