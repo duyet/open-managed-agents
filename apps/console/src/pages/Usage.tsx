@@ -16,7 +16,10 @@ import { formatCompact, formatSandboxTime, formatUsd } from "../lib/format";
 //    AgentObservabilityTab mirrors SessionAnalytics. ─────────────────────
 interface UsageByKind {
   kind: string;
-  total_seconds: number;
+  // Named `total`, not `total_seconds` (#231) — this holds a raw token
+  // count for the model_input_tokens/model_output_tokens kinds, so
+  // `total_seconds` was a lie for those two.
+  total: number;
 }
 interface UsageByInstanceType {
   instance_type: string | null;
@@ -27,12 +30,21 @@ interface DailyBucket {
   active_seconds: number;
   runs: number;
 }
+interface UsageByAgent {
+  agent_id: string | null;
+  agent_name: string | null;
+  total_active_seconds: number;
+  total_sessions: number;
+  by_kind: UsageByKind[];
+}
 interface UsageSummary {
+  period: { days: number; since: string | null };
   total_active_seconds: number;
   total_sessions: number;
   by_kind: UsageByKind[];
   by_instance_type: UsageByInstanceType[];
   daily: DailyBucket[];
+  by_agent?: UsageByAgent[];
 }
 
 interface ServiceCost {
@@ -75,7 +87,7 @@ const SERVICE_LABELS: Record<string, string> = {
 };
 
 function kindValue(byKind: UsageByKind[], kind: string): number {
-  return byKind.find((k) => k.kind === kind)?.total_seconds ?? 0;
+  return byKind.find((k) => k.kind === kind)?.total ?? 0;
 }
 
 function formatKindTotal(kind: string, value: number): string {
@@ -92,10 +104,12 @@ function formatKindTotal(kind: string, value: number): string {
  * existing home rather than adding a 7th.
  *
  * Consumes:
- *   - GET /v1/usage — all-time totals + a fixed last-30-days daily series.
- *     No query params (confirmed against apps/main/src/routes/usage.ts) —
- *     only the daily chart's *window* is range-adjustable, done client-side
- *     since the server already caps `daily` at 30 days.
+ *   - GET /v1/usage?days=0&group_by=agent — the "All time" stat tiles,
+ *     By kind / By sandbox instance type / By agent tables, and the daily
+ *     series all come from one call. `days=0` asks for the honest all-time
+ *     totals (#231) rather than the server's own default of the last 30
+ *     days — the *daily chart's* window is still range-adjustable, sliced
+ *     client-side from the full series (see `dailySlice` below).
  *   - GET /v1/cost_report?days=N — genuinely range-scoped Cloudflare infra
  *     cost. Returns 501 when CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID
  *     aren't configured — treated as an explanatory empty state, not an
@@ -110,7 +124,10 @@ export function Usage() {
   const [range, setRange] = useState<Range>("30d");
   const days = RANGE_DAYS[range];
 
-  const usageQuery = useApiQuery<UsageSummary>("/v1/usage");
+  const usageQuery = useApiQuery<UsageSummary>("/v1/usage", {
+    days: "0",
+    group_by: "agent",
+  });
   const costQuery = useApiQuery<CostReport>("/v1/cost_report", { days: String(days) });
 
   const usage = usageQuery.data;
@@ -196,6 +213,10 @@ export function Usage() {
               <InstanceTypeTable rows={usage.by_instance_type} />
             </Card>
           </div>
+
+          <Card title="By agent">
+            <ByAgentTable rows={usage.by_agent ?? []} />
+          </Card>
         </>
       )}
 
@@ -385,7 +406,7 @@ function KindTable({ rows }: { rows: UsageByKind[] }) {
           <tr key={r.kind} className="border-t border-border">
             <td className="py-2 text-fg">{KIND_META[r.kind]?.label ?? r.kind}</td>
             <td className="py-2 text-right text-fg-muted tabular-nums">
-              {formatKindTotal(r.kind, r.total_seconds)}
+              {formatKindTotal(r.kind, r.total)}
             </td>
           </tr>
         ))}
@@ -411,6 +432,55 @@ function InstanceTypeTable({ rows }: { rows: UsageByInstanceType[] }) {
             <td className="py-2 text-fg font-mono text-xs">{r.instance_type ?? "unknown"}</td>
             <td className="py-2 text-right text-fg-muted tabular-nums">
               {formatSandboxTime(r.total_seconds)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/** Per-agent breakdown (?group_by=agent, #231) — one row per agent plus an
+ *  "Unattributed" row for usage_events with no agent_id. A plain
+ *  hand-rolled <table>, matching KindTable/InstanceTypeTable right above
+ *  rather than the full-page DataTable component (search/columns-menu/
+ *  infinite-scroll chrome built for standalone list routes) — this is a
+ *  small, unpaginated summary embedded in an existing analytics Card. */
+function ByAgentTable({ rows }: { rows: UsageByAgent[] }) {
+  if (rows.length === 0)
+    return <p className="text-sm text-fg-subtle">No per-agent usage recorded.</p>;
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="text-fg-subtle text-[11px] uppercase tracking-[0.08em]">
+          <th className="text-left pb-2 font-medium">Agent</th>
+          <th className="text-right pb-2 font-medium">Sandbox time</th>
+          <th className="text-right pb-2 font-medium">Sessions</th>
+          <th className="text-right pb-2 font-medium">Tokens in</th>
+          <th className="text-right pb-2 font-medium">Tokens out</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.agent_id ?? "unattributed"} className="border-t border-border">
+            <td className="py-2 text-fg">
+              {r.agent_name ?? (r.agent_id ? (
+                <span className="font-mono text-xs">{r.agent_id}</span>
+              ) : (
+                <span className="text-fg-subtle italic">Unattributed</span>
+              ))}
+            </td>
+            <td className="py-2 text-right text-fg-muted tabular-nums">
+              {formatSandboxTime(r.total_active_seconds)}
+            </td>
+            <td className="py-2 text-right text-fg-muted tabular-nums">
+              {formatCompact(r.total_sessions)}
+            </td>
+            <td className="py-2 text-right text-fg-muted tabular-nums">
+              {formatCompact(kindValue(r.by_kind, "model_input_tokens"))}
+            </td>
+            <td className="py-2 text-right text-fg-muted tabular-nums">
+              {formatCompact(kindValue(r.by_kind, "model_output_tokens"))}
             </td>
           </tr>
         ))}
