@@ -378,6 +378,69 @@ describe("magic-link token is delivered out-of-band, never echoed (issue #162)",
     expect(body2.token).toBeUndefined();
   });
 
+  it("includes a clickable /p/auth/verify link when the request names a slug, code kept as fallback (issue #215)", async () => {
+    const app = publicApp();
+    const sent: Array<{ to: string; html: string; text: string }> = [];
+    const emailEnv = {
+      ...(env as unknown as Record<string, unknown>),
+      SEND_EMAIL: {
+        send: async (msg: { to: string; html: string; text: string }) => {
+          sent.push(msg);
+        },
+      },
+    };
+    const res = await app.request(
+      "/v1/public/auth/magic-link",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "linked@example.com", slug: "duyetbot" }),
+      },
+      emailEnv as unknown as Record<string, unknown>,
+    );
+    expect(res.status).toBe(201);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].html).toContain("/p/auth/verify?token=");
+    expect(sent[0].html).toContain("slug=duyetbot");
+    expect(sent[0].text).toContain("/p/auth/verify?token=");
+
+    // The raw code is STILL present in the email as a fallback.
+    const row = await db()
+      .prepare(
+        "SELECT token FROM magic_links WHERE consumer_id = (SELECT id FROM consumers WHERE email = ?)",
+      )
+      .bind("linked@example.com")
+      .first<{ token: string }>();
+    expect(row?.token).toBeTruthy();
+    expect(sent[0].html).toContain(row!.token);
+    expect(sent[0].text).toContain(row!.token);
+  });
+
+  it("falls back to a code-only email when no slug is given (no /p/auth/verify link)", async () => {
+    const app = publicApp();
+    const sent: Array<{ html: string; text: string }> = [];
+    const emailEnv = {
+      ...(env as unknown as Record<string, unknown>),
+      SEND_EMAIL: {
+        send: async (msg: { html: string; text: string }) => {
+          sent.push(msg);
+        },
+      },
+    };
+    await app.request(
+      "/v1/public/auth/magic-link",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "nolink@example.com" }),
+      },
+      emailEnv as unknown as Record<string, unknown>,
+    );
+    expect(sent).toHaveLength(1);
+    expect(sent[0].html).not.toContain("/p/auth/verify");
+    expect(sent[0].html).toContain("Your sign-in code");
+  });
+
   it("rate-limits repeated magic-link requests for the same email", async () => {
     const app = publicApp();
     const limitedEnv = {

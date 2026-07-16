@@ -73,6 +73,19 @@ export interface PublicPublicationRoutesDeps {
    *  guest -> email upgrade (same consumer id). When omitted or unresolved, the
    *  surface falls back to the built-in `tok:<token>` / `ip:<ip>` scheme. */
   resolveEndUserId?: (req: Request, env: Env) => Promise<string>;
+  /** Exchange a magic-link token for a consumer session — the clickable
+   *  landing page (GET /auth/verify, issue #215) shares this with
+   *  POST /v1/public/auth/verify (consumer-auth.ts's verifyMagicLinkToken)
+   *  instead of duplicating the query/expiry/issue-session logic. Optional
+   *  so existing fixtures/tests that don't exercise the landing page don't
+   *  need to wire it up. */
+  verifyMagicLink?: (
+    token: string,
+    env: Env,
+  ) => Promise<
+    | { ok: true; session_token: string; consumer_id: string; expires_at: string }
+    | { ok: false; error: string; status: number }
+  >;
 }
 
 /**
@@ -176,6 +189,55 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
         "cache-control": "public, max-age=300",
       },
     });
+  });
+
+  // GET /p/auth/verify?token=...&slug=... — clickable magic-link landing
+  // page (issue #215). Exchanges the token via the SAME core logic as
+  // POST /v1/public/auth/verify (deps.verifyMagicLink — consumer-auth.ts's
+  // verifyMagicLinkToken), stores the session token in localStorage under
+  // the exact key the hosted chat page reads (oma_pub_tok_<slug>), then
+  // bounces to /p/<slug>. `slug` is a pure UX hint for where to return —
+  // the magic-link token itself isn't scoped to any one publication, so an
+  // unknown/mismatched slug just lands on that slug's own guardrail page
+  // (hidden/paused), same as visiting it directly.
+  //
+  // Registered here (2 path segments: "auth", "verify") rather than
+  // colliding with the 1-segment `/:slug` route above — Hono only matches
+  // a param route against paths with the same segment count, so this can't
+  // be shadowed by (or shadow) a publication whose slug happens to be "auth".
+  app.get("/auth/verify", async (c) => {
+    const token = c.req.query("token");
+    const slug = c.req.query("slug");
+    if (!token || !slug) {
+      return new Response(
+        htmlErrorPage(
+          "Invalid link",
+          "This sign-in link is missing information and can't be used.",
+        ),
+        { status: 400, headers: { "content-type": "text/html; charset=utf-8" } },
+      );
+    }
+
+    if (!deps.verifyMagicLink) {
+      return new Response(
+        htmlErrorPage("Sign-in unavailable", "Please try again shortly."),
+        { status: 500, headers: { "content-type": "text/html; charset=utf-8" } },
+      );
+    }
+
+    const result = await deps.verifyMagicLink(token, c.env);
+    if (!result.ok) {
+      return new Response(
+        htmlErrorPage(
+          "Link expired",
+          `${result.error}. Sign-in links are valid for 15 minutes — request a new one and click it again.`,
+          { href: `/p/${encodeURIComponent(slug)}`, label: "Back to chat" },
+        ),
+        { status: result.status, headers: { "content-type": "text/html; charset=utf-8" } },
+      );
+    }
+
+    return c.html(renderVerifyRedirectPage(slug, result.session_token));
   });
 
   // POST /p/:slug/sessions — create a session bound to the published
@@ -851,8 +913,11 @@ function htmlGuardrailResponse(status: number): Response {
   });
 }
 
-/** Minimal, self-contained centered-card error page (theme-aware). */
-function htmlErrorPage(heading: string, body: string): string {
+/** Minimal, self-contained centered-card error page (theme-aware). Optional
+ *  `cta` renders a link below the body text — used by the magic-link
+ *  landing route (issue #215) for a "Back to chat" / request-a-new-link
+ *  pointer on an expired/invalid token. */
+function htmlErrorPage(heading: string, body: string, cta?: { href: string; label: string }): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -861,20 +926,62 @@ function htmlErrorPage(heading: string, body: string): string {
 <meta name="robots" content="noindex" />
 <title>${escapeHtml(heading)}</title>
 <style>
-  :root { --bg:#ffffff; --fg:#1a1a1f; --muted:#6b6b76; --border:#e4e4ea; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#16161a; --fg:#ececf1; --muted:#a0a0ad; --border:#2e2e37; } }
+  :root { --bg:#ffffff; --fg:#1a1a1f; --muted:#6b6b76; --border:#e4e4ea; --brand:#5b5bd6; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16161a; --fg:#ececf1; --muted:#a0a0ad; --border:#2e2e37; --brand:#7d7dee; } }
   html, body { margin: 0; height: 100%; }
   body { background: var(--bg); color: var(--fg); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; }
   .card { max-width: 380px; text-align: center; padding: 32px; border: 1px solid var(--border); border-radius: 14px; margin: 16px; }
   h1 { font-size: 18px; margin: 0 0 8px; }
   p { color: var(--muted); font-size: 14px; margin: 0; }
+  .cta { display: inline-block; margin-top: 16px; color: var(--brand); text-decoration: underline; font-size: 14px; }
 </style>
 </head>
 <body>
   <div class="card">
     <h1>${escapeHtml(heading)}</h1>
     <p>${escapeHtml(body)}</p>
+    ${cta ? `<a class="cta" href="${escapeHtml(cta.href)}">${escapeHtml(cta.label)}</a>` : ""}
   </div>
+</body>
+</html>
+`;
+}
+
+/**
+ * Success page for the clickable magic-link landing route (issue #215).
+ * Stores the session token in localStorage under the EXACT key the hosted
+ * chat page (`renderChatPage` above) reads on load — `oma_pub_tok_<slug>` —
+ * then bounces to /p/<slug>. A plain HTTP redirect can't set localStorage,
+ * hence this tiny inline-script page instead of a 302.
+ */
+function renderVerifyRedirectPage(slug: string, sessionToken: string): string {
+  const target = `/p/${encodeURIComponent(slug)}`;
+  // `<` neutralised the same way renderChatPage's `cfg` literal is above, so
+  // a pathological slug/token can't break out of the script tag.
+  const tokKeyLiteral = JSON.stringify(`oma_pub_tok_${slug}`).replace(/</g, "\\u003c");
+  const tokenLiteral = JSON.stringify(sessionToken).replace(/</g, "\\u003c");
+  const targetLiteral = JSON.stringify(target).replace(/</g, "\\u003c");
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Signing you in…</title>
+<style>
+  :root { --bg:#ffffff; --fg:#1a1a1f; --muted:#6b6b76; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16161a; --fg:#ececf1; --muted:#a0a0ad; } }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--fg); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; }
+  p { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+  <p>Signing you in…</p>
+  <script>
+    try { localStorage.setItem(${tokKeyLiteral}, ${tokenLiteral}); } catch (e) {}
+    window.location.replace(${targetLiteral});
+  </script>
 </body>
 </html>
 `;
