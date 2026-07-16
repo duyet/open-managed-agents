@@ -7,7 +7,7 @@ sandbox image is fine) is a config change, not a code change.
 
 | Choice | Config field | Where it runs |
 |---|---|---|
-| **Harness** (model loop) | `agent.harness` | Platform (`apps/agent` for CF, `apps/main-node` for self-host) |
+| **Harness** (model loop) | `agent.harness` | Platform (`apps/agent` for CF, `apps/main-node` for self-host — the self-host Node.js server, same control-plane API as `apps/main`) |
 | **Model / provider** | `agent.model` (+ a Model Card) | Platform — the LLM API call itself never touches the sandbox |
 | **Sandbox image** | `environment.config.image` (or CF's fixed sandbox-base) | Wherever the sandbox provider runs it (Cloudflare Containers, Daytona, E2B, k8s, local subprocess) |
 

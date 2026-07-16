@@ -315,6 +315,8 @@ These flow through Cloudflare Analytics Engine and can be consumed for monitorin
 
 ## Source map
 
+Two runtime flavors of the same control-plane API: `apps/main` (Cloudflare Worker) and `apps/main-node` (self-host Node.js server, same API, packaged for `docker compose`).
+
 | Layer | Cloudflare | Self-host |
 |---|---|---|
 | API routes | `apps/main/src/` | `apps/main-node/src/` |

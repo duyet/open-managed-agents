@@ -727,7 +727,7 @@ deployment only for now. Full reference in [`AGENTS.md`](AGENTS.md).
 open-managed-agents/
 ├── apps/
 │   ├── main/              # API worker (Cloudflare) — Hono routes, auth, rate limiting
-│   ├── main-node/         # API worker (Node self-host) — same routes on Hono/Node
+│   ├── main-node/         # apps/main-node — the self-host Node.js server (same control-plane API as apps/main, packaged for docker compose)
 │   ├── agent/             # Agent worker — SessionDO + harness + sandbox
 │   ├── integrations/      # Integrations gateway — Linear / GitHub / Slack OAuth + webhooks
 │   ├── oma-vault/         # Vault sidecar — outbound auth-header injection (per-host secrets)

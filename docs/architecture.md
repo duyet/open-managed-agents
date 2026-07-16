@@ -177,7 +177,7 @@ Our `DefaultHarness` currently mixes some platform concerns (tool building, skil
 
 ## Package Layering (P2 — shared HTTP routes + supporting abstractions)
 
-CF Workers (`apps/main`) and self-host Node (`apps/main-node`) used to write
+CF Workers (`apps/main`) and self-host Node (`apps/main-node` — the self-host Node.js server, same control-plane API as `apps/main`, packaged for `docker compose`) used to write
 their HTTP route bodies twice — once against D1/KV/R2/SEND_EMAIL, once
 against SqlClient/SqlKvStore/LocalFsBlobStore/nodemailer. The duplicated
 layer was extracted into eight runtime-agnostic packages plus one route
