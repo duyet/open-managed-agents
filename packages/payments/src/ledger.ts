@@ -63,23 +63,35 @@ export class PaymentsService {
 
   /**
    * Gate a paid turn: `subscription` requires an active subscription; metered
-   * modes require `balance >= cost`. `free` is handled by the caller (no
+   * modes require `balance >= required`. `free` is handled by the caller (no
    * pricing row → never reaches here).
+   *
+   * - `per_message`   → require the exact per-turn `cost` (debited up front).
+   * - `per_1k_tokens` → the exact cost is unknown pre-turn (tokens aren't
+   *   observed until the turn completes), so require at least one minimal
+   *   turn's worth: `max(1, priceAmount)` credits (a 1..1000-token turn costs
+   *   exactly `priceAmount`). The real cost is debited post-turn by the
+   *   metering hook (`debitTurnUsage`), which is allowed to overshoot into a
+   *   small negative balance on the final turn.
    */
   async checkGate(opts: {
     tenantId: string;
     endUserId: string;
     mode: "per_message" | "per_1k_tokens" | "subscription";
     cost: number;
+    /** Credits-per-unit from the pricing row — sets the `per_1k_tokens`
+     *  minimum. Ignored for other modes. */
+    priceAmount?: number;
   }): Promise<GateResult> {
     if (opts.mode === "subscription") {
       const active = await this.store.hasActiveSubscription(opts.tenantId, opts.endUserId);
       return { allowed: active, shortfall: active ? 0 : 1, balance: 0 };
     }
     const balance = await this.store.getBalance(opts.tenantId, opts.endUserId);
-    // per_1k_tokens can't be priced pre-turn — require a positive balance and
-    // debit the real cost post-turn. per_message debits `cost` up front.
-    const required = opts.mode === "per_message" ? Math.max(1, opts.cost) : 1;
+    const required =
+      opts.mode === "per_message"
+        ? Math.max(1, opts.cost)
+        : Math.max(1, Math.floor(opts.priceAmount ?? 0));
     const allowed = balance >= required;
     return { allowed, shortfall: allowed ? 0 : required - balance, balance };
   }
@@ -149,4 +161,72 @@ export class PaymentsService {
     await this.store.applyEntry(entry);
     return entry;
   }
+}
+
+// ── Post-turn usage metering (issue #163) ─────────────────────────────────────
+//
+// `per_1k_tokens` can't be priced before a turn runs — the token count is only
+// known once the harness reaches idle. The pre-turn gate (`checkGate`) merely
+// admits a positive-balance wallet; the real cost is debited here, once, when
+// the turn completes. This runs in the agent Durable Object (which already
+// binds the control-plane D1 that holds the wallet), so it needs only a narrow
+// idempotent-debit port rather than the full `PaymentsStore` (no
+// crediting/subscription reads on the metering path).
+
+/**
+ * Narrow port for the post-turn metering debit. Kept separate from
+ * `PaymentsStore` so the metering caller need not implement crediting.
+ */
+export interface TurnDebitStore {
+  /**
+   * Apply a per-turn usage debit **exactly once** per `turnKey`. Returns true
+   * when newly applied, false when `turnKey` was already debited (a redelivered
+   * or duplicate completion signal, or a crash-recovery re-emit of the same
+   * turn). Implementations MUST make the key-check idempotent — a guard-first
+   * insert or a unique constraint — so a duplicate can never double-charge.
+   */
+  recordTurnDebit(turnKey: string, entry: LedgerEntry): Promise<boolean>;
+}
+
+/**
+ * Debit a completed metered turn's cost to the wallet, idempotently.
+ *
+ * `credits` is the already-computed turn cost (see `computeTurnCost`). Callers
+ * pass a `turnKey` that is stable for the turn across redelivery (e.g.
+ * `${session_id}:${cumulative_total_tokens}`) so a duplicate completion signal
+ * is a no-op. No-op (and `debited: false`) for a zero/negative cost. Does NOT
+ * guard against a negative balance — the pre-turn gate already ran and a small
+ * overshoot on the final turn is acceptable (parity with `PaymentsService.debit`).
+ *
+ * Returns `{ debited, credits }`; `credits` is reported even when not debited
+ * (duplicate) so callers can log the observed cost.
+ */
+export async function debitTurnUsage(
+  store: TurnDebitStore,
+  opts: {
+    tenantId: string;
+    endUserId: string;
+    /** Whole credits to debit for this turn (from `computeTurnCost`). */
+    credits: number;
+    /** Stable-per-turn idempotency key. */
+    turnKey: string;
+    reason?: string;
+    sessionId?: string | null;
+    publicationId?: string | null;
+  },
+): Promise<{ debited: boolean; credits: number }> {
+  const credits = Math.floor(opts.credits);
+  if (credits <= 0) return { debited: false, credits: 0 };
+  const debited = await store.recordTurnDebit(opts.turnKey, {
+    id: ledgerId(),
+    tenant_id: opts.tenantId,
+    end_user_id: opts.endUserId,
+    delta: -credits,
+    reason: opts.reason ?? "per_1k_tokens",
+    session_id: opts.sessionId ?? null,
+    publication_id: opts.publicationId ?? null,
+    stripe_event_id: null,
+    created_at: new Date().toISOString(),
+  });
+  return { debited, credits };
 }

@@ -163,6 +163,10 @@ export async function enforcePaywall(opts: {
     endUserId: opts.endUserId,
     mode,
     cost: perMessageCost,
+    // per_1k_tokens can't be priced pre-turn (tokens unknown) — require at
+    // least one minimal turn's worth (price_amount credits). The real cost is
+    // debited post-turn in the agent DO (see debitTurnUsage / metering hook).
+    priceAmount: pricing.price_amount,
   });
   if (!gate.allowed) {
     const base = opts.env.PUBLIC_BASE_URL ?? "";
@@ -177,8 +181,9 @@ export async function enforcePaywall(opts: {
       { status: 402 },
     );
   }
-  // per_message: debit the turn up front. per_1k_tokens / subscription are
-  // metered post-turn by the session-idle hook (TODO below) or not at all.
+  // per_message: debit the turn up front. per_1k_tokens is metered post-turn
+  // by the session-idle hook in the agent DO (maybeMeterTurn → debitTurnUsage,
+  // issue #163); subscription is access-gated, not metered.
   if (pricing.mode === "per_message" && perMessageCost > 0) {
     await svc.debit({
       tenantId: opts.tenantId,
@@ -192,13 +197,12 @@ export async function enforcePaywall(opts: {
   return null;
 }
 
-// TODO(#74): per_1k_tokens post-turn debit. The gate above admits a
-// positive-balance wallet; the exact token cost is only known after
-// `span.model_request_end`. Wire a debit into the session-idle seam in
-// apps/agent/src/runtime/session-do.ts (same point notify-dispatch fires),
-// calling PaymentsService.debit with computeTurnCost(..., { tokens }). Left
-// as a follow-up because it crosses the agent-worker boundary; per_message
-// billing (the common case) is fully enforced here.
+// per_1k_tokens post-turn debit (issue #163) is wired at the session-idle seam
+// in apps/agent/src/runtime/session-do.ts (`maybeMeterTurn`), which debits the
+// real token cost against this same MAIN_DB wallet via `debitTurnUsage`. The
+// agent DO binds MAIN_DB directly, so no agent→main HTTP hop is needed. The
+// gate above only admits a positive-balance wallet; the exact cost is charged
+// once the turn's token total is known.
 
 // ── HTTP routes ─────────────────────────────────────────────────────────────
 
