@@ -36,7 +36,7 @@ Environments — the reusable configurations defining package managers, system p
 | `openshell` | NVIDIA OpenShell | Policy-enforced, isolated agent sandboxes driven by an OpenShell gateway (gRPC). Requires `OPENSHELL_GATEWAY_ENDPOINT`. |
 
 ### API Endpoints
-* **List hosting types**: `GET /v1/hosting_types` returns all registered local and BYOK providers.
+* **List hosting types**: `GET /v1/hosting_types` returns all registered local and BYOK providers. Each provider's `health` now carries an optional `capacity` (`cpu` / `memory` / `pods` used-vs-total) surfaced best-effort from the adapter — the console Runtimes page renders these as live gauges with 30s auto-refresh.
 * **Register custom provider**: `POST /v1/sandbox_providers` to register external sandbox endpoints.
 
 ---
