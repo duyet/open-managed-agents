@@ -1,8 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="oma">
-  <!-- oma mark: square brackets = the harness; the dot = the agent it runs. -->
-  <g fill="none" stroke="#FF6B50" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M24 15 H15 V49 H24" />
-    <path d="M40 15 H49 V49 H40" />
-  </g>
-  <circle cx="32" cy="32" r="8" fill="#FF6B50" />
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" role="img" aria-label="oma">
+  <!-- oma mark: rounded-square frame = the environment/sandbox; the edge
+       wires a request into the solid node = the managed agent it runs. -->
+  <rect x="3.25" y="3.25" width="17.5" height="17.5" rx="5" stroke="#4f46e5" stroke-width="2" />
+  <path d="M7 7 11 11" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" />
+  <circle cx="12" cy="12" r="2.75" fill="#4f46e5" />
 </svg>
