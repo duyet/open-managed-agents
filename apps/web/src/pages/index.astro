@@ -229,7 +229,12 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
         <!-- Left: pitch -->
         <div class="hero-pitch text-left">
           <h1 class="font-display text-4xl sm:text-5xl md:text-[3.1rem] lg:text-[3.4rem] font-bold tracking-tight leading-[1.07]">
-            The self-hosted agent platform for <span class="hero-accent">any&nbsp;LLM&nbsp;provider</span>
+            The self-hosted agent platform for
+            <span
+              class="hero-accent hero-rotate"
+              data-rotate='["LLM provider","Sandbox provider"]'
+              >any <span class="tw-rot">LLM provider</span><span class="typewriter-caret" aria-hidden="true"></span></span
+            >
           </h1>
           <p class="mt-5 text-lg md:text-xl text-[var(--color-fg-muted)] leading-relaxed font-medium max-w-xl line-clamp-2">
             Run your own agents — on Cloudflare or with
@@ -243,8 +248,25 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
             and Bring Your Own Key for models and compute.
           </p>
 
+          <!-- Primary CTAs: repo (brand) + docs (hairline). Mirror the
+               get-started section so the hero has a clear next action. -->
+          <div class="hero-cta">
+            <a
+              href="https://github.com/duyet/oma"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-2 px-5 py-3 rounded-md bg-[var(--color-brand)] text-[var(--color-brand-fg)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-brand-hover)] transition-colors"
+              ><Icon name="download" size={16} /> Clone the repo</a
+            >
+            <a
+              href="https://docs.oma.duyet.net"
+              class="inline-flex items-center gap-2 px-5 py-3 rounded-md border border-[var(--color-border-strong)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg-surface)] transition-colors"
+              ><Icon name="book" size={16} /> Read the docs</a
+            >
+          </div>
+
           <!-- Proof chips: compact, scannable differentiators under the CTAs. -->
-          <ul class="hero-chips mt-7">
+          <ul class="hero-chips">
             <li>Apache&nbsp;2.0</li>
             <li>Cloudflare-native</li>
             <li>Self-hostable</li>
@@ -265,7 +287,7 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
             <div class="terminal-prompt select-none" aria-hidden="true">
               <span class="typewriter-line" data-rotate='["oma agents create -f coder.json","oma sessions chat sess_9f2","oma sessions tail sess_9f2","oma envs create -f k8s.json","oma memory stores create notes","oma vaults list"]'>
                 <span class="prompt">oma@fleet:~$</span>
-                <span class="tw-static"></span><span class="tw-rot"></span><span class="typewriter-caret"></span>
+                <span class="tw-static"></span><span class="tw-rot">oma agents create -f coder.json</span><span class="typewriter-caret"></span>
               </span>
             </div>
             <div class="crt terminal-body select-none" aria-hidden="true">
@@ -383,7 +405,7 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
       <div class="arch-stack" role="list" aria-label="System architecture layers">
         {
           archLayers.map((layer) => (
-            <div class="arch-layer" role="listitem">
+            <div class:list={["arch-layer", layer.badge.replace("arch-badge", "arch-accent")]} role="listitem">
               <div class="flex flex-wrap items-center gap-2 mb-3">
                 <span class="font-mono text-xs font-bold text-[var(--color-fg-subtle)]">{layer.step}</span>
                 <span class:list={["arch-badge", layer.badge]}>{layer.label}</span>
@@ -424,7 +446,7 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
             class="lifecycle-step rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 shadow-2xs hover:border-[var(--color-border-strong)]"
           >
             <div class="flex items-center justify-between mb-3">
-              <span class="font-mono text-sm font-bold text-[var(--color-brand)]">{step.n}</span>
+              <span class="lifecycle-num font-mono text-sm font-bold text-[var(--color-brand)]">{step.n}</span>
               <span class="font-mono text-[9px] uppercase font-bold tracking-wider text-[var(--color-fg-subtle)]">
                 {step.phase}
               </span>
@@ -440,9 +462,12 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
   <FeaturesSection />
 
   <!-- Why -->
-  <section class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal>
-    <div class="max-w-5xl mx-auto px-4 py-16">
-      <h2 class="font-display text-3xl font-bold mb-3 text-center tracking-tight">Why Open Managed Agents</h2>
+  <section class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal id="why">
+    <div class="max-w-5xl mx-auto px-4 py-16 md:py-20">
+      <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+        <Icon name="check" size={14} class="text-[var(--color-brand)]" /> Why
+      </p>
+      <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">Why Open Managed Agents</h2>
       <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed">
         The same shape of platform you'd get from a closed vendor — sessions,
         sandboxes, tool dispatch, crash recovery, security controls — but every layer is
@@ -470,8 +495,11 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
   </section>
 
   <!-- API compatibility -->
-  <section class="max-w-5xl mx-auto px-4 py-16" data-reveal>
-    <h2 class="font-display text-3xl font-bold mb-4 tracking-tight">
+  <section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="api-compat">
+    <p class="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+      <Icon name="terminal" size={14} class="text-[var(--color-brand)]" /> API
+    </p>
+    <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 tracking-tight">
       Drop-in compatible with the Claude Managed Agents API
     </h2>
     <p class="text-[var(--color-fg-muted)] leading-relaxed mb-4">
@@ -499,9 +527,12 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
   </section>
 
   <!-- Fleet operations -->
-  <section class="border-t border-[var(--color-border)]" data-reveal>
-    <div class="max-w-5xl mx-auto px-4 py-16 text-center">
-      <h2 class="font-display text-3xl font-bold mb-4 tracking-tight">Built for multi-agent fleets</h2>
+  <section class="border-t border-[var(--color-border)]" data-reveal id="fleets">
+    <div class="max-w-5xl mx-auto px-4 py-16 md:py-20 text-center">
+      <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+        <Icon name="server" size={14} class="text-[var(--color-brand)]" /> Fleets
+      </p>
+      <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 tracking-tight">Built for multi-agent fleets</h2>
       <p class="text-[var(--color-fg-muted)] leading-relaxed mb-10 max-w-3xl mx-auto">
         Concurrent sub-agent delegation, structured liveness heartbeats for long-running
         runs, and native webhook notifications (GitHub, Slack, Matrix).
@@ -580,7 +611,7 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
 
   <!-- Mascot + Get started -->
   <section class="border-t border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal id="get-started">
-    <div class="max-w-3xl mx-auto px-4 py-16 text-center">
+    <div class="max-w-3xl mx-auto px-4 py-16 md:py-20 text-center">
       <Logo size={64} class="block mx-auto mb-6 text-[var(--color-brand)]" />
       <h2 class="font-display text-3xl font-bold mb-3 tracking-tight">Get started</h2>
       <p class="text-[var(--color-fg-muted)] mb-8 leading-relaxed">

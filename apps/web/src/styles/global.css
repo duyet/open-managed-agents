@@ -239,6 +239,31 @@ input:focus-visible,
   border-radius: 0.5rem;
   padding: 1.25rem 1.5rem;
   background: var(--color-bg);
+  /* Faint accent spine (inset, so no layout shift) keyed to the layer's
+     functional hue; brightens + the whole layer lifts on hover. */
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--layer-accent, transparent) 30%, transparent);
+  transition: border-color 160ms ease-out, box-shadow 160ms ease-out, transform 160ms ease-out;
+}
+.arch-accent-orange { --layer-accent: var(--color-accent); }
+.arch-accent-blue { --layer-accent: var(--color-blue); }
+.arch-accent-green { --layer-accent: var(--color-green); }
+.arch-layer:hover {
+  border-color: var(--color-border-strong);
+  transform: translateY(-1px);
+  box-shadow: inset 3px 0 0 var(--layer-accent, var(--color-border-strong)),
+    0 2px 10px -6px rgba(24, 24, 27, 0.12);
+}
+.dark .arch-layer:hover {
+  box-shadow: inset 3px 0 0 var(--layer-accent, var(--color-border-strong)),
+    0 2px 10px -6px rgba(0, 0, 0, 0.55);
+}
+/* Item cells within a layer pick up the accent border on hover. */
+.arch-layer li {
+  transition: border-color 140ms ease-out, color 140ms ease-out;
+}
+.arch-layer li:hover {
+  border-color: color-mix(in srgb, var(--layer-accent, var(--color-border-strong)) 55%, var(--color-border));
+  color: var(--color-fg);
 }
 .arch-layer + .arch-layer {
   margin-top: 0.75rem;
@@ -286,6 +311,13 @@ input:focus-visible,
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.75rem;
+}
+/* Step number lights up in brand on hover (pairs with the data-lift). */
+.lifecycle-num {
+  transition: text-shadow 160ms ease-out;
+}
+.lifecycle-step:hover .lifecycle-num {
+  text-shadow: 0 0 10px color-mix(in srgb, var(--color-brand) 55%, transparent);
 }
 @media (min-width: 768px) {
   .lifecycle-track {
@@ -433,12 +465,38 @@ input:focus-visible,
   color: var(--color-fg);
   box-shadow: inset 0 -0.12em 0 color-mix(in srgb, var(--color-brand) 60%, transparent);
 }
+/* Rotating headline phrase ("any LLM provider" ⇄ "any Sandbox provider").
+   The .tw-rot span is driven by the shared data-rotate script in Base.astro;
+   these overrides re-tune the terminal-prompt styling for display type. */
+.hero-rotate .tw-rot {
+  color: inherit;
+  font-weight: inherit;
+}
+.hero-rotate .typewriter-caret {
+  width: 0.09em;
+  height: 0.82em;
+  margin-left: 0.06em;
+  vertical-align: -0.08em;
+  background: var(--color-brand);
+  box-shadow: none;
+}
+/* Primary CTA row in the hero pitch. */
+.hero-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
 /* Proof chips: compact, scannable differentiators under the CTAs. No
    bullets, soft pill borders, mono label so they share the terminal
    vocabulary. */
 .hero-chips {
   list-style: none;
-  margin: 0;
+  /* Top margin lives here (not a Tailwind utility) — this component class
+     loads after the utilities layer and would silently override mt-*. Sits
+     directly under the CTA row, so the gap is tighter than the CTA's own. */
+  margin: 1.25rem 0 0;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
