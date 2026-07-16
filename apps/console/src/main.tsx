@@ -29,6 +29,7 @@ import { AgentOverviewTab } from "./pages/agents/AgentOverviewTab";
 import { AgentSessionsTab } from "./pages/agents/AgentSessionsTab";
 import { AgentDeploymentsTab } from "./pages/agents/AgentDeploymentsTab";
 import { AgentObservabilityTab } from "./pages/agents/AgentObservabilityTab";
+import { AgentPublishingTab } from "./pages/agents/AgentPublishingTab";
 import { SessionsList } from "./pages/SessionsList";
 import { KanbanBoard } from "./pages/KanbanBoard";
 import { Usage } from "./pages/Usage";
@@ -175,6 +176,11 @@ const protectedRoutes: RouteObject[] = [
             path: "observability",
             element: <AgentObservabilityTab />,
             handle: { crumb: "Observability" },
+          },
+          {
+            path: "publishing",
+            element: <AgentPublishingTab />,
+            handle: { crumb: "Publishing" },
           },
         ],
       },
