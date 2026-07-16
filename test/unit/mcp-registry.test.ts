@@ -16,7 +16,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   resolveRegisteredMcpServer,
   type McpRegistryRow,
-} from "../../apps/main/src/routes/mcp-servers";
+} from "../../packages/http-routes/src/mcp-servers";
 import { resolveProxyTargetByTenant } from "../../apps/main/src/routes/mcp-proxy";
 import { InMemoryKvStore } from "../../packages/kv-store/src/adapters/in-memory";
 import { createInMemoryCredentialService } from "../../packages/credentials-store/src/test-fakes";
