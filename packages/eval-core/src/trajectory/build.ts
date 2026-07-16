@@ -206,6 +206,15 @@ export async function buildTrajectory(
     schema_version: SCHEMA_VERSION,
     trajectory_id: `tr-${generateId()}`,
     session_id: session.id,
+    // Raw agent_snapshot on purpose — includes the real mcp_servers[].
+    // authorization_token (issue #223 audit). eval-core is framework-
+    // agnostic and has no HTTP boundary of its own, so redaction can't live
+    // here. Every client-facing seam that serializes a Trajectory MUST
+    // redact before responding — currently just
+    // GET /v1/sessions/:id/trajectory (packages/http-routes/src/sessions/
+    // index.ts), which applies redactMcpServers to agent_config.mcp_servers.
+    // packages/evals-runner/src/tick.ts also persists a raw Trajectory to
+    // KV, but nothing reads it back through a client-facing route today.
     agent_config: session.agent_snapshot,
     environment_config: envConfig,
     model: { id: modelId, provider: "" }, // provider/base_url not stored on session today; can be enriched later

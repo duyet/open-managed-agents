@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import { CopyIcon, ExternalLinkIcon, PauseIcon, PlayIcon, TrashIcon } from "lucide-react";
+import { CopyIcon, ExternalLinkIcon, PauseIcon, PencilIcon, PlayIcon, TrashIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { useApi } from "../../lib/api";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/hooks/useConfirm";
 import { useAgentHub } from "../AgentDetail";
 import { PublishAgentDialog } from "./PublishAgentDialog";
+import { EditPublicationDialog } from "./EditPublicationDialog";
 import type { Publication } from "./publication-types";
 
 // Publication.status → StatusPill tone. Mirrors MyBots.tsx.
@@ -42,6 +43,7 @@ export function AgentPublishingTab() {
   const { agent } = useAgentHub();
   const { api } = useApi();
   const [showPublish, setShowPublish] = useState(false);
+  const [editing, setEditing] = useState<Publication | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const confirm = useConfirm();
 
@@ -154,6 +156,11 @@ export function AgentPublishingTab() {
                   onSelect: () => copyLink(pub.slug),
                 },
                 {
+                  label: "Edit",
+                  icon: <PencilIcon className="size-4" />,
+                  onSelect: () => setEditing(pub),
+                },
+                {
                   label: pub.status === "paused" ? "Resume" : "Pause",
                   icon:
                     pub.status === "paused" ? (
@@ -221,6 +228,19 @@ export function AgentPublishingTab() {
         agent={agent}
         onPublished={() => refetch()}
       />
+
+      {editing && (
+        <EditPublicationDialog
+          open
+          onClose={() => setEditing(null)}
+          agentId={agent.id}
+          publication={editing}
+          onUpdated={() => {
+            setEditing(null);
+            refetch();
+          }}
+        />
+      )}
     </>
   );
 }

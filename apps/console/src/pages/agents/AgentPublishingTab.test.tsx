@@ -239,6 +239,69 @@ describe("<AgentPublishingTab />", () => {
     await waitFor(() => expect(screen.getByText("live")).toBeInTheDocument());
   });
 
+  it("edits a published bot's title/description/greeting/visibility/slug (issue #237)", async () => {
+    mountAgentHandlers();
+    const pubs: Publication[] = [pub()];
+    let patched: Record<string, unknown> | undefined;
+    server.use(
+      http.get("/v1/agents/agent_1/publications", () => HttpResponse.json({ data: pubs })),
+      http.patch("/v1/agents/agent_1/publications/pub_1", async ({ request }) => {
+        patched = (await request.json()) as Record<string, unknown>;
+        pubs[0] = { ...pubs[0], ...patched } as Publication;
+        return HttpResponse.json(pubs[0]);
+      }),
+    );
+    renderTab();
+
+    expect(await screen.findByText("live")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Actions for My Agent" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Edit" }));
+
+    await waitFor(() => expect(screen.getByText("Edit My Agent")).toBeInTheDocument());
+    // Prefilled from the existing publication.
+    expect(screen.getByDisplayValue("my-agent")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("My Agent")).toBeInTheDocument();
+
+    const titleInput = screen.getByDisplayValue("My Agent");
+    await userEvent.clear(titleInput);
+    await userEvent.type(titleInput, "Renamed Bot");
+
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(patched).toMatchObject({
+        slug: "my-agent",
+        title: "Renamed Bot",
+        visibility: "public",
+      }),
+    );
+    // Dialog closes and the table reflects the new title.
+    await waitFor(() => expect(screen.queryByText("Edit My Agent")).not.toBeInTheDocument());
+    expect(await screen.findByText("Renamed Bot")).toBeInTheDocument();
+  });
+
+  it("shows an inline slug error on a 409 conflict while editing and keeps the dialog open", async () => {
+    mountAgentHandlers();
+    const pubs: Publication[] = [pub()];
+    server.use(
+      http.get("/v1/agents/agent_1/publications", () => HttpResponse.json({ data: pubs })),
+      http.patch("/v1/agents/agent_1/publications/pub_1", () =>
+        HttpResponse.json({ error: "Slug already in use" }, { status: 409 }),
+      ),
+    );
+    renderTab();
+
+    expect(await screen.findByText("live")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Actions for My Agent" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Edit" }));
+    await waitFor(() => expect(screen.getByText("Edit My Agent")).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Slug already in use")).toBeInTheDocument();
+    expect(screen.getByText("Edit My Agent")).toBeInTheDocument();
+  });
+
   it("shows an error state with Retry instead of the empty state when the fetch fails", async () => {
     mountAgentHandlers();
     server.use(

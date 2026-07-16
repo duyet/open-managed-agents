@@ -40,6 +40,13 @@ export interface SessionInitParams {
   environmentSnapshot?: EnvironmentConfig;
   vaultCredentials?: Array<{ vault_id: string; credentials: CredentialConfig[] }>;
   initEvents?: SessionEvent[];
+  /**
+   * Session metadata (publication_id/end_user_id for a public consumer
+   * session, deployment_run/scheduled_run tags, etc.) — mirrored into DO
+   * state at /init so notify-dispatch and turn-metering can read it
+   * synchronously instead of round-tripping to the session row (issue #222).
+   */
+  metadata?: Record<string, unknown>;
 }
 
 export interface SessionEventsQuery {

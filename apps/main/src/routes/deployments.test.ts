@@ -276,8 +276,32 @@ describe("list — cursor pagination + tenant scoping", () => {
 
   it("filters by agent_id when the query param is present", async () => {
     const app = tenantApp("tenant-a");
-    await call(app, "/v1/deployments", json({ ...base, name: "for-a", agent_id: "agent_a" }));
-    await call(app, "/v1/deployments", json({ ...base, name: "for-b", agent_id: "agent_b" }));
+    // create 404s via validateDeploymentRefs when agent_id doesn't resolve
+    // to a real agent (see app.post("/") in deployments.ts) — seed two
+    // extra agents for tenant-a so these two creates actually persist a
+    // row each. `agent_1` (seeded once in setupTables and shared by every
+    // other test in this file) can't be reused here since both rows need
+    // distinct agent_ids for the filter to be meaningful.
+    const nowMs = Date.now();
+    for (const agentId of ["agent_a", "agent_b"]) {
+      await db()
+        .prepare(
+          `INSERT OR IGNORE INTO agents (id, tenant_id, config, version, created_at)
+           VALUES (?, ?, ?, 1, ?)`,
+        )
+        .bind(
+          agentId,
+          "tenant-a",
+          JSON.stringify({ id: agentId, name: agentId, model: "claude-sonnet-4-6", system: "", tools: [], version: 1 }),
+          nowMs,
+        )
+        .run();
+    }
+
+    const r1 = await call(app, "/v1/deployments", json({ ...base, name: "for-a", agent_id: "agent_a" }));
+    expect(r1.status).toBe(201);
+    const r2 = await call(app, "/v1/deployments", json({ ...base, name: "for-b", agent_id: "agent_b" }));
+    expect(r2.status).toBe(201);
 
     const scoped = (await (
       await call(app, "/v1/deployments?agent_id=agent_a")

@@ -8,29 +8,18 @@ import { useApiQuery } from "../lib/useApiQuery";
 import { useQueryClient } from "@tanstack/react-query";
 import { StatusPill } from "../components/Badge";
 import { Modal } from "../components/Modal";
+import { Skeleton } from "../components/Skeleton";
 import { Button } from "@/components/ui/button";
 import { encodeQrToMatrix, qrMatrixToSvg } from "../lib/qrcode";
+import { EditPublicationDialog } from "./agents/EditPublicationDialog";
+import type { Publication } from "./agents/publication-types";
 
 /**
  * "My Bots" — creator dashboard listing this tenant's agent publications
- * (issue #75). Each row surfaces status/visibility, the public link, and
- * pause/resume, edit, copy-link, and a Share panel (public URL + QR code +
- * embed snippet). Conversation counts / revenue land here once #PAYWALL
- * ships — the column is stubbed so the surface stays intact.
+ * (issue #75). Each row surfaces status/visibility, the public link, a
+ * conversation count (issue #237), and pause/resume, edit, copy-link, and a
+ * Share panel (public URL + QR code + embed snippet).
  */
-
-interface Publication {
-  id: string;
-  agent_id: string;
-  agent_version: number;
-  slug: string;
-  title: string;
-  description: string | null;
-  avatar_url: string | null;
-  visibility: "public" | "unlisted" | "private";
-  status: "draft" | "live" | "paused";
-  created_at: string;
-}
 
 // Publication.status → StatusPill tone.
 const STATUS_TONE: Record<Publication["status"], string> = {
@@ -50,6 +39,7 @@ export function MyBots() {
   const nav = useNavigate();
   const qc = useQueryClient();
   const [shareOf, setShareOf] = useState<Publication | null>(null);
+  const [editing, setEditing] = useState<Publication | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const { data, isLoading } = useApiQuery<{ data: Publication[] }>("/v1/publications", {
@@ -132,7 +122,9 @@ export function MyBots() {
                       <StatusPill status={STATUS_TONE[pub.status]} label={pub.status} />
                     </td>
                     <td className="px-4 py-3 text-fg-muted capitalize">{pub.visibility}</td>
-                    <td className="px-4 py-3 text-fg-subtle">—</td>
+                    <td className="px-4 py-3 text-fg-muted">
+                      <ConversationsCell publicationId={pub.id} />
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <IconBtn title="Share" onClick={() => setShareOf(pub)}>
@@ -147,7 +139,7 @@ export function MyBots() {
                         >
                           <ExternalLinkIcon className="w-4 h-4" />
                         </IconBtn>
-                        <IconBtn title="Edit agent" onClick={() => nav(`/agents/${pub.agent_id}`)}>
+                        <IconBtn title="Edit publication" onClick={() => setEditing(pub)}>
                           <PencilIcon className="w-4 h-4" />
                         </IconBtn>
                         {pub.status === "paused" ? (
@@ -180,8 +172,40 @@ export function MyBots() {
       {shareOf && (
         <ShareModal pub={shareOf} onClose={() => setShareOf(null)} />
       )}
+
+      {editing && (
+        <EditPublicationDialog
+          open
+          onClose={() => setEditing(null)}
+          agentId={editing.agent_id}
+          publication={editing}
+          onUpdated={() => {
+            void qc.invalidateQueries({ queryKey: ["/v1/publications"] });
+            setEditing(null);
+          }}
+        />
+      )}
     </div>
   );
+}
+
+/**
+ * Per-row conversation count (issue #237). `GET /v1/publications` has no
+ * cheap aggregate, so this fetches `GET /v1/publications/:id/users` lazily
+ * per row (existing useApiQuery pattern) and sums each user's
+ * `conversation_count`. Note: that endpoint caps at limit=100, so a bot
+ * with more than 100 distinct chatters will undercount here — acceptable
+ * for a dashboard glance; revisit if a real aggregate endpoint lands.
+ */
+function ConversationsCell({ publicationId }: { publicationId: string }) {
+  const { data, isLoading, isError } = useApiQuery<{
+    data: Array<{ conversation_count: number }>;
+  }>(`/v1/publications/${publicationId}/users`, { limit: "100" });
+
+  if (isLoading) return <Skeleton className="h-4 w-6" />;
+  if (isError || !data) return <span className="text-fg-subtle">—</span>;
+  const total = data.data.reduce((sum, u) => sum + (u.conversation_count || 0), 0);
+  return <span>{total}</span>;
 }
 
 function IconBtn({

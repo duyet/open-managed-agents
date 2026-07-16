@@ -10,7 +10,12 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { Hono } from "hono";
-import { buildPublicPublicationRoutes, renderWidgetScript, renderChatPage } from "./publications";
+import {
+  buildPublicPublicationRoutes,
+  gatePublicationState,
+  renderWidgetScript,
+  renderChatPage,
+} from "./publications";
 import type { PublicPublicationRoutesDeps } from "./publications";
 import type { PublicationRow } from "@duyet/oma-publications-store";
 
@@ -59,24 +64,10 @@ function makeApp(pubResolver: (slug: string) => PublicationRow | Response) {
       resolvePublication: (slug) => {
         const pub = pubResolver(slug);
         if (pub instanceof Response) return Promise.resolve(pub) as never;
-        // Mirror the guardrails the production caller (apps/main/src/index.ts)
-        // enforces inside its resolvePublication closure.
-        if (pub.visibility === "private" || pub.status === "draft") {
-          return Promise.resolve(
-            new Response(JSON.stringify({ error: "Not found" }), {
-              status: 404,
-              headers: { "content-type": "application/json" },
-            }),
-          ) as never;
-        }
-        if (pub.status === "paused") {
-          return Promise.resolve(
-            new Response(JSON.stringify({ error: "Publication paused" }), {
-              status: 403,
-              headers: { "content-type": "application/json" },
-            }),
-          ) as never;
-        }
+        // Same guardrails the production caller (apps/main/src/index.ts)
+        // enforces via the shared gatePublicationState helper (issue #210).
+        const gate = gatePublicationState(pub);
+        if (gate) return Promise.resolve(gate) as never;
         return Promise.resolve(pub) as never;
       },
       guardSessionCreate: () => Promise.resolve(null) as never,
@@ -434,5 +425,75 @@ describe("hosted chat page — content negotiation (issue #178)", () => {
     const page = renderChatPage(pubRow({ slug: "a<b" }));
     expect(page).toContain('slug":"a\\u003cb');
     expect(page).not.toContain('slug":"a<b');
+  });
+});
+
+describe("clickable magic-link landing page — GET /p/auth/verify (issue #215)", () => {
+  function makeVerifyApp(verifyMagicLink: PublicPublicationRoutesDeps["verifyMagicLink"]) {
+    const app = new Hono<{ Bindings: never }>();
+    app.route(
+      "/p",
+      buildPublicPublicationRoutes({
+        env: {} as never,
+        servicesForTenant: (() => {}) as never,
+        buildSessionsApp: (() => {}) as never,
+        resolvePublication: (() => {}) as never,
+        guardSessionCreate: () => Promise.resolve(null) as never,
+        assertSessionOwnedByPublication: () => Promise.resolve(true) as never,
+        verifyMagicLink,
+      }),
+    );
+    return app;
+  }
+
+  it("valid token: stores the token under the chat page's exact localStorage key and redirects to /p/<slug>", async () => {
+    const app = makeVerifyApp(async () => ({
+      ok: true,
+      session_token: "csess_abc",
+      consumer_id: "cons_1",
+      expires_at: "2026-01-01T00:00:00.000Z",
+    }));
+    const res = await app.request("/p/auth/verify?token=tok123&slug=duyetbot");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    const body = await res.text();
+    // Same localStorage key convention as renderChatPage's TOK_KEY ("oma_pub_tok_" + slug).
+    expect(body).toContain("localStorage.setItem(");
+    expect(body).toContain('"oma_pub_tok_duyetbot"');
+    expect(body).toContain('"csess_abc"');
+    expect(body).toContain('window.location.replace("/p/duyetbot")');
+  });
+
+  it("invalid/expired token: renders a friendly error page with a back-to-chat pointer", async () => {
+    const app = makeVerifyApp(async () => ({ ok: false, error: "Token expired", status: 401 }));
+    const res = await app.request("/p/auth/verify?token=tok123&slug=duyetbot");
+    expect(res.status).toBe(401);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    const body = await res.text();
+    expect(body).toContain("Token expired");
+    // "request a new link" pointer bounces back to the bot.
+    expect(body).toContain('href="/p/duyetbot"');
+    expect(body).toContain("Back to chat");
+  });
+
+  it("missing token or slug: 400 without calling verifyMagicLink", async () => {
+    let called = false;
+    const app = makeVerifyApp(async () => {
+      called = true;
+      return { ok: true, session_token: "x", consumer_id: "y", expires_at: "z" };
+    });
+
+    const noSlug = await app.request("/p/auth/verify?token=tok123");
+    expect(noSlug.status).toBe(400);
+    const noToken = await app.request("/p/auth/verify?slug=duyetbot");
+    expect(noToken.status).toBe(400);
+    expect(called).toBe(false);
+  });
+
+  it("renders a clear error instead of crashing when verifyMagicLink isn't wired up", async () => {
+    const app = makeVerifyApp(undefined);
+    const res = await app.request("/p/auth/verify?token=tok123&slug=duyetbot");
+    expect(res.status).toBe(500);
+    expect(res.headers.get("content-type")).toContain("text/html");
   });
 });

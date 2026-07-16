@@ -62,6 +62,7 @@ export class CfSessionRouter implements SessionRouter {
         environment_snapshot: params.environmentSnapshot,
         vault_credentials: params.vaultCredentials ?? [],
         init_events: params.initEvents ?? [],
+        metadata: params.metadata,
       }),
     });
   }

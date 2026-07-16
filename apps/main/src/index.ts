@@ -20,6 +20,7 @@ import {
 import {
   buildPublicPublicationRoutes,
   publicSessionCaps,
+  gatePublicationState,
 } from "./routes/publications";
 import {
   createCfShardPoolService,
@@ -60,7 +61,10 @@ import usageRoutes from "./routes/usage";
 import providersRoutes from "./routes/providers";
 import sandboxProvidersRoutes from "./routes/sandbox-providers";
 import webhookRoutes from "./routes/webhooks";
-import consumerAuthRoutes, { resolveConsumerSession } from "./routes/consumer-auth";
+import consumerAuthRoutes, {
+  resolveConsumerSession,
+  verifyMagicLinkToken,
+} from "./routes/consumer-auth";
 import consumerMeteringRoutes from "./routes/consumer-metering";
 import consumerAdminRoutes from "./routes/consumer-admin";
 import paymentsWebhookRoutes, {
@@ -769,18 +773,9 @@ app.use("/p/*", rateLimitMiddleware);
       });
     }
     // Guardrails: private/draft hidden (404); paused forbidden (403).
-    if (pub.visibility === "private" || pub.status === "draft") {
-      return new Response(JSON.stringify({ error: "Not found" }), {
-        status: 404,
-        headers: { "content-type": "application/json" },
-      });
-    }
-    if (pub.status === "paused") {
-      return new Response(JSON.stringify({ error: "Publication paused" }), {
-        status: 403,
-        headers: { "content-type": "application/json" },
-      });
-    }
+    // Shared with the consumer credits surface — see gatePublicationState.
+    const gate = gatePublicationState(pub);
+    if (gate) return gate;
     return pub;
   };
 
@@ -845,6 +840,15 @@ app.use("/p/*", rateLimitMiddleware);
         endUserId: opts.endUserId,
         sessionId: opts.sessionId,
       });
+    }) as never,
+    // Clickable magic-link landing page (issue #215): GET /p/auth/verify
+    // shares the exact query/expiry/issue-session logic POST
+    // /v1/public/auth/verify uses, via consumer-auth.ts's verifyMagicLinkToken.
+    verifyMagicLink: (async (token: string, env: Env) => {
+      if (!env.MAIN_DB) {
+        return { ok: false, error: "Service unavailable", status: 503 } as const;
+      }
+      return verifyMagicLinkToken(env.MAIN_DB, token);
     }) as never,
     // Stable wallet identity (issue #73): map a consumer bearer token to
     // `eu:<consumer_id>` so the paywall wallet survives token refresh and the
