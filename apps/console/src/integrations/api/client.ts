@@ -442,6 +442,20 @@ class SlackClient {
     });
   }
 
+  /**
+   * "Add to Slack" one-click install. Skips the BYOA credentials form —
+   * returns the Slack OAuth authorize URL directly, staged server-side
+   * with this deployment's managed App credentials. Throws (surfaced as
+   * a 503) when no managed App is configured; callers should fall back
+   * to `startA1`.
+   */
+  async startManaged(input: PublishWizardInput): Promise<A1InstallLink> {
+    return request<A1InstallLink>(this.basePath, "/v1/integrations/slack/start-managed", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
   async submitCredentials(input: SlackSubmitCredentialsInput): Promise<A1InstallLink> {
     return request<A1InstallLink>(this.basePath, "/v1/integrations/slack/credentials", {
       method: "POST",

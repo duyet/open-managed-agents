@@ -123,6 +123,20 @@ export interface SandboxExecutor {
    * `{ status: "error", details? }` on failure. Does not throw.
    */
   ping?(): Promise<{ status: "ok" | "error"; latencyMs: number; details?: string }>;
+  /**
+   * Optional capacity snapshot for providers that expose cluster/host-level
+   * resource accounting (e.g. k8s-bridge's `/cluster/capacity`). Returns
+   * `null` when the provider has no such endpoint or the call fails —
+   * callers must treat capacity as "unknown", not "zero". Does not throw.
+   */
+  getCapacity?(): Promise<SandboxCapacity | null>;
+}
+
+/** Cluster/host capacity snapshot, as reported by a sandbox provider. */
+export interface SandboxCapacity {
+  cpu?: { used: number; total: number; unit: "cores" };
+  memory?: { used: number; total: number; unit: "MiB" | "GiB" };
+  pods?: { used: number; total: number };
 }
 
 // ─── Factory contract ──────────────────────────────────────────────────

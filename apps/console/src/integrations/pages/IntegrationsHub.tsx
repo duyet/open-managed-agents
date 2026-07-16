@@ -50,7 +50,7 @@ const PROVIDERS: ProviderCard[] = [
   {
     id: "slack",
     name: "Slack",
-    blurb: "Bring agents into channels — mention them, get status back in-thread.",
+    blurb: "One-click \"Add to Slack\" — bring agents into channels, mention them, get status back in-thread.",
     href: "/integrations/slack",
     connectKind: "oauth",
     countConnections: async () => (await api.slack.listInstallations()).length,

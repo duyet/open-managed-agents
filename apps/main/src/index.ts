@@ -38,6 +38,7 @@ import {
 import { validateAgentLimits } from "./lib/limits";
 import { listMemberships, hasMembership } from "./auth-config";
 import environmentsRoutes from "./routes/environments";
+import mcpServersRoutes from "./routes/mcp-servers";
 import oauthRoutes from "./routes/oauth";
 import capCliOauthRoutes from "./routes/cap-cli-oauth";
 import memoryRoutes from "./routes/memory";
@@ -139,6 +140,7 @@ app.get("/v1/hosting_types", async (c) => {
     latency_ms: number;
     last_checked: string;
     reason?: string;
+    capacity?: import("@duyet/oma-sandbox").SandboxCapacity;
   }>();
 
   for (const p of providers) {
@@ -163,6 +165,7 @@ app.get("/v1/hosting_types", async (c) => {
           latency_ms: h.latencyMs,
           last_checked: h.lastChecked,
           reason: h.status === "ok" ? undefined : (h.details ?? "Health check failed."),
+          capacity: h.capacity,
         });
       }
     } catch {}
@@ -544,6 +547,7 @@ app.route("/v1/dreams", dreamsRoutes);
 app.route("/v1/files", filesRoutes);
 app.route("/v1/skills", skillsRoutes);
 app.route("/v1/model_cards", modelCardsRoutes);
+app.route("/v1/mcp_servers", mcpServersRoutes);
 app.route("/v1/models", modelsRoutes);
 app.route("/v1/clawhub", clawhubRoutes);
 app.route("/v1/api_keys", apiKeysRoutes);
@@ -628,6 +632,7 @@ app.route("/v1/oma/integrations", integrationsRoutes);
 app.route("/v1/oma/runtimes", runtimesRoutes);
 app.route("/v1/oma/oauth", oauthRoutes);
 app.route("/v1/oma/model_cards", modelCardsRoutes);
+app.route("/v1/oma/mcp_servers", mcpServersRoutes);
 app.route("/v1/oma/sandbox_providers", sandboxProvidersRoutes);
 app.route("/v1/oma/webhooks", webhookRoutes);
 // /v1/mcp-proxy is intentionally NOT aliased: auth.ts path-prefix skip is

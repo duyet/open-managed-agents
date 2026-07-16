@@ -36,6 +36,18 @@ interface Runtime {
   created_at: number;
 }
 
+interface CapacityMetric {
+  used: number;
+  total: number;
+  unit?: string;
+}
+
+interface ProviderCapacity {
+  cpu?: CapacityMetric;
+  memory?: CapacityMetric;
+  pods?: CapacityMetric;
+}
+
 interface HostingType {
   id: string;
   label: string;
@@ -49,8 +61,11 @@ interface HostingType {
     latency_ms: number;
     last_checked: string;
     reason?: string;
+    capacity?: ProviderCapacity;
   } | null;
 }
+
+const HEALTH_REFRESH_INTERVAL_MS = 30_000;
 
 const CAP_DISPLAY: Record<string, string> = {
   pause_resume: "Pause/Resume",
@@ -91,6 +106,46 @@ function formatHeartbeat(unixSeconds: number): string {
 function formatLatency(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function formatCapacityValue(v: number, unit?: string): string {
+  const rounded = Number.isInteger(v) ? v : Math.round(v * 10) / 10;
+  return unit ? `${rounded}${unit === "cores" ? " vCPU" : ` ${unit}`}` : `${rounded}`;
+}
+
+function CapacityBar({ label, metric }: { label: string; metric: CapacityMetric }) {
+  const pct = metric.total > 0 ? Math.min(100, Math.round((metric.used / metric.total) * 100)) : 0;
+  const barColor = pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-warning" : "bg-success";
+  return (
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-center justify-between text-[10px] text-fg-subtle">
+        <span>{label}</span>
+        <span className="font-mono">
+          {formatCapacityValue(metric.used, metric.unit)} / {formatCapacityValue(metric.total, metric.unit)}
+        </span>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-bg-surface overflow-hidden">
+        <div className={cn("h-full rounded-full", barColor)} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function CapacityGauges({ capacity }: { capacity: ProviderCapacity }) {
+  const entries: Array<[string, CapacityMetric | undefined]> = [
+    ["CPU", capacity.cpu],
+    ["Memory", capacity.memory],
+    ["Pods", capacity.pods],
+  ];
+  const present = entries.filter((e): e is [string, CapacityMetric] => e[1] !== undefined);
+  if (present.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1.5">
+      {present.map(([label, metric]) => (
+        <CapacityBar key={label} label={label} metric={metric} />
+      ))}
+    </div>
+  );
 }
 
 function ProviderCard({ p, onSetup, onRemove }: { p: HostingType; onSetup?: (p: HostingType) => void; onRemove?: (p: HostingType) => void }) {
@@ -176,6 +231,11 @@ function ProviderCard({ p, onSetup, onRemove }: { p: HostingType; onSetup?: (p: 
             )}
           </div>
 
+          {/* Capacity gauges (only when the provider reports them) */}
+          {status === "healthy" && health?.capacity && (
+            <CapacityGauges capacity={health.capacity} />
+          )}
+
           {/* Unhealthy reason */}
           {status === "unhealthy" && health?.reason && (
             <p className="text-[11px] text-destructive leading-relaxed rounded-md bg-destructive/10 px-2 py-1.5">
@@ -247,8 +307,11 @@ export function RuntimesList() {
   const [providersLoading, setProvidersLoading] = useState(true);
   const [providersError, setProvidersError] = useState<string | null>(null);
 
-  const loadProviders = useCallback(async () => {
-    setProvidersLoading(true);
+  // `isBackground` suppresses the loading skeleton for the periodic
+  // health/capacity refresh so the cards don't flash every 30s — only the
+  // initial load (and manual retries) show the skeleton state.
+  const loadProviders = useCallback(async (isBackground = false) => {
+    if (!isBackground) setProvidersLoading(true);
     setProvidersError(null);
     try {
       const res = await api<{ data: HostingType[] }>("/v1/hosting_types");
@@ -256,12 +319,14 @@ export function RuntimesList() {
     } catch (err) {
       setProvidersError(err instanceof Error ? err.message : "Failed to load");
     } finally {
-      setProvidersLoading(false);
+      if (!isBackground) setProvidersLoading(false);
     }
   }, [api]);
 
   useEffect(() => {
     void loadProviders();
+    const interval = setInterval(() => void loadProviders(true), HEALTH_REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
   }, [loadProviders]);
 
   const {

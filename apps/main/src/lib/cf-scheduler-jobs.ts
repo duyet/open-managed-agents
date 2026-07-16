@@ -8,13 +8,19 @@
 
 import type { Env } from "@duyet/oma-shared";
 import { log, logError, recordEvent, errFields } from "@duyet/oma-shared";
-import { forEachShardServices } from "@duyet/oma-services";
+import { forEachShardServices, getCfServicesForTenant } from "@duyet/oma-services";
 import { CfD1SqlClient } from "@duyet/oma-sql-client/adapters/cf-d1";
 import { createCfScheduler, type CfScheduler } from "@duyet/oma-scheduler/cf";
 import { memoryRetentionTick } from "@duyet/oma-scheduler/jobs/memory-retention";
 import { webhookEventsRetentionTick } from "@duyet/oma-scheduler/jobs/webhook-events-retention";
+import {
+  scheduledAgentRunsTick,
+  type ScheduledRunLauncher,
+} from "@duyet/oma-scheduler/jobs/scheduled-agent-runs";
+import { SqlClientScheduledRunsStore } from "@duyet/oma-scheduler/jobs/scheduled-agent-runs-store";
 import { withHealthchecks } from "@duyet/oma-shared";
 import { tickEvalRuns } from "../eval-runner";
+import { createInternalSession } from "../routes/internal";
 import { dreamRecoveryTick } from "../cron/dream-recovery";
 
 // Cron expressions are env-overridable so ops can shift sweeps without a
@@ -74,6 +80,61 @@ export function buildCfScheduler(env: Env): CfScheduler {
     cron: dreamsCron,
     handler: withHealthchecks(env, "dream-recovery", () => dreamRecoveryTick(env)),
   });
+
+  // Scheduled agent runs (issue #77) — fires user-defined agent schedules.
+  // agent_schedules lives in the single shared control-plane DB (MAIN_DB),
+  // so the store reads from there directly; the launcher resolves each
+  // schedule's tenant shard to actually create the session. Only registered
+  // when MAIN_DB is bound.
+  //
+  // TODO(node): apps/main-node has no agent_schedules table yet
+  // (packages/db-schema has no schedules dialect) and no schedules CRUD
+  // route, so there is nothing to fire on the Node deployment. When those
+  // land, register the same scheduledAgentRunsTick in node-scheduler-jobs.ts
+  // with a SqlClientScheduledRunsStore over the Node control-plane DB and a
+  // launcher over the Node session-create path.
+  if (env.MAIN_DB) {
+    const scheduledRunsCron = envCron(env, "SCHEDULED_AGENT_RUNS_CRON", "* * * * *");
+    const launcher: ScheduledRunLauncher = {
+      async launch(schedule) {
+        if (!schedule.environmentId) {
+          throw new Error("schedule has no environment_id");
+        }
+        if (!schedule.userId) {
+          throw new Error("schedule has no user_id");
+        }
+        const services = await getCfServicesForTenant(env, schedule.tenantId);
+        const result = await createInternalSession(env, services, {
+          action: "create",
+          userId: schedule.userId,
+          agentId: schedule.agentId,
+          environmentId: schedule.environmentId,
+          metadata: { scheduled_run: { schedule_id: schedule.id } },
+          initialEvent: {
+            type: "user.message",
+            content: [{ type: "text", text: schedule.prompt }],
+          },
+        });
+        if (!result.ok) {
+          throw new Error(`session create failed (${result.status}): ${result.error}`);
+        }
+        return { sessionId: result.sessionId };
+      },
+    };
+    scheduler.register({
+      name: "scheduled-agent-runs",
+      cron: scheduledRunsCron,
+      handler: withHealthchecks(
+        env,
+        "scheduled-agent-runs",
+        scheduledAgentRunsTick({
+          resolveStore: async () =>
+            new SqlClientScheduledRunsStore(new CfD1SqlClient(env.MAIN_DB)),
+          resolveLauncher: async () => launcher,
+        }),
+      ),
+    });
+  }
 
   return scheduler;
 }

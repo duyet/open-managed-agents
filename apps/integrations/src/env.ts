@@ -70,4 +70,14 @@ export interface Env {
   GITHUB_OAUTH_CLIENT_SECRET?: string;
   SLACK_OAUTH_CLIENT_ID?: string;
   SLACK_OAUTH_CLIENT_SECRET?: string;
+
+  // OMA-hosted managed Slack App credentials — powers the "Add to Slack"
+  // one-click install (POST /slack/publications/start-managed). All three
+  // must be set together; when any is missing the managed flow 503s and
+  // callers fall back to the manifest/BYOA wizard. From api.slack.com →
+  // your App → Basic Information (Client ID / Client Secret / Signing
+  // Secret).
+  SLACK_MANAGED_CLIENT_ID?: string;
+  SLACK_MANAGED_CLIENT_SECRET?: string;
+  SLACK_MANAGED_SIGNING_SECRET?: string;
 }
