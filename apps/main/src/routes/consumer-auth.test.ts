@@ -242,7 +242,7 @@ describe("creator visibility: GET /v1/publications/:id/users (issue #73)", () =>
   it("lists a publication's end-users for the owning tenant and hides them from others", async () => {
     const publicApp0 = publicApp();
     await db()
-      .prepare("INSERT INTO agent_publication (id, tenant_id, agent_id, slug) VALUES ('pub_1','tenant-a','agent-1','bot')")
+      .prepare("INSERT INTO agent_publication (id, tenant_id, agent_id, agent_version, slug, created_at) VALUES ('pub_1','tenant-a','agent-1',1,'bot',0)")
       .run();
 
     const g = (await (await call(publicApp0, "/v1/public/auth/guest", {
