@@ -1,0 +1,108 @@
+# Cloudflare Deploy Guide
+
+Production Cloudflare deployment with custom domains, OAuth apps, and monitoring.
+
+## Prerequisites
+
+- Node.js 22+, pnpm 10+
+- Cloudflare Workers Paid plan ($5/mo)
+- wrangler CLI logged in
+- Anthropic API key (or compatible provider)
+
+## Quick Deploy
+
+```bash
+git clone https://github.com/duyet/oma.git
+cd oma
+pnpm install
+npx wrangler login
+./scripts/setup-cf.sh
+```
+
+## Custom Domain
+
+`apps/main/wrangler.jsonc` and `apps/integrations/wrangler.jsonc` each own a
+different subdomain; `apps/agent/wrangler.jsonc` has no `routes` block at all
+(the agent worker is only reached internally, not via a public route). Edit
+the `routes` in the two worker configs that do have one:
+
+```jsonc
+// apps/main/wrangler.jsonc
+"routes": [
+  { "pattern": "app.yourdomain.com", "custom_domain": true }
+]
+```
+
+```jsonc
+// apps/integrations/wrangler.jsonc
+"routes": [
+  { "pattern": "integrations.yourdomain.com", "custom_domain": true }
+]
+```
+
+Redeploy:
+
+```bash
+npx wrangler deploy --config apps/main/wrangler.jsonc
+npx wrangler deploy --config apps/integrations/wrangler.jsonc
+```
+
+DNS records auto-create on first deploy (cert provisioning ~1 min).
+
+## OAuth Apps
+
+### GitHub OAuth (Console sign-in)
+
+This adds GitHub as a sign-in option for the Console, alongside email/password.
+
+1. Create OAuth app at GitHub Settings → Developer settings → OAuth Apps
+2. Set callback URL to `https://app.yourdomain.com/auth/callback/github`
+3. Set secrets on the **main** worker:
+
+```bash
+npx wrangler secret put GITHUB_CLIENT_ID --config apps/main/wrangler.jsonc
+npx wrangler secret put GITHUB_CLIENT_SECRET --config apps/main/wrangler.jsonc
+```
+
+### Slack OAuth
+
+Same pattern — see [OAuth apps guide](../self-host/oauth-apps.mdx) for full details.
+
+## Monitoring
+
+Workers dashboards are available in the Cloudflare Dashboard:
+- **Main worker**: Request count, duration, errors
+- **Agent worker**: Session metrics, tool usage
+- **Durable Objects**: Storage, requests
+
+Enable logging (tail whichever worker you're debugging):
+
+```bash
+npx wrangler tail --config apps/main/wrangler.jsonc
+npx wrangler tail --config apps/agent/wrangler.jsonc
+npx wrangler tail --config apps/integrations/wrangler.jsonc
+```
+
+## Architecture
+
+```text
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│  Console UI  │────►│  Main Worker │────►│ Agent Worker │
+│  (CF Workers)│     │  (API + Auth)│     │  (Sandbox)   │
+└──────────────┘     └──────┬───────┘     └──────────────┘
+                            │
+                    ┌───────┴───────┐
+                    │  Durable Objs │
+                    │  + R2 + D1    │
+                    └───────────────┘
+```
+
+## Cost Estimates
+
+| Resource | Cost (approx) |
+|----------|--------------|
+| Workers Paid plan | $5/mo |
+| Durable Objects | ~$2-10/mo (usage dependent) |
+| R2 storage | ~$0.015/GB/mo |
+| D1 database | ~$0.001/million reads |
+| **Total** | **~$10-20/mo** |

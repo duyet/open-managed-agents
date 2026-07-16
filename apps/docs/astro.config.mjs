@@ -105,6 +105,16 @@ export default defineConfig({
           ],
         },
         {
+          label: 'Deploy Guides',
+          items: [
+            { label: 'Overview', slug: 'deploy' },
+            { label: 'Docker', slug: 'deploy/docker' },
+            { label: 'Cloudflare', slug: 'deploy/cloudflare' },
+            { label: 'Kubernetes', slug: 'deploy/kubernetes' },
+            { label: 'K8s Bridge Reference', slug: 'deploy/k8s-bridge' },
+          ],
+        },
+        {
           label: 'Reference',
           items: [
             { label: 'Configuration', slug: 'reference/configuration' },
