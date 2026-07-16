@@ -12,6 +12,7 @@
 // `next_run_at <= ?` already excludes manual/webhook deployments.
 
 import type { SqlClient } from "@duyet/oma-sql-client";
+import { parseStringArray } from "@duyet/oma-shared";
 import type {
   ClaimedDeployment,
   RecordDeploymentRunInput,
@@ -27,28 +28,23 @@ interface DueRow {
   user_id: string | null;
   vault_ids: string | null;
   memory_store_ids: string | null;
-  timezone: string | null;
   initial_message: string;
   trigger: string | null;
   next_run_at: string;
 }
 
-function parseIds(raw: string | null): string[] {
-  if (!raw) return [];
-  try {
-    const v = JSON.parse(raw);
-    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
-function cronFromTrigger(raw: string | null): string | null {
+// The schedule cadence lives INSIDE the trigger JSON (there is no `timezone`
+// column on `deployments` — see apps/main/migrations/0023_deployments.sql).
+// Parse both cron + timezone out of it here.
+function scheduleFromTrigger(raw: string | null): { cron: string; timezone: string } | null {
   if (!raw) return null;
   try {
-    const t = JSON.parse(raw) as { type?: string; cron_expression?: string };
+    const t = JSON.parse(raw) as { type?: string; cron_expression?: string; timezone?: string };
     if (t?.type === "schedule" && typeof t.cron_expression === "string") {
-      return t.cron_expression;
+      return {
+        cron: t.cron_expression,
+        timezone: typeof t.timezone === "string" && t.timezone ? t.timezone : "UTC",
+      };
     }
     return null;
   } catch {
@@ -69,7 +65,7 @@ export class SqlClientScheduledDeploymentRunsStore implements ScheduledDeploymen
     const candidates = await this.db
       .prepare(
         `SELECT id, tenant_id, agent_id, agent_version, environment_id, user_id,
-                vault_ids, memory_store_ids, timezone, initial_message, trigger, next_run_at
+                vault_ids, memory_store_ids, initial_message, trigger, next_run_at
          FROM deployments
          WHERE enabled = 1 AND next_run_at IS NOT NULL AND next_run_at <= ?
          ORDER BY next_run_at ASC
@@ -82,8 +78,9 @@ export class SqlClientScheduledDeploymentRunsStore implements ScheduledDeploymen
     const claimed: ClaimedDeployment[] = [];
 
     for (const row of rows) {
-      const cron = cronFromTrigger(row.trigger);
-      const timezone = row.timezone || "UTC";
+      const sched = scheduleFromTrigger(row.trigger);
+      const cron = sched?.cron ?? null;
+      const timezone = sched?.timezone ?? "UTC";
       // A row with a non-null next_run_at but no schedule cron shouldn't exist,
       // but if it does, park it by nulling next_run_at (via the CAS below).
       const nextMs = cron ? computeNextRun(cron, timezone, nowMs) : null;
@@ -107,8 +104,8 @@ export class SqlClientScheduledDeploymentRunsStore implements ScheduledDeploymen
           agentVersion: row.agent_version,
           environmentId: row.environment_id,
           userId: row.user_id,
-          vaultIds: parseIds(row.vault_ids),
-          memoryStoreIds: parseIds(row.memory_store_ids),
+          vaultIds: parseStringArray(row.vault_ids),
+          memoryStoreIds: parseStringArray(row.memory_store_ids),
           cron,
           timezone,
           initialMessage: row.initial_message,
