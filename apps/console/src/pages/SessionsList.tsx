@@ -9,11 +9,10 @@ import { useApi, ApiError } from "../lib/api";
 import { useInfiniteApiQuery } from "../lib/useApiQuery";
 import { Modal } from "../components/Modal";
 import { Button } from "@/components/ui/button";
-import { PopoverContent } from "@/components/ui/popover";
 import { Combobox } from "../components/Combobox";
 import { DataTable, type ColumnDef } from "../components/DataTable";
-import { FacetedFilter } from "../components/FacetedFilter";
-import { FilterChip, CreatedFilterChip } from "../components/FilterChip";
+import { FilterBar } from "../components/FilterBar";
+import { EnvironmentPicker, VaultsPicker } from "../components/ResourcePicker";
 import { RowActionsMenu } from "../components/RowActionsMenu";
 import { formatDuration } from "../lib/format";
 
@@ -343,7 +342,6 @@ export function SessionsList() {
     control,
     register,
     handleSubmit,
-    getValues,
     setValue,
     reset,
     trigger,
@@ -594,14 +592,6 @@ export function SessionsList() {
     }
   };
 
-  const toggleVault = (id: string) => {
-    const current = getValues("vault_ids");
-    const next = current.includes(id)
-      ? current.filter((v) => v !== id)
-      : [...current, id];
-    setValue("vault_ids", next, { shouldValidate: true, shouldDirty: true });
-  };
-
   const addResource = (kind: ResourceRow["kind"]) => {
     appendResource(blankResource(kind));
     setRevealedSecrets(new Set());
@@ -622,15 +612,9 @@ export function SessionsList() {
 
   const displayed = sessions;
 
-  // Active-filter chip displays — kept undefined when matching the
-  // default so the chip reads "Status ▾" rather than "Status: All ▾".
-  // The clear-X only renders when the chip is in non-default state.
-  const statusDisplay =
-    status === "any" ? undefined : STATUS_OPTIONS.find((o) => o.value === status)?.label;
-
   // Agent picker — preloaded options from the same /v1/agents fetch the
   // create-modal Combobox uses (aux loadAux above). Single-select via
-  // FacetedFilter, server-side via `agent_id` query param.
+  // FilterBar's faceted chip, server-side via `agent_id` query param.
   const agentOptions = useMemo(
     () =>
       agents.map((a) => ({
@@ -639,56 +623,22 @@ export function SessionsList() {
       })),
     [agents],
   );
-  const agentDisplay = filterAgent
-    ? agentOptions.find((o) => o.value === filterAgent)?.label ?? filterAgent
-    : undefined;
 
   const filters = (
-    <>
-      <FilterChip
-        label="Agent"
-        active={!!filterAgent}
-        display={agentDisplay}
-        onClear={() => setFilterAgent("")}
-      >
-        <PopoverContent
-          align="start"
-          sideOffset={4}
-          collisionPadding={8}
-          className="w-72 p-0"
-        >
-          <FacetedFilter
-            options={agentOptions}
-            value={filterAgent}
-            onValueChange={(v) => setFilterAgent(v)}
-            searchPlaceholder="Agent..."
-          />
-        </PopoverContent>
-      </FilterChip>
-
-      <FilterChip
-        label="Status"
-        active={status !== "any"}
-        display={statusDisplay}
-        onClear={() => setStatus("any")}
-      >
-        <PopoverContent
-          align="start"
-          sideOffset={4}
-          collisionPadding={8}
-          className="w-48 p-0"
-        >
-          <FacetedFilter
-            options={STATUS_OPTIONS}
-            value={status}
-            onValueChange={(v) => setStatus(v as StatusValue)}
-            searchPlaceholder="Status..."
-          />
-        </PopoverContent>
-      </FilterChip>
-
-      <CreatedFilterChip value={created} onChange={setCreated} />
-    </>
+    <FilterBar
+      agent={{
+        value: filterAgent,
+        onChange: setFilterAgent,
+        options: agentOptions,
+        defaultValue: "",
+      }}
+      status={{
+        value: status,
+        onChange: (v) => setStatus(v as StatusValue),
+        options: STATUS_OPTIONS,
+      }}
+      created={{ value: created, onChange: setCreated }}
+    />
   );
 
   // First github row index + total count, computed once per render so the
@@ -946,36 +896,17 @@ export function SessionsList() {
               that mode. Server picks a tenant fallback when env_id is
               omitted; see sessions.ts:resolvedEnvId. */}
           {!isLocalRuntime && (
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-sm text-fg-muted">Environment</label>
-                <a href="/environments" className="text-xs text-brand hover:underline">Manage environments →</a>
-              </div>
-              <Controller
-                control={control}
-                name="environment_id"
-                render={({ field, fieldState }) => (
-                  <>
-                    <Combobox<{ id: string; name: string }>
-                      value={field.value}
-                      onValueChange={(v) => field.onChange(v)}
-                      endpoint="/v1/environments"
-                      getValue={(e) => e.id}
-                      getLabel={(e) => (
-                        <span>
-                          {e.name} <span className="text-fg-subtle text-[12px]">({e.id})</span>
-                        </span>
-                      )}
-                      getTextLabel={(e) => `${e.name} (${e.id})`}
-                      placeholder="Select environment..."
-                    />
-                    {showError(fieldState.isTouched, fieldState.error?.message) && (
-                      <p className="text-xs text-danger mt-1">{fieldState.error?.message}</p>
-                    )}
-                  </>
-                )}
-              />
-            </div>
+            <Controller
+              control={control}
+              name="environment_id"
+              render={({ field, fieldState }) => (
+                <EnvironmentPicker
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={showError(fieldState.isTouched, fieldState.error?.message)}
+                />
+              )}
+            />
           )}
           {isLocalRuntime && (
             <p className="text-xs text-fg-subtle bg-bg-surface px-3 py-2 rounded-lg">
@@ -1002,24 +933,13 @@ export function SessionsList() {
 
           {vaults.length > 0 && (
             <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-sm text-fg-muted">Credential Vaults <span className="text-fg-subtle">(optional)</span></label>
-              <a href="/vaults" className="text-xs text-brand hover:underline">Manage vaults →</a>
-            </div>
-              <div className="space-y-1">
-                {vaults.map((v) => (
-                  <label key={v.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={watchedVaultIds.includes(v.id)}
-                      onChange={() => toggleVault(v.id)}
-                      className="rounded accent-brand"
-                    />
-                    <span className="text-fg">{v.name}</span>
-                    <span className="text-fg-subtle font-mono text-xs">{v.id}</span>
-                  </label>
-                ))}
-              </div>
+              <VaultsPicker
+                label="Credential Vaults"
+                value={watchedVaultIds}
+                onChange={(ids) =>
+                  setValue("vault_ids", ids, { shouldValidate: true, shouldDirty: true })
+                }
+              />
               {unauthedMcpServers.length > 0 && (
                 <div className="mt-2 px-3 py-2 rounded-md border border-warning/40 bg-warning/5 text-xs text-warning">
                   <div className="font-medium mb-1">
