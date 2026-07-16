@@ -1218,12 +1218,21 @@ export async function buildTools(
       const mcpBinding = env.mcpBinding;
       const tenantId = env.tenantId;
       const sessionId = env.sessionId;
-      for (const server of agentConfig.mcp_servers) {
+      const mcpServers = agentConfig.mcp_servers;
+
+      // One async closure per server — fanned out via Promise.allSettled
+      // below instead of awaiting each server in turn (#198: sequentially,
+      // up to 20 servers x the 15s setup timeout could stall a turn for
+      // minutes). Each closure owns its own timeoutHandle so clearTimeout
+      // can't race with a sibling server's.
+      const discoverServerTools = async (
+        server: (typeof mcpServers)[number],
+      ): Promise<Record<string, unknown> | null> => {
         if (!server.url) {
           // stdio MCP whose sandbox-side spawn hasn't recorded a URL yet
           // (warmup hasn't run, or spawn failed). Skip silently — re-attempt
           // when the next buildTools fires after warmup.
-          continue;
+          return null;
         }
         const serverName = server.name;
         let timeoutHandle!: ReturnType<typeof setTimeout>;
@@ -1260,9 +1269,7 @@ export async function buildTools(
             mcpClient.tools(),
             timeoutPromise,
           ]);
-          for (const [toolName, t] of Object.entries(remoteTools)) {
-            tools[`mcp__${server.name}__${toolName}`] = t;
-          }
+          return remoteTools;
         } catch (err) {
           // Connection / handshake / tools/list failure for one server
           // (e.g. main worker unreachable, vault credential missing,
@@ -1272,10 +1279,29 @@ export async function buildTools(
           console.error(
             `[mcp] cloud MCP setup failed for "${server.name}" (${server.url}): ${msg}`,
           );
+          return null;
         } finally {
           clearTimeout(timeoutHandle);
         }
-      }
+      };
+
+      // Fan out concurrently, then merge in *config* order — never
+      // completion order. The prompt-cache contract (harness/interface.ts)
+      // requires byte-deterministic tool output; Promise.allSettled's
+      // results array mirrors the input array's order regardless of which
+      // server answers first, so iterating it by index below reproduces
+      // the exact same `tools` key insertion order the old sequential loop
+      // produced.
+      const settledServers = await Promise.allSettled(
+        mcpServers.map((server) => discoverServerTools(server)),
+      );
+      settledServers.forEach((result, i) => {
+        if (result.status !== "fulfilled" || !result.value) return;
+        const server = mcpServers[i];
+        for (const [toolName, t] of Object.entries(result.value)) {
+          tools[`mcp__${server.name}__${toolName}`] = t;
+        }
+      });
     }
   }
 
