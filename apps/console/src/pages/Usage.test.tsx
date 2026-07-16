@@ -1,0 +1,158 @@
+import { describe, expect, it } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { http, HttpResponse } from "msw";
+import { server } from "../mocks/server";
+import { Usage } from "./Usage";
+
+function renderPage() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <Usage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+const fullUsage = {
+  total_active_seconds: 4 * 3600 + 32 * 60, // 4h 32m
+  total_sessions: 12,
+  by_kind: [
+    { kind: "sandbox_active_seconds", total_seconds: 4 * 3600 + 32 * 60 },
+    { kind: "model_input_tokens", total_seconds: 105000 },
+    { kind: "model_output_tokens", total_seconds: 7500 },
+  ],
+  by_instance_type: [{ instance_type: "standard-1", total_seconds: 3600 }],
+  daily: [
+    { date: "2026-07-15", active_seconds: 600, runs: 2 },
+    { date: "2026-07-16", active_seconds: 1200, runs: 3 },
+  ],
+};
+
+const emptyUsage = {
+  total_active_seconds: 0,
+  total_sessions: 0,
+  by_kind: [],
+  by_instance_type: [],
+  daily: [],
+};
+
+const fullCostReport = {
+  period: { start: "2026-06-17", end: "2026-07-17", days: 30 },
+  platform_fee: 5,
+  services: {
+    workers: { usage: { requests: 10000, errors: 2 }, included: { requests: 10_000_000 }, cost: 0.12 },
+    kv: { usage: { read: 500, write: 10 }, included: { read: 10_000_000 }, cost: 0 },
+  },
+  total_estimated_cost: 5.12,
+};
+
+describe("<Usage />", () => {
+  it("renders all-time stats, daily activity, breakdown tables, and Cloudflare cost", async () => {
+    server.use(
+      http.get("/v1/usage", () => HttpResponse.json(fullUsage)),
+      http.get("/v1/cost_report", () => HttpResponse.json(fullCostReport)),
+    );
+    renderPage();
+
+    expect(await screen.findByText("All time")).toBeInTheDocument();
+    // Each of these renders twice by design — once in the all-time stat
+    // tile row, once in the "By kind" table row for the same usage_events
+    // kind (both derive from the same underlying by_kind entry).
+    expect(screen.getAllByText("4h 32m")).toHaveLength(2); // sandbox time
+    expect(screen.getAllByText("105K")).toHaveLength(2); // tokens in
+    expect(screen.getAllByText("7.5K")).toHaveLength(2); // tokens out
+
+    expect(screen.getByText("Daily activity")).toBeInTheDocument();
+    expect(screen.getByText("By kind")).toBeInTheDocument();
+    expect(screen.getByText("Sandbox active time")).toBeInTheDocument();
+    expect(screen.getByText("Model input tokens")).toBeInTheDocument();
+    expect(screen.getByText("Model output tokens")).toBeInTheDocument();
+    expect(screen.getByText("By sandbox instance type")).toBeInTheDocument();
+    expect(screen.getByText("standard-1")).toBeInTheDocument();
+
+    expect(await screen.findByText("$5.12")).toBeInTheDocument();
+    expect(screen.getByText("Workers")).toBeInTheDocument();
+  });
+
+  // A failed /v1/usage fetch must render the error+Retry state, never the
+  // empty-state copy (matches the #182/#218 list-UX contract) — and must
+  // NOT hide the independently-fetched Cloudflare cost card.
+  it("shows an error state with Retry when /v1/usage fails, without hiding Cloudflare cost", async () => {
+    server.use(
+      http.get("/v1/usage", () => HttpResponse.json({ error: "Internal error" }, { status: 500 })),
+      http.get("/v1/cost_report", () => HttpResponse.json(fullCostReport)),
+    );
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText("Couldn't load usage")).toBeInTheDocument());
+    expect(screen.getByText("Internal error")).toBeInTheDocument();
+    expect(screen.queryByText("No usage in this period")).not.toBeInTheDocument();
+
+    // Cloudflare cost is a separate fetch — still renders normally.
+    expect(await screen.findByText("$5.12")).toBeInTheDocument();
+
+    const retryButton = screen.getByRole("button", { name: "Retry" });
+    server.use(http.get("/v1/usage", () => HttpResponse.json(fullUsage)));
+    await userEvent.click(retryButton);
+
+    await waitFor(() => expect(screen.getByText("All time")).toBeInTheDocument());
+    expect(screen.queryByText("Couldn't load usage")).not.toBeInTheDocument();
+  });
+
+  it('shows "No usage in this period" when the tenant has recorded nothing', async () => {
+    server.use(
+      http.get("/v1/usage", () => HttpResponse.json(emptyUsage)),
+      http.get("/v1/cost_report", () => HttpResponse.json(fullCostReport)),
+    );
+    renderPage();
+
+    expect(await screen.findByText("No usage in this period")).toBeInTheDocument();
+  });
+
+  // /v1/cost_report returns 501 when CLOUDFLARE_API_TOKEN/ACCOUNT_ID aren't
+  // configured — an expected "not set up" signal, not a failure, so it gets
+  // a calm explanatory empty state rather than the red error+Retry state.
+  it("shows an explanatory empty state (not an error) when Cloudflare cost reporting isn't configured", async () => {
+    server.use(
+      http.get("/v1/usage", () => HttpResponse.json(fullUsage)),
+      http.get("/v1/cost_report", () =>
+        HttpResponse.json(
+          { error: "CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are required" },
+          { status: 501 },
+        ),
+      ),
+    );
+    renderPage();
+
+    expect(
+      await screen.findByText("Cloudflare cost reporting isn't configured"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load Cloudflare cost")).not.toBeInTheDocument();
+  });
+
+  it("re-fetches the Cloudflare cost report with the selected range's days param", async () => {
+    let lastDays: string | null = null;
+    server.use(
+      http.get("/v1/usage", () => HttpResponse.json(fullUsage)),
+      http.get("/v1/cost_report", ({ request }) => {
+        lastDays = new URL(request.url).searchParams.get("days");
+        return HttpResponse.json(fullCostReport);
+      }),
+    );
+    renderPage();
+
+    await screen.findByText("$5.12");
+    expect(lastDays).toBe("30");
+
+    await userEvent.click(screen.getByRole("button", { name: "7d" }));
+
+    await waitFor(() => expect(lastDays).toBe("7"));
+  });
+});
