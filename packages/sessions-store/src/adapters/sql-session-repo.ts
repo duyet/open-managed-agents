@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, like, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, like, lt, or, sql } from "drizzle-orm";
 import {
   asBuilder,
   atomicWrite,
@@ -28,7 +28,7 @@ import type {
   SessionRepo,
   SessionUpdateFields,
 } from "../ports";
-import type { SessionResourceRow, SessionRow } from "../types";
+import type { AnalyticsSessionRow, SessionResourceRow, SessionRow } from "../types";
 
 
 /**
@@ -124,12 +124,18 @@ export class SqlSessionRepo implements SessionRepo {
       after?: PageCursor;
       status?: SessionStatus;
       q?: string;
+      createdAfter?: number;
+      createdBefore?: number;
     },
   ): Promise<{ items: SessionRow[]; hasMore: boolean }> {
     const conds = [eq(sessions.tenant_id, tenantId)];
     if (opts.agentId) conds.push(eq(sessions.agent_id, opts.agentId));
     if (!opts.includeArchived) conds.push(isNull(sessions.archived_at));
     if (opts.status) conds.push(eq(sessions.status, opts.status));
+    if (opts.createdAfter !== undefined)
+      conds.push(gte(sessions.created_at, opts.createdAfter));
+    if (opts.createdBefore !== undefined)
+      conds.push(lt(sessions.created_at, opts.createdBefore));
     if (opts.q) {
       // title is a regular TEXT column, no json_extract needed. SQLite LIKE
       // is ASCII-case-insensitive; ESCAPE '\' keeps any user-supplied %/_
@@ -155,6 +161,46 @@ export class SqlSessionRepo implements SessionRepo {
         .limit(fetchN(opts.limit)),
     );
     return trimPage(rows.map(toSessionRow), opts.limit);
+  }
+
+  async listForAnalytics(
+    tenantId: string,
+    opts: { agentId?: string; startMs: number; endMs: number },
+  ): Promise<AnalyticsSessionRow[]> {
+    const conds = [
+      eq(sessions.tenant_id, tenantId),
+      gte(sessions.created_at, opts.startMs),
+      lt(sessions.created_at, opts.endMs),
+    ];
+    if (opts.agentId) conds.push(eq(sessions.agent_id, opts.agentId));
+    const rows = await getAll<{
+      created_at: number;
+      input_tokens: number;
+      output_tokens: number;
+      tool_call_count: number;
+      message_count: number;
+      stop_reason: string | null;
+    }>(
+      this.db
+        .select({
+          created_at: sessions.created_at,
+          input_tokens: sessions.input_tokens,
+          output_tokens: sessions.output_tokens,
+          tool_call_count: sessions.tool_call_count,
+          message_count: sessions.message_count,
+          stop_reason: sessions.stop_reason,
+        })
+        .from(sessions)
+        .where(and(...conds)),
+    );
+    return rows.map((r) => ({
+      created_at: r.created_at,
+      input_tokens: r.input_tokens,
+      output_tokens: r.output_tokens,
+      tool_call_count: r.tool_call_count,
+      message_count: r.message_count,
+      stop_reason: r.stop_reason,
+    }));
   }
 
   async hasActiveByAgent(tenantId: string, agentId: string): Promise<boolean> {
@@ -233,6 +279,8 @@ export class SqlSessionRepo implements SessionRepo {
     if (update.stopReason !== undefined) set.stop_reason = update.stopReason;
     if (update.toolCallCount !== undefined) set.tool_call_count = update.toolCallCount;
     if (update.messageCount !== undefined) set.message_count = update.messageCount;
+    if (update.inputTokens !== undefined) set.input_tokens = update.inputTokens;
+    if (update.outputTokens !== undefined) set.output_tokens = update.outputTokens;
     await runOnce(
       this.db
         .update(sessions)
@@ -438,6 +486,8 @@ function toSessionRow(r: typeof sessions.$inferSelect): SessionRow {
     stop_reason: r.stop_reason,
     tool_call_count: r.tool_call_count,
     message_count: r.message_count,
+    input_tokens: r.input_tokens,
+    output_tokens: r.output_tokens,
   };
 }
 

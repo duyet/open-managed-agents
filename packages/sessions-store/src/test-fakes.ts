@@ -20,7 +20,7 @@ import type {
   SessionUpdateFields,
 } from "./ports";
 import { SessionService } from "./service";
-import type { SessionResourceRow, SessionRow } from "./types";
+import type { AnalyticsSessionRow, SessionResourceRow, SessionRow } from "./types";
 
 interface InMemSession {
   id: string;
@@ -40,6 +40,8 @@ interface InMemSession {
   stop_reason: string | null;
   tool_call_count: number;
   message_count: number;
+  input_tokens: number;
+  output_tokens: number;
 }
 
 interface InMemResource {
@@ -76,6 +78,8 @@ export class InMemorySessionRepo implements SessionRepo {
       stop_reason: null,
       tool_call_count: 0,
       message_count: 0,
+      input_tokens: 0,
+      output_tokens: 0,
     };
     this.sessions.set(session.id, row);
 
@@ -122,6 +126,8 @@ export class InMemorySessionRepo implements SessionRepo {
       after?: import("@duyet/oma-shared").PageCursor;
       status?: SessionStatus;
       q?: string;
+      createdAfter?: number;
+      createdBefore?: number;
     },
   ): Promise<{ items: SessionRow[]; hasMore: boolean }> {
     let rows = Array.from(this.sessions.values()).filter(
@@ -130,6 +136,10 @@ export class InMemorySessionRepo implements SessionRepo {
     if (opts.agentId) rows = rows.filter((s) => s.agent_id === opts.agentId);
     if (!opts.includeArchived) rows = rows.filter((s) => s.archived_at === null);
     if (opts.status) rows = rows.filter((s) => s.status === opts.status);
+    if (opts.createdAfter !== undefined)
+      rows = rows.filter((s) => s.created_at >= opts.createdAfter!);
+    if (opts.createdBefore !== undefined)
+      rows = rows.filter((s) => s.created_at < opts.createdBefore!);
     if (opts.q) {
       const qLower = opts.q.toLowerCase();
       rows = rows.filter((s) => s.title.toLowerCase().includes(qLower));
@@ -146,6 +156,28 @@ export class InMemorySessionRepo implements SessionRepo {
       items: (hasMore ? rows.slice(0, opts.limit) : rows).map(toSessionRow),
       hasMore,
     };
+  }
+
+  async listForAnalytics(
+    tenantId: string,
+    opts: { agentId?: string; startMs: number; endMs: number },
+  ): Promise<AnalyticsSessionRow[]> {
+    return Array.from(this.sessions.values())
+      .filter(
+        (s) =>
+          s.tenant_id === tenantId &&
+          s.created_at >= opts.startMs &&
+          s.created_at < opts.endMs &&
+          (opts.agentId ? s.agent_id === opts.agentId : true),
+      )
+      .map((s) => ({
+        created_at: s.created_at,
+        input_tokens: s.input_tokens,
+        output_tokens: s.output_tokens,
+        tool_call_count: s.tool_call_count,
+        message_count: s.message_count,
+        stop_reason: s.stop_reason,
+      }));
   }
 
   async hasActiveByAgent(tenantId: string, agentId: string): Promise<boolean> {
@@ -199,6 +231,8 @@ export class InMemorySessionRepo implements SessionRepo {
     if (update.stopReason !== undefined) row.stop_reason = update.stopReason;
     if (update.toolCallCount !== undefined) row.tool_call_count = update.toolCallCount;
     if (update.messageCount !== undefined) row.message_count = update.messageCount;
+    if (update.inputTokens !== undefined) row.input_tokens = update.inputTokens;
+    if (update.outputTokens !== undefined) row.output_tokens = update.outputTokens;
     row.updated_at = update.updatedAt;
     return toSessionRow(row);
   }
@@ -389,6 +423,8 @@ function toSessionRow(s: InMemSession): SessionRow {
     stop_reason: s.stop_reason,
     tool_call_count: s.tool_call_count,
     message_count: s.message_count,
+    input_tokens: s.input_tokens,
+    output_tokens: s.output_tokens,
   };
 }
 
