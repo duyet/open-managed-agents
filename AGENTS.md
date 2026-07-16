@@ -761,13 +761,17 @@ The platform handles everything else — tool construction, skill mounting, sand
 Skills are reusable prompt fragments and files that get mounted into the sandbox and injected into the system prompt:
 
 ```bash
-# Create a skill
+# Create a skill (files array is required — name/description are extracted
+# from the SKILL.md frontmatter below when not passed explicitly)
 curl -s $BASE/v1/skills \
   -H "x-api-key: $KEY" -H "content-type: application/json" \
   -d '{
-    "name": "code-review",
-    "type": "prompt",
-    "content": "When reviewing code, check for: security vulnerabilities, performance issues, error handling gaps, and test coverage."
+    "files": [
+      {
+        "filename": "SKILL.md",
+        "content": "---\nname: code-review\ndescription: Review code for security, performance, and test coverage gaps.\n---\n\nWhen reviewing code, check for: security vulnerabilities, performance issues, error handling gaps, and test coverage."
+      }
+    ]
   }'
 ```
 
