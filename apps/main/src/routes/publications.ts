@@ -22,6 +22,10 @@
 //   - per-IP rate-limit on session create
 //   - ownership scoping: a session created against publication A is not
 //     reachable via publication B's slug (metadata.publication_id check).
+//   - environment required (issue #225): a cloud agent (no runtime_binding)
+//     published with no environment_id set 409s session-create with a clear
+//     message instead of forwarding into the raw "environment_id is required
+//     for cloud agents" 400 session-create would otherwise return.
 
 import { Hono } from "hono";
 import type { Env } from "@duyet/oma-shared";
@@ -165,6 +169,23 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
     });
     if (!agent) return c.json({ error: "Published agent not found" }, 404);
 
+    // Cloud agents need an environment_id at session-create (see
+    // packages/http-routes/src/sessions/index.ts) — local-runtime agents
+    // (agent.runtime_binding set) don't. Detect the "will 400 downstream"
+    // case here so a visitor gets a clear, actionable message instead of the
+    // raw session-create error (issue #225).
+    const agentIsLocalRuntime = !!agent.runtime_binding;
+    if (!agentIsLocalRuntime && !pub.environment_id) {
+      return c.json(
+        {
+          error:
+            "This bot isn't ready to chat yet — its publication has no environment configured. Ask the owner to set one.",
+          code: "environment_required",
+        },
+        409,
+      );
+    }
+
     // Bind the wallet identity to the session at create so the post-turn
     // per_1k_tokens metering hook (agent DO, issue #74/#163) can resolve which
     // wallet to debit — the DO can't recompute it from the request. Same
@@ -182,6 +203,7 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
       return {
         ...body,
         agent: { id: pub.agent_id, version: pub.agent_version },
+        ...(pub.environment_id ? { environment_id: pub.environment_id } : {}),
         metadata: {
           ...(body.metadata ?? {}),
           publication_id: pub.id,

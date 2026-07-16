@@ -43,6 +43,25 @@ describe("PublicationService (in-memory)", () => {
     expect(row.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
+  it("create defaults environment_id to null; update sets and clears it", async () => {
+    const row = await svc.create({ tenantId: TENANT_A, input: baseInput() });
+    expect(row.environment_id).toBeNull();
+
+    const bound = await svc.update({
+      tenantId: TENANT_A,
+      id: row.id,
+      input: { environmentId: "env-123" },
+    });
+    expect(bound.environment_id).toBe("env-123");
+
+    const cleared = await svc.update({
+      tenantId: TENANT_A,
+      id: row.id,
+      input: { environmentId: null },
+    });
+    expect(cleared.environment_id).toBeNull();
+  });
+
   it("getBySlug resolves cross-tenant without tenant scope", async () => {
     const row = await svc.create({ tenantId: TENANT_A, input: baseInput() });
     const bySlug = await svc.getBySlug({ slug: row.slug });

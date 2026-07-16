@@ -26,6 +26,10 @@ export interface PublicationRow {
   pricing_ref: string | null;
   /** FK reference into the rate-limit table; null until wired. */
   rate_limit_ref: string | null;
+  /** Environment the public session-create (POST /p/:slug/sessions) binds
+   *  sessions to (issue #225). Null until set at publish time; required
+   *  for a cloud agent to actually be able to chat. */
+  environment_id: string | null;
   /** ISO-8601 timestamp. */
   created_at: string;
 }

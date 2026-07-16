@@ -23,6 +23,7 @@ export interface NewPublicationInput {
   suggestedPrompts: string[];
   pricingRef: string | null;
   rateLimitRef: string | null;
+  environmentId: string | null;
   createdAt: number;
 }
 
@@ -36,6 +37,7 @@ export interface PublicationUpdateFields {
   suggestedPrompts?: string[];
   pricingRef?: string | null;
   rateLimitRef?: string | null;
+  environmentId?: string | null;
   slug?: string;
 }
 
