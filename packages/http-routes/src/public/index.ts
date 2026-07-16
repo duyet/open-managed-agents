@@ -15,3 +15,17 @@ export type {
   PublicPublicationServices,
   PublicEnv,
 } from "./publications";
+
+export {
+  buildConsumerAuthRoutes,
+  createSqlConsumerAuthStore,
+  magicLinkEmailHtml,
+  magicLinkEmailText,
+  MAGIC_LINK_EMAIL_SUBJECT,
+} from "./consumer-auth";
+export type {
+  ConsumerAuthRoutesDeps,
+  ConsumerAuthStore,
+  ConsumerAuthEmail,
+  ConsumerSessionRow,
+} from "./consumer-auth";

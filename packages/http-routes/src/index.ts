@@ -77,11 +77,20 @@ export {
   publicSessionCaps,
   renderChatPage,
   renderWidgetScript,
+  buildConsumerAuthRoutes,
+  createSqlConsumerAuthStore,
+  magicLinkEmailHtml,
+  magicLinkEmailText,
+  MAGIC_LINK_EMAIL_SUBJECT,
 } from "./public";
 export type {
   PublicPublicationRoutesDeps,
   PublicPublicationServices,
   PublicEnv,
+  ConsumerAuthRoutesDeps,
+  ConsumerAuthStore,
+  ConsumerAuthEmail,
+  ConsumerSessionRow,
 } from "./public";
 
 export { buildIntegrationsRoutes } from "./integrations";
