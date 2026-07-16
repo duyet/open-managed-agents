@@ -30,7 +30,12 @@
 
   --fg: #18181b;
   --fg-muted: #52525b;
-  --fg-subtle: #71717a;
+  /* WCAG AA fix (issue #185) — the old #71717a passed against white
+     (4.83:1) but marginally failed against --bg-surface #f4f4f5 (4.40:1),
+     the tint most table rows / pills actually sit on. #6b6b74 clears AA
+     against both: 5.28:1 on #ffffff, 4.80:1 on #f4f4f5 — while staying
+     visibly quieter than --fg-muted (7.73:1 / 7.03:1 on the same pair). */
+  --fg-subtle: #6b6b74;
 
   --border: #e4e4e7;
   --border-strong: #d4d4d8;
@@ -90,7 +95,13 @@
 
   --fg: #fafafa;
   --fg-muted: #a1a1aa;
-  --fg-subtle: #71717a;
+  /* WCAG AA fix (issue #185) — the dark theme reused the light theme's
+     #71717a unchanged, which fails AA against both dark backgrounds:
+     4.12:1 on --bg #09090b, 3.52:1 on --bg-surface #1c1c20 (needs 4.5:1
+     at the text-xs sizes this token is used at). #8e8e99 clears AA
+     against both: 6.14:1 on #09090b, 5.24:1 on #1c1c20 — while staying
+     visibly quieter than --fg-muted (7.76:1 / 6.63:1 on the same pair). */
+  --fg-subtle: #8e8e99;
 
   --border: #27272a;
   --border-strong: #3f3f46;
