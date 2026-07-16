@@ -5,6 +5,7 @@ import { generateVaultId } from "@duyet/oma-shared";
 import type { Services } from "@duyet/oma-services";
 import { forEachShardServices } from "@duyet/oma-services";
 import { toEnvironmentConfig } from "@duyet/oma-environments-store";
+import { CfSessionRouter } from "../lib/cf-session-router";
 
 // Internal endpoints, called only by the integrations gateway worker via the
 // `MAIN` service binding. Auth is a shared header secret — no better-auth
@@ -475,6 +476,36 @@ app.post("/sessions/:id/events", async (c) => {
   });
 
   return c.json({ ok: true });
+});
+
+/**
+ * POST /v1/internal/sessions/:id/pause
+ * Pauses a session's sandbox (snapshot workspace + destroy container) on
+ * behalf of an integration gateway that owns the session's lifecycle (e.g.
+ * the Telegram auto-idle sweep). Mirrors the public
+ * `POST /v1/sessions/:id/pause` route in packages/http-routes, but resolves
+ * tenantId from `userId` like the sibling /events route above rather than
+ * from an authenticated Console/API-key request context.
+ */
+app.post("/sessions/:id/pause", async (c) => {
+  const sessionId = c.req.param("id");
+  const body = await c.req.json<{ userId?: string }>().catch(() => ({}) as { userId?: string });
+  if (!body?.userId) {
+    return c.json({ error: "userId required" }, 400);
+  }
+
+  const tenantId = await resolveTenantId(c.env, body.userId);
+  if (!tenantId) return c.json({ error: "user has no tenant" }, 404);
+
+  const session = await c.var.services.sessions.get({ tenantId, sessionId });
+  if (!session) return c.json({ error: "session not found" }, 404);
+
+  const router = new CfSessionRouter({ env: c.env, services: c.var.services, tenantId });
+  const r = await router.pause(sessionId);
+  if (r.status >= 400) {
+    return new Response(r.body, { status: r.status, headers: { "content-type": "application/json" } });
+  }
+  return c.json({ ok: true, id: sessionId, sandbox_status: "paused" as const });
 });
 
 /**

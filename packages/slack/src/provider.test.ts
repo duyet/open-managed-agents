@@ -209,11 +209,20 @@ function buildSlackTestContainer(): {
   const base = buildFakeContainer();
   const slackInstallations = new FakeSlackInstallationRepo(base.clock);
   const slackPublications = new FakeSlackPublicationRepo();
+  // The base fake scope repo lacks the Slack-only extension methods
+  // (armPendingScan / closeAllForPublication / …). Stub the ones the webhook
+  // path touches; per_channel dispatch internals aren't under test here.
+  const slackScopes = Object.assign(base.sessionScopes, {
+    armPendingScan: async () => ({ armed: true, currentUntil: null }),
+    clearPendingScan: async () => undefined,
+    updateChannelName: async () => undefined,
+    closeAllForPublication: async () => undefined,
+  });
   const container: SlackContainer = {
     ...base,
     installations: slackInstallations,
     publications: slackPublications,
-    sessionScopes: base.sessionScopes as unknown as SlackContainer["sessionScopes"],
+    sessionScopes: slackScopes as unknown as SlackContainer["sessionScopes"],
   };
   return { base, container, slackInstallations, slackPublications };
 }
@@ -484,5 +493,201 @@ describe("SlackProvider OAuth callback (completeInstall via continueInstall)", (
         payload: { kind: "oauth_callback_pub", publicationId, code: "bad-code", state },
       }),
     ).rejects.toThrow(/invalid_code/);
+  });
+});
+
+// ─── Multi-workspace event routing ──────────────────────────────────────
+//
+// One managed Slack App is installed into many workspaces. Every workspace's
+// events arrive on the SAME app-keyed events URL (`/slack/webhook/app/:appId`),
+// distinguished only by `team_id`. These tests prove the webhook fans in to
+// the RIGHT publication by workspace and that uninstall marks the install
+// disconnected.
+
+describe("SlackProvider.handleWebhook — managed multi-workspace routing", () => {
+  const MANAGED_APP_ID = "A0MANAGED";
+  const SIGNING_SECRET = "MANAGED_SIGNING_SECRET";
+
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      // probeMcpEnabled uses global fetch; reject so it degrades gracefully.
+      vi.fn().mockRejectedValue(new Error("no network access in unit tests")),
+    );
+  });
+
+  function managedProvider(container: SlackContainer): SlackProvider {
+    return new SlackProvider(container, {
+      gatewayOrigin: "https://gw.example.com",
+      botScopes: ["chat:write", "app_mentions:read"],
+      userScopes: ["search:read.public"],
+      defaultCapabilities: ["message.write"],
+      managedApp: {
+        clientId: "MANAGED_CLIENT_ID",
+        clientSecret: "MANAGED_CLIENT_SECRET",
+        signingSecret: SIGNING_SECRET,
+      },
+    });
+  }
+
+  function tokenBody(team: { id: string; name: string }, userId: string): string {
+    return JSON.stringify({
+      ok: true,
+      access_token: `xoxb-${team.id}`,
+      token_type: "bot",
+      scope: "chat:write,app_mentions:read",
+      bot_user_id: `UBOT_${team.id}`,
+      app_id: MANAGED_APP_ID,
+      team,
+      authed_user: {
+        id: userId,
+        scope: "search:read.public",
+        access_token: `xoxp-${team.id}`,
+        token_type: "user",
+      },
+    });
+  }
+
+  /** Run the managed install flow end-to-end for one workspace. */
+  async function installWorkspace(
+    provider: SlackProvider,
+    base: FakeContainer,
+    team: { id: string; name: string },
+    userId: string,
+  ): Promise<string> {
+    const start = await provider.startManagedInstall({
+      userId,
+      agentId: "agent_1",
+      environmentId: "env_1",
+      mode: "full",
+      persona: PERSONA,
+      returnUrl: "https://console.example.com/integrations/slack",
+    });
+    const { url, publicationId } = start.data as { url: string; publicationId: string };
+    const state = new URL(url).searchParams.get("state")!;
+    base.http
+      .respondWith({ status: 200, headers: {}, body: tokenBody(team, userId) })
+      .respondWith({ status: 200, headers: {}, body: JSON.stringify({ ok: true }) });
+    await provider.continueInstall({
+      publicationId: null,
+      payload: { kind: "oauth_callback_pub", publicationId, code: `code-${team.id}`, state },
+    });
+    return publicationId;
+  }
+
+  /** Build a signed app-keyed webhook request for the managed App. */
+  function webhookReq(
+    container: SlackContainer,
+    body: object,
+  ): import("@duyet/oma-integrations-core").WebhookRequest {
+    const rawBody = JSON.stringify(body);
+    const ts = String(Math.floor(container.clock.nowMs() / 1000));
+    // hmac.verify is stubbed to accept below; the signature only has to
+    // survive `parseSignatureHeader` (hex-shaped).
+    return {
+      providerId: "slack",
+      deliveryId: (body as { event_id?: string }).event_id ?? "Ev_x",
+      installationId: MANAGED_APP_ID,
+      headers: {
+        "x-internal-app-id": MANAGED_APP_ID,
+        "x-slack-signature": "v0=deadbeef",
+        "x-slack-request-timestamp": ts,
+      },
+      rawBody,
+    };
+  }
+
+  function appMention(teamId: string, channelId: string, eventId: string): object {
+    return {
+      type: "event_callback",
+      event_id: eventId,
+      event_time: 1700000000,
+      team_id: teamId,
+      api_app_id: MANAGED_APP_ID,
+      event: {
+        type: "app_mention",
+        user: "U_HUMAN",
+        text: "<@UBOT> hi",
+        channel: channelId,
+        ts: "1700000000.000100",
+        event_ts: "1700000000.000100",
+      },
+    };
+  }
+
+  it("routes each workspace's event to its own publication by team_id", async () => {
+    const { base, container } = buildSlackTestContainer();
+    base.tenants.set("user_1", "tn_acme");
+    // Stub HMAC verify to accept — real signature bytes aren't the unit under
+    // test here; team_id → publication fan-in is.
+    container.hmac = { verify: async () => true };
+    const provider = managedProvider(container);
+
+    // Same tenant installs the managed App into TWO different workspaces.
+    const pub1 = await installWorkspace(provider, base, { id: "T_ONE", name: "One" }, "user_1");
+    const pub2 = await installWorkspace(provider, base, { id: "T_TWO", name: "Two" }, "user_1");
+    expect(pub1).not.toBe(pub2);
+
+    const out1 = await provider.handleWebhook(
+      webhookReq(container, appMention("T_ONE", "C_A", "Ev_1")),
+    );
+    expect(out1.handled).toBe(true);
+    expect(out1.publicationId).toBe(pub1);
+
+    const out2 = await provider.handleWebhook(
+      webhookReq(container, appMention("T_TWO", "C_B", "Ev_2")),
+    );
+    expect(out2.handled).toBe(true);
+    expect(out2.publicationId).toBe(pub2);
+  });
+
+  it("drops an event for a workspace the App isn't installed into", async () => {
+    const { base, container } = buildSlackTestContainer();
+    base.tenants.set("user_1", "tn_acme");
+    container.hmac = { verify: async () => true };
+    const provider = managedProvider(container);
+    await installWorkspace(provider, base, { id: "T_ONE", name: "One" }, "user_1");
+
+    const out = await provider.handleWebhook(
+      webhookReq(container, appMention("T_UNKNOWN", "C_Z", "Ev_3")),
+    );
+    expect(out.handled).toBe(false);
+    expect(out.reason).toBe("no_installation_for_workspace");
+  });
+
+  it("marks the installation disconnected on app_uninstalled", async () => {
+    const { base, container, slackInstallations } = buildSlackTestContainer();
+    base.tenants.set("user_1", "tn_acme");
+    container.hmac = { verify: async () => true };
+    const provider = managedProvider(container);
+    await installWorkspace(provider, base, { id: "T_ONE", name: "One" }, "user_1");
+
+    // Capture the live installation id (listByUser filters revoked rows).
+    const before = await slackInstallations.listByUser("user_1", "slack");
+    const instId = before.find((i) => i.workspaceId === "T_ONE")!.id;
+
+    const out = await provider.handleWebhook(
+      webhookReq(container, {
+        type: "event_callback",
+        event_id: "Ev_uninstall",
+        event_time: 1700000000,
+        team_id: "T_ONE",
+        api_app_id: MANAGED_APP_ID,
+        event: { type: "app_uninstalled" },
+      }),
+    );
+    expect(out.handled).toBe(true);
+    expect(out.reason).toBe("app_uninstalled");
+
+    // Installation row is now revoked (get() doesn't filter revoked rows).
+    const after = await slackInstallations.get(instId);
+    expect(after?.revokedAt).not.toBeNull();
+    // A subsequent event for the now-uninstalled workspace finds no live
+    // installation and is dropped.
+    const post = await provider.handleWebhook(
+      webhookReq(container, appMention("T_ONE", "C_A", "Ev_after")),
+    );
+    expect(post.handled).toBe(false);
+    expect(post.reason).toBe("no_installation_for_workspace");
   });
 });

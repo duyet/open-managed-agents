@@ -152,6 +152,7 @@ export class FakeHttpClient implements HttpClient {
 export class FakeSessionCreator implements SessionCreator {
   readonly created: CreateSessionInput[] = [];
   readonly resumed: { userId: string; sessionId: SessionId; event: SessionEventInput }[] = [];
+  readonly paused: { userId: string; sessionId: SessionId }[] = [];
   private counter = 0;
 
   async create(input: CreateSessionInput): Promise<{ sessionId: SessionId }> {
@@ -161,6 +162,9 @@ export class FakeSessionCreator implements SessionCreator {
   }
   async resume(userId: string, sessionId: SessionId, event: SessionEventInput): Promise<void> {
     this.resumed.push({ userId, sessionId, event });
+  }
+  async pause(userId: string, sessionId: SessionId): Promise<void> {
+    this.paused.push({ userId, sessionId });
   }
 }
 
