@@ -75,6 +75,34 @@ export interface PublicPublicationRoutesDeps {
   resolveEndUserId?: (req: Request, env: Env) => Promise<string>;
 }
 
+/**
+ * Gate a resolved publication row on its visibility/status before any
+ * public-facing surface uses it — the chat surface (this file's
+ * `resolvePublication` wiring in apps/main/src/index.ts), and the consumer
+ * credits surface (apps/main/src/routes/consumer-metering.ts, issue #210)
+ * which resolves publications by agent_id instead of slug but must apply
+ * the identical state gate. Guardrails: private/draft → 404 (hide
+ * existence), paused → 403. Returns a Response to short-circuit the
+ * caller, or null to allow the request through.
+ */
+export function gatePublicationState(
+  pub: Pick<PublicationRow, "visibility" | "status">,
+): Response | null {
+  if (pub.visibility === "private" || pub.status === "draft") {
+    return new Response(JSON.stringify({ error: "Not found" }), {
+      status: 404,
+      headers: { "content-type": "application/json" },
+    });
+  }
+  if (pub.status === "paused") {
+    return new Response(JSON.stringify({ error: "Publication paused" }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
+  }
+  return null;
+}
+
 const DEFAULT_PUBLIC_SESSION_CAP_PER_SLUG = 50;
 const DEFAULT_PUBLIC_SESSION_CAP_PER_IP = 20;
 
