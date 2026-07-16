@@ -10,7 +10,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { Hono } from "hono";
-import { buildPublicPublicationRoutes, renderWidgetScript } from "./publications";
+import { buildPublicPublicationRoutes, renderWidgetScript, renderChatPage } from "./publications";
 import type { PublicPublicationRoutesDeps } from "./publications";
 import type { PublicationRow } from "@duyet/oma-publications-store";
 
@@ -267,5 +267,87 @@ describe("embeddable widget.js (issue #75)", () => {
     expect(js).toContain('var TITLE = "He said \\"hi\\""');
     // Load-once guard uses a sanitized identifier form of the slug.
     expect(js).toContain("__omaWidgetLoaded_duyet_bot");
+  });
+});
+
+describe("hosted chat page — content negotiation (issue #178)", () => {
+  const html = { accept: "text/html" };
+
+  it("GET /p/:slug with Accept: text/html serves the hosted chat page", async () => {
+    const app = makeApp(() => pubRow());
+    const res = await app.request("/p/duyetbot", { headers: html });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    const body = await res.text();
+    expect(body).toContain("<!DOCTYPE html>");
+    expect(body).toContain("Duyetbot");
+    // The page drives the real public API flow: guest auth → session → messages.
+    expect(body).toContain("/v1/public/auth/guest");
+    expect(body).toContain('base + "/sessions"');
+    expect(body).toContain("/messages");
+  });
+
+  it("GET /p/:slug with a non-HTML Accept still returns metadata JSON", async () => {
+    const app = makeApp(() => pubRow());
+    const res = await app.request("/p/duyetbot", {
+      headers: { accept: "application/json" },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("application/json");
+    const body = (await res.json()) as { slug: string; requires_auth: boolean };
+    expect(body.slug).toBe("duyetbot");
+  });
+
+  it("unknown slug with Accept: text/html → 404 HTML (not a chat)", async () => {
+    const app = makeApp(() => jsonRes(404, { error: "Not found" }));
+    const res = await app.request("/p/missing", { headers: html });
+    expect(res.status).toBe(404);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    const body = await res.text();
+    expect(body).not.toContain('id="oma-form"');
+  });
+
+  it("paused publication with Accept: text/html → 403 fail-closed HTML", async () => {
+    const app = makeApp(() => pubRow({ status: "paused" }));
+    const res = await app.request("/p/duyetbot", { headers: html });
+    expect(res.status).toBe(403);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    const body = await res.text();
+    // Fail-closed: a paused bot renders the guardrail page, never the composer.
+    expect(body.toLowerCase()).toContain("paused");
+    expect(body).not.toContain('id="oma-form"');
+  });
+
+  it("private publication with Accept: text/html → 404 (existence hidden)", async () => {
+    const app = makeApp(() => pubRow({ visibility: "private" }));
+    const res = await app.request("/p/duyetbot", { headers: html });
+    expect(res.status).toBe(404);
+    expect(res.headers.get("content-type")).toContain("text/html");
+  });
+
+  it("renderChatPage escapes creator content and injects a safe config", () => {
+    const page = renderChatPage(
+      pubRow({
+        title: 'Ada & "Friends" <script>',
+        greeting: "Hi there!",
+        suggested_prompts: ["What can you do?", "Tell me a joke"],
+        avatar_url: "https://example.com/a.png",
+      }),
+    );
+    // Creator-controlled title is HTML-escaped — the fake </script> can't break out.
+    expect(page).toContain("Ada &amp; &quot;Friends&quot; &lt;script&gt;");
+    expect(page).not.toContain('<script>Ada');
+    // {id, slug} config injected for the client script.
+    expect(page).toContain('"slug":"duyetbot"');
+    expect(page).toContain('"id":"pub-1"');
+    // Greeting + suggested prompts are server-rendered (progressive enhancement).
+    expect(page).toContain("Hi there!");
+    expect(page).toContain("What can you do?");
+  });
+
+  it("renderChatPage neutralises < in the injected config to prevent breakout", () => {
+    const page = renderChatPage(pubRow({ slug: "a<b" }));
+    expect(page).toContain('slug":"a\\u003cb');
+    expect(page).not.toContain('slug":"a<b');
   });
 });
