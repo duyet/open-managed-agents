@@ -70,6 +70,18 @@ export interface Env {
   // paused. Defaults to 5 minutes (DEFAULT_IDLE_TIMEOUT_MS in
   // @duyet/oma-telegram) when unset.
   TELEGRAM_IDLE_TIMEOUT_MS?: string;
+  // ─── Unified OAuth "Connect" flow (OMA-hosted OAuth apps) ──────────────
+  // Per-provider OAuth app credentials backing the unified /oauth/:provider/*
+  // install surface (apps/integrations/src/oauth-unified.ts). A provider whose
+  // id/secret pair is unset is simply absent from the flow (routes 501). These
+  // are the OMA developer-account OAuth apps described in issue #92 — set them
+  // via `wrangler secret put` to enable one-click Connect for that provider.
+  LINEAR_OAUTH_CLIENT_ID?: string;
+  LINEAR_OAUTH_CLIENT_SECRET?: string;
+  GITHUB_OAUTH_CLIENT_ID?: string;
+  GITHUB_OAUTH_CLIENT_SECRET?: string;
+  SLACK_OAUTH_CLIENT_ID?: string;
+  SLACK_OAUTH_CLIENT_SECRET?: string;
 
   // OMA-hosted managed Slack App credentials — powers the "Add to Slack"
   // one-click install (POST /slack/publications/start-managed). All three
