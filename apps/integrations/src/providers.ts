@@ -59,6 +59,14 @@ export function buildProviders(env: Env, linearContainer?: LinearContainer): Pro
     botScopes: DEFAULT_SLACK_BOT_SCOPES,
     userScopes: DEFAULT_SLACK_USER_SCOPES,
     defaultCapabilities: ALL_SLACK_CAPABILITIES,
+    managedApp:
+      env.SLACK_MANAGED_CLIENT_ID && env.SLACK_MANAGED_CLIENT_SECRET && env.SLACK_MANAGED_SIGNING_SECRET
+        ? {
+            clientId: env.SLACK_MANAGED_CLIENT_ID,
+            clientSecret: env.SLACK_MANAGED_CLIENT_SECRET,
+            signingSecret: env.SLACK_MANAGED_SIGNING_SECRET,
+          }
+        : null,
   });
 
   const telegram = env.TELEGRAM_BOT_TOKEN

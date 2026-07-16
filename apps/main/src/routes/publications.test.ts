@@ -11,6 +11,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Hono } from "hono";
 import { buildPublicPublicationRoutes, renderWidgetScript } from "./publications";
+import type { PublicPublicationRoutesDeps } from "./publications";
 import type { PublicationRow } from "@duyet/oma-publications-store";
 
 function pubRow(overrides: Partial<PublicationRow> = {}): PublicationRow {
@@ -162,6 +163,76 @@ describe("public publication routes — guardrails + scoping", () => {
     const res = await app.request("/p/duyetbot/sessions/sess-y/events/stream");
     expect(res.status).toBe(404);
     expect(forwardedPaths).toEqual([]);
+  });
+});
+
+describe("public publication routes — paywall gate (issue #74)", () => {
+  function makeGatedApp(gate: PublicPublicationRoutesDeps["enforcePaywall"]) {
+    const app = new Hono<{ Bindings: never }>();
+    app.route(
+      "/p",
+      buildPublicPublicationRoutes({
+        env: {} as never,
+        servicesForTenant: (() => {}) as never,
+        buildSessionsApp: () => {
+          const inner = new Hono();
+          inner.all("*", async (c) => {
+            forwardedPaths.push(new URL(c.req.url).pathname);
+            return c.json({ ok: true });
+          });
+          return Promise.resolve(inner) as never;
+        },
+        resolvePublication: () => Promise.resolve(pubRow()) as never,
+        guardSessionCreate: () => Promise.resolve(null) as never,
+        assertSessionOwnedByPublication: () => Promise.resolve(true) as never,
+        enforcePaywall: gate,
+      }),
+    );
+    return app;
+  }
+
+  beforeEach(() => {
+    forwardedPaths = [];
+  });
+
+  it("blocks a message with 402 when the wallet is short", async () => {
+    const app = makeGatedApp(async () =>
+      Response.json({ error: "Payment required", top_up_url: "/p/pay" }, { status: 402 }),
+    );
+    const res = await app.request("/p/duyetbot/sessions/s1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ content: "hi" }),
+    });
+    expect(res.status).toBe(402);
+    expect(forwardedPaths).toEqual([]);
+    const body = (await res.json()) as { top_up_url: string };
+    expect(body.top_up_url).toBe("/p/pay");
+  });
+
+  it("forwards the message when the gate allows (free / paid-up)", async () => {
+    const app = makeGatedApp(async () => null);
+    const res = await app.request("/p/duyetbot/sessions/s1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ content: "hi" }),
+    });
+    expect(res.status).toBe(200);
+    expect(forwardedPaths).toEqual(["/sessions/s1/messages"]);
+  });
+
+  it("passes the end-user identity from the bearer token", async () => {
+    let seen = "";
+    const app = makeGatedApp(async (opts) => {
+      seen = opts.endUserId;
+      return null;
+    });
+    await app.request("/p/duyetbot/sessions/s1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer tok-123" },
+      body: JSON.stringify({ content: "hi" }),
+    });
+    expect(seen).toBe("tok:tok-123");
   });
 });
 

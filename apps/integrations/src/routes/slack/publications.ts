@@ -76,6 +76,58 @@ app.post("/start", handleStart);
 // migrates to /start. Same body, same response.
 app.post("/start-a1", handleStart);
 
+/**
+ * POST /slack/publications/start-managed
+ *
+ * "Add to Slack" one-click install. Same body shape as /start, but skips
+ * the BYOA credentials_form step entirely: the publication shell is
+ * created and immediately credentialed with this deployment's managed App
+ * (SLACK_MANAGED_CLIENT_ID/SECRET/SIGNING_SECRET), returning the Slack
+ * OAuth authorize URL directly. 503s with a remediation message when no
+ * managed App is configured on this deployment.
+ */
+app.post("/start-managed", async (c) => {
+  if (!requireInternalSecret(c.env, c.req.header("x-internal-secret"))) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const body = await c.req.json<StartBody>();
+  if (!body.userId || !body.agentId || !body.environmentId || !body.personaName || !body.returnUrl) {
+    return c.json(
+      { error: "userId, agentId, environmentId, personaName, returnUrl required" },
+      400,
+    );
+  }
+
+  const { slack } = buildProviders(c.env);
+
+  let result;
+  try {
+    result = await slack.startManagedInstall({
+      userId: body.userId,
+      agentId: body.agentId,
+      environmentId: body.environmentId,
+      mode: "full",
+      persona: { name: body.personaName, avatarUrl: body.personaAvatarUrl },
+      returnUrl: body.returnUrl,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json(
+      {
+        error: "managed_install_unavailable",
+        details: msg,
+        remediation: "Use /slack/publications/start (BYOA manifest wizard) instead.",
+      },
+      503,
+    );
+  }
+
+  if (result.kind !== "step" || result.step !== "install_link") {
+    return c.json({ error: "unexpected install result", result }, 500);
+  }
+  return c.json(result.data);
+});
+
 interface SubmitCredentialsBody {
   formToken: string;
   clientId: string;

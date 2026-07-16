@@ -26,6 +26,7 @@
     "@duyet/oma-memory-store": "workspace:*",
     "@duyet/oma-model-cards-store": "workspace:*",
     "@duyet/oma-observability": "workspace:*",
+    "@duyet/oma-payments": "workspace:*",
     "@duyet/oma-publications-store": "workspace:*",
     "@duyet/oma-outbound-snapshots-store": "workspace:*",
     "@duyet/oma-queue": "workspace:*",
