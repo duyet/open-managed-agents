@@ -18,3 +18,15 @@ export {
   type TelegramChatState,
 } from "./chat-store";
 export { sweepIdleTelegramChats, DEFAULT_IDLE_TIMEOUT_MS, type IdleSweepDeps, type IdleSweepResult } from "./idle-sweep";
+export {
+  verifyTelegramWebhookSecret,
+  constantTimeEqual,
+  type VerifyTelegramWebhookSecretOpts,
+  type VerifyTelegramWebhookSecretResult,
+} from "./secret-verify";
+export {
+  attachTelegramReply,
+  type TelegramReplyEvent,
+  type TelegramReplySubscribe,
+  type AttachTelegramReplyOpts,
+} from "./reply-dispatch";

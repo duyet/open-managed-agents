@@ -172,6 +172,7 @@ export default defineConfig({
       { find: "@duyet/oma-github", replacement: "./packages/github/src/index.ts" },
       { find: "@duyet/oma-slack", replacement: "./packages/slack/src/index.ts" },
       { find: "@duyet/oma-matrix", replacement: "./packages/matrix/src/index.ts" },
+      { find: "@duyet/oma-telegram", replacement: "./packages/telegram/src/index.ts" },
 
       // ─── markdown / session-runtime / acp-runtime / agent (internal) ──
       { find: "@duyet/oma-markdown/adapters/node", replacement: "./packages/markdown/src/adapters/node.ts" },

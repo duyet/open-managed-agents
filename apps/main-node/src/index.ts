@@ -89,6 +89,7 @@ import {
   buildIntegrationsRoutes,
   buildIntegrationsGatewayRoutes,
   buildAnyRouterRoutes,
+  buildTelegramWebhookRoute,
   type RouteServices,
   type ApiKeyStorage,
   type ApiKeyMeta,
@@ -153,6 +154,12 @@ import { PgEventStreamHub } from "./lib/pg-event-stream-hub";
 import { NodeHarnessRuntime } from "./lib/node-harness-runtime";
 import { selectHarnessName } from "./lib/harness-select";
 import { SessionRegistry } from "./registry.js";
+import {
+  TelegramClient,
+  InMemoryTelegramChatStore,
+  TelegramAgentHandler,
+} from "@duyet/oma-telegram";
+import { NodeTelegramSessionCreator } from "./lib/node-telegram.js";
 
 const toMarkdownProvider = nodeToMarkdown();
 
@@ -1654,6 +1661,56 @@ if (installBridge) {
     }),
   );
 }
+
+// ─── Telegram bot ────────────────────────────────────────────────────
+//
+// Inbound webhook → OMA session (create/resume) → agent's final message
+// posted back to the chat, via a direct one-shot EventStreamHub observer
+// (design doc "Approach B" — Node has no generic agent.notify fan-out with
+// a per-session *dynamic* target, and the chat_id is dynamic per inbound
+// message). The route is always mounted (mirrors CF's /telegram/webhook
+// path) so Telegram's setWebhook call never 404s; when TELEGRAM_BOT_TOKEN
+// or TELEGRAM_AGENT_ID is unset, buildHandler returns null and every
+// request gets a clear 503 instead of silently no-op'ing.
+let telegramHandler: TelegramAgentHandler | null = null;
+if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_AGENT_ID) {
+  const telegramClient = new TelegramClient(process.env.TELEGRAM_BOT_TOKEN);
+  const telegramSessions = new NodeTelegramSessionCreator({
+    sessionsService,
+    agentsService,
+    sessionRouter,
+    hub,
+    client: telegramClient,
+    resolveTenantId: async (userId) => {
+      const row = await sql
+        .prepare(
+          `SELECT tenant_id FROM membership WHERE user_id = ? ORDER BY created_at ASC, tenant_id ASC LIMIT 1`,
+        )
+        .bind(userId)
+        .first<{ tenant_id: string }>();
+      return row?.tenant_id ?? null;
+    },
+  });
+  const telegramVaultIds = (process.env.TELEGRAM_VAULT_IDS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  telegramHandler = new TelegramAgentHandler(telegramClient, {
+    sessions: telegramSessions,
+    agentId: process.env.TELEGRAM_AGENT_ID,
+    vaultIds: telegramVaultIds,
+    environmentId: process.env.TELEGRAM_ENVIRONMENT_ID,
+    store: new InMemoryTelegramChatStore(),
+  });
+}
+app.route(
+  "/telegram",
+  buildTelegramWebhookRoute({
+    buildHandler: () => telegramHandler,
+    webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET,
+    log: logger,
+  }),
+);
 
 // oma-cap-adapter wire — exposes a Resolver against the in-process vault
 // services so a future Node outbound proxy (mirroring CF's mcp-proxy) can

@@ -72,6 +72,12 @@ export type NotificationTarget =
       room_id: string;
     }
   | {
+      type: "telegram_message";
+      /** Telegram chat id (may be negative for group chats). Auth is the
+       *  bot token from env (TELEGRAM_BOT_TOKEN), not a vault credential. */
+      chat_id: number;
+    }
+  | {
       /**
        * POST a signed JSON envelope to an arbitrary customer URL. Used by
        * creators integrating duyetbot with their own backend. The body is

@@ -21,6 +21,10 @@ const matrixTarget: NotificationTarget = {
   homeserver_url: "https://matrix.example.com",
   room_id: "!room:example.com",
 };
+const telegramTarget: NotificationTarget = {
+  type: "telegram_message",
+  chat_id: -1001234567890,
+};
 
 const event = { sessionId: "sess_1", status: "idle" as const, agentName: "Reviewer" };
 
@@ -155,6 +159,71 @@ describe("dispatchSessionNotifications", () => {
         httpClient: new FakeHttpClient(),
       }),
     ).resolves.toBeUndefined();
+  });
+
+  it("posts to Telegram via the bot API when a bot token resolves", async () => {
+    // TelegramClient.sendMessage POSTs through global fetch directly (not
+    // deps.httpClient) — stub it and restore afterward so this test stays
+    // isolated from the others.
+    const calls: Array<{ url: string; body: string }> = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ url: String(input), body: String(init?.body ?? "") });
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          result: { message_id: 1, chat: { id: -1001234567890, type: "supergroup" }, date: 0 },
+        }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+
+    try {
+      await dispatchSessionNotifications(event, [telegramTarget], {
+        resolveCredentialToken: async () => null,
+        resolveSecret: async () => null,
+        resolveTelegramBotToken: () => "bot_token_123",
+        httpClient: new FakeHttpClient(),
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe("https://api.telegram.org/botbot_token_123/sendMessage");
+    const body = JSON.parse(calls[0].body) as { chat_id: number; text: string; parse_mode: string };
+    expect(body.chat_id).toBe(-1001234567890);
+    expect(body.parse_mode).toBe("HTML");
+    // ✅ icon for an "idle" status, followed by the shared summary line.
+    expect(body.text).toBe('✅ Agent "Reviewer" session sess_1 finished and is waiting for input.');
+  });
+
+  it("skips a telegram_message target with no resolvable bot token, without throwing", async () => {
+    let fetchCalled = false;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async () => {
+      fetchCalled = true;
+      throw new Error("fetch should not be called when no bot token resolves");
+    }) as typeof fetch;
+    const onError = vi.fn();
+
+    try {
+      await expect(
+        dispatchSessionNotifications(event, [telegramTarget], {
+          resolveCredentialToken: async () => null,
+          resolveSecret: async () => null,
+          resolveTelegramBotToken: () => null,
+          httpClient: new FakeHttpClient(),
+          onError,
+        }),
+      ).resolves.toBeUndefined();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    expect(fetchCalled).toBe(false);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0][0]).toBe(telegramTarget);
   });
 
   it("is a no-op when there are no targets", async () => {

@@ -3590,6 +3590,7 @@ export class SessionDO extends DurableObject<Env> {
       await dispatchSessionNotifications(notifyEvent, targets, {
         resolveCredentialToken: (id) => this.resolveCredentialToken(id),
         resolveSecret: (ref) => this.resolveWebhookSecret(ref),
+        resolveTelegramBotToken: () => (this.env as { TELEGRAM_BOT_TOKEN?: string }).TELEGRAM_BOT_TOKEN ?? null,
         tenantId: this.state.tenant_id,
         webhookRateLimitGate: this.webhookRateLimitGate(),
         httpClient: new WorkerHttpClient(),

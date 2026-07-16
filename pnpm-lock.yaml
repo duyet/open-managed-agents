@@ -165,6 +165,9 @@ importers:
       '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../../packages/sql-client
+      '@duyet/oma-telegram':
+        specifier: workspace:*
+        version: link:../../packages/telegram
       '@duyet/oma-vaults-store':
         specifier: workspace:*
         version: link:../../packages/vaults-store
@@ -715,6 +718,9 @@ importers:
       '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../../packages/sql-client
+      '@duyet/oma-telegram':
+        specifier: workspace:*
+        version: link:../../packages/telegram
       '@duyet/oma-vault-forward':
         specifier: workspace:*
         version: link:../../packages/vault-forward
@@ -1195,6 +1201,9 @@ importers:
       '@duyet/oma-sql-client':
         specifier: workspace:*
         version: link:../sql-client
+      '@duyet/oma-telegram':
+        specifier: workspace:*
+        version: link:../telegram
       '@duyet/oma-vault-forward':
         specifier: workspace:*
         version: link:../vault-forward

@@ -92,3 +92,6 @@ export type {
 
 export { buildMcpServerRoutes, resolveRegisteredMcpServer } from "./mcp-servers";
 export type { McpServerRoutesDeps, McpRegistryRow } from "./mcp-servers";
+
+export { buildTelegramWebhookRoute } from "./telegram";
+export type { TelegramWebhookRouteDeps } from "./telegram";

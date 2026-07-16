@@ -12,6 +12,7 @@ import type { NotificationTarget } from "@duyet/oma-api-types";
 import { GitHubApiClient, postSessionStatusComment } from "@duyet/oma-github";
 import { SlackApiClient, postSessionStatusMessage as postSlackStatusMessage } from "@duyet/oma-slack";
 import { MatrixApiClient, postSessionStatusMessage as postMatrixStatusMessage } from "@duyet/oma-matrix";
+import { TelegramClient, postTelegramMessage } from "@duyet/oma-telegram";
 
 export interface NotifyDispatchDeps {
   /** Resolve a vault `credential_id` to a live bearer/bot/access token. */
@@ -37,6 +38,11 @@ export interface NotifyDispatchDeps {
   webhookRateLimitGate?: {
     consume(key: string): Promise<{ ok: boolean; retryAfter?: number }>;
   };
+  /** Resolve the Telegram bot token (from env, e.g. TELEGRAM_BOT_TOKEN).
+   *  Telegram uses a single bot token rather than a per-target vault
+   *  credential, so telegram_message targets resolve auth here, not via
+   *  resolveCredentialToken. */
+  resolveTelegramBotToken?: () => string | null | Promise<string | null>;
 }
 
 /**
@@ -99,6 +105,16 @@ async function dispatchOne(
           { homeserverUrl: target.homeserver_url, roomId: target.room_id },
           event,
         );
+        return;
+      }
+      case "telegram_message": {
+        const token = await deps.resolveTelegramBotToken?.();
+        if (!token) {
+          deps.onError?.(target, new Error("no telegram bot token configured for telegram_message target"));
+          return;
+        }
+        const client = new TelegramClient(token);
+        await postTelegramMessage(client, { chatId: target.chat_id }, event);
         return;
       }
       case "webhook": {
