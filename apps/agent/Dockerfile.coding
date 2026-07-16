@@ -1,0 +1,38 @@
+# OMA Coding-Agent-Ready Sandbox Image
+#
+# FROM sandbox-base (Node.js 20, npm, git, gh, ripgrep, python3.12, build tools)
+# and layers on popular coding-agent CLIs so a harness/agent can launch them
+# directly inside the sandbox. Published to GHCR as
+# ghcr.io/duyet/sandbox-coding:latest by build-sandbox-image.yml.
+#
+# We control this image (unlike E2B/Daytona, which bring their own templates),
+# so pre-baking the CLIs avoids a cold `npm install -g` on every session.
+#
+# Bundled CLIs (pinned):
+#   - claude   (@anthropic-ai/claude-code)  auth: ANTHROPIC_API_KEY or
+#                                                 CLAUDE_CODE_OAUTH_TOKEN
+#   - opencode (opencode-ai)                auth: provider key in env
+#                                                 (ANTHROPIC_API_KEY / OPENAI_API_KEY / ...)
+#   - git, gh  already present in sandbox-base (kept explicit for clarity)
+#
+# Image size: adds the two npm CLIs (~200MB) on top of sandbox-base. Still
+# well under the 2000MB Cloudflare Containers "lite" limit.
+
+FROM ghcr.io/duyet/sandbox-base:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Pinned coding-agent CLI versions. Bump deliberately — these drive agent
+# behavior inside the sandbox.
+ENV CLAUDE_CODE_VERSION=2.1.211 \
+    OPENCODE_VERSION=1.18.2
+
+# Install the CLIs in a single layer and clean the npm cache to stay lean.
+RUN npm install -g --no-fund --no-audit \
+      "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
+      "opencode-ai@${OPENCODE_VERSION}" \
+    && npm cache clean --force \
+    && rm -rf /root/.npm/_logs
+
+# Sanity: fail the build if either CLI isn't on PATH.
+RUN command -v claude >/dev/null && command -v opencode >/dev/null
