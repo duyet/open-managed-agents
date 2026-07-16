@@ -8,29 +8,32 @@
 
 /* ---------- Light theme (default) ---------- */
 :root {
-  /* Anthropic brand orange — same anchors as the marketing site
-     (apps/web global.css): #d97757 / hover #bf6041 / subtle #fbf1ee. */
-  --brand: #d97757;
-  --brand-hover: #bf6041;
-  --brand-subtle: #fbf1ee;
-  /* Dark warm tone that pairs with brand for AA contrast on the orange.
-     White on the brand orange fails AA-normal at UI text sizes,
-     so brand-fg is dark, not white. Visually keeps brand "warm" not "stark". */
-  --brand-fg: #3d2520;
+  /* "Iris" — one confident ownable indigo accent, matching the 2026
+     marketing redesign (apps/web global.css): #4f46e5 / hover #4338ca /
+     subtle #eef2ff. Carries all chrome: logo, links, focus ring, primary
+     buttons. Deliberately not terracotta (the Anthropic tell) and not a
+     washed AI-purple gradient — a single saturated indigo, used flat. */
+  --brand: #4f46e5;
+  --brand-hover: #4338ca;
+  --brand-subtle: #eef2ff;
+  /* White reads AA on the iris indigo (#ffffff on #4f46e5 = 6.6:1), so
+     unlike the old orange the primary foreground is white, not dark ink. */
+  --brand-fg: #ffffff;
 
-  /* Warm paper neutrals — same family as marketing (#faf9f5 / #e8e6dc /
-     #141413) so the two surfaces read as one product. */
-  --bg: #faf9f5;
-  --bg-sidebar: #f4f3ec;
-  --bg-surface: #efeee6;
+  /* Zinc greyscale ground — same neutral family as marketing (#ffffff /
+     #e4e4e7 / #18181b) so the two surfaces read as one product. Crisp 1px
+     hairline borders, restrained shadows, the shadcn/ui zinc look. */
+  --bg: #ffffff;
+  --bg-sidebar: #fafafa;
+  --bg-surface: #f4f4f5;
   --bg-overlay: oklch(0 0 0 / 0.3);
 
-  --fg: #141413;
-  --fg-muted: #6b6a64;
-  --fg-subtle: #a1a09a;
+  --fg: #18181b;
+  --fg-muted: #52525b;
+  --fg-subtle: #71717a;
 
-  --border: #e8e6dc;
-  --border-strong: #d1cfc4;
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
 
   --success: oklch(0.6 0.18 145);
   --success-subtle: oklch(0.96 0.04 145);
@@ -70,25 +73,27 @@
 
 /* ---------- Dark theme ---------- */
 .dark {
-  /* Same orange as light mode — mirrors marketing dark tokens. */
-  --brand: #d97757;
-  --brand-hover: #e09278;
-  --brand-subtle: #2d1a15;
-  /* Same dark warm tone in dark mode — brand stays warm, fg stays dark. */
-  --brand-fg: #3d2520;
+  /* Iris lifts in dark for contrast on the near-black ground — mirrors
+     marketing dark tokens: #818cf8 on #09090b ≈ 8.4:1. */
+  --brand: #818cf8;
+  --brand-hover: #a5b4fc;
+  --brand-subtle: #1e1b3a;
+  /* On the lighter dark-mode iris, dark ink reads better than white
+     (~7:1), so the primary foreground flips to near-black. */
+  --brand-fg: #0b0b12;
 
-  /* Warm dark neutrals — marketing dark anchors (#141413 / #222221). */
-  --bg: #141413;
-  --bg-sidebar: #1a1a19;
-  --bg-surface: #222221;
+  /* Zinc dark neutrals — marketing dark anchors (#09090b / #27272a). */
+  --bg: #09090b;
+  --bg-sidebar: #131316;
+  --bg-surface: #1c1c20;
   --bg-overlay: oklch(0 0 0 / 0.6);
 
-  --fg: #faf9f5;
-  --fg-muted: #b0aea5;
-  --fg-subtle: #828076;
+  --fg: #fafafa;
+  --fg-muted: #a1a1aa;
+  --fg-subtle: #71717a;
 
-  --border: #2a2a29;
-  --border-strong: #40403e;
+  --border: #27272a;
+  --border-strong: #3f3f46;
 
   --success: oklch(0.76 0.16 145);
   --success-subtle: oklch(0.22 0.05 145);
