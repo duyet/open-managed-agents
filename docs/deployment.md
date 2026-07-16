@@ -26,7 +26,8 @@ optional sidecar (`oma-vault`) for outbound credential injection.
                      │                                      │
                      ▼                                      ▼
               ┌──────────────────────────────────────────────┐
-              │  oma-server (apps/main-node)                 │
+              │  oma-server (apps/main-node — self-host Node │
+              │  server, same API as apps/main worker)       │
               │                                              │
               │  • Hono on Node, port 8787                   │
               │  • better-auth (sqlite-backed) → /api/auth/* │

@@ -406,7 +406,7 @@ Environments define the sandbox where tools execute:
 ### Sandbox Provider on the Cloudflare Deployment
 
 An environment's `config.sandbox_provider` (or legacy `config.type`) selects
-the sandbox adapter. On self-host Node, `apps/main-node` resolves it through
+the sandbox adapter. On self-host Node, `apps/main-node` — the self-host Node.js server (the same control-plane API as the `apps/main` Cloudflare Worker, packaged for `docker compose`) — resolves it through
 the full `SandboxProviderRegistry` (`packages/sandbox`) — every adapter is
 available there. On the **Cloudflare deployment**, only a subset works,
 because a Worker is a single-file V8 isolate with no filesystem, no
