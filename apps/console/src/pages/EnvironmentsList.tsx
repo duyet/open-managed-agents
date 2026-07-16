@@ -374,10 +374,12 @@ export function EnvironmentsList() {
           <div>
             <span className="text-sm text-fg-muted block mb-1">Instance Type <span className="text-fg-subtle">(optional)</span></span>
             <Select
-              value={form.instanceType}
-              onValueChange={(v) => setForm({ ...form, instanceType: v })}
+              value={form.instanceType || "__provider_default__"}
+              onValueChange={(v) =>
+                setForm({ ...form, instanceType: v === "__provider_default__" ? "" : v })
+              }
             >
-              <SelectOption value="">Provider default</SelectOption>
+              <SelectOption value="__provider_default__">Provider default</SelectOption>
               {instanceTypesForProvider(form.type).map((t) => (
                 <SelectOption key={t.id} value={t.id}>
                   {t.label} — {t.cpu}, {t.memory}, {t.disk}
