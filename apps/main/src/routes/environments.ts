@@ -25,6 +25,11 @@ import {
   toEnvironmentConfig,
   EnvironmentNotFoundError,
 } from "@duyet/oma-environments-store";
+import {
+  validateEnvVars,
+  reconcileEnvVars,
+  deleteAllEnvSecrets,
+} from "@duyet/oma-http-routes";
 import { jsonPage, parsePageQuery } from "../lib/list-page";
 import { validateEnvironmentLimits } from "../lib/limits";
 
@@ -52,17 +57,42 @@ app.post("/", async (c) => {
   if (!limitCheck.ok) {
     return c.json({ error: limitCheck.error }, 400);
   }
+  const envVarsCheck = validateEnvVars(body.config?.env_vars);
+  if (!envVarsCheck.ok) {
+    return c.json({ error: envVarsCheck.error }, 400);
+  }
 
+  const config = body.config || { type: "cloud" };
+  // Create first (without persisting raw env-var values) so we have the
+  // environment id to key sensitive secrets by; then reconcile secrets into
+  // KV and store the sanitized array back on the record.
+  const hasEnvVars = Array.isArray(config.env_vars);
   const row = await c.var.services.environments.create({
     tenantId: t,
     name: body.name,
     description: body.description,
-    config: body.config || { type: "cloud" },
+    config: hasEnvVars ? { ...config, env_vars: [] } : config,
     // Setup-on-warmup means env is immediately usable — no async build.
     status: "ready",
     sandboxWorkerName: "oma-sandbox-default",
     imageStrategy: null,
   });
+
+  if (hasEnvVars) {
+    const stored = await reconcileEnvVars(
+      c.var.services.kv,
+      t,
+      row.id,
+      config.env_vars,
+      [],
+    );
+    const updated = await c.var.services.environments.update({
+      tenantId: t,
+      environmentId: row.id,
+      config: { ...config, env_vars: stored },
+    });
+    return c.json(toEnvironmentConfig(updated), 201);
+  }
 
   return c.json(toEnvironmentConfig(row), 201);
 });
@@ -168,6 +198,10 @@ app.on(["PUT", "POST"], "/:id", async (c) => {
   if (!limitCheck.ok) {
     return c.json({ error: limitCheck.error }, 400);
   }
+  const envVarsCheck = validateEnvVars(body.config?.env_vars);
+  if (!envVarsCheck.ok) {
+    return c.json({ error: envVarsCheck.error }, 400);
+  }
 
   const patch: Parameters<typeof c.var.services.environments.update>[0] = {
     tenantId: t,
@@ -175,7 +209,22 @@ app.on(["PUT", "POST"], "/:id", async (c) => {
   };
   if (body.name !== undefined) patch.name = body.name;
   if (body.description !== undefined) patch.description = body.description;
-  if (body.config !== undefined) patch.config = body.config;
+  if (body.config !== undefined) {
+    // Reconcile env-var secrets against what's currently stored: write /
+    // rotate / delete KV secrets and persist only the sanitized array.
+    if (Array.isArray(body.config.env_vars)) {
+      const stored = await reconcileEnvVars(
+        c.var.services.kv,
+        t,
+        id,
+        body.config.env_vars,
+        existing.config.env_vars,
+      );
+      patch.config = { ...body.config, env_vars: stored };
+    } else {
+      patch.config = body.config;
+    }
+  }
   if (body.metadata !== undefined) patch.metadata = body.metadata;
 
   // No re-build trigger — packages take effect at the next session
@@ -224,10 +273,16 @@ app.delete("/:id", async (c) => {
       );
     }
 
+    // Best-effort purge of the environment's KV env secrets before the row
+    // is gone (afterwards we can't enumerate which names were sensitive).
+    const toDelete = await c.var.services.environments.get({ tenantId: t, environmentId: id });
     await c.var.services.environments.delete({
       tenantId: t,
       environmentId: id,
     });
+    if (toDelete) {
+      await deleteAllEnvSecrets(c.var.services.kv, t, id, toDelete.config.env_vars);
+    }
     return c.json({ type: "environment_deleted", id });
   } catch (err) {
     if (err instanceof EnvironmentNotFoundError) {

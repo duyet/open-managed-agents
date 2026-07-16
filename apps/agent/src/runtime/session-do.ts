@@ -2779,6 +2779,49 @@ export class SessionDO extends DurableObject<Env> {
    * The non-method properties and helpers like setEnvVars are passed
    * through synchronously — they don't talk to the container itself.
    */
+  /**
+   * Merge persistent environment-level env vars into the sandbox process env.
+   *
+   * Vars are declared on the Environment record (config.env_vars) and reused
+   * by every session created with that environment. Non-sensitive values ride
+   * inline in the environment_snapshot; sensitive values are read from the KV
+   * secret store keyed `t:{tenant}:secret:env:{envId}:{name}` (their value is
+   * never present in the snapshot config). Best-effort: a missing binding or a
+   * setEnvVars failure is logged, never fatal to the session.
+   */
+  private async applyEnvironmentEnvVars(sandbox: SandboxExecutor): Promise<void> {
+    const envVars = this.state.environment_snapshot?.config?.env_vars;
+    if (!envVars || envVars.length === 0) return;
+    if (!sandbox.setEnvVars) return;
+    const envId = this.state.environment_id;
+    const tenantId = this.state.tenant_id;
+    const batch: Record<string, string> = {};
+    for (const v of envVars) {
+      if (!v?.name) continue;
+      if (v.sensitive) {
+        if (!v.has_value || !envId || !tenantId) continue;
+        try {
+          const secret = await this.env.CONFIG_KV.get(
+            `t:${tenantId}:secret:env:${envId}:${v.name}`,
+          );
+          if (secret) batch[v.name] = secret;
+        } catch {
+          // KV read failure: skip this var, don't fail the whole session.
+        }
+      } else if (typeof v.value === "string") {
+        batch[v.name] = v.value;
+      }
+    }
+    if (Object.keys(batch).length === 0) return;
+    try {
+      await sandbox.setEnvVars(batch);
+    } catch (err) {
+      console.error(
+        `[session-do] environment env-var injection failed (continuing): ${(err as Error).message}`,
+      );
+    }
+  }
+
   private wrapSandboxWithLazyWarmup(raw: SandboxExecutor): SandboxExecutor {
     const needsWarm = new Set<string>([
       "exec",
@@ -3261,6 +3304,14 @@ export class SessionDO extends DurableObject<Env> {
           });
           if (secretData) secretStore.set(row.id, secretData);
         }
+
+        // Persistent environment-level env vars (defined on the Environment
+        // record, reused by every session). Applied BEFORE session-level
+        // `env` resources below so a session var of the same name overrides
+        // the environment-level one (mountResources' setEnvVars runs after
+        // this and later writes win). Sensitive values are read from the KV
+        // secret store — they never live in the environment_snapshot config.
+        await this.applyEnvironmentEnvVars(sandbox);
 
         if (resources.length) {
           await mountResources(

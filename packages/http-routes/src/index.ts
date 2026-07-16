@@ -21,6 +21,12 @@ export type { VaultRoutesDeps } from "./vaults";
 
 export { buildEnvironmentRoutes } from "./environments";
 export type { EnvironmentRoutesDeps } from "./environments";
+export {
+  validateEnvVars,
+  reconcileEnvVars,
+  deleteAllEnvSecrets,
+  envSecretKey,
+} from "./environments/env-vars";
 
 export { buildSessionRoutes } from "./sessions";
 export type {

@@ -8,6 +8,13 @@ import { toast } from "sonner";
 import { Page } from "../components/Page";
 import { Field } from "../components/Field";
 import { friendlyHostingDescription, type HostingTypeLike } from "../lib/hostingTypes";
+import {
+  EnvVarsEditor,
+  envVarsToRows,
+  rowsToEnvVars,
+  type EnvVarRow,
+  type EnvVarSpec,
+} from "../components/EnvVarsEditor";
 
 // =================================================================
 // Types
@@ -69,6 +76,7 @@ interface EnvConfigBlock {
   networking?: NetworkingConfig;
   dockerfile?: string;
   resources?: ResourcesConfig;
+  env_vars?: EnvVarSpec[];
 }
 
 interface Env {
@@ -145,6 +153,7 @@ export function EnvironmentDetail() {
   const [allowedHostsText, setAllowedHostsText] = useState("");
   const [packageRows, setPackageRows] = useState<PackageRow[]>([]);
   const [metadataRows, setMetadataRows] = useState<MetadataRow[]>([]);
+  const [envVarRows, setEnvVarRows] = useState<EnvVarRow[]>([]);
   // `gem` packages aren't editable (no UI row) — preserved verbatim
   // so save doesn't silently strip them.
   const [preservedGem, setPreservedGem] = useState<string[] | undefined>(undefined);
@@ -192,6 +201,7 @@ export function EnvironmentDetail() {
     setResources(e.config.resources ?? {});
 
     setMetadataRows(metadataToRows(e.metadata));
+    setEnvVarRows(envVarsToRows(e.config.env_vars));
   }
 
   async function save() {
@@ -206,6 +216,7 @@ export function EnvironmentDetail() {
         packages: rowsToPackages(packageRows, preservedGem),
         networking: buildNetworking(networking, allowedHostsText),
         resources: buildResources(resources, env.config.type),
+        env_vars: rowsToEnvVars(envVarRows),
       };
 
       const body = {
@@ -538,6 +549,14 @@ export function EnvironmentDetail() {
               ))}
             </div>
           )}
+        </SectionCard>
+
+        {/* Environment variables */}
+        <SectionCard
+          title="Environment variables"
+          subtitle="Persistent variables injected into every session's sandbox created from this environment. Mark a variable sensitive to store it as a secret (masked, never returned by the API)."
+        >
+          <EnvVarsEditor rows={envVarRows} setRows={setEnvVarRows} />
         </SectionCard>
 
         {/* Footer actions */}

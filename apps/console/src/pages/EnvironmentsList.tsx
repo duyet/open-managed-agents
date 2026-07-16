@@ -7,6 +7,7 @@ import { Modal } from "../components/Modal";
 import { Button } from "@/components/ui/button";
 import { PopoverContent } from "@/components/ui/popover";
 import { Select, SelectOption } from "../components/Select";
+import { EnvVarsEditor, rowsToEnvVars, type EnvVarRow } from "../components/EnvVarsEditor";
 import { DataTable, type ColumnDef } from "../components/DataTable";
 import { FacetedFilter } from "../components/FacetedFilter";
 import { FilterChip, CreatedFilterChip } from "../components/FilterChip";
@@ -85,6 +86,7 @@ export function EnvironmentsList() {
   const nav = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: "", description: "", type: "cloud", instanceType: "" });
+  const [envVarRows, setEnvVarRows] = useState<EnvVarRow[]>([]);
 
   // Hosting types are host-dependent: self-hosted (main-node) advertises the
   // full sandbox-provider list at /v1/hosting_types; the Cloudflare host has
@@ -156,11 +158,13 @@ export function EnvironmentsList() {
         disk: preset?.disk,
       };
     }
+    const envVars = rowsToEnvVars(envVarRows);
+    if (envVars.length > 0) config.env_vars = envVars;
     await api("/v1/environments", {
       method: "POST",
       body: JSON.stringify({ name: form.name, config, description: form.description || undefined }),
     });
-    setShowCreate(false); setForm({ name: "", description: "", type: "cloud", instanceType: "" }); load();
+    setShowCreate(false); setForm({ name: "", description: "", type: "cloud", instanceType: "" }); setEnvVarRows([]); load();
   };
 
   // TanStack column defs. Order, filtering, and search all flow through
@@ -398,6 +402,10 @@ export function EnvironmentsList() {
               className="w-full border border-border rounded-md px-3 py-2 text-sm outline-none focus:border-brand bg-bg text-fg resize-none transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle"
               placeholder="Production environment for customer-facing agents..."
             />
+          </div>
+          <div>
+            <span className="text-sm text-fg-muted block mb-1">Environment variables <span className="text-fg-subtle">(optional)</span></span>
+            <EnvVarsEditor rows={envVarRows} setRows={setEnvVarRows} />
           </div>
         </div>
       </Modal>
