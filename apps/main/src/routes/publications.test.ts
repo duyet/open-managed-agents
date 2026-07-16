@@ -30,6 +30,7 @@ function pubRow(overrides: Partial<PublicationRow> = {}): PublicationRow {
     suggested_prompts: [],
     pricing_ref: null,
     rate_limit_ref: null,
+    environment_id: null,
     created_at: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };
@@ -163,6 +164,90 @@ describe("public publication routes — guardrails + scoping", () => {
     const res = await app.request("/p/duyetbot/sessions/sess-y/events/stream");
     expect(res.status).toBe(404);
     expect(forwardedPaths).toEqual([]);
+  });
+});
+
+describe("POST /:slug/sessions — environment forwarding (issue #225)", () => {
+  // Fake agent rows: `runtime_binding` set means local-runtime (self-hosted,
+  // no environment_id needed); absent means a cloud agent.
+  const cloudAgent = { id: "agent-1" };
+  const localRuntimeAgent = { id: "agent-1", runtime_binding: { type: "acp" } };
+
+  function makeSessionCreateApp(opts: {
+    agent: Record<string, unknown> | null;
+    pub?: Partial<PublicationRow>;
+  }) {
+    let capturedBody: Record<string, unknown> | null = null;
+    const app = new Hono<{ Bindings: never }>();
+    app.route(
+      "/p",
+      buildPublicPublicationRoutes({
+        env: {} as never,
+        servicesForTenant: () =>
+          Promise.resolve({
+            agents: { get: async () => opts.agent },
+          }) as never,
+        buildSessionsApp: () => {
+          const inner = new Hono();
+          inner.post("/sessions", async (c) => {
+            capturedBody = await c.req.json();
+            return c.json({ id: "sess-new" });
+          });
+          return Promise.resolve(inner) as never;
+        },
+        resolvePublication: () => Promise.resolve(pubRow(opts.pub)) as never,
+        guardSessionCreate: () => Promise.resolve(null) as never,
+        assertSessionOwnedByPublication: () => Promise.resolve(true) as never,
+      }),
+    );
+    return { app, getBody: () => capturedBody };
+  }
+
+  const post = (app: Hono<{ Bindings: never }>) =>
+    app.request("/p/duyetbot/sessions", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+
+  it("forwards the publication's environment_id for a cloud agent", async () => {
+    const { app, getBody } = makeSessionCreateApp({
+      agent: cloudAgent,
+      pub: { environment_id: "env-123" },
+    });
+    const res = await post(app);
+    expect(res.status).toBe(200);
+    expect(getBody()?.environment_id).toBe("env-123");
+    expect((getBody()?.agent as { id: string }).id).toBe("agent-1");
+  });
+
+  it("409s with a clear message when a cloud agent's publication has no environment", async () => {
+    const { app, getBody } = makeSessionCreateApp({
+      agent: cloudAgent,
+      pub: { environment_id: null },
+    });
+    const res = await post(app);
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string; code: string };
+    expect(body.code).toBe("environment_required");
+    expect(body.error).toMatch(/environment/i);
+    expect(getBody()).toBeNull(); // never forwarded to session-create
+  });
+
+  it("does not require environment_id for a local-runtime agent", async () => {
+    const { app, getBody } = makeSessionCreateApp({
+      agent: localRuntimeAgent,
+      pub: { environment_id: null },
+    });
+    const res = await post(app);
+    expect(res.status).toBe(200);
+    expect(getBody()?.environment_id).toBeUndefined();
+  });
+
+  it("404s when the published agent no longer exists", async () => {
+    const { app } = makeSessionCreateApp({ agent: null });
+    const res = await post(app);
+    expect(res.status).toBe(404);
   });
 });
 
