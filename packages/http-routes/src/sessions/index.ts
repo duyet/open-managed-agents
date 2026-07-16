@@ -939,7 +939,7 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
     });
     if (!sess) return c.json({ error: "Session not found" }, 404);
     try {
-      const trajectory = await router.getTrajectory(sess as never, {
+      const trajectory = (await router.getTrajectory(sess as never, {
         fetchEnvironmentConfig: () =>
           deps.loadEnvironment
             ? deps.loadEnvironment({
@@ -947,7 +947,19 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
                 environmentId: (sess as unknown as { environment_id: string }).environment_id,
               })
             : Promise.resolve(null),
-      });
+      })) as { agent_config?: AgentConfig } & Record<string, unknown>;
+      // buildTrajectory (packages/eval-core) embeds session.agent_snapshot
+      // verbatim as agent_config — including the real mcp_servers[].
+      // authorization_token — because eval-core is framework-agnostic and
+      // has no HTTP boundary of its own. This route is the client-facing
+      // seam, so redact here the same way the session GET route does
+      // (issue #223 / mcp-server-redaction.ts).
+      if (trajectory.agent_config) {
+        trajectory.agent_config = {
+          ...trajectory.agent_config,
+          mcp_servers: redactMcpServers(trajectory.agent_config.mcp_servers),
+        };
+      }
       return c.json(trajectory);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

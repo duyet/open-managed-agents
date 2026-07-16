@@ -2,8 +2,10 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { getLogger } from "@duyet/oma-observability";
 import { isPaymentsEnabled, PaymentsService, StripeClient } from "@duyet/oma-payments";
+import type { PublicationRow } from "@duyet/oma-publications-store";
 import { resolveConsumerSession } from "./consumer-auth";
 import { createD1PaymentsStore, getPricingForPublication } from "./payments";
+import { gatePublicationState } from "./publications";
 
 const log = getLogger("consumer-metering");
 
@@ -46,17 +48,21 @@ function requireConsumer() {
  * (same assumption `PublicationRepo.getBySlug` already relies on for slugs) —
  * `requireConsumer()` only proves who the consumer is, not which tenant owns
  * the agent, so the tenant has to come from here.
+ *
+ * Also selects `visibility`/`status` so callers can apply the same
+ * publication-state gate the /p/:slug chat surface applies (issue #210) —
+ * see `gatePublicationState` in ./publications.
  */
 async function resolvePublicationForAgent(
   db: D1Database,
   agentId: string,
-): Promise<{ id: string; tenant_id: string } | null> {
+): Promise<Pick<PublicationRow, "id" | "tenant_id" | "visibility" | "status"> | null> {
   const row = await db
     .prepare(
-      "SELECT id, tenant_id FROM agent_publication WHERE agent_id = ? ORDER BY created_at DESC LIMIT 1",
+      "SELECT id, tenant_id, visibility, status FROM agent_publication WHERE agent_id = ? ORDER BY created_at DESC LIMIT 1",
     )
     .bind(agentId)
-    .first<{ id: string; tenant_id: string }>();
+    .first<Pick<PublicationRow, "id" | "tenant_id" | "visibility" | "status">>();
   return row ?? null;
 }
 
@@ -82,6 +88,8 @@ wrapper.get("/credits", requireConsumer(), async (c) => {
   if (!publication) {
     return c.json({ error: "Unknown agent" }, 404);
   }
+  const gate = gatePublicationState(publication);
+  if (gate) return gate;
 
   const svc = new PaymentsService(createD1PaymentsStore(db));
   const balance = await svc.getBalance(publication.tenant_id, endUserIdForConsumer(consumerId));
@@ -111,6 +119,8 @@ wrapper.post("/buy-credits", requireConsumer(), async (c) => {
   if (!publication) {
     return c.json({ error: "Unknown agent" }, 404);
   }
+  const gate = gatePublicationState(publication);
+  if (gate) return gate;
 
   const pricing = await getPricingForPublication(db, publication.id);
   if (!pricing?.stripe_price_id) {

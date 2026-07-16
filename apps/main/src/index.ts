@@ -20,6 +20,7 @@ import {
 import {
   buildPublicPublicationRoutes,
   publicSessionCaps,
+  gatePublicationState,
 } from "./routes/publications";
 import {
   createCfShardPoolService,
@@ -769,18 +770,9 @@ app.use("/p/*", rateLimitMiddleware);
       });
     }
     // Guardrails: private/draft hidden (404); paused forbidden (403).
-    if (pub.visibility === "private" || pub.status === "draft") {
-      return new Response(JSON.stringify({ error: "Not found" }), {
-        status: 404,
-        headers: { "content-type": "application/json" },
-      });
-    }
-    if (pub.status === "paused") {
-      return new Response(JSON.stringify({ error: "Publication paused" }), {
-        status: 403,
-        headers: { "content-type": "application/json" },
-      });
-    }
+    // Shared with the consumer credits surface — see gatePublicationState.
+    const gate = gatePublicationState(pub);
+    if (gate) return gate;
     return pub;
   };
 

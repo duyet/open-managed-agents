@@ -10,7 +10,12 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { Hono } from "hono";
-import { buildPublicPublicationRoutes, renderWidgetScript, renderChatPage } from "./publications";
+import {
+  buildPublicPublicationRoutes,
+  gatePublicationState,
+  renderWidgetScript,
+  renderChatPage,
+} from "./publications";
 import type { PublicPublicationRoutesDeps } from "./publications";
 import type { PublicationRow } from "@duyet/oma-publications-store";
 
@@ -59,24 +64,10 @@ function makeApp(pubResolver: (slug: string) => PublicationRow | Response) {
       resolvePublication: (slug) => {
         const pub = pubResolver(slug);
         if (pub instanceof Response) return Promise.resolve(pub) as never;
-        // Mirror the guardrails the production caller (apps/main/src/index.ts)
-        // enforces inside its resolvePublication closure.
-        if (pub.visibility === "private" || pub.status === "draft") {
-          return Promise.resolve(
-            new Response(JSON.stringify({ error: "Not found" }), {
-              status: 404,
-              headers: { "content-type": "application/json" },
-            }),
-          ) as never;
-        }
-        if (pub.status === "paused") {
-          return Promise.resolve(
-            new Response(JSON.stringify({ error: "Publication paused" }), {
-              status: 403,
-              headers: { "content-type": "application/json" },
-            }),
-          ) as never;
-        }
+        // Same guardrails the production caller (apps/main/src/index.ts)
+        // enforces via the shared gatePublicationState helper (issue #210).
+        const gate = gatePublicationState(pub);
+        if (gate) return Promise.resolve(gate) as never;
         return Promise.resolve(pub) as never;
       },
       guardSessionCreate: () => Promise.resolve(null) as never,
