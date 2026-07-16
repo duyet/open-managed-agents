@@ -16,6 +16,11 @@ export interface SessionRecord {
   created_at: string;
   archived_at?: string;
   terminated_at?: string;
+  /** Cumulative token usage on the session row, overlaid by the list
+   *  and GET endpoints (#166/#186). Null/absent when the session has
+   *  not reported usage yet. */
+  input_tokens?: number | null;
+  output_tokens?: number | null;
   metadata?: Record<string, unknown>;
   /** Server-computed wall-clock duration (seconds) since creation.
    *  Present on list/SDK responses; absent on create response. */
