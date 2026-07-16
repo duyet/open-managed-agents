@@ -15,6 +15,7 @@ import {
 import { AgentWebhooks } from "./AgentWebhooks";
 import { useAgentHub } from "../AgentDetail";
 import type { AgentRecord as Agent } from "../../types/agent";
+import { rowActivateKeyDown } from "@/lib/utils";
 
 /** Shared publication shape across Linear / GitHub / Slack. */
 interface Pub {
@@ -247,6 +248,11 @@ export function AgentOverviewTab() {
                         key={v.version}
                         className="border-t border-border cursor-pointer hover:bg-bg-surface/40"
                         onClick={() => setViewVersion(v.version === agent.version ? null : v.version)}
+                        onKeyDown={rowActivateKeyDown(() =>
+                          setViewVersion(v.version === agent.version ? null : v.version),
+                        )}
+                        tabIndex={0}
+                        role="button"
                       >
                         <td className="px-4 py-2">
                           v{v.version}

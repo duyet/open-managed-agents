@@ -21,6 +21,7 @@ import { EmptyState, type EmptyStateKind } from "./EmptyState";
 import { Page } from "./Page";
 import { PageHeader } from "./PageHeader";
 import { Skeleton } from "./Skeleton";
+import { rowActivateKeyDown } from "@/lib/utils";
 
 interface Column<T> {
   key: string;
@@ -265,6 +266,9 @@ export function ListPage<T>({
               <TableRow
                 key={getRowKey(item)}
                 onClick={onRowClick ? () => onRowClick(item) : undefined}
+                onKeyDown={onRowClick ? rowActivateKeyDown(() => onRowClick(item)) : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
+                role={onRowClick ? "button" : undefined}
                 className={onRowClick ? "cursor-pointer" : undefined}
               >
                 {columns.map((col) => (

@@ -9,6 +9,7 @@ import { StackedAssembly } from "../components/StackedAssembly";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { formatSandboxTime } from "../lib/format";
+import { rowActivateKeyDown } from "@/lib/utils";
 
 interface Stats {
   agents: number;
@@ -255,6 +256,9 @@ export function Dashboard() {
                     <tr
                       key={s.id}
                       onClick={() => nav(`/sessions/${s.id}`)}
+                      onKeyDown={rowActivateKeyDown(() => nav(`/sessions/${s.id}`))}
+                      tabIndex={0}
+                      role="button"
                       className="border-t border-border hover:bg-bg-surface/40 cursor-pointer transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
                     >
                       <td className="px-4 py-2.5 text-fg">{s.title || "Untitled"}</td>

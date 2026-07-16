@@ -38,7 +38,7 @@ import {
 import { EmptyState, type EmptyStateKind } from "./EmptyState";
 import { PageHeader } from "./PageHeader";
 import { Skeleton } from "./Skeleton";
-import { cn } from "@/lib/utils";
+import { cn, rowActivateKeyDown } from "@/lib/utils";
 import { useLocation } from "react-router";
 
 /**
@@ -345,6 +345,11 @@ export function DataTable<T>({
                   <tr
                     key={row.id}
                     onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                    onKeyDown={
+                      onRowClick ? rowActivateKeyDown(() => onRowClick(row.original)) : undefined
+                    }
+                    tabIndex={onRowClick ? 0 : undefined}
+                    role={onRowClick ? "button" : undefined}
                     className={cn(
                       "bg-bg-surface/60 hover:bg-bg-surface transition-colors",
                       "[&>td]:bg-transparent [&>td]:px-3 [&>td]:py-2 [&>td]:align-middle [&>td]:text-sm",
