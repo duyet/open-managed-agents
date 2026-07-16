@@ -41,7 +41,7 @@ function DiagramNode({
   done?: boolean;
 }) {
   const base =
-    "group relative w-full text-left rounded-md border px-3 py-2.5 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]";
+    "group relative w-full text-left rounded-md border px-3 py-2.5 active:translate-y-px transition-[color,background-color,border-color,transform] duration-[var(--dur-quick)] ease-[var(--ease-soft)]";
   const skin = accent
     ? "border-brand/50 bg-brand/5 hover:border-brand"
     : "border-border bg-bg hover:border-border-strong hover:bg-bg-surface/40";
@@ -118,7 +118,7 @@ export function Dashboard() {
     <button
       key={label}
       onClick={() => nav(to)}
-      className="group relative text-left px-4 py-3.5 border border-border rounded-md bg-bg hover:border-border-strong hover:bg-bg-surface/40 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
+      className="group relative text-left px-4 py-3.5 border border-border rounded-md bg-bg hover:border-border-strong hover:bg-bg-surface/40 active:translate-y-px transition-[color,background-color,border-color,transform] duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
     >
       <div className="font-display text-[28px] leading-none font-semibold text-fg group-hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] tabular-nums">
         {value ?? "–"}
@@ -139,8 +139,8 @@ export function Dashboard() {
   ];
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="py-6 space-y-10">
+    <div className="pb-4">
+      <div className="space-y-10 pt-3">
         {/* Header */}
         <header>
           <h1 className="font-display text-[32px] leading-tight font-semibold tracking-tight text-fg">
@@ -310,9 +310,12 @@ export function Dashboard() {
                 </div>
                 <button
                   onClick={() => nav(item.to)}
-                  className="inline-flex items-center min-h-11 sm:min-h-0 text-[13px] text-fg-muted hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] shrink-0"
+                  className="group/cta inline-flex items-center gap-1 min-h-11 sm:min-h-0 text-[13px] text-fg-muted hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] shrink-0"
                 >
-                  {item.done ? "Manage" : "Set up"} →
+                  {item.done ? "Manage" : "Set up"}
+                  <span className="transition-transform duration-[var(--dur-quick)] ease-[var(--ease-soft)] group-hover/cta:translate-x-0.5">
+                    →
+                  </span>
                 </button>
               </div>
             ))}
@@ -332,9 +335,12 @@ export function Dashboard() {
             <h2 className="font-display text-lg font-semibold text-fg">Recent sessions</h2>
             <button
               onClick={() => nav("/sessions")}
-              className="inline-flex items-center min-h-11 sm:min-h-0 text-[13px] text-fg-muted hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
+              className="group/cta inline-flex items-center gap-1 min-h-11 sm:min-h-0 text-[13px] text-fg-muted hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
             >
-              View all →
+              View all
+              <span className="transition-transform duration-[var(--dur-quick)] ease-[var(--ease-soft)] group-hover/cta:translate-x-0.5">
+                →
+              </span>
             </button>
           </div>
 
