@@ -63,7 +63,9 @@ async function newFixture(): Promise<Fixture> {
       terminated_at     INTEGER,
       stop_reason       TEXT,
       tool_call_count   INTEGER NOT NULL DEFAULT 0,
-      message_count     INTEGER NOT NULL DEFAULT 0
+      message_count     INTEGER NOT NULL DEFAULT 0,
+      input_tokens      INTEGER NOT NULL DEFAULT 0,
+      output_tokens     INTEGER NOT NULL DEFAULT 0
     );
   `);
   await ensureEventLogSchema(sql);
@@ -522,6 +524,49 @@ describe("RuntimeAdapter — run-history summary (issue #21)", () => {
     await f.adapter.endTurn("sess_test", "turn_a", "destroyed");
     const afterStale = await readSummary(f.sql, "sess_test");
     expect(afterStale).toEqual(afterFirst);
+  });
+
+  it("endTurn sums input/output tokens from span.model_request_end events (analytics)", async () => {
+    await f.adapter.beginTurn("sess_test", "turn_a");
+    await f.eventLog.appendAsync({
+      type: "span.model_request_end",
+      model_usage: {
+        input_tokens: 100,
+        output_tokens: 20,
+        cache_read_input_tokens: 999, // excluded from input_tokens on purpose
+      },
+    } as unknown as SessionEvent);
+    await f.eventLog.appendAsync({
+      type: "span.model_request_end",
+      model_usage: { input_tokens: 50, output_tokens: 30 },
+    } as unknown as SessionEvent);
+    // An error span with no model_usage must be skipped, not throw.
+    await f.eventLog.appendAsync({
+      type: "span.model_request_end",
+      is_error: true,
+    } as unknown as SessionEvent);
+    await f.adapter.endTurn("sess_test", "turn_a", "idle");
+
+    const tokens = await f.sql
+      .prepare(`SELECT input_tokens, output_tokens FROM sessions WHERE id = ?`)
+      .bind("sess_test")
+      .first<{ input_tokens: number; output_tokens: number }>();
+    expect(tokens?.input_tokens).toBe(150);
+    expect(tokens?.output_tokens).toBe(50);
+  });
+
+  it("terminate() persists cumulative token totals", async () => {
+    await f.eventLog.appendAsync({
+      type: "span.model_request_end",
+      model_usage: { input_tokens: 7, output_tokens: 3 },
+    } as unknown as SessionEvent);
+    await f.adapter.terminate("sess_test", "user requested");
+    const tokens = await f.sql
+      .prepare(`SELECT input_tokens, output_tokens FROM sessions WHERE id = ?`)
+      .bind("sess_test")
+      .first<{ input_tokens: number; output_tokens: number }>();
+    expect(tokens?.input_tokens).toBe(7);
+    expect(tokens?.output_tokens).toBe(3);
   });
 });
 
