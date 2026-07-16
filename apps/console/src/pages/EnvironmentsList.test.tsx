@@ -49,4 +49,30 @@ describe("<EnvironmentsList />", () => {
     await waitFor(() => expect(screen.getByText("Add Environment")).toBeInTheDocument());
     expect(screen.getByText("Provider default")).toBeInTheDocument();
   });
+
+  // Issue #182 — a failed list fetch must render a distinct error state
+  // with a Retry action, never the "Nothing here yet" empty-state copy.
+  it("shows an error state with Retry instead of the empty state when the fetch fails", async () => {
+    server.use(
+      http.get("/v1/environments", () => HttpResponse.json({ error: "Internal error" }, { status: 500 })),
+      http.get("/v1/hosting_types", () => HttpResponse.json({ data: [] })),
+    );
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("Couldn't load environments")).toBeInTheDocument(),
+    );
+    expect(screen.getByText("Internal error")).toBeInTheDocument();
+    expect(screen.queryByText("No environments yet")).not.toBeInTheDocument();
+
+    const retryButton = screen.getByRole("button", { name: "Retry" });
+
+    // Recovery: once the endpoint is healthy again, Retry re-fires the
+    // fetch and the error state is replaced by the normal empty state.
+    server.use(http.get("/v1/environments", () => HttpResponse.json({ data: [] })));
+    await userEvent.click(retryButton);
+
+    await waitFor(() => expect(screen.getByText("No environments yet")).toBeInTheDocument());
+    expect(screen.queryByText("Couldn't load environments")).not.toBeInTheDocument();
+  });
 });
