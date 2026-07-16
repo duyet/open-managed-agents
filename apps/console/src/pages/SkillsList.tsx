@@ -5,6 +5,7 @@ import { formatQueryError, useApiQuery } from "../lib/useApiQuery";
 import { Modal } from "../components/Modal";
 import { Button } from "@/components/ui/button";
 import { PopoverContent } from "@/components/ui/popover";
+import { useConfirm } from "@/hooks/useConfirm";
 import { DataTable, type ColumnDef } from "../components/DataTable";
 import { FacetedFilter } from "../components/FacetedFilter";
 import { FilterChip } from "../components/FilterChip";
@@ -74,6 +75,7 @@ function isZipFile(file: File): boolean {
 
 export function SkillsList() {
   const { api } = useApi();
+  const confirm = useConfirm();
 
   /* Server-driven filter state. `source` flows into skillsParams below
    * → useApiQuery reruns when params change → list reflects exactly
@@ -261,7 +263,15 @@ export function SkillsList() {
 
   const deleteSkill = async () => {
     if (!detail) return;
-    if (!confirm("Delete this skill? This cannot be undone.")) return;
+    if (
+      !(await confirm({
+        title: "Delete this skill?",
+        description: "This cannot be undone.",
+        confirmLabel: "Delete",
+        destructive: true,
+      }))
+    )
+      return;
     try {
       await api(`/v1/skills/${detail.id}`, { method: "DELETE" });
       closeDetail();
@@ -274,7 +284,15 @@ export function SkillsList() {
   // skill's own title and there's no detail dialog to close after.
   const deleteSkillById = async (skill: Skill) => {
     const name = skill.display_title || skill.name;
-    if (!confirm(`Delete ${name}? This cannot be undone.`)) return;
+    if (
+      !(await confirm({
+        title: `Delete ${name}?`,
+        description: "This cannot be undone.",
+        confirmLabel: "Delete",
+        destructive: true,
+      }))
+    )
+      return;
     try {
       await api(`/v1/skills/${skill.id}`, { method: "DELETE" });
       load();

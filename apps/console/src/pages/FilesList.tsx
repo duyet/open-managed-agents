@@ -9,6 +9,7 @@ import { FilterChip } from "../components/FilterChip";
 import { RowActionsMenu } from "../components/RowActionsMenu";
 import { useApiQuery, useInfiniteApiQuery } from "../lib/useApiQuery";
 import { PopoverContent } from "@/components/ui/popover";
+import { useConfirm } from "@/hooks/useConfirm";
 import type { FileRecord } from "@duyet/oma-api-types";
 import type { SessionRecord as Session } from "../types/session";
 
@@ -29,6 +30,7 @@ export function FilesList() {
   // `scope_id`.
   const [scopeId, setScopeId] = useState<string>(ALL_SCOPE);
   const [search, setSearch] = useState("");
+  const confirm = useConfirm();
 
   // Files endpoint follows the Anthropic Files API shape — `before_id`
   // for the cursor param and `last_id` (only when `has_more` is true) for
@@ -120,7 +122,15 @@ export function FilesList() {
   };
 
   const remove = async (f: FileRecord) => {
-    if (!confirm(`Delete "${f.filename}"? The R2 object and metadata both go. This cannot be undone.`)) return;
+    if (
+      !(await confirm({
+        title: `Delete "${f.filename}"?`,
+        description: "The R2 object and metadata both go. This cannot be undone.",
+        confirmLabel: "Delete",
+        destructive: true,
+      }))
+    )
+      return;
     try {
       await api(`/v1/files/${f.id}`, { method: "DELETE" });
       // Invalidate every /v1/files query (any scope filter) so the page

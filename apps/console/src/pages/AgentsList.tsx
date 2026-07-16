@@ -8,6 +8,7 @@ import { DataTable, type ColumnDef } from "../components/DataTable";
 import { FilterBar } from "../components/FilterBar";
 import { RowActionsMenu } from "../components/RowActionsMenu";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/hooks/useConfirm";
 import type { ModelCard } from "@duyet/oma-api-types";
 import type { AgentRecord as Agent } from "../types/agent";
 import { AgentFormDialog } from "./agents/AgentFormDialog";
@@ -51,6 +52,7 @@ export function AgentsList() {
   const [runtimes, setRuntimes] = useState<Runtime[]>([]);
   const [, setAuxLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const confirm = useConfirm();
 
   // Server-driven filter state. Each piece flows into agentsParams below
   // → useInfiniteApiQuery resets to page 1 on params change → the list
@@ -224,7 +226,15 @@ export function AgentsList() {
                   icon: <TrashIcon className="size-4" />,
                   destructive: true,
                   onSelect: async () => {
-                    if (!confirm(`Delete ${a.name}? This can't be undone.`)) return;
+                    if (
+                      !(await confirm({
+                        title: `Delete ${a.name}?`,
+                        description: "This can't be undone.",
+                        confirmLabel: "Delete",
+                        destructive: true,
+                      }))
+                    )
+                      return;
                     try {
                       await api(`/v1/agents/${a.id}`, { method: "DELETE" });
                       refreshAgents();
@@ -239,7 +249,7 @@ export function AgentsList() {
         size: 56,
       },
     ],
-    [api, refreshAgents],
+    [api, refreshAgents, confirm],
   );
 
   const filters = (

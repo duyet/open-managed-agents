@@ -17,6 +17,7 @@ import { FacetedFilter } from "../components/FacetedFilter";
 import { Button } from "@/components/ui/button";
 import { PopoverContent } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useConfirm } from "@/hooks/useConfirm";
 
 import { MCP_REGISTRY, type McpRegistryEntry } from "../data/mcp-registry";
 
@@ -81,6 +82,7 @@ export function VaultDetail() {
   const { api } = useApi();
   const nav = useNavigate();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const { data: vault, error: vaultError } = useApiQuery<Vault>(
     id ? `/v1/vaults/${id}` : null,
@@ -120,9 +122,13 @@ export function VaultDetail() {
   const archive = async () => {
     if (!id) return;
     if (
-      !confirm(
-        "Archive this vault? All its credentials will also be archived. Archive is one-way.",
-      )
+      !(await confirm({
+        title: "Archive this vault?",
+        description:
+          "All its credentials will also be archived. Archive is one-way.",
+        confirmLabel: "Archive",
+        destructive: true,
+      }))
     )
       return;
     try {
@@ -136,9 +142,12 @@ export function VaultDetail() {
   const del = async () => {
     if (!id) return;
     if (
-      !confirm(
-        "Delete this vault and ALL its credentials? This cannot be undone.",
-      )
+      !(await confirm({
+        title: "Delete this vault and ALL its credentials?",
+        description: "This cannot be undone.",
+        confirmLabel: "Delete",
+        destructive: true,
+      }))
     )
       return;
     try {
@@ -151,7 +160,14 @@ export function VaultDetail() {
 
   const deleteCred = async (credId: string) => {
     if (!id) return;
-    if (!confirm("Delete this credential?")) return;
+    if (
+      !(await confirm({
+        title: "Delete this credential?",
+        confirmLabel: "Delete",
+        destructive: true,
+      }))
+    )
+      return;
     try {
       await api(`/v1/vaults/${id}/credentials/${credId}`, { method: "DELETE" });
       reloadCredentials();

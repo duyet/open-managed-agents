@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { IntegrationsApi } from "../api/client";
 import { Field } from "../../components/Field";
+import { useConfirm } from "@/hooks/useConfirm";
 import type {
   LinearInstallation,
   LinearPublication,
@@ -134,6 +135,7 @@ function PublicationCard({
   const [caps, setCaps] = useState<Set<string>>(new Set(pub.capabilities));
   const [personaName, setPersonaName] = useState(pub.persona.name);
   const [personaAvatar, setPersonaAvatar] = useState(pub.persona.avatarUrl ?? "");
+  const confirm = useConfirm();
 
   async function save() {
     setError(null);
@@ -153,7 +155,15 @@ function PublicationCard({
   }
 
   async function unpublish() {
-    if (!confirm(`Unpublish ${pub.persona.name}? It will stop responding in Linear.`)) return;
+    if (
+      !(await confirm({
+        title: `Unpublish ${pub.persona.name}?`,
+        description: "It will stop responding in Linear.",
+        confirmLabel: "Unpublish",
+        destructive: true,
+      }))
+    )
+      return;
     setWorking(true);
     try {
       await api.unpublish(pub.id);
@@ -297,6 +307,7 @@ function DispatchRulesSection({ publicationId }: { publicationId: string }) {
   const [rules, setRules] = useState<LinearDispatchRule[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const confirm = useConfirm();
 
   async function load() {
     setError(null);
@@ -319,7 +330,14 @@ function DispatchRulesSection({ publicationId }: { publicationId: string }) {
   }
 
   async function remove(rule: LinearDispatchRule) {
-    if (!confirm(`Delete rule "${rule.name}"?`)) return;
+    if (
+      !(await confirm({
+        title: `Delete rule "${rule.name}"?`,
+        confirmLabel: "Delete",
+        destructive: true,
+      }))
+    )
+      return;
     try {
       await api.deleteDispatchRule(publicationId, rule.id);
       await load();

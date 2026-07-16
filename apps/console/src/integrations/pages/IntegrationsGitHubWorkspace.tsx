@@ -9,6 +9,7 @@ import type {
 } from "../api/types";
 import { StatusPill } from "../components/StatusPill";
 import { relativeTime } from "../components/relativeTime";
+import { useConfirm } from "@/hooks/useConfirm";
 
 const api = new IntegrationsApi();
 
@@ -414,6 +415,7 @@ function PublicationCard({
   const [caps, setCaps] = useState<Set<string>>(new Set(pub.capabilities));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   async function save() {
     setSaving(true);
@@ -430,7 +432,15 @@ function PublicationCard({
   }
 
   async function unbind() {
-    if (!confirm(`Unbind "${pub.persona.name}"? The bot will stop responding to GitHub events.`)) return;
+    if (
+      !(await confirm({
+        title: `Unbind "${pub.persona.name}"?`,
+        description: "The bot will stop responding to GitHub events.",
+        confirmLabel: "Unbind",
+        destructive: true,
+      }))
+    )
+      return;
     try {
       await api.github.unpublish(pub.id);
       onUpdate();
