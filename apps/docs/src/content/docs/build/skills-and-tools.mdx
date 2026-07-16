@@ -169,7 +169,7 @@ Auth modes — credentials never enter the sandbox:
 | vault static bearer | matching `auth.type: "static_bearer"` credential in a session vault (matched by `mcp_server_url` host) |
 | vault OAuth | matching `auth.type: "mcp_oauth"` credential — refreshes on 401 **and 403** (Airtable/Asana/Sentry use 403 for expired tokens), CAS-writes new token to D1, retries once |
 
-stdio MCP servers run **inside the sandbox container**: set `type: "stdio"` with `command`, `args`, `port`. OMA spawns the process, waits for the port to bind, proxies the existing tool wiring at it. Tool discovery is bounded at 15 s per server; up to 20 servers per agent.
+stdio MCP servers run **inside the sandbox container**: set `type: "stdio"` with `command`, `args`, `port`. oma spawns the process, waits for the port to bind, proxies the existing tool wiring at it. Tool discovery is bounded at 15 s per server; up to 20 servers per agent.
 
 ## Where to go next
 

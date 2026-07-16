@@ -102,7 +102,7 @@ The connection stays open. Each `data:` line is a single JSON event.
 
 Use the official `@anthropic-ai/sdk` directly — it parses these unchanged.
 
-#### `?include=chunks` — OMA extension events
+#### `?include=chunks` — oma extension events
 
 Adds finer-grained streaming + extra observability. Required for token-by-token UI rendering.
 
@@ -138,7 +138,7 @@ curl -N "$OMA_BASE_URL/v1/sessions/sess_xyz/events/stream?include=chunks&replay=
 
 ### Send a turn (chatbot one-shot)
 
-OMA-only convenience endpoint (no Anthropic-spec equivalent). Posts the user message and streams the response in one HTTP call. Always emits chunk events. The connection auto-closes when the turn finishes (`session.status_idle`).
+oma-only convenience endpoint (no Anthropic-spec equivalent). Posts the user message and streams the response in one HTTP call. Always emits chunk events. The connection auto-closes when the turn finishes (`session.status_idle`).
 
 ```bash
 curl -N -X POST "$OMA_BASE_URL/v1/sessions/sess_xyz/messages" \

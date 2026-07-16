@@ -28,6 +28,13 @@ const matrixMessageTarget = z.object({
   room_id: z.string(),
 });
 
+// No `credential_id` — Telegram auth is a single bot token resolved from
+// env (TELEGRAM_BOT_TOKEN), not a per-target vault credential.
+const telegramMessageTarget = z.object({
+  type: z.literal("telegram_message"),
+  chat_id: z.number().int(),
+});
+
 const webhookTarget = z.object({
   type: z.literal("webhook"),
   url: z.string().url(),
@@ -41,6 +48,7 @@ export const notificationTargetSchema = z.discriminatedUnion("type", [
   githubCommentTarget,
   slackMessageTarget,
   matrixMessageTarget,
+  telegramMessageTarget,
   webhookTarget,
 ]);
 

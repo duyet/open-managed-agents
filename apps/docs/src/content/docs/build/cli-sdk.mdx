@@ -217,7 +217,7 @@ Every namespace in the official SDK works against oma:
 | `client.beta.skills` | full coverage |
 | `client.beta.models` | full coverage |
 
-### OMA-specific endpoints
+### oma-specific endpoints
 
 Endpoints that don't exist in Anthropic's API (tenants, OAuth, integrations, evals, cost reports, runtimes, …) live under `/v1/oma/*`. They aren't typed in the official SDK — call them via the underlying client:
 
@@ -225,17 +225,17 @@ Endpoints that don't exist in Anthropic's API (tenants, OAuth, integrations, eva
 const usage = await client._client.get("/v1/oma/cost_report");
 ```
 
-Or use plain `fetch` — every OMA endpoint is JSON, no extra runtime needed.
+Or use plain `fetch` — every oma endpoint is JSON, no extra runtime needed.
 
-### OMA-only extensions
+### oma-only extensions
 
-A small set of OMA-specific agent fields (auxiliary model, harness selector, sandbox runtime binding) are passed through under an `_oma:` body field on agent create / update calls. The server reads them; the upstream Claude Managed Agents backend would ignore them. They are optional — agents that omit `_oma` behave exactly like a vanilla Claude Managed Agents call.
+A small set of oma-specific agent fields (auxiliary model, harness selector, sandbox runtime binding) are passed through under an `_oma:` body field on agent create / update calls. The server reads them; the upstream Claude Managed Agents backend would ignore them. They are optional — agents that omit `_oma` behave exactly like a vanilla Claude Managed Agents call.
 
 | Field | Purpose |
 |---|---|
 | `aux_model` | Auxiliary model used for tool-internal LLM work (e.g. `web_fetch` summarization). When unset, tools fall back to returning raw content. |
-| `harness` | Selects the agent loop harness implementation. Reserved for OMA-managed runtimes. |
-| `runtime_binding` | Selects which sandbox runtime services the agent's sessions. Reserved for OMA-managed runtimes. |
+| `harness` | Selects the agent loop harness implementation. Reserved for oma-managed runtimes. |
+| `runtime_binding` | Selects which sandbox runtime services the agent's sessions. Reserved for oma-managed runtimes. |
 
 The Stainless-generated SDKs in every language pass unknown body fields through unchanged — there is no separate `@duyet/oma-sdk` to install. Use the SDK's standard escape hatch:
 

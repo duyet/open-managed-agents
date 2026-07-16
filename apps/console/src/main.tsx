@@ -62,7 +62,7 @@ import {
   IntegrationsSlackWorkspace,
   IntegrationsSlackPublishPage,
 } from "./pages/IntegrationsSlack";
-import { IntegrationsHub } from "./integrations";
+import { IntegrationsHub, IntegrationsTelegramSetup } from "./integrations";
 import { consolePlugins } from "./plugins/registry";
 
 /**
@@ -240,6 +240,11 @@ const protectedRoutes: RouteObject[] = [
             handle: { crumb: "Workspace" },
           },
         ],
+      },
+      {
+        path: "telegram",
+        handle: { crumb: "Telegram" },
+        children: [{ index: true, element: <IntegrationsTelegramSetup /> }],
       },
     ],
   },

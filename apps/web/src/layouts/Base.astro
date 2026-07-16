@@ -380,7 +380,9 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
           const words = (() => { try { return JSON.parse(el.getAttribute('data-rotate') || '[]'); } catch { return []; } })();
           const out = el.querySelector('.tw-rot');
           if (!out || !words.length) continue;
-          let w = 0, i = 0, deleting = false;
+          // If the first word is server-rendered (headline), start from the
+          // full-word hold instead of retyping it on load.
+          let w = 0, i = out.textContent === words[0] ? words[0].length : 0, deleting = false;
           const tick = () => {
             const word = words[w];
             out.textContent = word.slice(0, i);

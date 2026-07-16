@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { IntegrationsApi } from "../api/client";
 import { Avatar } from "../../components/Avatar";
 import { EmptyState } from "../../components/EmptyState";
+import { IntegrationSetupCard } from "../components/IntegrationSetupCard";
 import { formatRelative } from "../../lib/format";
 import type { SlackInstallation, SlackPublication } from "../api/types";
 
@@ -83,6 +84,55 @@ export function IntegrationsSlackList() {
             {error}
           </div>
         )}
+
+        <div className="mb-6">
+          <IntegrationSetupCard
+            name="Slack"
+            status={items.length > 0 ? "connected" : "not-connected"}
+            statusDetail={
+              items.length > 0
+                ? `${items.length} workspace${items.length === 1 ? "" : "s"} connected`
+                : undefined
+            }
+            whatIsThis={
+              <>
+                Bring an agent into Slack as a bot you can @-mention or DM. It
+                replies in-thread. The fastest path is one-click{" "}
+                <span className="font-medium text-fg">Add to Slack</span> when a
+                managed app is configured; otherwise you bring your own Slack
+                app.
+              </>
+            }
+            requirements={[
+              { label: "A Slack workspace", detail: "where you can install apps" },
+              {
+                label: "A Slack app",
+                detail: "auto-provisioned by \"Add to Slack\", or bring your own (bot token + signing secret)",
+              },
+              { label: "An OMA agent", detail: "the identity that replies in Slack" },
+            ]}
+            steps={[
+              {
+                title: "Start publishing",
+                body: (
+                  <>
+                    Click <span className="font-medium text-fg">Publish agent</span> above
+                    and pick the agent + environment to put in Slack.
+                  </>
+                ),
+              },
+              {
+                title: "Connect the workspace",
+                body: "Use one-click Add to Slack, or paste your own app's bot token and signing secret. Credentials are stored encrypted in your vault.",
+              },
+              {
+                title: "Install & mention",
+                body: "Approve the install in Slack, then @-mention or DM the bot in any channel it's invited to.",
+              },
+            ]}
+            collapsibleSteps
+          />
+        </div>
 
         {pending.length > 0 && (
           <section className="mb-6">

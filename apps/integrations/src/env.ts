@@ -70,6 +70,11 @@ export interface Env {
   // paused. Defaults to 5 minutes (DEFAULT_IDLE_TIMEOUT_MS in
   // @duyet/oma-telegram) when unset.
   TELEGRAM_IDLE_TIMEOUT_MS?: string;
+  // Secret configured on Telegram's setWebhook call (secret_token param).
+  // When set, incoming webhook requests must present a matching
+  // `X-Telegram-Bot-Api-Secret-Token` header (constant-time compare) or the
+  // request is rejected with 401. Unset — passthrough (no verification).
+  TELEGRAM_WEBHOOK_SECRET?: string;
   // ─── Unified OAuth "Connect" flow (OMA-hosted OAuth apps) ──────────────
   // Per-provider OAuth app credentials backing the unified /oauth/:provider/*
   // install surface (apps/integrations/src/oauth-unified.ts). A provider whose

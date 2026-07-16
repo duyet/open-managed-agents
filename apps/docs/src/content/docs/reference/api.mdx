@@ -54,7 +54,7 @@ JSON-paginated event log. Query: `limit` (1–1000, default 100), `order` (`asc`
 
 Pass `Accept: text/event-stream` to switch to the SSE variant (or call `/v1/sessions/:id/events/stream` directly). Default behavior is Anthropic-spec-aligned: no history replay, only the spec event union (third-party `@anthropic-ai/sdk` parses cleanly). Two opt-ins:
 
-- `?include=chunks` — admit OMA extension events (token chunks, lifecycle, `system.user_message_*`, `session.warning`, extra spans like `aux.model_call`)
+- `?include=chunks` — admit oma extension events (token chunks, lifecycle, `system.user_message_*`, `session.warning`, extra spans like `aux.model_call`)
 - `?replay=1` (or `Last-Event-ID: <seq>` header) — replay persisted history before tailing
 
 See [REST API → Stream session events](/build/api/#stream-session-events-sse) for the full event tables.

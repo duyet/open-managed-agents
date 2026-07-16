@@ -28,6 +28,7 @@
     "@duyet/oma-sessions-store": "workspace:*",
     "@duyet/oma-shared": "workspace:*",
     "@duyet/oma-sql-client": "workspace:*",
+    "@duyet/oma-telegram": "workspace:*",
     "@duyet/oma-vault-forward": "workspace:*",
     "@duyet/oma-vaults-store": "workspace:*",
     "hono": "^4.7.0",

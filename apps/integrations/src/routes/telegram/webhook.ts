@@ -1,14 +1,31 @@
 import { Hono } from "hono";
 import type { Env } from "../../env";
 import type { TelegramUpdate } from "@duyet/oma-telegram";
+import { verifyTelegramWebhookSecret } from "@duyet/oma-telegram";
 import { getLogger } from "@duyet/oma-observability";
 import { buildTelegramHandler } from "./wire";
+
+// CF's per-request `c.env` access doesn't compose cleanly with
+// @duyet/oma-http-routes' buildTelegramWebhookRoute factory (built once at
+// module load, before any request's Bindings exist) — so this stays a thin
+// route rather than delegating the whole handler. It still reuses
+// verifyTelegramWebhookSecret from @duyet/oma-telegram for the actual
+// secret check, so the constant-time comparison logic lives in exactly one
+// place (shared with apps/main-node via the same package).
 
 const log = getLogger("apps.integrations.routes.telegram.webhook");
 
 const app = new Hono<{ Bindings: Env }>();
 
 app.post("/webhook", async (c) => {
+  const verified = verifyTelegramWebhookSecret({
+    configuredSecret: c.env.TELEGRAM_WEBHOOK_SECRET,
+    headerValue: c.req.header("X-Telegram-Bot-Api-Secret-Token"),
+  });
+  if (!verified.ok) {
+    return c.json({ error: "invalid webhook secret" }, 401);
+  }
+
   const handler = buildTelegramHandler(c.env);
   if (!handler) {
     return c.json({ error: "telegram bot not configured" }, 503);
