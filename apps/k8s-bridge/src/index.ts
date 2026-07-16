@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { authMiddleware } from "./auth";
 import { K8sManager } from "./k8s-manager";
 import { createRouter } from "./router";
+import { SandboxMonitor } from "./sandbox-monitor";
 import { SlackNotifier } from "./slack-notifier";
 
 const port = Number(process.env.PORT ?? 8100);
@@ -14,7 +15,10 @@ if (!token) {
   process.exit(1);
 }
 
-const notifyOn = (process.env.SLACK_NOTIFY_ON ?? "box_created,box_destroyed,box_error,health_degraded")
+const notifyOn = (
+  process.env.SLACK_NOTIFY_ON ??
+  "box_created,box_destroyed,box_error,health_degraded,sandbox_crashed,sandbox_oom,sandbox_pending,cluster_low_capacity"
+)
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
@@ -25,6 +29,13 @@ const notifier = process.env.SLACK_WEBHOOK_URL
 
 const app = new Hono();
 const manager = new K8sManager();
+
+// Background poller for sandbox-level events (OOM, crash loops, stuck
+// pending, low cluster capacity) that aren't triggered by a bridge API
+// call — only runs when Slack notifications are configured.
+if (notifier) {
+  new SandboxMonitor(manager, notifier).start();
+}
 
 app.use("/api/v1/boxes*", authMiddleware(token, ["boxes:read", "boxes:write"]));
 app.use("/api/v1/cluster*", authMiddleware(token, ["cluster:read"]));
