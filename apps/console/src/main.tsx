@@ -18,6 +18,7 @@ import "./index.css";
 import { AuthProvider } from "./lib/auth";
 import { Toaster } from "./components/ui/sonner";
 import { AppShell } from "./components/AppShell";
+import { HubLayout, type HubConfig } from "./components/HubLayout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { queryClient } from "./lib/query-client";
 import { Login } from "./pages/Login";
@@ -83,6 +84,55 @@ import { consolePlugins } from "./plugins/registry";
  * the loader) pass a function that reads the match.
  */
 
+/**
+ * Hub configs — the tab strips for the four tabbed hub pages. Tabs are
+ * absolute paths so each hub's `<HubLayout>` works regardless of the base
+ * path its children mount under (the layout routes below are pathless).
+ */
+const SESSIONS_HUB: HubConfig = {
+  title: "Sessions",
+  description: "Trace, debug, and organize your agents' sessions.",
+  tabs: [
+    { label: "Sessions", path: "/sessions" },
+    { label: "Kanban Board", path: "/kanban" },
+    { label: "Eval Runs", path: "/evals" },
+  ],
+};
+
+const RESOURCES_HUB: HubConfig = {
+  title: "Resources",
+  description:
+    "Environments, credentials, memory, skills, files, and model cards your agents use.",
+  tabs: [
+    { label: "Environments", path: "/environments" },
+    { label: "Vaults", path: "/vaults" },
+    { label: "Memory Stores", path: "/memory" },
+    { label: "Skills", path: "/skills" },
+    { label: "Files", path: "/files" },
+    { label: "Model Cards", path: "/model-cards" },
+  ],
+};
+
+const PUBLISHING_HUB: HubConfig = {
+  title: "Publishing",
+  description: "Publish agents as bots and connect them to your tools.",
+  tabs: [
+    { label: "My Bots", path: "/my-bots" },
+    { label: "Linear", path: "/integrations/linear" },
+    { label: "GitHub", path: "/integrations/github" },
+    { label: "Slack", path: "/integrations/slack" },
+  ],
+};
+
+const SETTINGS_HUB: HubConfig = {
+  title: "Settings",
+  description: "Workspace configuration: API keys and sandbox runtimes.",
+  tabs: [
+    { label: "API Keys", path: "/api-keys" },
+    { label: "Sandbox Runtimes", path: "/runtimes" },
+  ],
+};
+
 const protectedRoutes: RouteObject[] = [
   { index: true, element: <Dashboard />, handle: { crumb: "Dashboard" } },
   // Nested route groups so detail pages publish a proper hierarchy
@@ -106,13 +156,37 @@ const protectedRoutes: RouteObject[] = [
       },
     ],
   },
+
+  // ── Sessions hub ── Sessions list / Kanban / Eval Runs share a tab
+  // strip (pathless HubLayout keeps each tab's own top-level URL). Session
+  // detail stays full-page (chat shell) so it lives OUTSIDE the hub.
   {
-    path: "sessions",
-    handle: { crumb: "Sessions" },
+    element: <HubLayout {...SESSIONS_HUB} />,
     children: [
-      { index: true, element: <SessionsList /> },
+      { path: "sessions", element: <SessionsList />, handle: { crumb: "Sessions" } },
+      { path: "kanban", element: <KanbanBoard />, handle: { crumb: "Kanban Board" } },
       {
-        path: ":id",
+        path: "evals",
+        handle: { crumb: "Eval Runs" },
+        children: [
+          { index: true, element: <EvalRunsList /> },
+          {
+            path: ":id",
+            element: <EvalRunDetail />,
+            handle: { crumb: (m: UIMatch) => (m.params.id as string | undefined) ?? "Eval Run" },
+          },
+        ],
+      },
+    ],
+  },
+  // Session detail — full-page, no hub tabs. Pathless parent carries the
+  // `Sessions` crumb (linking back to the list) so the breadcrumb reads
+  // `Sessions › sess-xxx` as before.
+  {
+    handle: { crumb: { label: "Sessions", to: "/sessions" } },
+    children: [
+      {
+        path: "sessions/:id",
         handle: { crumb: (m: UIMatch) => (m.params.id as string | undefined) ?? "Session" },
         // SessionDetail lazy-loads — it pulls in ai-elements + Shiki +
         // Streamdown + mermaid + dozens of language defs (~500 kB
@@ -125,126 +199,137 @@ const protectedRoutes: RouteObject[] = [
       },
     ],
   },
-  { path: "my-bots", element: <MyBots />, handle: { crumb: "My Bots" } },
-  { path: "files", element: <FilesList />, handle: { crumb: "Files" } },
-  { path: "kanban", element: <KanbanBoard />, handle: { crumb: "Kanban Board" } },
+
+  // ── Resources hub ── Environments / Vaults / Memory / Skills / Files /
+  // Model Cards. List and detail routes keep their current paths; details
+  // render under the hub (parent tab stays highlighted).
   {
-    path: "evals",
-    handle: { crumb: "Eval Runs" },
+    element: <HubLayout {...RESOURCES_HUB} />,
     children: [
-      { index: true, element: <EvalRunsList /> },
       {
-        path: ":id",
-        element: <EvalRunDetail />,
-        handle: { crumb: (m: UIMatch) => (m.params.id as string | undefined) ?? "Eval Run" },
-      },
-    ],
-  },
-  {
-    path: "environments",
-    handle: { crumb: "Environments" },
-    children: [
-      { index: true, element: <EnvironmentsList /> },
-      {
-        path: ":id",
-        element: <EnvironmentDetail />,
-        handle: { crumb: (m: UIMatch) => (m.params.id as string | undefined) ?? "Environment" },
-      },
-    ],
-  },
-  { path: "skills", element: <SkillsList />, handle: { crumb: "Skills" } },
-  {
-    path: "vaults",
-    handle: { crumb: "Credential Vaults" },
-    children: [
-      { index: true, element: <VaultsList /> },
-      {
-        path: ":id",
-        element: <VaultDetail />,
-        handle: { crumb: (m: UIMatch) => (m.params.id as string | undefined) ?? "Vault" },
-      },
-    ],
-  },
-  {
-    path: "memory",
-    handle: { crumb: "Memory Stores" },
-    children: [
-      { index: true, element: <MemoryStoresList /> },
-      {
-        path: ":id",
-        element: <MemoryStoreDetail />,
-        handle: { crumb: (m: UIMatch) => (m.params.id as string | undefined) ?? "Memory Store" },
-      },
-    ],
-  },
-  { path: "model-cards", element: <ModelCardsList />, handle: { crumb: "Model Cards" } },
-  { path: "api-keys", element: <ApiKeysList />, handle: { crumb: "API Keys" } },
-  { path: "runtimes", element: <RuntimesList />, handle: { crumb: "Sandbox Runtime" } },
-  {
-    path: "integrations",
-    handle: { crumb: "Integrations" },
-    children: [
-      { index: true, element: <IntegrationsHub /> },
-      {
-        path: "linear",
-        handle: { crumb: "Linear" },
+        path: "environments",
+        handle: { crumb: "Environments" },
         children: [
-          { index: true, element: <IntegrationsLinearList /> },
+          { index: true, element: <EnvironmentsList /> },
           {
-            path: "publish",
-            element: <IntegrationsLinearPublishPage />,
-            handle: { crumb: "Publish" },
-          },
-          {
-            path: "install-pat",
-            element: <IntegrationsLinearPatInstallPage />,
-            handle: { crumb: "Install PAT" },
-          },
-          {
-            path: "installations/:id",
-            element: <IntegrationsLinearWorkspace />,
-            handle: { crumb: "Workspace" },
+            path: ":id",
+            element: <EnvironmentDetail />,
+            handle: { crumb: (m: UIMatch) => (m.params.id as string | undefined) ?? "Environment" },
           },
         ],
       },
       {
-        path: "github",
-        handle: { crumb: "GitHub" },
+        path: "vaults",
+        handle: { crumb: "Credential Vaults" },
         children: [
-          { index: true, element: <IntegrationsGitHubList /> },
+          { index: true, element: <VaultsList /> },
           {
-            path: "bind",
-            element: <IntegrationsGitHubBindPage />,
-            handle: { crumb: "Bind" },
-          },
-          {
-            path: "installations/:id",
-            element: <IntegrationsGitHubWorkspace />,
-            handle: { crumb: "Workspace" },
+            path: ":id",
+            element: <VaultDetail />,
+            handle: { crumb: (m: UIMatch) => (m.params.id as string | undefined) ?? "Vault" },
           },
         ],
       },
       {
-        path: "slack",
-        handle: { crumb: "Slack" },
+        path: "memory",
+        handle: { crumb: "Memory Stores" },
         children: [
-          { index: true, element: <IntegrationsSlackList /> },
+          { index: true, element: <MemoryStoresList /> },
           {
-            path: "publish",
-            element: <IntegrationsSlackPublishPage />,
-            handle: { crumb: "Publish" },
-          },
-          {
-            path: "installations/:id",
-            element: <IntegrationsSlackWorkspace />,
-            handle: { crumb: "Workspace" },
+            path: ":id",
+            element: <MemoryStoreDetail />,
+            handle: { crumb: (m: UIMatch) => (m.params.id as string | undefined) ?? "Memory Store" },
           },
         ],
       },
+      { path: "skills", element: <SkillsList />, handle: { crumb: "Skills" } },
+      { path: "files", element: <FilesList />, handle: { crumb: "Files" } },
+      { path: "model-cards", element: <ModelCardsList />, handle: { crumb: "Model Cards" } },
+    ],
+  },
+
+  // ── Settings hub ── API Keys / Sandbox Runtimes. (ConnectRuntime lives
+  // at the top-level `/connect-runtime` route, outside AppShell.)
+  {
+    element: <HubLayout {...SETTINGS_HUB} />,
+    children: [
+      { path: "api-keys", element: <ApiKeysList />, handle: { crumb: "API Keys" } },
+      { path: "runtimes", element: <RuntimesList />, handle: { crumb: "Sandbox Runtime" } },
+    ],
+  },
+
+  // ── Publishing hub ── My Bots + Linear / GitHub / Slack integrations.
+  {
+    element: <HubLayout {...PUBLISHING_HUB} />,
+    children: [
+      { path: "my-bots", element: <MyBots />, handle: { crumb: "My Bots" } },
       {
-        path: "telegram",
-        handle: { crumb: "Telegram" },
-        children: [{ index: true, element: <IntegrationsTelegramSetup /> }],
+        path: "integrations",
+        handle: { crumb: "Integrations" },
+        children: [
+          { index: true, element: <IntegrationsHub /> },
+          {
+            path: "linear",
+            handle: { crumb: "Linear" },
+            children: [
+              { index: true, element: <IntegrationsLinearList /> },
+              {
+                path: "publish",
+                element: <IntegrationsLinearPublishPage />,
+                handle: { crumb: "Publish" },
+              },
+              {
+                path: "install-pat",
+                element: <IntegrationsLinearPatInstallPage />,
+                handle: { crumb: "Install PAT" },
+              },
+              {
+                path: "installations/:id",
+                element: <IntegrationsLinearWorkspace />,
+                handle: { crumb: "Workspace" },
+              },
+            ],
+          },
+          {
+            path: "github",
+            handle: { crumb: "GitHub" },
+            children: [
+              { index: true, element: <IntegrationsGitHubList /> },
+              {
+                path: "bind",
+                element: <IntegrationsGitHubBindPage />,
+                handle: { crumb: "Bind" },
+              },
+              {
+                path: "installations/:id",
+                element: <IntegrationsGitHubWorkspace />,
+                handle: { crumb: "Workspace" },
+              },
+            ],
+          },
+          {
+            path: "slack",
+            handle: { crumb: "Slack" },
+            children: [
+              { index: true, element: <IntegrationsSlackList /> },
+              {
+                path: "publish",
+                element: <IntegrationsSlackPublishPage />,
+                handle: { crumb: "Publish" },
+              },
+              {
+                path: "installations/:id",
+                element: <IntegrationsSlackWorkspace />,
+                handle: { crumb: "Workspace" },
+              },
+            ],
+          },
+          {
+            path: "telegram",
+            handle: { crumb: "Telegram" },
+            children: [{ index: true, element: <IntegrationsTelegramSetup /> }],
+          },
+        ],
       },
     ],
   },
