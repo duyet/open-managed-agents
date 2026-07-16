@@ -4,6 +4,7 @@ import type { AgentConfig, EnvironmentConfig, VaultConfig, CredentialConfig } fr
 import { generateVaultId } from "@duyet/oma-shared";
 import type { Services } from "@duyet/oma-services";
 import { forEachShardServices } from "@duyet/oma-services";
+import type { NewResourceInput } from "@duyet/oma-sessions-store";
 import { toEnvironmentConfig } from "@duyet/oma-environments-store";
 import { CfSessionRouter } from "../lib/cf-session-router";
 
@@ -299,12 +300,20 @@ export async function createInternalSession(
       agentId: body.agentId,
       version: body.agentVersion,
     });
-    if (pinned) {
-      const { tenant_id: _vtid, ...pinnedBase } = pinned.snapshot as AgentConfig & {
-        tenant_id?: string;
+    // A pin that isn't the live version and has no archived snapshot is a
+    // missing version. Fail loud — silently running the latest config under
+    // a pinned run would execute a different agent than the caller asked for.
+    if (!pinned) {
+      return {
+        ok: false,
+        status: 404,
+        error: `pinned agent version ${body.agentVersion} not found`,
       };
-      agentSnapshot = pinnedBase;
     }
+    const { tenant_id: _vtid, ...pinnedBase } = pinned.snapshot as AgentConfig & {
+      tenant_id?: string;
+    };
+    agentSnapshot = pinnedBase;
   }
   if (body.mcpServers && body.mcpServers.length > 0) {
     agentSnapshot = injectMcpServersIntoSnapshot(agentSnapshot, body.mcpServers);
@@ -319,7 +328,7 @@ export async function createInternalSession(
   const initialMetadata: Record<string, unknown> = { ...(body.metadata ?? {}) };
   // Mount attached memory stores as read/write session resources (deployment
   // runs), same shape the public POST /v1/sessions path builds.
-  const memoryResources = (body.memoryStoreIds ?? []).map((id) => ({
+  const memoryResources: NewResourceInput[] = (body.memoryStoreIds ?? []).map((id) => ({
     type: "memory_store" as const,
     memory_store_id: id,
     access: "read_write" as const,
@@ -332,7 +341,7 @@ export async function createInternalSession(
     vaultIds,
     agentSnapshot,
     environmentSnapshot: toEnvironmentConfig(envRow),
-    ...(memoryResources.length > 0 ? { resources: memoryResources as never } : {}),
+    ...(memoryResources.length > 0 ? { resources: memoryResources } : {}),
     metadata: Object.keys(initialMetadata).length === 0 ? undefined : initialMetadata,
   });
   const sessionId = createdSession.id;
