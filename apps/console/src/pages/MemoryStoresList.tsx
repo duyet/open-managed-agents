@@ -221,6 +221,7 @@ export function MemoryStoresList() {
 
   return (
     <DataTable<MemoryStore>
+      subtitle="Browse and manage persistent memory for your agents."
       createLabel="+ New store"
       onCreate={() => {
         setShowCreate(true);

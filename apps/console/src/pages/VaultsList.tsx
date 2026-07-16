@@ -194,6 +194,7 @@ export function VaultsList() {
 
   return (
     <DataTable<Vault>
+      subtitle="Manage credential vaults that provide your agents with access to MCP servers and other tools."
       createLabel="+ New vault"
       onCreate={() => setShowCreateVault(true)}
       filters={filters}
