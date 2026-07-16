@@ -117,35 +117,42 @@ pnpm install
 
 # Local dev (no CF account needed) — wrangler dev with simulators
 cp .dev.vars.example .dev.vars && $EDITOR .dev.vars
-# Same two-secret setup as Docker — PLATFORM_ROOT_SECRET is required to start
+# PLATFORM_ROOT_SECRET is required to start; API_KEY ships prefilled with a
+# dev-only placeholder (dev-test-key-change-me) so the smoke test below
+# works out of the box — change it before exposing this past localhost.
 pnpm dev
 # API   → http://localhost:8787
 # Console → http://localhost:5173
 
-# Deploy
+# Deploy — one wizard: creates the D1 databases, KV namespace, and R2
+# buckets; patches wrangler.jsonc in apps/main + apps/agent + apps/integrations
+# with the resulting IDs; generates and sets PLATFORM_ROOT_SECRET,
+# INTEGRATIONS_INTERNAL_SECRET, BETTER_AUTH_SECRET, and API_KEY as Worker
+# secrets; applies D1 migrations; deploys all three workers in dependency
+# order (integrations → agent → main).
 npx wrangler login
-npx wrangler kv namespace create CONFIG_KV   # paste id into wrangler.jsonc
+./scripts/setup-cf.sh
+# → prints each worker's URL; the main worker serves both the API and the
+#   bundled Console UI. Re-run anytime — it's idempotent (reuses existing
+#   resources, skips secrets that are already set). Flags: --no-deploy
+#   (provision only), --skip-secrets (already set them), --reset-secrets
+#   (rotate everything).
 
-# Required secrets (paste each when prompted)
-npx wrangler secret put BETTER_AUTH_SECRET    # openssl rand -hex 32
-npx wrangler secret put PLATFORM_ROOT_SECRET  # openssl rand -base64 32 — back this up
-npx wrangler secret put API_KEY               # initial bootstrap key for the REST API
-
-# Optional — only if you want a tenant-less default LLM (otherwise add a Model Card in the Console)
-# npx wrangler secret put ANTHROPIC_API_KEY
-
-npm run deploy
-# → https://oma.duyet.net (or https://managed-agents.<your-subdomain>.workers.dev for a personal deploy)
+# Optional — only if you want a tenant-less default LLM (otherwise add a
+# Model Card in the Console): export ANTHROPIC_API_KEY before running the
+# wizard, or set it interactively when prompted.
 ```
 
 What gets deployed:
 
 | Component | What it does |
 |---|---|
-| **Main Worker** | API routes — agents, sessions, environments, vaults, memory, files |
-| **Agent Worker** | SessionDO + harness + sandbox per environment |
-| **KV Namespace** | Config storage for agents, environments, credentials |
-| **R2 Bucket** | Workspace file persistence across container restarts |
+| **Main Worker** (`oma-managed-agents`) | API routes — agents, sessions, environments, vaults, memory, files — plus the bundled Console UI |
+| **Agent Worker** (`oma-sandbox-default`) | SessionDO + harness + sandbox per environment |
+| **Integrations Worker** (`oma-managed-agents-integrations`) | Linear / GitHub / Slack OAuth + webhook gateway |
+| **D1** (`oma-auth`, `oma-integrations`) | Control-plane + tenant data; integration provider tables |
+| **KV** (`CONFIG_KV`) | Config storage for agents, environments, credentials |
+| **R2** (files, workspace, memory, backups) | Uploaded files, sandbox workspace persistence, memory-store bytes, snapshot backups |
 
 Want Kubernetes-backed sandboxes instead of Cloudflare Containers? See the
 [k8s-bridge quickstart](docs/deploy/k8s-bridge-quickstart.md) (full guide:
@@ -153,11 +160,18 @@ Want Kubernetes-backed sandboxes instead of Cloudflare Containers? See the
 
 ### Create your first agent
 
-The smoke test above works against any deployment. For the Console-driven flow (Model Cards, vaults, integrations) see **[docs.oma.duyet.net/quickstart](https://docs.oma.duyet.net/quickstart)**. The minimal API equivalent:
+For local dev (`pnpm dev` above), the API is already reachable with the
+`.dev.vars` placeholder key. For a Cloudflare deploy, open the main worker
+URL `setup-cf.sh` printed, sign up (the first account becomes that tenant's
+owner), and mint a key from **Console → API Keys** — `setup-cf.sh` generates
+its own `API_KEY` secret directly on the worker, so that value is never
+shown to you. Either way, the minimal API equivalent to clicking through the
+Console:
 
 ```bash
-BASE=http://localhost:8787   # or your deployed URL
-KEY=dev-test-key             # whatever you set as API_KEY
+BASE=http://localhost:8787          # local pnpm dev — swap for your deployed URL
+KEY=dev-test-key-change-me          # .dev.vars.example's default (local only —
+                                     # for a deploy, use the key you minted above)
 
 AGENT=$(curl -s $BASE/v1/agents \
   -H "x-api-key: $KEY" -H "content-type: application/json" \
@@ -178,7 +192,7 @@ curl -N -X POST $BASE/v1/sessions/$SESSION/messages \
   -d '{"content":"Write a Python script that fetches HN top stories"}'
 ```
 
-For long-lived sessions use `GET /v1/sessions/$SESSION/events/stream` — replays history on connect, never closes.
+For long-lived sessions use `GET /v1/sessions/$SESSION/events/stream` — replays history on connect, never closes. For the full Console-driven flow (Model Cards, vaults, integrations) see **[docs.oma.duyet.net/quickstart](https://docs.oma.duyet.net/quickstart)**.
 
 ### Deploying the website
 
