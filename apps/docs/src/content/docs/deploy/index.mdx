@@ -1,0 +1,31 @@
+---
+title: Deploy Guides
+description: Docker, Cloudflare, and Kubernetes deployment guides for OMA.
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Pick the deployment path that matches your environment.
+
+<CardGrid>
+  <LinkCard
+    title="Docker"
+    href="/deploy/docker/"
+    description="Production Docker deployment with Postgres, custom configuration, and sandbox tuning."
+  />
+  <LinkCard
+    title="Cloudflare"
+    href="/deploy/cloudflare/"
+    description="Production Cloudflare Workers deployment with custom domains, OAuth apps, and monitoring."
+  />
+  <LinkCard
+    title="Kubernetes"
+    href="/deploy/kubernetes/"
+    description="Scale OMA with Kubernetes sandbox pods using the k8s-bridge."
+  />
+  <LinkCard
+    title="K8s Bridge Reference"
+    href="/deploy/k8s-bridge/"
+    description="Full API reference and Helm configuration for the k8s-bridge."
+  />
+</CardGrid>

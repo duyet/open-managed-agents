@@ -20,6 +20,7 @@ Fastest way from zero to a running agent. Requires only Docker.
 |---|---|---|
 | [Docker](https://docs.docker.com/get-docker/) | Latest | Runs the sandbox, database, and vault sidecar |
 | [curl](https://curl.se) | Any | Test the API from the terminal |
+| [jq](https://jqlang.github.io/jq/) | Any | Parse JSON responses in the terminal |
 
 ### Steps
 
@@ -38,19 +39,11 @@ Fastest way from zero to a running agent. Requires only Docker.
    cp .env.example .env
    ```
 
-   Generate two required secrets:
+   Generate two required secrets and append them to `.env`:
 
    ```bash
-   export BETTER_AUTH_SECRET=$(openssl rand -hex 32)
-   export PLATFORM_ROOT_SECRET=$(openssl rand -base64 32)
-   ```
-
-   Add them to `.env`:
-
-   ```bash
-   # .env
-   BETTER_AUTH_SECRET=<paste-from-above>
-   PLATFORM_ROOT_SECRET=<paste-from-above>
+   echo "BETTER_AUTH_SECRET=$(openssl rand -hex 32)" >> .env
+   echo "PLATFORM_ROOT_SECRET=$(openssl rand -base64 32)" >> .env
    ```
 
    <Aside type="tip" title="Back up PLATFORM_ROOT_SECRET">
@@ -70,8 +63,9 @@ Fastest way from zero to a running agent. Requires only Docker.
    ```
 
    Expected:
+
    ```json
-   {"status":"ok","backends":{"db":"sqlite"},"version":"0.1.0"}
+   {"status":"ok","runtime":"node","auth":"better-auth-sqlite","backends":{"db":"sqlite"}}
    ```
 
 4. **Create your first agent.**
@@ -88,7 +82,7 @@ Fastest way from zero to a running agent. Requires only Docker.
        "model": "claude-sonnet-4-6",
        "system": "You are a helpful assistant. Keep replies short.",
        "tools": [{"type": "agent_toolset_20260401", "default_config": {"enabled": true}}]
-     }' | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
+     }' | jq -r .id)
    echo "Agent: $AGENT_ID"
    ```
 
@@ -98,7 +92,7 @@ Fastest way from zero to a running agent. Requires only Docker.
    SESSION_ID=$(curl -s -X POST "$OMA_BASE/v1/sessions" \
      -H "x-api-key: $OMA_KEY" \
      -H "content-type: application/json" \
-     -d "{\"agent\": \"$AGENT_ID\"}" | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
+     -d "{\"agent\": \"$AGENT_ID\"}" | jq -r .id)
 
    curl -N -X POST "$OMA_BASE/v1/sessions/$SESSION_ID/messages" \
      -H "x-api-key: $OMA_KEY" \

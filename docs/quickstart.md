@@ -18,6 +18,7 @@ Get OMA running on your machine (or in the cloud) and send your first agent mess
 
 - [Docker](https://docs.docker.com/get-docker/) (with Compose)
 - [curl](https://curl.se) (or any HTTP client)
+- [jq](https://jqlang.github.io/jq/) (for parsing JSON responses)
 
 ### 2. Clone & Configure
 
@@ -49,8 +50,9 @@ curl localhost:8787/health
 ```
 
 Expected response:
+
 ```json
-{"status":"ok","backends":{"db":"sqlite"},"version":"0.1.0"}
+{"status":"ok","runtime":"node","auth":"better-auth-sqlite","backends":{"db":"sqlite"}}
 ```
 
 ### 4. Create Your First Agent
@@ -69,7 +71,7 @@ AGENT_ID=$(curl -s -X POST "$OMA_BASE/v1/agents" \
     "model": "claude-sonnet-4-6",
     "system": "You are a helpful assistant. Keep replies short.",
     "tools": [{"type": "agent_toolset_20260401", "default_config": {"enabled": true}}]
-  }' | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
+  }' | jq -r .id)
 
 echo "Agent: $AGENT_ID"
 ```
@@ -80,7 +82,7 @@ echo "Agent: $AGENT_ID"
 SESSION_ID=$(curl -s -X POST "$OMA_BASE/v1/sessions" \
   -H "x-api-key: $OMA_KEY" \
   -H "content-type: application/json" \
-  -d "{\"agent\": \"$AGENT_ID\"}" | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
+  -d "{\"agent\": \"$AGENT_ID\"}" | jq -r .id)
 
 curl -N -X POST "$OMA_BASE/v1/sessions/$SESSION_ID/messages" \
   -H "x-api-key: $OMA_KEY" \
@@ -93,7 +95,7 @@ You'll see the agent's reply stream in real-time.
 ### Next Steps with Docker
 
 - [Docker deploy guide](deploy/docker.md) — Postgres, custom config, production tuning
-- [Self-host overview](../self-host/overview.md)
+- [Self-host overview](self-host.md)
 
 ---
 
@@ -185,6 +187,6 @@ curl -H "Authorization: Bearer $K8S_BRIDGE_TOKEN" \
 ## What's Next
 
 - **Deploy guides**: [Docker](deploy/docker.md) · [Cloudflare](deploy/cloudflare.md) · [Kubernetes](deploy/kubernetes.md)
-- **Build with the API**: [API reference](./reference/api.md) · [CLI/SDK](./build/cli-sdk.md)
+- **Build with the API**: [API reference](https://docs.oma.duyet.net/build/api/) · [CLI/SDK](https://docs.oma.duyet.net/build/cli-sdk/)
 - **Add integrations**: Slack · GitHub · Linear
 - **Custom harness**: Replace the default agent loop with your own logic
