@@ -25,6 +25,7 @@
 
 import { Hono } from "hono";
 import type { KvStore } from "@duyet/oma-kv-store";
+import { MCP_SERVER_NAME_RE } from "@duyet/oma-api-types";
 import type { RouteServicesArg } from "./types";
 import { resolveServices } from "./types";
 
@@ -106,8 +107,8 @@ export function buildMcpServerRoutes(deps: McpServerRoutesDeps) {
     const body = (await c.req.json().catch(() => null)) as
       | { name?: string; url?: string; credential_id?: string; description?: string }
       | null;
-    if (!body || typeof body.name !== "string" || body.name.length === 0) {
-      return c.json({ error: "name is required" }, 422);
+    if (!body || typeof body.name !== "string" || !MCP_SERVER_NAME_RE.test(body.name)) {
+      return c.json({ error: "name must match ^[a-zA-Z0-9_-]{1,40}$" }, 422);
     }
     if (!validUrl(body.url)) {
       return c.json({ error: "url must be a valid http(s) URL" }, 422);
@@ -174,8 +175,8 @@ export function buildMcpServerRoutes(deps: McpServerRoutesDeps) {
       | null;
     if (!body) return c.json({ error: "invalid body" }, 422);
     if (body.name !== undefined) {
-      if (typeof body.name !== "string" || body.name.length === 0) {
-        return c.json({ error: "name must be a non-empty string" }, 422);
+      if (typeof body.name !== "string" || !MCP_SERVER_NAME_RE.test(body.name)) {
+        return c.json({ error: "name must match ^[a-zA-Z0-9_-]{1,40}$" }, 422);
       }
       row.name = body.name;
     }

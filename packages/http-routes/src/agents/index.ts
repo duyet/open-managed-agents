@@ -17,7 +17,7 @@ import { Hono } from "hono";
 import type {
   AgentConfig,
 } from "@duyet/oma-shared";
-import { notificationTargetsSchema } from "@duyet/oma-api-types";
+import { notificationTargetsSchema, mcpServersSchema } from "@duyet/oma-api-types";
 import {
   AgentNotFoundError,
   AgentVersionMismatchError,
@@ -220,6 +220,13 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
 
     const ma = multiagentToCallableAgents(raw.multiagent);
     if (ma.error) return c.json({ error: ma.error }, 422);
+
+    if (raw.mcp_servers !== undefined) {
+      const parsed = mcpServersSchema.safeParse(raw.mcp_servers);
+      if (!parsed.success) {
+        return c.json({ error: "invalid mcp_servers config", details: parsed.error.issues }, 422);
+      }
+    }
 
     const body = {
       ...raw,
@@ -438,6 +445,13 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
       callableAgents = ma.list;
     } else if (raw.callable_agents !== undefined) {
       callableAgents = raw.callable_agents;
+    }
+
+    if (raw.mcp_servers !== undefined && raw.mcp_servers !== null) {
+      const parsed = mcpServersSchema.safeParse(raw.mcp_servers);
+      if (!parsed.success) {
+        return c.json({ error: "invalid mcp_servers config", details: parsed.error.issues }, 422);
+      }
     }
 
     const body = {
