@@ -214,53 +214,58 @@ export { outbound, outboundByHost } from "../apps/agent/src/outbound";
 // D1 starts empty and our routes (e.g. /v1/memory_stores) hit memory tables.
 // Idempotent: every CREATE uses IF NOT EXISTS, drop is a no-op rerun.
 //
-// Mirrors what `wrangler d1 migrations apply` does in prod — applies the
-// consolidated baseline SQL file. The original 20 historical files live in
-// _archive/ for git-blame reference; this test path uses the same single
-// 0000_consolidated.sql self-host deploys ship with, plus any post-
-// consolidation files added on top (0018_runtime_multi_tenant.sql was the
-// first such; 0002_session_run_summary.sql — issue #21 — adds another. Its
-// drizzle-kit-assigned index is 0002, not 0019 — it sorts after 0001 but
-// before 0017/0018 by drizzle's own numbering; the file list here is
-// order-independent for ALTER TABLE ADD COLUMN, so that's harmless).
-// New post-consolidation migration files must be added here explicitly:
-// the `?raw` imports are static, so nothing here discovers new files on
-// its own — forgetting this step is why a brand-new migration can pass
-// `pnpm db:check:*` yet still 500 with "no such column" under this pool.
+// Derived from the real migration files via import.meta.glob (issue #214):
+// every .sql file directly under apps/main/migrations and apps/main/
+// migrations-integrations is picked up automatically and replayed in
+// numeric-prefix order — nothing to list by hand, so a newly-added
+// migration can't silently drift out of the test schema again. (The
+// previous approach hand-listed 5 specific files; that's exactly how the
+// sessions.input_tokens column — added later — went missing from tests.)
+//
+// A setupFiles-based approach using @cloudflare/vitest-pool-workers'
+// readD1Migrations()/applyD1Migrations() (its own recommended pattern) was
+// tried first, but importing `cloudflare:test` from a setupFiles module
+// breaks vi.mock("ai", ...) hoisting in unrelated test files (reproduced
+// with test/unit/compaction-strategies.test.ts against pool version 0.14.7)
+// — so migrations stay applied here, lazily, on first fetch() into this
+// worker, same as before.
+//
+// migrations-router/ is deliberately NOT applied here: wrangler.test.jsonc
+// has no standalone ROUTER_DB binding (single-D1 topology, same as
+// self-host), and apps/main/migrations/0001_router_tables.sql already
+// creates the same router tables (shard_pool/tenant_shard/
+// memory_store_tenant) on MAIN_DB — see the migrations comment atop
+// scripts/setup-cf-production.sh. Applying both would double-CREATE the
+// same tables and fail (migrations-router/0001_consolidated.sql is
+// byte-identical to migrations/0001_router_tables.sql).
+const mainMigrationModules = import.meta.glob("../apps/main/migrations/*.sql", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+const integrationsMigrationModules = import.meta.glob("../apps/main/migrations-integrations/*.sql", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
 
-// @ts-expect-error vitest resolves SQL via ?raw
-import authSchema from "../apps/main/migrations/0000_consolidated.sql?raw";
-// @ts-expect-error vitest resolves SQL via ?raw
-import schema0017 from "../apps/main/migrations/0017_dreams.sql?raw";
-// @ts-expect-error vitest resolves SQL via ?raw
-import schema0018 from "../apps/main/migrations/0018_runtime_multi_tenant.sql?raw";
-// @ts-expect-error vitest resolves SQL via ?raw
-import schema0019 from "../apps/main/migrations/0002_session_run_summary.sql?raw";
-// @ts-expect-error vitest resolves SQL via ?raw
-import schema0020 from "../apps/main/migrations/0019_add_usage_events_instance_type.sql?raw";
-// @ts-expect-error vitest resolves SQL via ?raw
-import integrationsSchema from "../apps/main/migrations-integrations/0001_consolidated.sql?raw";
-// @ts-expect-error vitest resolves SQL via ?raw
-import routerSchema from "../apps/main/migrations-router/0001_consolidated.sql?raw";
+function sortedMigrationSql(modules: Record<string, string>): string[] {
+  return Object.keys(modules)
+    .sort((a, b) => {
+      const numOf = (path: string) => parseInt(path.split("/").pop()!.split("_")[0], 10);
+      return numOf(a) - numOf(b);
+    })
+    .map((path) => modules[path]);
+}
 
-const MIGRATIONS_RAW: string[] = [
-  authSchema as string,
-  schema0017 as string,
-  schema0018 as string,
-  schema0019 as string,
-  schema0020 as string,
-];
-
-const INTEGRATIONS_MIGRATIONS_RAW: string[] = [integrationsSchema as string];
-
-const ROUTER_MIGRATIONS_RAW: string[] = [routerSchema as string];
+const MIGRATIONS_RAW: string[] = sortedMigrationSql(mainMigrationModules);
+const INTEGRATIONS_MIGRATIONS_RAW: string[] = sortedMigrationSql(integrationsMigrationModules);
 
 let migrationsApplied = false;
 async function ensureMigrations(env: {
   MAIN_DB?: D1Database;
   AUTH_DB?: D1Database;
   INTEGRATIONS_DB?: D1Database;
-  ROUTER_DB?: D1Database;
 }): Promise<void> {
   env.MAIN_DB ??= env.AUTH_DB;
   if (migrationsApplied || !env.AUTH_DB) return;
@@ -271,9 +276,9 @@ async function ensureMigrations(env: {
   if (env.INTEGRATIONS_DB) {
     await applyMigrations(env.INTEGRATIONS_DB, INTEGRATIONS_MIGRATIONS_RAW, "integrations");
   }
-  const routerDb = env.ROUTER_DB ?? env.MAIN_DB ?? env.AUTH_DB;
-  await applyMigrations(routerDb, ROUTER_MIGRATIONS_RAW, "router");
-  await routerDb
+  // Fixture seed row, not schema — some services fall back to reading
+  // shard_pool for the single-shard case (no separate ROUTER_DB in tests).
+  await (env.MAIN_DB ?? env.AUTH_DB)
     .prepare(
       `INSERT OR IGNORE INTO shard_pool (binding_name, status, notes)
        VALUES ('MAIN_DB', 'open', 'vitest default shard')`,
