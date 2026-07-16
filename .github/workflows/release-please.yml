@@ -1,10 +1,17 @@
 name: Release Please
 
-# Maintains a rolling "release PR" that bumps the repo version (patch-only,
-# per release-please-config.json `always-bump-patch`) and updates CHANGELOG.md
-# from Conventional Commits. Merging that PR tags the release. This governs the
-# self-host / deployment version; npm package publishing stays on changesets
-# (release.yml) for @duyet/oma-cli and @duyet/oma-sdk.
+# release-please watches Conventional Commits landing on main and maintains
+# rolling "chore(release): ..." PRs that bump each tracked component and update
+# its own CHANGELOG.md. Components are tracked and released independently:
+#
+#   - root   → repo-level CHANGELOG.md            (self-host / deploy version)
+#   - web    → apps/web + apps/web/CHANGELOG.md   (public website)
+#   - cli    → packages/cli + CHANGELOG.md        (oma CLI on npm)
+#   - docker → docker + docker/CHANGELOG.md       (container images / charts)
+#
+# Each component gets its own tag (e.g. web-v0.1.0) and its own changelog.
+# npm package publishing for @duyet/oma-cli / @duyet/oma-sdk additionally
+# stays on changesets (release.yml).
 #
 # NOTE: requires the repo setting "Allow GitHub Actions to create and approve
 # pull requests" (Settings → Actions → General → Workflow permissions).
@@ -24,9 +31,14 @@ concurrency:
 
 jobs:
   release-please:
+    name: release-please
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: googleapis/release-please-action@v4
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v5
         with:
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: .github/release-please-config.json
+          manifest-file: .github/.release-please-manifest.json
