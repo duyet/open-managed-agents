@@ -29,6 +29,10 @@ export const sessions = pgTable(
     stop_reason: text("stop_reason"),
     tool_call_count: integer("tool_call_count").notNull().default(0),
     message_count: integer("message_count").notNull().default(0),
+    // Added for session analytics — mirrors cf-auth/sessions.ts. Cumulative
+    // model token usage over the whole session.
+    input_tokens: integer("input_tokens").notNull().default(0),
+    output_tokens: integer("output_tokens").notNull().default(0),
   },
   (t) => [
     index("idx_sessions_status").on(t.status, t.tenant_id),
