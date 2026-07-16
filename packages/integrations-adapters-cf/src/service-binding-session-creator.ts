@@ -76,4 +76,19 @@ export class ServiceBindingSessionCreator implements SessionCreator {
       throw new Error(`SessionCreator.resume: ${res.status} ${body}`);
     }
   }
+
+  async pause(userId: string, sessionId: SessionId): Promise<void> {
+    const res = await this.main.fetch(`http://main${this.path}/${sessionId}/pause`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-internal-secret": this.secret,
+      },
+      body: JSON.stringify({ userId }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`SessionCreator.pause: ${res.status} ${body}`);
+    }
+  }
 }
