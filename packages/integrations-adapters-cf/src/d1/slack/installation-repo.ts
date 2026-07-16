@@ -62,6 +62,10 @@ export class SqlSlackInstallationRepo implements SlackInstallationRepo {
             isNull(slack_installations.revoked_at),
           ),
         )
+        // Newest live install wins: a workspace that reinstalled the managed
+        // App (a fresh OAuth grant → a new row) should route to its latest
+        // installation, not an arbitrary earlier one.
+        .orderBy(desc(slack_installations.created_at))
         .limit(1),
     );
     return row ? this.toDomain(row) : null;
