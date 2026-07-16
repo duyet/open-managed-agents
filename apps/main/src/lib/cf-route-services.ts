@@ -40,6 +40,7 @@ function buildRouteServices(services: Services, sql: CfD1SqlClient): RouteServic
     credentials: services.credentials,
     memory: services.memory,
     sessions: services.sessions,
+    modelCards: services.modelCards,
     kv: services.kv,
     newEventLog: () => ({
       appendAsync: async () => {},

@@ -4,6 +4,13 @@ import { useInfiniteApiQuery } from "../lib/useApiQuery";
 import { Modal } from "../components/Modal";
 import { Button } from "@/components/ui/button";
 import { PopoverContent } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DataTable, type ColumnDef } from "../components/DataTable";
 import { FacetedFilter } from "../components/FacetedFilter";
 import { FilterChip, CreatedFilterChip } from "../components/FilterChip";
@@ -24,12 +31,26 @@ interface AnyRouterStatus {
   connected: boolean;
   connected_at?: string;
   base_url?: string;
+  /** Present when this deployment auto-minted a model_cards row for the
+   *  connected key (Cloudflare — see packages/http-routes/src/providers/
+   *  anyrouter.ts upsertModelCard). Absent on self-host Node, which has no
+   *  D1 model-cards store and hot-swaps a process-global provider instead. */
+  model_card_id?: string;
+  /** The card's current wire-level target, e.g. "anthropic/claude-sonnet-4-6". */
+  model?: string;
+}
+
+interface AnyRouterModelOption {
+  id: string;
+  name?: string;
 }
 
 function AnyRouterConnectCard() {
   const { api } = useApi();
   const [status, setStatus] = useState<AnyRouterStatus | null>(null);
   const [busy, setBusy] = useState(false);
+  const [models, setModels] = useState<AnyRouterModelOption[]>([]);
+  const [modelBusy, setModelBusy] = useState(false);
 
   const refresh = useCallback(() => {
     api<AnyRouterStatus>("/v1/providers/anyrouter/status")
@@ -54,6 +75,19 @@ function AnyRouterConnectCard() {
     }
   }, [refresh]);
 
+  // Only fetch the catalog once connected AND a card exists to bind the
+  // picker to — no point offering choices with nowhere to save them
+  // (self-host Node has no model_card_id, see AnyRouterStatus doc above).
+  useEffect(() => {
+    if (!status?.connected || !status.model_card_id) {
+      setModels([]);
+      return;
+    }
+    api<{ data: AnyRouterModelOption[] }>("/v1/providers/anyrouter/models")
+      .then((res) => setModels(res.data ?? []))
+      .catch(() => setModels([]));
+  }, [api, status?.connected, status?.model_card_id]);
+
   const disconnect = async () => {
     setBusy(true);
     try {
@@ -67,26 +101,90 @@ function AnyRouterConnectCard() {
     }
   };
 
+  const changeModel = async (model: string) => {
+    if (!status?.model_card_id || model === status.model) return;
+    setModelBusy(true);
+    try {
+      await api(`/v1/model_cards/${status.model_card_id}`, {
+        method: "POST",
+        body: JSON.stringify({ model }),
+      });
+      toast.success(`AnyRouter now targets ${model}.`);
+      refresh();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to update the target model");
+    } finally {
+      setModelBusy(false);
+    }
+  };
+
+  const setAsDefault = async () => {
+    if (!status?.model_card_id) return;
+    setBusy(true);
+    try {
+      await api(`/v1/model_cards/${status.model_card_id}`, {
+        method: "POST",
+        body: JSON.stringify({ is_default: true }),
+      });
+      toast.success("AnyRouter set as the default model for new agents.");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to set AnyRouter as default");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (status === null) return null;
 
   return (
-    <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-border bg-bg-surface px-4 py-3">
-      <div>
-        <div className="text-sm font-medium text-fg">AnyRouter</div>
-        <div className="text-xs text-fg-subtle">
-          {status.connected
-            ? "Connected — agents on this node route through AnyRouter's gateway (150+ models, unified billing)."
-            : "Connect once via OAuth to route agents through AnyRouter, without pasting an sk-ar-… key by hand."}
+    <div className="mb-4 flex flex-col gap-3 rounded-lg border border-border bg-bg-surface px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-sm font-medium text-fg">AnyRouter</div>
+          <div className="text-xs text-fg-subtle">
+            {status.connected
+              ? "Connected — agents with model \"anyrouter\" route through AnyRouter's gateway (150+ models, unified billing)."
+              : "Connect once via OAuth to route agents through AnyRouter, without pasting an sk-ar-… key by hand."}
+          </div>
         </div>
+        {status.connected ? (
+          <Button variant="ghost" onClick={disconnect} disabled={busy}>
+            Disconnect
+          </Button>
+        ) : (
+          <Button onClick={() => window.location.assign("/v1/providers/anyrouter/connect")}>
+            Connect to AnyRouter
+          </Button>
+        )}
       </div>
-      {status.connected ? (
-        <Button variant="ghost" onClick={disconnect} disabled={busy}>
-          Disconnect
-        </Button>
-      ) : (
-        <Button onClick={() => window.location.assign("/v1/providers/anyrouter/connect")}>
-          Connect to AnyRouter
-        </Button>
+      {status.connected && status.model_card_id && (
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+          <span className="text-xs text-fg-subtle">Model:</span>
+          <Select
+            value={status.model}
+            onValueChange={changeModel}
+            disabled={modelBusy || models.length === 0}
+          >
+            <SelectTrigger size="sm" className="min-w-56">
+              <SelectValue placeholder={status.model || "Loading models…"} />
+            </SelectTrigger>
+            <SelectContent>
+              {(models.some((m) => m.id === status.model)
+                ? models
+                : status.model
+                  ? [{ id: status.model, name: status.model }, ...models]
+                  : models
+              ).map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  {m.name ? `${m.name} (${m.id})` : m.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="ghost" size="sm" onClick={setAsDefault} disabled={busy}>
+            Set as default
+          </Button>
+        </div>
       )}
     </div>
   );
