@@ -43,13 +43,16 @@ git clone https://github.com/duyet/oma.git
 cd oma
 cp .env.example .env
 
-# 首次启动前必须设置两个密钥（都在本地生成）：
+# 首次启动前必须设置两个密钥（服务器没有它们会拒绝启动，都在本地生成）：
 #   BETTER_AUTH_SECRET   — 用于签发 Console 会话
 #   PLATFORM_ROOT_SECRET — 用于加密静态存储的凭证、Model Card API key、集成 token
 #                          （丢失后所有加密行将无法解密 —— 务必备份）
+# 第三个 API_KEY 是可选的，但下面的冒烟测试需要它（否则每个 curl 都会 401 ——
+# 全新安装还没有 Console 会话 cookie）：
 $EDITOR .env
 # BETTER_AUTH_SECRET=$(openssl rand -hex 32)
 # PLATFORM_ROOT_SECRET=$(openssl rand -base64 32)
+# API_KEY=$(openssl rand -hex 24)
 #
 # 可选：ANTHROPIC_API_KEY 让第一个 agent 在还没添加 Model Card 时也能跑起来。
 # 生产环境请改为在 Console 里按 tenant 添加 Model Card。
@@ -66,18 +69,25 @@ curl localhost:8787/health
 open http://localhost:8787   # Console UI 跑在同一个端口
 ```
 
-端到端冒烟测试：
+端到端冒烟测试（使用你在上面 `.env` 中设置的 `API_KEY`）：
 
 ```bash
-AID=$(curl -s -X POST localhost:8787/v1/agents -H 'content-type: application/json' \
+KEY=$(grep '^API_KEY=' .env | cut -d= -f2)
+
+AID=$(curl -s -X POST localhost:8787/v1/agents -H "x-api-key: $KEY" -H 'content-type: application/json' \
   -d '{"name":"hello","model":"claude-sonnet-4-6","tools":[{"type":"agent_toolset_20260401"}]}' | jq -r .id)
 
-SID=$(curl -s -X POST localhost:8787/v1/sessions -H 'content-type: application/json' \
+SID=$(curl -s -X POST localhost:8787/v1/sessions -H "x-api-key: $KEY" -H 'content-type: application/json' \
   -d "{\"agent\":\"$AID\"}" | jq -r .id)
 
-curl -s -X POST localhost:8787/v1/sessions/$SID/events -H 'content-type: application/json' \
+curl -s -X POST localhost:8787/v1/sessions/$SID/events -H "x-api-key: $KEY" -H 'content-type: application/json' \
   -d '{"events":[{"type":"user.message","content":[{"type":"text","text":"Run: uname -a"}]}]}'
 ```
+
+没设置 `API_KEY`、只想在单用户本地试用时彻底跳过认证？`echo "AUTH_DISABLED=1" >> .env`，
+重启，然后把上面每个 curl 里的 `-H "x-api-key: ..."` 去掉即可 —— 所有请求都会变成
+`tenant_id="default"`。完整的认证模式（邮箱密码注册、OTP、Google OAuth）：
+**[docs.oma.duyet.net/self-host/node-docker#login](https://docs.oma.duyet.net/self-host/node-docker/#login)**。
 
 完整的自部署指南（沙箱模式、Postgres、BoxRun、vault sidecar、Console UI、运维注意事项）：**[docs.oma.duyet.net/self-host/overview](https://docs.oma.duyet.net/self-host/overview/)**
 

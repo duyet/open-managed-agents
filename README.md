@@ -53,13 +53,17 @@ git clone https://github.com/duyet/oma.git
 cd oma
 cp .env.example .env
 
-# Two secrets are required before first boot — both generated locally:
+# Two secrets are required before first boot (server refuses to start
+# without them) — both generated locally:
 #   BETTER_AUTH_SECRET   — signs Console sessions
 #   PLATFORM_ROOT_SECRET — encrypts credentials, model-card API keys, integration tokens at rest
 #                          (lose it and every encrypted row is unreadable — back it up)
+# A third, API_KEY, is optional but the smoke test below needs it (otherwise
+# every curl 401s — there's no Console session cookie yet on a fresh install):
 $EDITOR .env
 # BETTER_AUTH_SECRET=$(openssl rand -hex 32)
 # PLATFORM_ROOT_SECRET=$(openssl rand -base64 32)
+# API_KEY=$(openssl rand -hex 24)
 #
 # Optional: ANTHROPIC_API_KEY lets the first agent run without a Model Card.
 # In production, add a Model Card per tenant from the Console instead.
@@ -76,18 +80,26 @@ curl localhost:8787/health
 open http://localhost:8787   # Console UI on the same port
 ```
 
-Smoke test the harness end-to-end:
+Smoke test the harness end-to-end (uses the `API_KEY` you set in `.env` above):
 
 ```bash
-AID=$(curl -s -X POST localhost:8787/v1/agents -H 'content-type: application/json' \
+KEY=$(grep '^API_KEY=' .env | cut -d= -f2)
+
+AID=$(curl -s -X POST localhost:8787/v1/agents -H "x-api-key: $KEY" -H 'content-type: application/json' \
   -d '{"name":"hello","model":"claude-sonnet-4-6","tools":[{"type":"agent_toolset_20260401"}]}' | jq -r .id)
 
-SID=$(curl -s -X POST localhost:8787/v1/sessions -H 'content-type: application/json' \
+SID=$(curl -s -X POST localhost:8787/v1/sessions -H "x-api-key: $KEY" -H 'content-type: application/json' \
   -d "{\"agent\":\"$AID\"}" | jq -r .id)
 
-curl -s -X POST localhost:8787/v1/sessions/$SID/events -H 'content-type: application/json' \
+curl -s -X POST localhost:8787/v1/sessions/$SID/events -H "x-api-key: $KEY" -H 'content-type: application/json' \
   -d '{"events":[{"type":"user.message","content":[{"type":"text","text":"Run: uname -a"}]}]}'
 ```
+
+Skipped `API_KEY` and want zero auth friction instead for a single-user local
+trial? `echo "AUTH_DISABLED=1" >> .env`, restart, and drop the `-H
+"x-api-key: ..."` from every curl above — every request becomes
+`tenant_id="default"`. Full auth modes (email/password sign-up, OTP, Google
+OAuth): **[docs.oma.duyet.net/self-host/node-docker#login](https://docs.oma.duyet.net/self-host/node-docker/#login)**.
 
 Full self-host guide (sandbox modes, Postgres, BoxRun, vault sidecar,
 Console UI, operator gotchas): **[docs.oma.duyet.net/self-host/overview](https://docs.oma.duyet.net/self-host/overview/)**

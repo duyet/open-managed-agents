@@ -1078,6 +1078,12 @@ if (auth) {
 // (Node/self-host only for now — see the env var block above).
 const authMw = buildAuthMw({
   disabled: authDisabled,
+  // Bootstrap key for first-run / CLI use before any api_keys row exists —
+  // mirrors the env.API_KEY compat check apps/main has always had on CF
+  // (see oma#168). Optional: unset (the .env.example default) means this
+  // check never matches and x-api-key falls straight through to the
+  // api_keys table lookup below, same as before this existed.
+  bootstrapApiKey: process.env.API_KEY || undefined,
   bypassPath: (path) =>
     path === "/health" ||
     path.startsWith("/auth/") ||
