@@ -265,51 +265,53 @@ A **meta-harness** is not an agent — it's the platform that runs agents. It de
 
 ## Write a Harness
 
-The default harness works out of the box. When you need custom behavior — different caching, compaction, context engineering — write your own:
+The default harness works out of the box. When you need custom behavior — different caching, compaction, context engineering — implement `HarnessInterface` and register it by name:
 
 ```typescript
-// my-harness.ts
-import { defineHarness, generateText, stepCountIs } from "@duyet/oma-sdk";
+// apps/agent/src/harness/research-loop.ts
+import type { HarnessInterface, HarnessContext } from "./interface";
+import { generateText, stepCountIs } from "ai";
 
-export default defineHarness({
-  name: "research",
+export class ResearchHarness implements HarnessInterface {
+  async run(ctx: HarnessContext): Promise<void> {
+    const messages = ctx.runtime.history.getMessages();
 
-  async run(ctx) {
-    let messages = ctx.runtime.history.getMessages();
-
-    // Your context engineering
-    messages = keepOnly(messages, ["web_search", "web_fetch"]);
-
-    // Your caching strategy
-    markLastN(messages, 3, { cacheControl: "ephemeral" });
-
-    // Your loop — tools, sandbox, broadcast are platform-provided
+    // Your context engineering, caching strategy, loop — tools, sandbox,
+    // and broadcast are platform-provided via ctx.
     const result = await generateText({
       model: ctx.model,
       system: ctx.systemPrompt,
       messages,
       tools: ctx.tools,
       stopWhen: stepCountIs(50),
-      onStepFinish: async ({ text }) => {
-        if (text) ctx.runtime.broadcast({
-          type: "agent.message",
-          content: [{ type: "text", text }],
-        });
-      },
     });
 
-    await ctx.runtime.reportUsage?.(result.usage.inputTokens, result.usage.outputTokens);
-  },
-});
+    ctx.runtime.broadcast({
+      type: "agent.message",
+      content: [{ type: "text", text: result.text }],
+    });
+  }
+}
 ```
 
-Deploy it:
+Register it in `apps/agent/src/index.ts`, next to the built-in harnesses:
 
-```bash
-oma deploy --harness my-harness.ts --agent agent_abc123
+```typescript
+import { ResearchHarness } from "./harness/research-loop";
+registerHarness("research", () => new ResearchHarness());
 ```
 
-The harness is bundled into the agent worker at build time. Your code runs in the same isolate as SessionDO — direct access to the event log, sandbox, and WebSocket broadcast. No RPC, no serialization boundary.
+Point an agent at it and redeploy the agent worker (self-host, or your fork's CI):
+
+```json
+{ "name": "Researcher", "model": "claude-sonnet-4-6", "harness": "research" }
+```
+
+There's no standalone harness-deploy path today — a custom harness lives in the
+agent worker's source tree and ships with it. Full contract (the optional
+`onSessionInit` / `shouldCompact` / `compact` / `deriveModelContext` hooks) and
+a worked example: [AGENTS.md § Custom Harness](AGENTS.md#custom-harness). The
+`/new-harness` skill in this repo scaffolds the file and registration for you.
 
 ---
 
@@ -763,7 +765,7 @@ open-managed-agents/
 │   └── web/               # Marketing site (Astro) — published to oma.duyet.net
 ├── packages/
 │   ├── cli/                       # `oma` CLI — agent / session / integration commands
-│   ├── sdk/                       # Harness SDK — defineHarness, generateText helpers
+│   ├── sdk/                       # TypeScript SDK — typed REST + SSE client (`Oma` class)
 │   ├── api-types/                 # Shared TypeScript types (config schemas, events)
 │   ├── http-routes/               # Public REST route definitions (shared by main + main-node)
 │   ├── session-runtime/           # Harness runtime — event log, broadcast, recovery

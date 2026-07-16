@@ -214,51 +214,49 @@ curl -N -X POST $BASE/v1/sessions/$SESSION/messages \
 
 ## 编写一个 Harness
 
-默认 harness 开箱即用。当你需要自定义行为 —— 不同的缓存、压缩、上下文工程 —— 时，写你自己的：
+默认 harness 开箱即用。当你需要自定义行为 —— 不同的缓存、压缩、上下文工程 —— 时，实现 `HarnessInterface` 并按名字注册：
 
 ```typescript
-// my-harness.ts
-import { defineHarness, generateText, stepCountIs } from "@duyet/oma-sdk";
+// apps/agent/src/harness/research-loop.ts
+import type { HarnessInterface, HarnessContext } from "./interface";
+import { generateText, stepCountIs } from "ai";
 
-export default defineHarness({
-  name: "research",
+export class ResearchHarness implements HarnessInterface {
+  async run(ctx: HarnessContext): Promise<void> {
+    const messages = ctx.runtime.history.getMessages();
 
-  async run(ctx) {
-    let messages = ctx.runtime.history.getMessages();
-
-    // 你的上下文工程
-    messages = keepOnly(messages, ["web_search", "web_fetch"]);
-
-    // 你的缓存策略
-    markLastN(messages, 3, { cacheControl: "ephemeral" });
-
-    // 你的循环 —— 工具、沙箱、广播由平台提供
+    // 你的上下文工程、缓存策略、循环 —— 工具、沙箱、广播都由平台
+    // 通过 ctx 提供。
     const result = await generateText({
       model: ctx.model,
       system: ctx.systemPrompt,
       messages,
       tools: ctx.tools,
       stopWhen: stepCountIs(50),
-      onStepFinish: async ({ text }) => {
-        if (text) ctx.runtime.broadcast({
-          type: "agent.message",
-          content: [{ type: "text", text }],
-        });
-      },
     });
 
-    await ctx.runtime.reportUsage?.(result.usage.inputTokens, result.usage.outputTokens);
-  },
-});
+    ctx.runtime.broadcast({
+      type: "agent.message",
+      content: [{ type: "text", text: result.text }],
+    });
+  }
+}
 ```
 
-部署：
+在 `apps/agent/src/index.ts` 中注册，紧挨着内置的 harness：
 
-```bash
-oma deploy --harness my-harness.ts --agent agent_abc123
+```typescript
+import { ResearchHarness } from "./harness/research-loop";
+registerHarness("research", () => new ResearchHarness());
 ```
 
-Harness 在构建时被打包进 agent worker。你的代码和 SessionDO 跑在同一个 isolate 里 —— 直接访问事件日志、沙箱和 WebSocket 广播。没有 RPC，没有序列化边界。
+让一个智能体指向它，然后重新部署 agent worker（自部署，或你 fork 的 CI）：
+
+```json
+{ "name": "Researcher", "model": "claude-sonnet-4-6", "harness": "research" }
+```
+
+目前没有独立的 harness 部署路径 —— 自定义 harness 存在于 agent worker 的源码树中，随它一起发布。完整契约（可选的 `onSessionInit` / `shouldCompact` / `compact` / `deriveModelContext` 钩子）和一个完整示例见 [AGENTS.md § Custom Harness](AGENTS.md#custom-harness)。本仓库的 `/new-harness` skill 可以帮你脚手架出文件和注册代码。
 
 ---
 
@@ -645,7 +643,7 @@ open-managed-agents/
 │   └── web/               # 营销站点（Astro） —— 发布到 oma.duyet.net
 ├── packages/
 │   ├── cli/                       # `oma` CLI —— 智能体 / 会话 / 集成命令
-│   ├── sdk/                       # Harness SDK —— defineHarness、generateText 等
+│   ├── sdk/                       # TypeScript SDK —— 类型化的 REST + SSE 客户端（`Oma` 类）
 │   ├── api-types/                 # 共享 TypeScript 类型（配置 schema、事件类型）
 │   ├── http-routes/               # 公开 REST 路由定义（main 与 main-node 共用）
 │   ├── session-runtime/           # Harness 运行时 —— 事件日志、广播、恢复
