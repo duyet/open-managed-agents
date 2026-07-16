@@ -54,7 +54,11 @@ import { createSqlitePublicationService } from "@duyet/oma-publications-store";
 import { toFileRecord } from "@duyet/oma-files-store";
 import { SqlEventLog } from "@duyet/oma-event-log/sql";
 import type { SessionEvent } from "@duyet/oma-shared";
-import { generateEventId } from "@duyet/oma-shared";
+import {
+  generateEventId,
+  findLeakedPlaceholderSecrets,
+  formatLeakedSecretError,
+} from "@duyet/oma-shared";
 import { DefaultHarness } from "@duyet/oma-agent/harness/default-loop";
 import { FlueHarness } from "@duyet/oma-agent/harness/flue-loop";
 import { ClaudeAgentSdkHarness } from "@duyet/oma-agent/harness/claude-agent-sdk-loop";
@@ -162,6 +166,23 @@ import {
   TelegramAgentHandler,
 } from "@duyet/oma-telegram";
 import { NodeTelegramSessionCreator } from "./lib/node-telegram.js";
+
+// ─── Boot-time secret guard ──────────────────────────────────────────────
+//
+// .env.example used to ship prefilled values for PLATFORM_ROOT_SECRET,
+// BETTER_AUTH_SECRET, API_KEY, and others (see oma#170) — an install that
+// ran `cp .env.example .env` without editing those lines ends up sharing
+// the exact same at-rest encryption key / session-signing key / bootstrap
+// API key as every other such install, and as this public repo. Refuse to
+// start rather than silently running with a publicly-known key. Runs
+// before any DB/logger bootstrap so a bad checkout fails immediately.
+const leakedSecrets = await findLeakedPlaceholderSecrets(
+  process.env as Record<string, string | undefined>,
+);
+if (leakedSecrets.length > 0) {
+  console.error(formatLeakedSecretError(leakedSecrets));
+  process.exit(1);
+}
 
 const toMarkdownProvider = nodeToMarkdown();
 

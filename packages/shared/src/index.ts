@@ -20,3 +20,4 @@ export * from "./pagination";
 export * from "./json";
 export * from "./sql-like";
 export * from "./healthchecks";
+export * from "./known-insecure-secrets";
