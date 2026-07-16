@@ -92,6 +92,38 @@ describe("buildNodeMcpBinding", () => {
     expect(upstream.lastAuth()).toBe("Bearer secret-token");
   });
 
+  it("resolves via mcp_servers[].authorization_token, skipping vault lookup entirely", async () => {
+    // Regression coverage for issue #196: redacting authorization_token from
+    // API *responses* (packages/http-routes/src/mcp-server-redaction.ts)
+    // must not touch the agent_snapshot copy this proxy resolves against —
+    // the inline literal-token path has to keep working unchanged. No
+    // vaultIds at all here, so a pass would be impossible without this
+    // exact code path.
+    upstream = await startUpstream();
+    const { sessions, credentials, kv } = makeServices();
+
+    const { session } = await sessions.create({
+      tenantId: TENANT,
+      agentId: "agent_1",
+      environmentId: "env_1",
+      agentSnapshot: baseAgent([
+        { name: "linear", type: "http", url: upstream.url, authorization_token: "inline-secret" },
+      ]),
+    });
+
+    const binding = buildNodeMcpBinding({ sessions, credentials, kv });
+    const req = new Request(upstream.url, {
+      headers: {
+        "x-oma-tenant": TENANT,
+        "x-oma-session": session.id,
+        "x-oma-mcp-server": "linear",
+      },
+    });
+    const res = await binding.fetch(req);
+    expect(res.status).toBe(200);
+    expect(upstream.lastAuth()).toBe("Bearer inline-secret");
+  });
+
   it("expands registry_id into a URL and pins the registered credential_id", async () => {
     upstream = await startUpstream();
     const { sessions, credentials, kv } = makeServices();

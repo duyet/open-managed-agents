@@ -115,6 +115,12 @@ export interface AgentConfig {
      *  wins if both are present. */
     registry_id?: string;
     authorization_token?: string;
+    /** Response-only marker: this entry has a stored `authorization_token`.
+     *  Set by `formatAgent`/`redactMcpServers` (packages/http-routes) so a
+     *  client can tell "token configured" from "no token" without the API
+     *  ever echoing the plaintext value back (issue #196). Never meaningful
+     *  on write — the server derives it and ignores it if sent. */
+    has_authorization_token?: boolean;
     /** Spawn this MCP server in the sandbox container. The process binds to
      *  127.0.0.1:port using its built-in SSE transport, and OMA routes the
      *  existing HTTP-based MCP tool wiring at it. Lets us host stdio-only

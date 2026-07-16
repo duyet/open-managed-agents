@@ -38,6 +38,7 @@ import {
 } from "@duyet/oma-sessions-store";
 import type { SessionRouter, SessionInitParams } from "@duyet/oma-session-runtime";
 import type { RouteServicesArg } from "../types";
+import { redactMcpServers } from "../mcp-server-redaction";
 import { resolveServices } from "../types";
 
 interface Vars {
@@ -226,6 +227,12 @@ function snapshotToSessionAgent(
   return {
     type: "agent",
     ...rest,
+    // agent_snapshot carries the real mcp_servers[].authorization_token
+    // (session creation copies it straight off the agent row so the MCP
+    // proxy can resolve it) — never echo that plaintext value back through
+    // this API response. See issue #196 / packages/http-routes/src/mcp-
+    // server-redaction.ts.
+    mcp_servers: redactMcpServers(rest.mcp_servers),
     id: agentId,
     version: snapshot.version ?? 1,
     multiagent,

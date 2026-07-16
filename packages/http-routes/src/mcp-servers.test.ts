@@ -58,6 +58,21 @@ describe("mcp_servers registry routes", () => {
     expect(res.status).toBe(422);
   });
 
+  it("rejects a bad-charset name (422)", async () => {
+    const res = await post({ name: "bad name!", url: "https://linear.app/mcp" });
+    expect(res.status).toBe(422);
+  });
+
+  it("rejects a bad-charset name on PATCH (422)", async () => {
+    const created = await (await post({ name: "linear", url: "https://linear.app/mcp" })).json();
+    const res = await app.request(`/${created.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "bad name!" }),
+    });
+    expect(res.status).toBe(422);
+  });
+
   it("lists only this tenant's servers, newest first", async () => {
     await post({ name: "a", url: "https://a.example/mcp" });
     // created_at is Date.now(); step past the current millisecond so
