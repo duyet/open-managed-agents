@@ -135,6 +135,10 @@ What gets deployed:
 | **KV Namespace** | Config storage for agents, environments, credentials |
 | **R2 Bucket** | Workspace file persistence across container restarts |
 
+Want Kubernetes-backed sandboxes instead of Cloudflare Containers? See the
+[k8s-bridge quickstart](docs/deploy/k8s-bridge-quickstart.md) (full guide:
+[docs/deploy/k8s-bridge.md](docs/deploy/k8s-bridge.md)).
+
 ### Create your first agent
 
 The smoke test above works against any deployment. For the Console-driven flow (Model Cards, vaults, integrations) see **[docs.oma.duyet.net/quickstart](https://docs.oma.duyet.net/quickstart)**. The minimal API equivalent:
