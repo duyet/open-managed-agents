@@ -72,7 +72,7 @@ const navGroups: NavGroup[] = [
         to: "/sessions",
         label: "Sessions",
         icon: SessionsIcon,
-        match: ["/sessions", "/kanban", "/evals"],
+        match: ["/sessions", "/kanban", "/evals", "/usage"],
       },
       {
         to: "/environments",

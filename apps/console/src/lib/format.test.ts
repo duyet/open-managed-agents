@@ -4,6 +4,7 @@ import {
   formatDuration,
   formatRelative,
   formatSandboxTime,
+  formatUsd,
   pickTickStep,
   shortenId,
 } from "./format";
@@ -84,6 +85,19 @@ describe("formatSandboxTime", () => {
   });
   it("renders hours + minutes", () => {
     expect(formatSandboxTime(4 * 3600 + 32 * 60)).toBe("4h 32m");
+  });
+});
+
+describe("formatUsd", () => {
+  it("renders a tiny nonzero amount as <$0.01 instead of a misleading $0.00", () => {
+    expect(formatUsd(0.004)).toBe("<$0.01");
+  });
+  it("renders zero as $0.00", () => {
+    expect(formatUsd(0)).toBe("$0.00");
+  });
+  it("renders normal amounts with two decimals", () => {
+    expect(formatUsd(1.2)).toBe("$1.20");
+    expect(formatUsd(12.345)).toBe("$12.35");
   });
 });
 

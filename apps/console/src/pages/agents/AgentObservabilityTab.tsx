@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useApiQuery } from "../../lib/useApiQuery";
 import { EmptyState } from "../../components/EmptyState";
 import { cn } from "@/lib/utils";
-import { formatCompact, formatSandboxTime } from "../../lib/format";
+import { formatCompact, formatSandboxTime, formatUsd } from "../../lib/format";
 import { useAgentHub } from "../AgentDetail";
 
 // ── Analytics wire shape — mirrors SessionAnalytics
@@ -57,11 +57,6 @@ const DONUT_COLORS = [
   "var(--color-danger)",
 ];
 
-function fmtUsd(n: number): string {
-  if (n > 0 && n < 0.01) return "<$0.01";
-  return `$${n.toFixed(2)}`;
-}
-
 /**
  * Tab 4 — per-agent observability. Consumes GET /v1/agents/:id/analytics
  * (range-scoped) for the activity chart, error rate, token/turn
@@ -93,9 +88,9 @@ export function AgentObservabilityTab() {
             <StatCard label="Sessions" value={formatCompact(stats.sessions)} />
             <StatCard label="Tokens in" value={formatCompact(stats.input_tokens)} />
             <StatCard label="Tokens out" value={formatCompact(stats.output_tokens)} />
-            <StatCard label="Est. model cost" value={fmtUsd(stats.est_model_cost_usd)} />
+            <StatCard label="Est. model cost" value={formatUsd(stats.est_model_cost_usd)} />
             <StatCard label="Sandbox time" value={formatSandboxTime(stats.sandbox_seconds)} />
-            <StatCard label="Est. sandbox cost" value={fmtUsd(stats.est_sandbox_cost_usd)} />
+            <StatCard label="Est. sandbox cost" value={formatUsd(stats.est_sandbox_cost_usd)} />
           </div>
         </div>
       )}
