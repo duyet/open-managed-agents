@@ -42,6 +42,7 @@ import { RuntimesList } from "./pages/RuntimesList";
 import { ConnectRuntime } from "./pages/ConnectRuntime";
 import { CrashPage } from "./pages/CrashPage";
 import { AgentBuilder } from "./pages/AgentBuilder";
+import { MyBots } from "./pages/MyBots";
 import { AgentChat } from "./pages/AgentChat";
 import { EvalRunsList } from "./pages/EvalRunsList";
 import { EvalRunDetail } from "./pages/EvalRunDetail";
@@ -123,6 +124,7 @@ const protectedRoutes: RouteObject[] = [
       },
     ],
   },
+  { path: "my-bots", element: <MyBots />, handle: { crumb: "My Bots" } },
   { path: "files", element: <FilesList />, handle: { crumb: "Files" } },
   { path: "kanban", element: <KanbanBoard />, handle: { crumb: "Kanban Board" } },
   {
