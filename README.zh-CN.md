@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers" />
   <img src="https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="Apache 2.0 License" />
-  <img src="https://img.shields.io/badge/Tests-passing-brightgreen" alt="Tests" />
+  <img src="https://github.com/duyet/oma/actions/workflows/ci.yml/badge.svg" alt="CI" />
   <img src="https://img.shields.io/badge/API-Anthropic%20Compatible-blueviolet" alt="Anthropic Compatible" />
 </p>
 
@@ -208,7 +208,7 @@ curl -N -X POST $BASE/v1/sessions/$SESSION/messages \
 | WebSocket 广播 | 重试策略（退避、瞬时错误识别） |
 | 崩溃恢复 | 停止条件（最大步数、完成信号） |
 | 凭证隔离（保险库） | 系统提示构造 |
-| 记忆（向量检索） | 工具交付（一次性 vs 渐进式） |
+| 记忆（基于文件的存储，带版本控制） | 工具交付（一次性 vs 渐进式） |
 
 ---
 

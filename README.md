@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers" />
   <img src="https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="Apache 2.0 License" />
-  <img src="https://img.shields.io/badge/Tests-passing-brightgreen" alt="Tests" />
+  <img src="https://github.com/duyet/oma/actions/workflows/ci.yml/badge.svg" alt="CI" />
   <img src="https://img.shields.io/badge/API-Anthropic%20Compatible-blueviolet" alt="Anthropic Compatible" />
 </p>
 
@@ -259,7 +259,7 @@ A **meta-harness** is not an agent — it's the platform that runs agents. It de
 | WebSocket broadcast | Retry strategy (backoff, transient detection) |
 | Crash recovery | Stop conditions (max steps, completion signals) |
 | Credential isolation (vaults) | System prompt construction |
-| Memory (vector search) | Tool delivery (all at once vs. progressive) |
+| Memory (file-backed stores, versioned) | Tool delivery (all at once vs. progressive) |
 
 ---
 
