@@ -1,8 +1,6 @@
-import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../lib/auth";
 import { useApiQuery } from "../lib/useApiQuery";
-import { toast } from "sonner";
 import { StatusPill } from "../components/Badge";
 import { EmptyState } from "../components/EmptyState";
 import { Skeleton } from "../components/Skeleton";
@@ -25,11 +23,84 @@ interface RecentSession {
   created_at: string;
 }
 
+// One node in the "How it fits together" diagram. Clickable → navigates
+// to the page where that component is configured.
+function DiagramNode({
+  label,
+  hint,
+  to,
+  nav,
+  accent,
+  done,
+}: {
+  label: string;
+  hint: string;
+  to?: string;
+  nav: (to: string) => void;
+  accent?: boolean;
+  done?: boolean;
+}) {
+  const base =
+    "group relative w-full text-left rounded-md border px-3 py-2.5 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]";
+  const skin = accent
+    ? "border-brand/50 bg-brand/5 hover:border-brand"
+    : "border-border bg-bg hover:border-border-strong hover:bg-bg-surface/40";
+  const inner = (
+    <>
+      <div className="flex items-center gap-1.5">
+        <span className={`text-[13px] font-medium ${accent ? "text-brand" : "text-fg"}`}>
+          {label}
+        </span>
+        {done !== undefined && (
+          <span
+            className={`shrink-0 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] leading-none ${
+              done ? "bg-brand text-brand-fg" : "border border-border text-transparent"
+            }`}
+            title={done ? "Configured" : "Not set up yet"}
+          >
+            ✓
+          </span>
+        )}
+      </div>
+      <div className="mt-0.5 text-[11px] leading-snug text-fg-muted">{hint}</div>
+    </>
+  );
+  if (!to) {
+    return <div className={`${base} ${skin} cursor-default`}>{inner}</div>;
+  }
+  return (
+    <button onClick={() => nav(to)} className={`${base} ${skin}`}>
+      {inner}
+    </button>
+  );
+}
+
+function DiagramArrow({ down = false }: { down?: boolean }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={`flex items-center justify-center text-fg-subtle ${down ? "py-1" : "px-1"}`}
+    >
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={down ? "rotate-90 md:rotate-90" : "rotate-90 md:rotate-0"}
+      >
+        <path d="M5 12h14M13 6l6 6-6 6" />
+      </svg>
+    </div>
+  );
+}
+
 export function Dashboard() {
   const nav = useNavigate();
   const { user: _user } = useAuth();
-  const [copied, setCopied] = useState<string | null>(null);
-
   // Headline cards + recent panel each ride their own TQ query so the
   // dashboard renders the parts it has — a flaky /v1/stats no longer
   // blocks the recent-sessions panel and vice versa. The previous
@@ -42,13 +113,6 @@ export function Dashboard() {
   );
   const stats = statsQuery.data ?? null;
   const recentSessions = sessionsQuery.data?.data.slice(0, 5) ?? [];
-
-  const copy = (text: string, key: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(key);
-    toast.success("Copied");
-    setTimeout(() => setCopied(null), 1600);
-  };
 
   const stat = (label: string, value: number | undefined, to: string) => (
     <button
@@ -74,11 +138,6 @@ export function Dashboard() {
     { label: "Model Cards", value: stats?.model_cards, to: "/model-cards" },
   ];
 
-  const cmd = "npx -y -p @duyet/oma-cli oma";
-  const cmdGlobal = "npm i -g @duyet/oma-cli";
-  const examplePrompt =
-    "Use oma to create a research agent that monitors arXiv for new ML papers daily";
-
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="py-6 space-y-10">
@@ -88,97 +147,110 @@ export function Dashboard() {
             Get started with oma
           </h1>
           <p className="mt-1.5 text-[15px] text-fg-muted">
-            Hand the platform to your agent — install the CLI, mint a key, point them at it.
+            Configure the pieces below, compose them into an agent, and every
+            conversation runs as a session inside a sandbox. Click any box to
+            set it up. CLI install steps live on the{" "}
+            <button
+              onClick={() => nav("/runtimes")}
+              className="text-brand hover:underline"
+            >
+              Sandbox Runtime page
+            </button>
+            .
           </p>
         </header>
 
-        {/* Quickstart — single panel with three rows, no per-step cards */}
-        <section className="border border-border rounded-lg overflow-hidden">
-          {/* Step 1 */}
-          <div className="grid md:grid-cols-[180px_1fr] gap-x-6 gap-y-2 p-5 md:p-6 border-b border-border">
-            <div>
-              <div className="font-mono text-[11px] tracking-wider text-brand">STEP 01</div>
-              <div className="mt-1 font-medium text-fg text-[15px]">Install the CLI</div>
-            </div>
-            <div className="space-y-2.5 min-w-0">
-              <p className="text-sm text-fg-muted">
-                The <code className="font-mono text-[13px] text-fg">oma</code> CLI lets your
-                agent (or you) drive the platform from the terminal.
-              </p>
-              <button
-                onClick={() => copy(cmd, "cmd")}
-                className="group w-full sm:w-auto sm:inline-flex items-center gap-3 pl-3 pr-2 py-2 rounded-md border border-border bg-bg-surface/50 hover:border-border-strong transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] text-left"
-              >
-                <span className="text-fg-subtle select-none font-mono text-xs">›</span>
-                <span className="font-mono text-[13px] text-fg flex-1 truncate">{cmd}</span>
-                <span className="shrink-0 text-fg-subtle group-hover:text-fg transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] p-1">
-                  {copied === "cmd" ? (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
-                  ) : (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
-                  )}
-                </span>
-              </button>
-              <p className="text-[12px] text-fg-subtle">
-                or globally:{" "}
-                <button
-                  onClick={() => copy(cmdGlobal, "cmd-global")}
-                  className="inline-flex items-center min-h-11 sm:min-h-0 font-mono text-fg-muted hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
-                >
-                  {cmdGlobal}
-                </button>
-              </p>
-            </div>
-          </div>
+        {/* How it fits together — clickable component map. Three stages:
+            Configure (credentials + sandbox pieces) → Compose (agent)
+            → Run (session in a sandbox). Checkmarks ride /v1/stats so a
+            new user sees exactly what's still missing. */}
+        <section className="border border-border rounded-lg p-5 md:p-6">
+          <h2 className="font-display text-lg font-semibold text-fg">
+            How it fits together
+          </h2>
+          <p className="mt-1 mb-5 text-[13px] text-fg-muted">
+            You (or your agent, via the CLI + an API key) configure components;
+            an agent ties them together; each task runs as a session in a sandbox.
+          </p>
 
-          {/* Step 2 */}
-          <div className="grid md:grid-cols-[180px_1fr] gap-x-6 gap-y-2 p-5 md:p-6 border-b border-border">
-            <div>
-              <div className="font-mono text-[11px] tracking-wider text-brand">STEP 02</div>
-              <div className="mt-1 font-medium text-fg text-[15px]">Mint an API key</div>
+          <div className="flex flex-col md:flex-row md:items-stretch gap-1 md:gap-0">
+            {/* Stage 1: Configure */}
+            <div className="flex-1 min-w-0 rounded-md border border-dashed border-border p-3">
+              <div className="font-mono text-[10px] tracking-wider text-fg-subtle mb-2">
+                1 · CONFIGURE
+              </div>
+              <div className="space-y-2">
+                <DiagramNode
+                  nav={nav}
+                  to="/api-keys"
+                  label="API key"
+                  hint="Auth for the CLI & your agent"
+                  done={(stats?.api_keys ?? 0) > 0}
+                />
+                <DiagramNode
+                  nav={nav}
+                  to="/model-cards"
+                  label="Model card"
+                  hint="LLM provider credentials"
+                  done={(stats?.model_cards ?? 0) > 0}
+                />
+                <DiagramNode
+                  nav={nav}
+                  to="/environments"
+                  label="Environment"
+                  hint="Packages, networking, resources"
+                  done={(stats?.environments ?? 0) > 0}
+                />
+                <DiagramNode
+                  nav={nav}
+                  to="/skills"
+                  label="Skills · Vaults"
+                  hint="Optional: prompts, secrets, MCP"
+                />
+              </div>
             </div>
-            <div className="space-y-2.5">
-              <p className="text-sm text-fg-muted">
-                Your agent needs this to authenticate. Keep it somewhere it can read.
-              </p>
-              <button
-                onClick={() => nav("/api-keys")}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand text-brand-fg rounded-md text-[13px] font-medium hover:bg-brand-hover transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
-              >
-                Generate API key
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-              </button>
-            </div>
-          </div>
 
-          {/* Step 3 */}
-          <div className="grid md:grid-cols-[180px_1fr] gap-x-6 gap-y-2 p-5 md:p-6">
-            <div>
-              <div className="font-mono text-[11px] tracking-wider text-brand">STEP 03</div>
-              <div className="mt-1 font-medium text-fg text-[15px]">Hand it the reins</div>
+            <DiagramArrow />
+
+            {/* Stage 2: Compose */}
+            <div className="flex-1 min-w-0 rounded-md border border-dashed border-border p-3 flex flex-col">
+              <div className="font-mono text-[10px] tracking-wider text-fg-subtle mb-2">
+                2 · COMPOSE
+              </div>
+              <div className="flex-1 flex flex-col justify-center">
+                <DiagramNode
+                  nav={nav}
+                  to="/agents"
+                  label="Agent"
+                  hint="Model + system prompt + tools + environment. Versioned config — the what, not the where."
+                  accent
+                  done={(stats?.agents ?? 0) > 0}
+                />
+              </div>
             </div>
-            <div className="space-y-2.5">
-              <p className="text-sm text-fg-muted">
-                Point your agent at the <code className="font-mono text-[13px] text-fg">oma-cli</code>{" "}
-                or <code className="font-mono text-[13px] text-fg">oma-api</code> skill, then
-                ask for what you want:
-              </p>
-              <button
-                onClick={() => copy(examplePrompt, "prompt")}
-                className="group w-full text-left rounded-md border border-border bg-bg-surface/50 hover:border-border-strong transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] p-3 flex items-start gap-3"
-              >
-                <span className="shrink-0 mt-0.5 font-mono text-[10px] tracking-wider text-fg-subtle">
-                  PROMPT
-                </span>
-                <span className="flex-1 text-[13px] text-fg leading-snug">{examplePrompt}</span>
-                <span className="shrink-0 text-fg-subtle group-hover:text-fg transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] mt-0.5">
-                  {copied === "prompt" ? (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
-                  ) : (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
-                  )}
-                </span>
-              </button>
+
+            <DiagramArrow />
+
+            {/* Stage 3: Run */}
+            <div className="flex-1 min-w-0 rounded-md border border-dashed border-border p-3">
+              <div className="font-mono text-[10px] tracking-wider text-fg-subtle mb-2">
+                3 · RUN
+              </div>
+              <div className="space-y-2">
+                <DiagramNode
+                  nav={nav}
+                  to="/sessions"
+                  label="Session"
+                  hint="One conversation / task — streamed, resumable event log"
+                />
+                <DiagramArrow down />
+                <DiagramNode
+                  nav={nav}
+                  to="/runtimes"
+                  label="Sandbox"
+                  hint="Runs on a runtime provider — Cloudflare, K8s, or your own machine"
+                />
+              </div>
             </div>
           </div>
         </section>
