@@ -7,29 +7,49 @@
 @import "@fontsource-variable/geist/index.css";
 @import "@fontsource-variable/geist-mono/index.css";
 
-/* Marketing brand tokens — Geist type system. Display + body both use
-   Geist Variable (it's a single variable family, so headings and body
-   share the family and differ only by weight/tracking). Mono is Geist
-   Mono for the terminal / ASCII hero. */
+/* ===========================================================================
+   Design system — 2026 redesign.
+
+   Prior identity leaned warm-craft (cream #faf9f5 ground, terracotta #d97757
+   chrome, soft pill cards) which read as an Anthropic clone. New identity is a
+   neutral, engineering-tool language: a zinc greyscale ground, a single
+   near-mono primary (ink in light, paper in dark), crisp 1px hairline borders,
+   tight radii, and restrained shadows. The three warm/cool hues (orange, blue,
+   green) survive ONLY as *functional* data-viz accents inside the interactive
+   architecture diagram, lifecycle, badges and use-case tabs — never as page
+   chrome. Type voice stays Geist (the neutral grotesk shadcn/Vercel ship).
+
+   Retired warm anchors kept here for reference (and so the palette history is
+   greppable): ink #141413, paper #faf9f5, stone #b0aea5, sand #e8e6dc,
+   orange #d97757, blue #6a9bcc, green #788c5d. */
 @theme {
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 
-  /* Brand anchors: dark #141413, light #faf9f5, mid #b0aea5, light-gray #e8e6dc,
-     orange #d97757, blue #6a9bcc, green #788c5d */
-  --color-bg: #faf9f5;
-  --color-bg-surface: #e8e6dc;
-  --color-fg: #141413;
-  --color-fg-muted: #61605a;
-  --color-fg-subtle: #828076;
-  --color-border: #e8e6dc;
-  --color-border-strong: #b0aea5;
-  --color-brand: #d97757;
-  --color-brand-hover: #bf6041;
-  --color-brand-subtle: #fbf1ee;
-  --color-brand-fg: #141413;
+  /* Neutral ground — zinc greyscale. */
+  --color-bg: #ffffff;
+  --color-bg-surface: #fafafa;
+  --color-bg-elevated: #f4f4f5;
+  --color-fg: #18181b;
+  --color-fg-muted: #52525b;
+  --color-fg-subtle: #71717a;
+  --color-border: #e4e4e7;
+  --color-border-strong: #d4d4d8;
 
+  /* Primary — "iris", one confident ownable accent. Carries all chrome:
+     logo, links, focus ring, section-marker icons, highlight borders,
+     primary buttons. Deliberately not terracotta (the Anthropic tell) and
+     not a washed AI-purple gradient — a single saturated indigo, used flat.
+     #4f46e5 on #ffffff = 6.6:1 (AA text); #fafafa on #4f46e5 = 6.6:1. */
+  --color-brand: #4f46e5;
+  --color-brand-hover: #4338ca;
+  --color-brand-subtle: #eef2ff;
+  --color-brand-fg: #ffffff;
+
+  /* Functional data-viz accents — used inside diagrams/badges/tabs only. */
+  --color-accent: #d97757;
+  --color-accent-subtle: #fbf1ee;
   --color-blue: #6a9bcc;
   --color-blue-subtle: #eaf2f8;
   --color-green: #788c5d;
@@ -37,19 +57,26 @@
 }
 
 .dark {
-  --color-bg: #141413;
-  --color-bg-surface: #222221;
-  --color-fg: #faf9f5;
-  --color-fg-muted: #b0aea5;
-  --color-fg-subtle: #828076;
-  --color-border: #2a2a29;
-  --color-border-strong: #40403e;
-  --color-brand: #d97757;
-  --color-brand-hover: #e09278;
-  --color-brand-subtle: #2d1a15;
-  --color-brand-fg: #141413;
-  --color-blue-subtle: #1a2833;
-  --color-green-subtle: #1e2418;
+  --color-bg: #09090b;
+  --color-bg-surface: #131316;
+  --color-bg-elevated: #1c1c20;
+  --color-fg: #fafafa;
+  --color-fg-muted: #a1a1aa;
+  --color-fg-subtle: #71717a;
+  --color-border: #27272a;
+  --color-border-strong: #3f3f46;
+
+  /* Iris lifts in dark for contrast on the near-black ground:
+     #818cf8 on #09090b ≈ 8.4:1; dark ink text on the button = ~7:1. */
+  --color-brand: #818cf8;
+  --color-brand-hover: #a5b4fc;
+  --color-brand-subtle: #1e1b3a;
+  --color-brand-fg: #0b0b12;
+
+  --color-accent: #e08a68;
+  --color-accent-subtle: #2d1a15;
+  --color-blue-subtle: #16232f;
+  --color-green-subtle: #1a2016;
 }
 
 html {
@@ -117,15 +144,18 @@ code, pre, kbd, samp,
 /* Card hover-lift — applies to anything tagged data-lift (FeatureCard,
    PricingCard, BlogPostCard). Cheap GPU transform, no layout cost. */
 [data-lift] {
-  transition: transform 180ms ease-out, box-shadow 180ms ease-out, border-color 180ms ease-out;
+  transition: transform 150ms ease-out, box-shadow 150ms ease-out, border-color 150ms ease-out;
   will-change: transform;
 }
+/* Restrained, shadcn-style elevation: a hairline-tight shadow, not a big soft
+   drop. Border-color does most of the hover work; the lift is a whisper. */
 [data-lift]:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+  border-color: var(--color-border-strong);
+  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.04), 0 2px 8px -4px rgba(24, 24, 27, 0.08);
 }
 .dark [data-lift]:hover {
-  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px -4px rgba(0, 0, 0, 0.5);
 }
 
 /* Anchor defaults — color is `inherit` by default so nav/breadcrumb/
@@ -205,8 +235,8 @@ input:focus-visible,
 }
 .arch-layer {
   position: relative;
-  border: 1px solid var(--color-border-strong);
-  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
   padding: 1.25rem 1.5rem;
   background: var(--color-bg);
 }
@@ -230,23 +260,27 @@ input:focus-visible,
   align-items: center;
   font-family: var(--font-mono);
   font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding: 0.2rem 0.5rem;
-  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.3rem;
+  border: 1px solid transparent;
 }
 .arch-badge-orange {
-  color: var(--color-brand);
-  background: var(--color-brand-subtle);
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  border-color: color-mix(in srgb, var(--color-accent) 24%, transparent);
 }
 .arch-badge-blue {
   color: var(--color-blue);
   background: var(--color-blue-subtle);
+  border-color: color-mix(in srgb, var(--color-blue) 24%, transparent);
 }
 .arch-badge-green {
   color: var(--color-green);
   background: var(--color-green-subtle);
+  border-color: color-mix(in srgb, var(--color-green) 24%, transparent);
 }
 .lifecycle-track {
   display: grid;
@@ -272,7 +306,7 @@ input:focus-visible,
     height: 2px;
     background: linear-gradient(
       90deg,
-      var(--color-brand) 0%,
+      var(--color-accent) 0%,
       var(--color-blue) 50%,
       var(--color-green) 100%
     );
@@ -392,10 +426,12 @@ input:focus-visible,
 .hero-eyebrow .typewriter-line {
   font-size: 0.9rem;
 }
-/* Brand accent on the headline's closing phrase — coral, AA-safe because
-   the surrounding headline is full-strength fg (#141413 on #faf9f5). */
+/* Emphasis on the headline's closing phrase. Monochrome now: the phrase
+   stays full-strength ink and picks up a thin accent underline so the
+   emphasis reads as intent, not as a colored word dropped into a headline. */
 .hero-accent {
-  color: var(--color-brand);
+  color: var(--color-fg);
+  box-shadow: inset 0 -0.12em 0 color-mix(in srgb, var(--color-brand) 60%, transparent);
 }
 /* Proof chips: compact, scannable differentiators under the CTAs. No
    bullets, soft pill borders, mono label so they share the terminal
@@ -416,8 +452,8 @@ input:focus-visible,
   color: var(--color-fg-muted);
   border: 1px solid var(--color-border);
   background: var(--color-bg-surface);
-  padding: 0.3rem 0.65rem;
-  border-radius: 999px;
+  padding: 0.28rem 0.6rem;
+  border-radius: 0.3rem;
 }
 
 /* Framed terminal that houses the architecture diagram. Gives the hero
@@ -433,13 +469,13 @@ input:focus-visible,
   max-width: 560px;
   margin: 0;
   border: 1px solid var(--color-border-strong);
-  border-radius: 0.9rem;
+  border-radius: 0.625rem;
   background: var(--color-bg-surface);
-  box-shadow: 0 18px 50px -28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.04), 0 12px 40px -24px rgba(24, 24, 27, 0.22);
   overflow: hidden;
 }
 .dark .terminal-frame {
-  box-shadow: 0 18px 50px -24px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 16px 44px -24px rgba(0, 0, 0, 0.7);
 }
 .terminal-bar {
   display: flex;
@@ -482,8 +518,8 @@ input:focus-visible,
 }
 /* Brand mark inside the diagram's Client node: brackets + dot inherit the
    node accent via currentColor (overridden per-accent below). */
-.arch-diagram .ad-brand { color: var(--color-brand); }
-.arch-diagram .ad-node.ad-orange .ad-brand { color: var(--color-brand); }
+.arch-diagram .ad-brand { color: var(--color-accent); }
+.arch-diagram .ad-node.ad-orange .ad-brand { color: var(--color-accent); }
 .arch-diagram .ad-node.ad-blue .ad-brand { color: var(--color-blue); }
 .arch-diagram .ad-node.ad-green .ad-brand { color: var(--color-green); }
 .arch-diagram .ad-brand-bracket { stroke: currentColor; }
@@ -536,8 +572,8 @@ input:focus-visible,
   font-feature-settings: "liga" 0, "calt" 0;
   font-variant-ligatures: none;
   font-kerning: none;
-  color: var(--color-brand);
-  text-shadow: 0 0 16px color-mix(in srgb, var(--color-brand) 45%, transparent);
+  color: var(--color-accent);
+  text-shadow: 0 0 16px color-mix(in srgb, var(--color-accent) 40%, transparent);
   white-space: pre;
   overflow-x: auto;
   margin: 0;
@@ -547,8 +583,8 @@ input:focus-visible,
    reads as depth rather than a flat block. It frames the diagram from
    behind (inset negative so the dots extend past the node edges). */
 .ascii-halo {
-  color: var(--color-brand);
-  opacity: 0.32;
+  color: var(--color-accent);
+  opacity: 0.3;
 }
 .ascii-caption {
   margin-top: 0.85rem;
@@ -618,8 +654,8 @@ input:focus-visible,
   display: inline-block;
   width: 0.55ch;
   height: 1.05em;
-  background: var(--color-brand);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--color-brand) 60%, transparent);
+  background: var(--color-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 55%, transparent);
   animation: tw-blink 1.05s steps(1, end) infinite;
 }
 @keyframes tw-blink {
@@ -629,7 +665,7 @@ input:focus-visible,
 /* Typewriter rotate: the terminal prompt's verb cycles through a list of
    verbs pulled from the element's data-rotate JSON. Pure CSS can't swap text,
    so a tiny inline script (Base.astro) drives .tw-rot; this just styles it. */
-.tw-static { color: var(--color-brand); }
+.tw-static { color: var(--color-accent); }
 .tw-rot { color: var(--color-fg); font-weight: 600; }
 .typewriter-line .typewriter-caret { margin-left: 1px; }
 
@@ -638,8 +674,8 @@ input:focus-visible,
    page shares one pixel vocabulary. */
 .pixel-bullet {
   font-family: var(--font-mono);
-  color: var(--color-brand);
-  text-shadow: 0 0 10px color-mix(in srgb, var(--color-brand) 40%, transparent);
+  color: var(--color-accent);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 38%, transparent);
   font-weight: 700;
 }
 
@@ -693,7 +729,7 @@ input:focus-visible,
   stroke-width: 1.5;
   transition: fill 0.25s ease, stroke 0.25s ease;
 }
-.arch-diagram .ad-node.ad-orange rect { stroke: var(--color-brand); }
+.arch-diagram .ad-node.ad-orange rect { stroke: var(--color-accent); }
 .arch-diagram .ad-node.ad-blue rect { stroke: var(--color-blue); }
 .arch-diagram .ad-node.ad-green rect { stroke: var(--color-green); }
 .arch-diagram .ad-node text {
@@ -710,8 +746,8 @@ input:focus-visible,
 }
 /* Active (data-flow at this step) node lights up in its accent + brand glow */
 .arch-diagram .ad-node.is-active.ad-orange rect {
-  fill: color-mix(in srgb, var(--color-brand) 16%, var(--color-bg-surface));
-  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-brand) 55%, transparent));
+  fill: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg-surface));
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-accent) 55%, transparent));
 }
 .arch-diagram .ad-node.is-active.ad-blue rect {
   fill: color-mix(in srgb, var(--color-blue) 16%, var(--color-bg-surface));
@@ -730,10 +766,10 @@ input:focus-visible,
   transition: stroke 0.25s ease;
 }
 .arch-diagram .ad-edge.is-active {
-  stroke: var(--color-brand);
+  stroke: var(--color-accent);
   stroke-dasharray: 6 6;
   animation: ad-flow 0.9s linear infinite;
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-brand) 50%, transparent));
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-accent) 50%, transparent));
 }
 @keyframes ad-flow { to { stroke-dashoffset: -24; } }
 /* Hover/focus caption (HTML, under the SVG) — wraps freely */
@@ -756,7 +792,7 @@ input:focus-visible,
 }
 .arch-diagram-caption .ad-caption-label {
   display: inline-block;
-  color: var(--color-brand);
+  color: var(--color-accent);
   font-weight: 700;
   letter-spacing: 0.04em;
   margin-right: 0.4ch;
@@ -783,8 +819,8 @@ input:focus-visible,
   flex: none;
   font-weight: 700;
   font-size: 0.62rem;
-  color: var(--color-brand);
-  border: 1px solid color-mix(in srgb, var(--color-brand) 45%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
   border-radius: 4px;
   padding: 0 0.45ch;
 }
@@ -807,7 +843,7 @@ input:focus-visible,
   position: relative;
   text-align: left;
   border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
   background: var(--color-bg);
   padding: 1rem 1.25rem 1.1rem;
   cursor: pointer;
@@ -817,7 +853,7 @@ input:focus-visible,
 .usecase-tab:hover { border-color: var(--color-border-strong); }
 .usecase-tab.is-active.uc-green { border-color: var(--color-green); }
 .usecase-tab.is-active.uc-blue { border-color: var(--color-blue); }
-.usecase-tab.is-active.uc-orange { border-color: var(--color-brand); }
+.usecase-tab.is-active.uc-orange { border-color: var(--color-accent); }
 .usecase-tab-title {
   display: block;
   font-family: var(--font-display, inherit);
@@ -841,11 +877,11 @@ input:focus-visible,
 }
 .uc-green .usecase-progress { background: var(--color-green); }
 .uc-blue .usecase-progress { background: var(--color-blue); }
-.uc-orange .usecase-progress { background: var(--color-brand); }
+.uc-orange .usecase-progress { background: var(--color-accent); }
 
 .usecase-visual {
   border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
   background: var(--color-bg-surface);
   display: flex;
   flex-direction: column;
@@ -895,7 +931,7 @@ input:focus-visible,
 }
 .usecase-line.ucl-green, .usecase-line.ucl-green .usecase-line-tag { color: var(--color-green); }
 .usecase-line.ucl-blue, .usecase-line.ucl-blue .usecase-line-tag { color: var(--color-blue); }
-.usecase-line.ucl-orange, .usecase-line.ucl-orange .usecase-line-tag { color: var(--color-brand); }
+.usecase-line.ucl-orange, .usecase-line.ucl-orange .usecase-line-tag { color: var(--color-accent); }
 
 @media (prefers-reduced-motion: reduce) {
   .usecase-line { transition: none; opacity: 1; transform: none; }
