@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
 import { server } from "../mocks/server";
+import { ConfirmProvider } from "../hooks/useConfirm";
 import { EnvironmentsList } from "./EnvironmentsList";
 
 function renderPage() {
@@ -13,9 +14,11 @@ function renderPage() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        <EnvironmentsList />
-      </MemoryRouter>
+      <ConfirmProvider>
+        <MemoryRouter>
+          <EnvironmentsList />
+        </MemoryRouter>
+      </ConfirmProvider>
     </QueryClientProvider>,
   );
 }
@@ -29,12 +32,14 @@ function renderPageWithDetailRoute() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={["/environments"]}>
-        <Routes>
-          <Route path="/environments" element={<EnvironmentsList />} />
-          <Route path="/environments/:id" element={<div>ENV DETAIL env_123</div>} />
-        </Routes>
-      </MemoryRouter>
+      <ConfirmProvider>
+        <MemoryRouter initialEntries={["/environments"]}>
+          <Routes>
+            <Route path="/environments" element={<EnvironmentsList />} />
+            <Route path="/environments/:id" element={<div>ENV DETAIL env_123</div>} />
+          </Routes>
+        </MemoryRouter>
+      </ConfirmProvider>
     </QueryClientProvider>,
   );
 }

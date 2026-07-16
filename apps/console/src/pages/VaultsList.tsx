@@ -6,6 +6,7 @@ import { useInfiniteApiQuery } from "../lib/useApiQuery";
 import { Modal } from "../components/Modal";
 import { Button } from "@/components/ui/button";
 import { PopoverContent } from "@/components/ui/popover";
+import { useConfirm } from "@/hooks/useConfirm";
 import { DataTable, type ColumnDef } from "../components/DataTable";
 import { FacetedFilter } from "../components/FacetedFilter";
 import { FilterChip, CreatedFilterChip } from "../components/FilterChip";
@@ -26,6 +27,7 @@ export function VaultsList() {
   const nav = useNavigate();
   const [showCreateVault, setShowCreateVault] = useState(false);
   const [vaultName, setVaultName] = useState("");
+  const confirm = useConfirm();
 
   // Server-driven filter state. Any change to these flows into vaultParams
   // → useInfiniteApiQuery resets to page 1 on params change → the list
@@ -128,7 +130,16 @@ export function VaultsList() {
                   icon: <ArchiveIcon className="size-4" />,
                   disabled: archived,
                   onSelect: async () => {
-                    if (!confirm(`Archive vault ${v.name}? All its credentials will also be archived. Archive is one-way.`)) return;
+                    if (
+                      !(await confirm({
+                        title: `Archive vault ${v.name}?`,
+                        description:
+                          "All its credentials will also be archived. Archive is one-way.",
+                        confirmLabel: "Archive",
+                        destructive: true,
+                      }))
+                    )
+                      return;
                     try {
                       await api(`/v1/vaults/${v.id}/archive`, {
                         method: "POST",
@@ -143,7 +154,15 @@ export function VaultsList() {
                   icon: <TrashIcon className="size-4" />,
                   destructive: true,
                   onSelect: async () => {
-                    if (!confirm(`Delete vault ${v.name}? This can't be undone.`)) return;
+                    if (
+                      !(await confirm({
+                        title: `Delete vault ${v.name}?`,
+                        description: "This can't be undone.",
+                        confirmLabel: "Delete",
+                        destructive: true,
+                      }))
+                    )
+                      return;
                     try {
                       await api(`/v1/vaults/${v.id}`, { method: "DELETE" });
                       load();
@@ -158,7 +177,7 @@ export function VaultsList() {
         size: 56,
       },
     ],
-    [api, load],
+    [api, load, confirm],
   );
 
   // Active-filter chip display — null at the default so the chip reads

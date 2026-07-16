@@ -9,6 +9,7 @@ import { DataTable, type ColumnDef } from "../../components/DataTable";
 import { RowActionsMenu } from "../../components/RowActionsMenu";
 import { StatusPill } from "../../components/Badge";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/hooks/useConfirm";
 import { useAgentHub } from "../AgentDetail";
 import { PublishAgentDialog } from "./PublishAgentDialog";
 import type { Publication } from "./publication-types";
@@ -39,6 +40,7 @@ export function AgentPublishingTab() {
   const { api } = useApi();
   const [showPublish, setShowPublish] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   const {
     data,
@@ -65,7 +67,15 @@ export function AgentPublishingTab() {
   };
 
   const unpublish = async (pub: Publication) => {
-    if (!confirm(`Unpublish "${pub.title}"? Its public link will stop working.`)) return;
+    if (
+      !(await confirm({
+        title: `Unpublish "${pub.title}"?`,
+        description: "Its public link will stop working.",
+        confirmLabel: "Unpublish",
+        destructive: true,
+      }))
+    )
+      return;
     setBusyId(pub.id);
     try {
       await api(`/v1/agents/${agent.id}/publications/${pub.id}`, { method: "DELETE" });

@@ -4,6 +4,7 @@ import { useQueryClient } from "../../lib/useApiQuery";
 import { Field } from "../../components/Field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useConfirm } from "@/hooks/useConfirm";
 import type { AgentRecord as Agent } from "../../types/agent";
 
 type NotifyTarget = NonNullable<NonNullable<Agent["_oma"]>["notify"]>[number];
@@ -46,6 +47,7 @@ export function AgentWebhooks({ agent }: { agent: Agent }) {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const confirm = useConfirm();
 
   const openAdd = () => {
     setForm({ ...EMPTY_FORM });
@@ -117,7 +119,14 @@ export function AgentWebhooks({ agent }: { agent: Agent }) {
   };
 
   const remove = async (i: number) => {
-    if (!confirm("Remove this webhook target?")) return;
+    if (
+      !(await confirm({
+        title: "Remove this webhook target?",
+        confirmLabel: "Remove",
+        destructive: true,
+      }))
+    )
+      return;
     await saveNotify(webhooks.filter((_, j) => j !== i));
   };
 

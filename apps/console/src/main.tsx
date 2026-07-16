@@ -16,6 +16,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import "@fontsource-variable/jetbrains-mono";
 import "./index.css";
 import { AuthProvider } from "./lib/auth";
+import { ConfirmProvider } from "./hooks/useConfirm";
 import { Toaster } from "./components/ui/sonner";
 import { AppShell } from "./components/AppShell";
 import { HubLayout, type HubConfig } from "./components/HubLayout";
@@ -389,9 +390,11 @@ createRoot(document.getElementById("root")!).render(
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <Suspense fallback={null}>
-            <RouterProvider router={router} />
-          </Suspense>
+          <ConfirmProvider>
+            <Suspense fallback={null}>
+              <RouterProvider router={router} />
+            </Suspense>
+          </ConfirmProvider>
         </AuthProvider>
         <Toaster />
       </QueryClientProvider>

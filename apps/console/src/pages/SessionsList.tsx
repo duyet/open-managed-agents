@@ -9,6 +9,7 @@ import { useApi, ApiError } from "../lib/api";
 import { useInfiniteApiQuery } from "../lib/useApiQuery";
 import { Modal } from "../components/Modal";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/hooks/useConfirm";
 import { Combobox } from "../components/Combobox";
 import { DataTable, type ColumnDef } from "../components/DataTable";
 import { FilterBar } from "../components/FilterBar";
@@ -237,6 +238,7 @@ function LiveDuration({ created_at, terminated_at }: { created_at: string; termi
 export function SessionsList() {
   const { api } = useApi();
   const nav = useNavigate();
+  const confirm = useConfirm();
   const [agents, setAgents] = useState<AgentLite[]>([]);
   // Set by the agent Combobox when the user picks an agent. Carries the
   // full row so we can read `runtime_binding` without keeping every agent
@@ -791,7 +793,15 @@ export function SessionsList() {
                   icon: <TrashIcon className="size-4" />,
                   destructive: true,
                   onSelect: async () => {
-                    if (!confirm(`Delete session "${label}"? This can't be undone.`)) return;
+                    if (
+                      !(await confirm({
+                        title: `Delete session "${label}"?`,
+                        description: "This can't be undone.",
+                        confirmLabel: "Delete",
+                        destructive: true,
+                      }))
+                    )
+                      return;
                     try {
                       await api(`/v1/sessions/${s.id}`, { method: "DELETE" });
                       refreshSessions();
@@ -806,7 +816,7 @@ export function SessionsList() {
         size: 56,
       },
     ],
-    [api, refreshSessions],
+    [api, refreshSessions, confirm],
   );
 
   const hasActiveFilter = !!search || !!filterAgent || status !== "any" || created.after !== undefined || created.before !== undefined;

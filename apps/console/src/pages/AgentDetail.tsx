@@ -12,6 +12,7 @@ import { useApi } from "../lib/api";
 import { useApiQuery } from "../lib/useApiQuery";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/hooks/useConfirm";
 import { AgentEditDialog } from "./agents/AgentEditDialog";
 import type { AppOutletContext } from "../components/AppShell";
 import type { AgentRecord as Agent } from "../types/agent";
@@ -107,14 +108,31 @@ export function AgentDetail() {
     }
   };
 
+  const confirm = useConfirm();
+
   const archive = async () => {
-    if (!confirm("Archive this agent?")) return;
+    if (
+      !(await confirm({
+        title: "Archive this agent?",
+        confirmLabel: "Archive",
+        destructive: true,
+      }))
+    )
+      return;
     await api(`/v1/agents/${id}/archive`, { method: "POST", body: "{}" });
     nav("/agents");
   };
 
   const del = async () => {
-    if (!confirm("Delete this agent? This cannot be undone.")) return;
+    if (
+      !(await confirm({
+        title: "Delete this agent?",
+        description: "This cannot be undone.",
+        confirmLabel: "Delete",
+        destructive: true,
+      }))
+    )
+      return;
     await api(`/v1/agents/${id}`, { method: "DELETE" });
     nav("/agents");
   };

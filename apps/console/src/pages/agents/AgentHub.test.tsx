@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
 
 import { server } from "../../mocks/server";
+import { ConfirmProvider } from "../../hooks/useConfirm";
 import { AgentDetail } from "../AgentDetail";
 import { AgentOverviewTab } from "./AgentOverviewTab";
 import { AgentSessionsTab } from "./AgentSessionsTab";
@@ -48,16 +49,18 @@ function renderHub(initial = "/agents/agent_1") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[initial]}>
-        <Routes>
-          <Route path="/agents/:id" element={<AgentDetail />}>
-            <Route index element={<AgentOverviewTab />} />
-            <Route path="sessions" element={<AgentSessionsTab />} />
-            <Route path="deployments" element={<AgentDeploymentsTab />} />
-            <Route path="publishing" element={<AgentPublishingTab />} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
+      <ConfirmProvider>
+        <MemoryRouter initialEntries={[initial]}>
+          <Routes>
+            <Route path="/agents/:id" element={<AgentDetail />}>
+              <Route index element={<AgentOverviewTab />} />
+              <Route path="sessions" element={<AgentSessionsTab />} />
+              <Route path="deployments" element={<AgentDeploymentsTab />} />
+              <Route path="publishing" element={<AgentPublishingTab />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </ConfirmProvider>
     </QueryClientProvider>,
   );
 }

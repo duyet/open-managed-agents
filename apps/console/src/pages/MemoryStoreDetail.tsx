@@ -8,6 +8,7 @@ import { PageHeader } from "../components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { rowActivateKeyDown } from "@/lib/utils";
+import { useConfirm } from "@/hooks/useConfirm";
 
 interface MemoryStore {
   id: string;
@@ -51,6 +52,7 @@ export function MemoryStoreDetail() {
   const { api } = useApi();
   const [tab, setTab] = useState<TabKey>("memories");
   const [error, setError] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   // Top-level store fetch via TQ. The two child panels do their own
   // queries — this one just gates the page render and seeds the header.
@@ -68,9 +70,13 @@ export function MemoryStoreDetail() {
   const archive = async () => {
     if (!storeId) return;
     if (
-      !confirm(
-        "Archive this store? It will become read-only and no new sessions can attach it. Archive is one-way.",
-      )
+      !(await confirm({
+        title: "Archive this store?",
+        description:
+          "It will become read-only and no new sessions can attach it. Archive is one-way.",
+        confirmLabel: "Archive",
+        destructive: true,
+      }))
     )
       return;
     try {
@@ -84,9 +90,12 @@ export function MemoryStoreDetail() {
   const del = async () => {
     if (!storeId) return;
     if (
-      !confirm(
-        "Delete this store and ALL its memories + version history? This cannot be undone.",
-      )
+      !(await confirm({
+        title: "Delete this store and ALL its memories + version history?",
+        description: "This cannot be undone.",
+        confirmLabel: "Delete",
+        destructive: true,
+      }))
     )
       return;
     try {
@@ -312,6 +321,7 @@ function MemoryDetailDialog({
   const [error, setError] = useState<string | null>(null);
   const [versions, setVersions] = useState<MemoryVersion[] | null>(null);
   const [showVersions, setShowVersions] = useState(false);
+  const confirm = useConfirm();
 
   const loadVersions = async () => {
     try {
@@ -343,7 +353,15 @@ function MemoryDetailDialog({
   };
 
   const remove = async () => {
-    if (!confirm(`Delete memory "${memory.path}"? Audit history is preserved.`)) return;
+    if (
+      !(await confirm({
+        title: `Delete memory "${memory.path}"?`,
+        description: "Audit history is preserved.",
+        confirmLabel: "Delete",
+        destructive: true,
+      }))
+    )
+      return;
     setError(null);
     try {
       await api(
@@ -361,7 +379,14 @@ function MemoryDetailDialog({
       alert("This version's content has been redacted — can't roll back.");
       return;
     }
-    if (!confirm(`Roll back to version ${v.id} (${new Date(v.created_at).toLocaleString()})?\n\nThis writes a new version with the old content.`)) return;
+    if (
+      !(await confirm({
+        title: `Roll back to version ${v.id} (${new Date(v.created_at).toLocaleString()})?`,
+        description: "This writes a new version with the old content.",
+        confirmLabel: "Roll back",
+      }))
+    )
+      return;
     setError(null);
     try {
       await api(`/v1/memory_stores/${storeId}/memories/${memory.id}`, {
@@ -383,7 +408,15 @@ function MemoryDetailDialog({
       alert("Can't redact the live head version. Write a new version first or delete the memory.");
       return;
     }
-    if (!confirm(`Redact version ${v.id}? Content will be wiped; audit row stays.`)) return;
+    if (
+      !(await confirm({
+        title: `Redact version ${v.id}?`,
+        description: "Content will be wiped; audit row stays.",
+        confirmLabel: "Redact",
+        destructive: true,
+      }))
+    )
+      return;
     setError(null);
     try {
       await api(`/v1/memory_stores/${storeId}/memory_versions/${v.id}/redact`, { method: "POST" });

@@ -12,6 +12,7 @@ import { Modal } from "../components/Modal";
 import { AddSandboxProviderDialog } from "./AddSandboxProviderDialog";
 import { RowActionsMenu } from "../components/RowActionsMenu";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/hooks/useConfirm";
 
 interface LocalSkill {
   id: string;
@@ -500,6 +501,7 @@ export function RuntimesList() {
   const [showInstructions, setShowInstructions] = useState(false);
   const [setupProvider, setSetupProvider] = useState<HostingType | null>(null);
   const [showAddProvider, setShowAddProvider] = useState(false);
+  const confirm = useConfirm();
 
   const [providers, setProviders] = useState<HostingType[]>([]);
   const [providersLoading, setProvidersLoading] = useState(true);
@@ -541,7 +543,15 @@ export function RuntimesList() {
   const runtimesError = formatQueryError(runtimesQueryError);
 
   const remove = async (id: string) => {
-    if (!confirm("Revoke this runtime? Daemon on that machine will stop being able to attach.")) return;
+    if (
+      !(await confirm({
+        title: "Revoke this runtime?",
+        description: "Daemon on that machine will stop being able to attach.",
+        confirmLabel: "Revoke",
+        destructive: true,
+      }))
+    )
+      return;
     try {
       await api(`/v1/runtimes/${id}`, { method: "DELETE" });
       void refetch();
@@ -549,7 +559,15 @@ export function RuntimesList() {
   };
 
   const removeProvider = async (p: HostingType) => {
-    if (!confirm("Remove this sandbox provider? Environments pinned to it will fail to provision.")) return;
+    if (
+      !(await confirm({
+        title: "Remove this sandbox provider?",
+        description: "Environments pinned to it will fail to provision.",
+        confirmLabel: "Remove",
+        destructive: true,
+      }))
+    )
+      return;
     try {
       await api(`/v1/sandbox_providers/${p.id}`, { method: "DELETE" });
       void loadProviders();

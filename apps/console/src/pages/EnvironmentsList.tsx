@@ -6,6 +6,7 @@ import { useInfiniteApiQuery } from "../lib/useApiQuery";
 import { Modal } from "../components/Modal";
 import { Button } from "@/components/ui/button";
 import { PopoverContent } from "@/components/ui/popover";
+import { useConfirm } from "@/hooks/useConfirm";
 import { Select, SelectOption } from "../components/Select";
 import { EnvVarsEditor, rowsToEnvVars, type EnvVarRow } from "../components/EnvVarsEditor";
 import { DataTable, type ColumnDef } from "../components/DataTable";
@@ -87,6 +88,7 @@ export function EnvironmentsList() {
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: "", description: "", type: "cloud", instanceType: "" });
   const [envVarRows, setEnvVarRows] = useState<EnvVarRow[]>([]);
+  const confirm = useConfirm();
 
   // Hosting types are host-dependent: self-hosted (main-node) advertises the
   // full sandbox-provider list at /v1/hosting_types; the Cloudflare host has
@@ -256,7 +258,15 @@ export function EnvironmentsList() {
                   icon: <TrashIcon className="size-4" />,
                   destructive: true,
                   onSelect: async () => {
-                    if (!confirm(`Delete environment ${e.name}? This can't be undone.`)) return;
+                    if (
+                      !(await confirm({
+                        title: `Delete environment ${e.name}?`,
+                        description: "This can't be undone.",
+                        confirmLabel: "Delete",
+                        destructive: true,
+                      }))
+                    )
+                      return;
                     try {
                       await api(`/v1/environments/${e.id}`, { method: "DELETE" });
                       load();
@@ -271,7 +281,7 @@ export function EnvironmentsList() {
         size: 56,
       },
     ],
-    [api, load],
+    [api, load, confirm],
   );
 
   // Active-filter chip displays — kept null when matching the default so
