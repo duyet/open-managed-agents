@@ -504,6 +504,28 @@ function parseExecResult(out: string): ExecResult {
 // Host code (apps/main-node) only knows the provider name → import path
 // map and never reads OPENSHELL_* env vars itself.
 
+/**
+ * Parse the OPENSHELL_GATEWAY_TLS / _CA_PATH / _CERT_PATH / _KEY_PATH env
+ * vars into the `tls` option `OpenShellSandbox` and `probeOpenShellGateway`
+ * both accept. Extracted out of `sandboxFactory` so main-node's
+ * auto-detection probe (see `resolveDefaultLocalSandboxProvider` in
+ * ../provider-config.ts) builds credentials the exact same way the real
+ * adapter does — a probe that used different TLS settings than the
+ * adapter it's predicting for would be worse than no probe at all.
+ */
+export function resolveOpenShellTlsFromEnv(
+  env: Record<string, string | undefined>,
+): OpenShellSandboxOptions["tls"] {
+  const tlsEnabled = (env.OPENSHELL_GATEWAY_TLS ?? "").toLowerCase() === "1" ||
+    !!(env.OPENSHELL_GATEWAY_CA_PATH || env.OPENSHELL_GATEWAY_CERT_PATH);
+  if (!tlsEnabled) return undefined;
+  return {
+    caPath: env.OPENSHELL_GATEWAY_CA_PATH || undefined,
+    certPath: env.OPENSHELL_GATEWAY_CERT_PATH || undefined,
+    keyPath: env.OPENSHELL_GATEWAY_KEY_PATH || undefined,
+  };
+}
+
 export const sandboxFactory: SandboxFactory = async (ctx, env) => {
   const endpoint = env.OPENSHELL_GATEWAY_ENDPOINT;
   if (!endpoint) {
@@ -513,21 +535,51 @@ export const sandboxFactory: SandboxFactory = async (ctx, env) => {
     );
   }
 
-  const tlsEnabled = (env.OPENSHELL_GATEWAY_TLS ?? "").toLowerCase() === "1" ||
-    !!(env.OPENSHELL_GATEWAY_CA_PATH || env.OPENSHELL_GATEWAY_CERT_PATH);
-  const tls = tlsEnabled
-    ? {
-        caPath: env.OPENSHELL_GATEWAY_CA_PATH || undefined,
-        certPath: env.OPENSHELL_GATEWAY_CERT_PATH || undefined,
-        keyPath: env.OPENSHELL_GATEWAY_KEY_PATH || undefined,
-      }
-    : undefined;
-
   return new OpenShellSandbox({
     endpoint,
     token: env.OPENSHELL_TOKEN,
     image: env.OPENSHELL_IMAGE,
-    tls,
+    tls: resolveOpenShellTlsFromEnv(env),
     sessionId: ctx.sessionId,
   });
 };
+
+/**
+ * probeOpenShellGateway — cheap reachability check for the OpenShell
+ * gateway. Opens a bare gRPC channel (no proto, no RPC call) and waits
+ * for it to reach READY (TCP + HTTP/2 handshake) within `timeoutMs`.
+ * Never throws — any failure (bad endpoint, connection refused, no
+ * gateway listening, timeout) resolves `false`. Used by main-node's
+ * default-sandbox-provider auto-detection
+ * (`resolveDefaultLocalSandboxProvider` in ../provider-config.ts) to
+ * decide whether to prefer OpenShell over the "subprocess" fallback when
+ * neither an environment nor SANDBOX_PROVIDER pins a provider explicitly.
+ */
+export async function probeOpenShellGateway(
+  endpoint: string,
+  tls?: OpenShellSandboxOptions["tls"],
+  timeoutMs = 1500,
+): Promise<boolean> {
+  if (!endpoint) return false;
+  let client: grpc.Client | null = null;
+  try {
+    const credentials = tls
+      ? (() => {
+          const { readFileSync } = require("node:fs") as typeof import("node:fs");
+          const rootCert = tls.caPath ? readFileSync(tls.caPath) : undefined;
+          const privateKey = tls.keyPath ? readFileSync(tls.keyPath) : undefined;
+          const certChain = tls.certPath ? readFileSync(tls.certPath) : undefined;
+          return grpc.credentials.createSsl(rootCert, privateKey, certChain);
+        })()
+      : grpc.credentials.createInsecure();
+    client = new grpc.Client(endpoint, credentials);
+    const deadline = Date.now() + timeoutMs;
+    return await new Promise<boolean>((resolve) => {
+      client!.waitForReady(deadline, (err) => resolve(!err));
+    });
+  } catch {
+    return false;
+  } finally {
+    try { client?.close(); } catch { /* ignore */ }
+  }
+}
