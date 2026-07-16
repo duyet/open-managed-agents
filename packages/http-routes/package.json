@@ -21,6 +21,7 @@
     "@duyet/oma-integrations-core": "workspace:*",
     "@duyet/oma-kv-store": "workspace:*",
     "@duyet/oma-memory-store": "workspace:*",
+    "@duyet/oma-model-cards-store": "workspace:*",
     "@duyet/oma-observability": "workspace:*",
     "@duyet/oma-publications-store": "workspace:*",
     "@duyet/oma-quotas": "workspace:*",

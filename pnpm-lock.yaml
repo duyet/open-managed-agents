@@ -1180,6 +1180,9 @@ importers:
       '@duyet/oma-memory-store':
         specifier: workspace:*
         version: link:../memory-store
+      '@duyet/oma-model-cards-store':
+        specifier: workspace:*
+        version: link:../model-cards-store
       '@duyet/oma-observability':
         specifier: workspace:*
         version: link:../observability
