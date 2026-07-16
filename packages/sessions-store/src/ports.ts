@@ -166,6 +166,17 @@ export interface SessionRepo {
   /** Returns true if any non-archived session in the tenant references this environment. */
   hasActiveByEnvironment(tenantId: string, environmentId: string): Promise<boolean>;
 
+  /**
+   * Count sessions in the tenant that a given agent schedule fired
+   * (`metadata.scheduled_run.schedule_id === scheduleId`, set at create time
+   * by the scheduled-agent-runs launcher) and that are still in-flight —
+   * `status IN ('running', 'rescheduling')`. Backs the `max_sessions`
+   * concurrency cap enforced by the schedule cron tick (issue #165). `idle`
+   * and `terminated` sessions are excluded on purpose: a scheduled run that
+   * finished its turn no longer occupies a concurrency slot.
+   */
+  countActiveByScheduleId(tenantId: string, scheduleId: string): Promise<number>;
+
   /** Cheap COUNT(*) for /v1/stats. Index `idx_sessions_tenant_created` covers it. */
   count(tenantId: string, opts: { includeArchived: boolean }): Promise<number>;
 

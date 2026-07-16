@@ -42,14 +42,21 @@ export async function launchDeploymentSession(
   if (!dep.environmentId) {
     throw new Error("deployment has no environment_id");
   }
-  if (!dep.userId) {
-    throw new Error("deployment has no user_id");
+  // A deployment created via a legacy API key carries no user_id. Rather than
+  // throw (which would fail every webhook/scheduled run), fall back to any
+  // user in the tenant to own the session — the same tenant-owner fallback
+  // pattern used elsewhere for user-less internal session creation
+  // (cf-session-lifecycle.ts). The session still runs under the correct
+  // tenant; it just needs *a* user id to resolve the tenant shard.
+  const userId = dep.userId ?? (await resolveTenantFallbackUserId(env, dep.tenantId));
+  if (!userId) {
+    throw new Error("deployment has no user_id and tenant has no users");
   }
   const message = opts.message ?? dep.initialMessage;
   const services = await getCfServicesForTenant(env, dep.tenantId);
   const result = await createInternalSession(env, services, {
     action: "create",
-    userId: dep.userId,
+    userId,
     agentId: dep.agentId,
     environmentId: dep.environmentId,
     agentVersion: dep.agentVersion,
@@ -65,4 +72,20 @@ export async function launchDeploymentSession(
     throw new Error(`session create failed (${result.status}): ${result.error}`);
   }
   return { sessionId: result.sessionId };
+}
+
+/**
+ * Resolve any user in the tenant to own a session when the deployment row
+ * itself has no user_id (legacy API-key-created deployments). Returns null
+ * when the tenant has no users at all. Mirrors the tenant-owner fallback used
+ * by cf-session-lifecycle.ts's credential-refresh path.
+ */
+async function resolveTenantFallbackUserId(env: Env, tenantId: string): Promise<string | null> {
+  const mainDb = (env as unknown as { MAIN_DB?: D1Database }).MAIN_DB;
+  if (!mainDb) return null;
+  const row = await mainDb
+    .prepare(`SELECT id FROM "user" WHERE tenantId = ? LIMIT 1`)
+    .bind(tenantId)
+    .first<{ id: string }>();
+  return row?.id ?? null;
 }

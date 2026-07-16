@@ -53,3 +53,6 @@ data/
 .env
 .env.local
 .env.*.local
+
+# Hallmark design skill scratch output — not a build artifact
+.hallmark/

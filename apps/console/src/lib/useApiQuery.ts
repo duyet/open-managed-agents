@@ -39,6 +39,17 @@ import { useApi } from "./api";
 // `params: { agent_id: undefined }` is a no-op rather than `?agent_id=`.
 // ────────────────────────────────────────────────────────────────────────
 
+/** Normalize a TanStack Query `error` (always `Error | null` in practice,
+ *  but typed loosely depending on call site) into a display string for the
+ *  "Couldn't load…" error states. Shared by `useInfiniteApiQuery` below and
+ *  by callers of the raw `useApiQuery`/`useQuery` result (Dashboard,
+ *  SkillsList, MemoryStoresList, EvalRunsList, RuntimesList) that want the
+ *  same message shape without re-deriving it inline. */
+export function formatQueryError(err: unknown): string | null {
+  if (!err) return null;
+  return err instanceof Error ? err.message : String(err);
+}
+
 export function buildUrl(
   path: string,
   params?: Record<string, string | undefined>,
@@ -204,11 +215,7 @@ export function useInfiniteApiQuery<T>(
     hasMore: !!query.hasNextPage,
     loadMore,
     refresh,
-    error: query.error
-      ? query.error instanceof Error
-        ? query.error.message
-        : String(query.error)
-      : null,
+    error: formatQueryError(query.error),
   };
 }
 

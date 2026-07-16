@@ -23,6 +23,10 @@ import { authMiddleware } from "../auth";
 
 const db = () => (env as unknown as { MAIN_DB: D1Database }).MAIN_DB;
 
+// The two tenants the tests act as; each is seeded with agent_1 (current
+// version 3) + env_1 so create/update reference-validation passes.
+const TENANTS = ["tenant-a", "tenant-b"];
+
 async function setupTables() {
   await db()
     .prepare(
@@ -39,6 +43,62 @@ async function setupTables() {
   await db()
     .prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_deployments_hook_token ON deployments(hook_token)`)
     .run();
+
+  // agents / agent_versions / environments live in the tenant shard, which in
+  // the single-shard test env resolves to MAIN_DB. Reference-validation on
+  // create/update reads them via services, so the tables + rows must exist.
+  await db()
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS agents (
+         id TEXT PRIMARY KEY NOT NULL, tenant_id TEXT NOT NULL, config TEXT NOT NULL,
+         version INTEGER NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER, archived_at INTEGER)`,
+    )
+    .run();
+  await db()
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS agent_versions (
+         agent_id TEXT NOT NULL, tenant_id TEXT NOT NULL, version INTEGER NOT NULL,
+         snapshot TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY(agent_id, version))`,
+    )
+    .run();
+  await db()
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS environments (
+         id TEXT PRIMARY KEY NOT NULL, tenant_id TEXT NOT NULL, name TEXT NOT NULL,
+         description TEXT, status TEXT NOT NULL, sandbox_worker_name TEXT, build_error TEXT,
+         config TEXT NOT NULL, metadata TEXT, created_at INTEGER NOT NULL, updated_at INTEGER,
+         archived_at INTEGER, image_strategy TEXT, image_handle TEXT)`,
+    )
+    .run();
+
+  const nowMs = Date.now();
+  for (const tenant of TENANTS) {
+    // agent_1 at current version 3 (so a pin of 3 is the live version and a
+    // pin of 1/2 must resolve via agent_versions history).
+    await db()
+      .prepare(
+        `INSERT OR IGNORE INTO agents (id, tenant_id, config, version, created_at)
+         VALUES (?, ?, ?, 3, ?)`,
+      )
+      .bind("agent_1", tenant, JSON.stringify({ id: "agent_1", name: "A", model: "claude-sonnet-4-6", system: "", tools: [], version: 3 }), nowMs)
+      .run();
+    for (const v of [1, 2]) {
+      await db()
+        .prepare(
+          `INSERT OR IGNORE INTO agent_versions (agent_id, tenant_id, version, snapshot, created_at)
+           VALUES (?, ?, ?, ?, ?)`,
+        )
+        .bind("agent_1", tenant, v, JSON.stringify({ id: "agent_1", name: "A", model: "claude-sonnet-4-6", system: "", tools: [], version: v }), nowMs)
+        .run();
+    }
+    await db()
+      .prepare(
+        `INSERT OR IGNORE INTO environments (id, tenant_id, name, status, config, created_at)
+         VALUES (?, ?, ?, 'ready', ?, ?)`,
+      )
+      .bind("env_1", tenant, "E", JSON.stringify({ type: "cloud" }), nowMs)
+      .run();
+  }
 }
 
 async function reset() {
@@ -140,6 +200,55 @@ describe("create", () => {
     );
     expect(badCron.status).toBe(422);
   });
+
+  it("404s a nonexistent agent_id", async () => {
+    const app = tenantApp();
+    const res = await call(app, "/v1/deployments", json({ ...base, agent_id: "agent_missing" }));
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: string }).error).toMatch(/agent not found/);
+  });
+
+  it("404s a nonexistent environment_id", async () => {
+    const app = tenantApp();
+    const res = await call(app, "/v1/deployments", json({ ...base, environment_id: "env_missing" }));
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: string }).error).toMatch(/environment not found/);
+  });
+
+  it("422s a pinned agent_version that doesn't exist", async () => {
+    const app = tenantApp();
+    const res = await call(app, "/v1/deployments", json({ ...base, agent_version: 99 }));
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toMatch(/agent version 99 not found/);
+  });
+
+  it("accepts a pinned agent_version that exists in history", async () => {
+    const app = tenantApp();
+    const res = await call(app, "/v1/deployments", json({ ...base, agent_version: 1 }));
+    expect(res.status).toBe(201);
+    expect(((await res.json()) as { agent_version: number }).agent_version).toBe(1);
+  });
+});
+
+describe("update reference validation", () => {
+  async function create(app: Hono, over: Record<string, unknown> = {}) {
+    const res = await call(app, "/v1/deployments", json({ ...base, ...over }));
+    return (await res.json()) as Record<string, string>;
+  }
+
+  it("404s when patching environment_id to a nonexistent env", async () => {
+    const app = tenantApp();
+    const dep = await create(app);
+    const res = await call(app, `/v1/deployments/${dep.id}`, json({ environment_id: "env_missing" }, "PATCH"));
+    expect(res.status).toBe(404);
+  });
+
+  it("422s when patching agent_version to a nonexistent version", async () => {
+    const app = tenantApp();
+    const dep = await create(app);
+    const res = await call(app, `/v1/deployments/${dep.id}`, json({ agent_version: 99 }, "PATCH"));
+    expect(res.status).toBe(422);
+  });
 });
 
 describe("list — cursor pagination + tenant scoping", () => {
@@ -163,6 +272,22 @@ describe("list — cursor pagination + tenant scoping", () => {
     ).json()) as { data: unknown[]; next_cursor?: string };
     expect(page2.data).toHaveLength(1);
     expect(page2.next_cursor).toBeUndefined();
+  });
+
+  it("filters by agent_id when the query param is present", async () => {
+    const app = tenantApp("tenant-a");
+    await call(app, "/v1/deployments", json({ ...base, name: "for-a", agent_id: "agent_a" }));
+    await call(app, "/v1/deployments", json({ ...base, name: "for-b", agent_id: "agent_b" }));
+
+    const scoped = (await (
+      await call(app, "/v1/deployments?agent_id=agent_a")
+    ).json()) as { data: Array<{ name: string; agent_id: string }> };
+    expect(scoped.data).toHaveLength(1);
+    expect(scoped.data[0]).toMatchObject({ name: "for-a", agent_id: "agent_a" });
+
+    // No filter → both rows.
+    const all = (await (await call(app, "/v1/deployments")).json()) as { data: unknown[] };
+    expect(all.data).toHaveLength(2);
   });
 });
 
@@ -247,5 +372,42 @@ describe("deployment_hooks webhook endpoint", () => {
       .run();
     const res = await call(hookApp(), "/v1/deployment_hooks/dhk_disabledtoken", json({}));
     expect(res.status).toBe(403);
+  });
+
+  it("429s when the per-deployment rate limit is exhausted", async () => {
+    const now = new Date().toISOString();
+    await db()
+      .prepare(
+        `INSERT INTO deployments (id, tenant_id, name, agent_id, environment_id, initial_message,
+           trigger, hook_token, user_id, enabled, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+      )
+      .bind(
+        "dep_rl",
+        "tenant-a",
+        "d",
+        "agent_1",
+        "env_1",
+        "m",
+        '{"type":"webhook"}',
+        "dhk_ratelimited",
+        "user-1",
+        now,
+        now,
+      )
+      .run();
+    // Inject a rejecting RL_SESSIONS_TENANT binding (the bucket
+    // rateLimitDeploymentHook consumes). 429 fires before any session launch,
+    // so no sandbox is needed.
+    const envWithRl = {
+      ...(env as unknown as Record<string, unknown>),
+      RL_SESSIONS_TENANT: { limit: async () => ({ success: false }) },
+    };
+    const res = await hookApp().request(
+      "/v1/deployment_hooks/dhk_ratelimited",
+      json({}),
+      envWithRl,
+    );
+    expect(res.status).toBe(429);
   });
 });

@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { env } from "cloudflare:workers";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { buildTools } from "../../apps/agent/src/harness/tools";
 import { TestSandbox } from "../../apps/agent/src/runtime/sandbox";
 import { InMemoryHistory, eventsToMessages } from "../../apps/agent/src/runtime/history";
@@ -514,6 +514,102 @@ describe("Built-in tool execution", () => {
       TOOL_EXEC_OPTS
     );
     expect(capturedCmd).toContain("head -c 1000");
+  });
+
+  // ── SSRF guard (issue #161) ──────────────────────────────────────────
+  // Unit coverage for assertPublicUrl itself lives in
+  // test/unit/ssrf-guard.test.ts. These cover the integration: web_fetch
+  // calling the guard at the top (for every networking mode) and the
+  // harness-side fetch re-validating each redirect hop.
+
+  it("web_fetch blocks a request to a metadata/private IP outright, before any fetch (harness or sandbox)", async () => {
+    let execCalled = false;
+    const sandbox: any = {
+      exec: async () => {
+        execCalled = true;
+        return "exit=0\nshould not run";
+      },
+      readFile: async () => "",
+      writeFile: async () => "ok",
+    };
+    const tools = await buildTools(makeAgentConfig(), sandbox);
+
+    const result = await tools.web_fetch.execute(
+      { url: "http://169.254.169.254/latest/meta-data/" },
+      TOOL_EXEC_OPTS
+    );
+    expect(result).toContain("Error");
+    expect(result).toContain("169.254.169.254");
+    // Blocked before the sandbox curl fallback ever runs.
+    expect(execCalled).toBe(false);
+  });
+
+  it("web_fetch blocks a redirect hop into a private address (302 -> 127.0.0.1) without falling back to curl", async () => {
+    const ORIGINAL_FETCH = globalThis.fetch;
+    try {
+      const fetchMock = vi.fn(async () =>
+        new Response(null, { status: 302, headers: { location: "http://127.0.0.1/admin" } })
+      );
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+      let execCalled = false;
+      const sandbox: any = {
+        exec: async () => {
+          execCalled = true;
+          return "exit=0\nshould not run";
+        },
+        readFile: async () => "",
+        writeFile: async () => "ok",
+      };
+      const tools = await buildTools(makeAgentConfig(), sandbox, {
+        toMarkdown: async () => ({ format: "markdown", data: "should not be reached" }),
+      });
+
+      const result = await tools.web_fetch.execute(
+        { url: "https://example.com/redirect-me" },
+        TOOL_EXEC_OPTS
+      );
+
+      expect(result).toContain("Error");
+      // Only the initial (legitimate) hop was ever fetched — the harness
+      // never issued a request to the redirect target.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0][0]).toBe("https://example.com/redirect-me");
+      expect(fetchMock.mock.calls[0][1]).toMatchObject({ redirect: "manual" });
+      // The guard rejection is a hard error, not silently swallowed into
+      // the sandbox curl fallback.
+      expect(execCalled).toBe(false);
+    } finally {
+      globalThis.fetch = ORIGINAL_FETCH;
+    }
+  });
+
+  it("web_fetch WEB_FETCH_ALLOW_PRIVATE escape hatch lets the harness-side fetch reach a private target", async () => {
+    const ORIGINAL_FETCH = globalThis.fetch;
+    try {
+      const fetchMock = vi.fn(async () => new Response("<html>internal</html>", { status: 200 }));
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+      const sandbox: any = {
+        exec: async () => "exit=0\nshould not run",
+        readFile: async () => "",
+        writeFile: async () => "ok",
+      };
+      const tools = await buildTools(makeAgentConfig(), sandbox, {
+        toMarkdown: async () => ({ format: "markdown", data: "internal page" }),
+        WEB_FETCH_ALLOW_PRIVATE: "1",
+      });
+
+      const result = await tools.web_fetch.execute(
+        { url: "http://127.0.0.1:8080/health" },
+        TOOL_EXEC_OPTS
+      );
+
+      expect(result).not.toContain("Error");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      globalThis.fetch = ORIGINAL_FETCH;
+    }
   });
 
   it("web_search default (DDG) is defined in agent_toolset", async () => {

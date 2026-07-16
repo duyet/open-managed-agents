@@ -7,6 +7,7 @@ import { Page } from "../components/Page";
 import { PageHeader } from "../components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { rowActivateKeyDown } from "@/lib/utils";
 
 interface MemoryStore {
   id: string;
@@ -259,6 +260,9 @@ function MemoriesPanel({ storeId, archived }: { storeId: string; archived: boole
                 <tr
                   key={m.id}
                   onClick={() => openMemory(m)}
+                  onKeyDown={rowActivateKeyDown(() => void openMemory(m))}
+                  tabIndex={0}
+                  role="button"
                   className="border-t border-border cursor-pointer hover:bg-bg-surface transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
                 >
                   <td className="px-4 py-3 font-mono text-xs">{m.path}</td>

@@ -192,9 +192,10 @@ for manual re-runs.
 
 [`examples/`](examples/) has copy-paste-ready agent configs for common
 personas (coding assistant, data analyst, research agent) plus full harness
-demos (`claude-agent-sdk`, `flue`, GitHub-repo attach) with pre-built Docker
-images published to GHCR by
-[`build-example-images.yml`](.github/workflows/build-example-images.yml).
+demos (`claude-agent-sdk`, `flue`, GitHub-repo attach, self-improvement-agent)
+with pre-built Docker images published to GHCR by
+[`build-example-images.yml`](.github/workflows/build-example-images.yml), plus
+a build-it-yourself provider-swap demo (`grok-coding-agent`).
 See [`examples/README.md`](examples/README.md).
 
 ---
@@ -424,7 +425,7 @@ The `agent_toolset_20260401` provides:
 | `glob` | Find files matching a pattern |
 | `grep` | Search file contents with regex |
 | `web_fetch` | URL → markdown via Workers AI; auto-summarized when `agent.aux_model` is set, raw saved to `/workspace/.web/` |
-| `web_search` | Web search via Tavily API (requires `TAVILY_API_KEY`) |
+| `web_search` | Web search. Defaults to DuckDuckGo (free, no key). Optional backends via tool `type`: `web_search_20250305` (Anthropic server-side, Claude models only), `web_search_tavily` (requires `TAVILY_API_KEY`) |
 | `schedule` / `cancel_schedule` / `list_schedules` | Cron-style self-wakeup for long-running agents |
 | `browser` (opt-in) | Headless browser session — navigate, click, screenshot. Opt-in via `tools: [{ name: "browser", enabled: true }]` so the default-tool list nudges agents toward cheaper `web_fetch` |
 
@@ -769,7 +770,7 @@ The variables that gate boot and at-rest safety:
 | `ANTHROPIC_BASE_URL` | No | Override for Anthropic-compatible proxies. |
 | `PUBLIC_BASE_URL` | No (dev) / Yes (prod) | Cookie domain + OAuth redirect base. Defaults to `*` trusted-origins — only safe for local dev. |
 | `SANDBOX_PROVIDER` | No | Fallback default when an environment has no explicit provider selection. See multi-provider docs below for per-environment `config.sandbox_provider` and BYOK registration. |
-| `TAVILY_API_KEY` | No | Backend for the `web_search` built-in tool. |
+| `TAVILY_API_KEY` | No | Only needed for the `web_search_tavily` tool-type variant — `web_search` defaults to free DuckDuckGo with no key required. |
 | `DAYTONA_API_KEY` | No | Enables Daytona sandbox provider (seeded at startup). |
 | `E2B_API_KEY` | No | Enables E2B sandbox provider (seeded at startup). |
 | `BOXRUN_URL` | No | Enables BoxRun sandbox provider (seeded at startup). |

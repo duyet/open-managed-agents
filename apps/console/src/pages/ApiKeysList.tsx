@@ -18,6 +18,7 @@ export function ApiKeysList() {
   const { api } = useApi();
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [createdKey, setCreatedKey] = useState("");
@@ -25,9 +26,12 @@ export function ApiKeysList() {
 
   const load = async () => {
     setLoading(true);
+    setListError(null);
     try {
       setKeys((await api<{ data: ApiKey[] }>("/v1/api_keys")).data);
-    } catch {}
+    } catch (e) {
+      setListError(e instanceof Error ? e.message : "Failed to load API keys");
+    }
     setLoading(false);
   };
 
@@ -139,6 +143,9 @@ export function ApiKeysList() {
       onCreate={() => setShowCreate(true)}
       data={keys}
       loading={loading}
+      error={listError}
+      onRetry={load}
+      errorTitle="Couldn't load API keys"
       getRowId={(k) => k.id}
       emptyTitle="No API keys yet"
       emptyKind="api_key"

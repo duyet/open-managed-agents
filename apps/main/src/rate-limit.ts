@@ -188,6 +188,28 @@ export async function rateLimitMagicLinkEmail(
   return exceeded(binding, `magiclink:${email}`);
 }
 
+// ─── Per-deployment cap on the unauthenticated webhook run endpoint ──────────
+//
+// POST /v1/deployment_hooks/:hook_token is unauthenticated (token-secured) and
+// spins up a full sandbox session per call. Without a cap, a leaked hook token
+// could fan out unbounded expensive runs. Keyed per deployment so one hot
+// deployment can't exhaust others. Reuses the session-creation binding (same
+// "session spin-up is $$" threat model) under a `dephook:` key namespace so it
+// never collides with the `tenant:` keys rateLimitSessionCreate uses.
+
+export async function rateLimitDeploymentHook(
+  env: Env,
+  deploymentId: string,
+): Promise<Response | null> {
+  if (await exceeded(env.RL_SESSIONS_TENANT, `dephook:${deploymentId}`)) {
+    return Response.json(
+      { error: "Too many webhook runs for this deployment — wait a minute" },
+      { status: 429 },
+    );
+  }
+  return null;
+}
+
 export const windows = new Map<string, number[]>();
 
 export function isRateLimited(

@@ -29,6 +29,22 @@ export function formatSandboxTime(seconds: number | undefined): string {
 }
 
 /**
+ * Humanize a count into a compact label: `999`, `7.5K`, `105K`, `1.2M`.
+ * Values under 1000 render verbatim; the `.0` fraction is dropped so
+ * `105000` reads `105K` rather than `105.0K`. `null`/`undefined` render
+ * as an em-dash so an absent metric looks intentional. Used by the
+ * Observability tab's token / session counters and the per-agent
+ * sessions table's Tokens column.
+ */
+export function formatCompact(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return "—";
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (abs >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+  return String(n);
+}
+
+/**
  * "12s ago" / "5m ago" / "3d ago" / "8mo ago" — coarse relative time
  * suitable for header chips. Prefer absolute timestamps in tooltips
  * when an exact value matters.

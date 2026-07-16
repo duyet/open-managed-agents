@@ -17,13 +17,14 @@ Thank you for your interest in contributing! This document provides guidelines a
 
 ## Pull Request Process
 
-1. Ensure all tests pass and linting is clean
+1. Ensure `pnpm typecheck` and `pnpm test` pass
 2. Update documentation if needed
 3. Submit a pull request with a clear description of the changes
 4. Wait for review and address any feedback
 
 ## Code Style
 
+- No linter or formatter is configured — match the surrounding code style: 2-space indent, double quotes, semicolons, trailing commas
 - Follow the existing code style in the project
 - Use meaningful variable and function names
 - Add comments for complex logic

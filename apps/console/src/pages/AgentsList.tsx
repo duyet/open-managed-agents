@@ -77,6 +77,7 @@ export function AgentsList() {
   const {
     items: agents,
     isLoading: loading,
+    error,
     hasMore,
     isLoadingMore,
     loadMore,
@@ -262,6 +263,9 @@ export function AgentsList() {
       filters={filters}
       data={agents}
       loading={loading}
+      error={error}
+      onRetry={refreshAgents}
+      errorTitle="Couldn't load agents"
       getRowId={(a) => a.id}
       onRowClick={(a) => nav(`/agents/${a.id}`)}
       hasMore={hasMore}

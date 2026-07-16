@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { formatDuration, pickTickStep } from "../../lib/format";
 import type { Event } from "../../lib/events";
+import { rowActivateKeyDown } from "@/lib/utils";
 import { bucketIntoTurns, deriveSpans } from "./derive";
 import {
   DURATION_COL_W,
@@ -175,6 +176,9 @@ function TimelineRow({
         className={`flex items-center py-1 border-b border-border/30 hover:bg-bg/40 group cursor-pointer ${isSelected ? "bg-info-subtle/40" : ""}`}
         title={title}
         onClick={onClick}
+        onKeyDown={rowActivateKeyDown(onClick)}
+        tabIndex={0}
+        role="button"
       >
         <div
           className={`shrink-0 sticky left-0 z-20 flex items-center gap-2 text-xs px-4 group-hover:bg-bg/40 ${stickyBg}`}

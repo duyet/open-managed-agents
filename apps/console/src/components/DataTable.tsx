@@ -9,6 +9,7 @@ import {
   EyeOffIcon,
   SearchIcon,
   SettingsIcon,
+  TriangleAlertIcon,
 } from "lucide-react";
 import {
   flexRender,
@@ -37,7 +38,7 @@ import {
 import { EmptyState, type EmptyStateKind } from "./EmptyState";
 import { PageHeader } from "./PageHeader";
 import { Skeleton } from "./Skeleton";
-import { cn } from "@/lib/utils";
+import { cn, rowActivateKeyDown } from "@/lib/utils";
 import { useLocation } from "react-router";
 
 /**
@@ -105,6 +106,20 @@ export interface DataTableProps<T> {
   emptyKind?: EmptyStateKind;
   emptyIcon?: ReactNode;
 
+  /** Message from a failed fetch (e.g. `useInfiniteApiQuery`'s `error`).
+   *  When set and there are no rows to show, renders a danger-toned error
+   *  state instead of the empty state — never silently shows "Nothing
+   *  here yet" for a failed request. Ignored once rows exist (stale data
+   *  from before the failure keeps rendering; see `onRetry`). */
+  error?: string | null;
+  /** Retry handler wired to the error state's "Retry" button — pass the
+   *  query's `refresh`/`refetch`. */
+  onRetry?: () => void;
+  /** Title for the error state. Defaults to a generic message; pass an
+   *  entity-specific one (e.g. "Couldn't load agents") to match the
+   *  page's empty-state phrasing. */
+  errorTitle?: string;
+
   onRowClick?: (item: T) => void;
 
   /** Infinite-scroll mode — paired with `useInfiniteApiQuery`. */
@@ -134,6 +149,9 @@ export function DataTable<T>({
   emptyAction,
   emptyKind,
   emptyIcon,
+  error,
+  onRetry,
+  errorTitle = "Couldn't load data",
   onRowClick,
   hasMore,
   onLoadMore,
@@ -209,7 +227,13 @@ export function DataTable<T>({
   );
 
   const filteredRows = table.getRowModel().rows;
-  const isEmpty = !loading && filteredRows.length === 0;
+  const hasRows = filteredRows.length > 0;
+  // Stale-while-revalidate: a background refetch failure with rows
+  // already on screen falls through to the normal data render below
+  // (hasRows wins) rather than replacing visible data with an error
+  // screen. The error state only appears for the empty+failed case.
+  const hasError = !loading && !hasRows && !!error;
+  const isEmpty = !loading && !hasRows && !error;
   const visibleColumns = table.getAllColumns().filter((c) => c.getIsVisible());
   const visibleColumnCount = visibleColumns.length;
 
@@ -227,7 +251,7 @@ export function DataTable<T>({
     </colgroup>
   );
 
-  const frozenHeader = !loading && !isEmpty ? (
+  const frozenHeader = !loading && hasRows ? (
     // Wrap the header table in an overflow-x:hidden container with a
     // stable id so the body's horizontal scroll can drive scrollLeft
     // on this element — see the useEffect below. Without this sync,
@@ -271,7 +295,7 @@ export function DataTable<T>({
     };
     body.addEventListener("scroll", onScroll, { passive: true });
     return () => body.removeEventListener("scroll", onScroll);
-  }, [loading, isEmpty]);
+  }, [loading, isEmpty, hasError]);
 
   return (
     <>
@@ -282,6 +306,17 @@ export function DataTable<T>({
 
       {loading ? (
         <SkeletonRows colSpan={visibleColumnCount} />
+      ) : hasError ? (
+        <div className="py-4">
+          <EmptyState
+            title={errorTitle}
+            body={error}
+            action={onRetry && <Button onClick={onRetry}>Retry</Button>}
+            icon={<TriangleAlertIcon className="text-danger" />}
+            tone="danger"
+            size="lg"
+          />
+        </div>
       ) : isEmpty ? (
         <div className="py-4">
           <EmptyState
@@ -310,6 +345,11 @@ export function DataTable<T>({
                   <tr
                     key={row.id}
                     onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                    onKeyDown={
+                      onRowClick ? rowActivateKeyDown(() => onRowClick(row.original)) : undefined
+                    }
+                    tabIndex={onRowClick ? 0 : undefined}
+                    role={onRowClick ? "button" : undefined}
                     className={cn(
                       "bg-bg-surface/60 hover:bg-bg-surface transition-colors",
                       "[&>td]:bg-transparent [&>td]:px-3 [&>td]:py-2 [&>td]:align-middle [&>td]:text-sm",

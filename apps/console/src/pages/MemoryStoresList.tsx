@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { ArchiveIcon, TrashIcon } from "lucide-react";
 
 import { useApi } from "../lib/api";
-import { useApiQuery } from "../lib/useApiQuery";
+import { formatQueryError, useApiQuery } from "../lib/useApiQuery";
 import { DataTable, type ColumnDef } from "../components/DataTable";
 import { FacetedFilter } from "../components/FacetedFilter";
 import { FilterChip, CreatedFilterChip } from "../components/FilterChip";
@@ -67,9 +67,11 @@ export function MemoryStoresList() {
   const {
     data: resp,
     isLoading: loading,
+    error: storesQueryError,
     refetch,
   } = useApiQuery<{ data: MemoryStore[] }>("/v1/memory_stores", storesParams);
   const stores = resp?.data ?? [];
+  const storesError = formatQueryError(storesQueryError);
 
   const createStore = async () => {
     setFormError(null);
@@ -233,6 +235,9 @@ export function MemoryStoresList() {
       filters={filters}
       data={stores}
       loading={loading}
+      error={storesError}
+      onRetry={() => void refetch()}
+      errorTitle="Couldn't load memory stores"
       getRowId={(s) => s.id}
       onRowClick={(s) => nav(`/memory/${s.id}`)}
       emptyTitle="No memory stores"

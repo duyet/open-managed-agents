@@ -25,6 +25,7 @@ interface DueRow {
   timezone: string | null;
   input: string;
   next_run_at: string;
+  max_sessions: number;
 }
 
 export class SqlClientScheduledRunsStore implements ScheduledRunsStore {
@@ -39,7 +40,7 @@ export class SqlClientScheduledRunsStore implements ScheduledRunsStore {
 
     const candidates = await this.db
       .prepare(
-        `SELECT id, tenant_id, agent_id, environment_id, user_id, cron_expression, timezone, input, next_run_at
+        `SELECT id, tenant_id, agent_id, environment_id, user_id, cron_expression, timezone, input, next_run_at, max_sessions
          FROM agent_schedules
          WHERE enabled = 1 AND next_run_at IS NOT NULL AND next_run_at <= ?
          ORDER BY next_run_at ASC
@@ -80,6 +81,7 @@ export class SqlClientScheduledRunsStore implements ScheduledRunsStore {
           cron: row.cron_expression,
           timezone,
           prompt: row.input,
+          maxSessions: row.max_sessions,
         });
       }
     }

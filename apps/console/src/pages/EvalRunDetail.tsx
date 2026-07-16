@@ -5,6 +5,7 @@ import { useApiQuery } from "../lib/useApiQuery";
 import { shortenId } from "../lib/format";
 import type { Trajectory } from "../lib/trajectory";
 import { rewardHeadline } from "../lib/trajectory";
+import { rowActivateKeyDown } from "@/lib/utils";
 
 interface EvalTrial {
   trial_index: number;
@@ -275,6 +276,10 @@ export function EvalRunDetail() {
                   key={t.id}
                   className="bg-bg-surface/60 hover:bg-bg-surface cursor-pointer transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
                   onClick={() => toggleExpand(t.id)}
+                  onKeyDown={rowActivateKeyDown(() => toggleExpand(t.id))}
+                  tabIndex={0}
+                  role="button"
+                  aria-expanded={isOpen}
                 >
                   <td className="text-fg-subtle px-3 py-2 text-center rounded-l-lg">{isOpen ? "▾" : "▸"}</td>
                   <td className="px-3 py-2 font-mono text-xs text-fg">{t.id}</td>

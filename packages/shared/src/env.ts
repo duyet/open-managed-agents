@@ -191,6 +191,12 @@ export interface Env {
    *  (TODO(llm-logging): add per-tenant flag in tenant config). */
   LLM_LOGS_DISABLED?: string;
   TAVILY_API_KEY?: string;
+  /** Escape hatch for web_fetch's SSRF guard (apps/agent/src/harness/ssrf.ts).
+   *  "1" or "true" lets web_fetch reach private/loopback/link-local/localhost
+   *  targets — the http(s)-only scheme check still always applies. Off by
+   *  default; only set this if the deployment intentionally wants web_fetch
+   *  to reach internal services. */
+  WEB_FETCH_ALLOW_PRIVATE?: string;
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   GITHUB_TOKEN?: string;

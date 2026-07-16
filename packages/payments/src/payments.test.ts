@@ -103,6 +103,13 @@ class FakeStore implements PaymentsStore {
     return this.processed.has(id);
   }
   async applyEntry(entry: LedgerEntry) {
+    // Mirror the DB's unique index on stripe_event_id (migration 0024): a
+    // second entry for an already-applied event is a silent no-op, not a
+    // second credit. Modeling this here is what makes the concurrent-
+    // redelivery test below meaningful.
+    if (entry.stripe_event_id && this.entries.some((e) => e.stripe_event_id === entry.stripe_event_id)) {
+      return;
+    }
     this.entries.push(entry);
     if (entry.stripe_event_id) this.processed.add(entry.stripe_event_id);
   }
@@ -140,6 +147,17 @@ describe("PaymentsService.creditFromEvent", () => {
     const svc = new PaymentsService(store);
     await svc.creditFromEvent(checkoutEvent("evt_a", 100));
     await svc.creditFromEvent(checkoutEvent("evt_a", 100));
+    expect(await svc.getBalance("t1", "u1")).toBe(100);
+    expect(store.entries).toHaveLength(1);
+  });
+
+  it("is idempotent under concurrent redelivery (issue #160)", async () => {
+    const store = new FakeStore();
+    const svc = new PaymentsService(store);
+    await Promise.all([
+      svc.creditFromEvent(checkoutEvent("evt_race", 100)),
+      svc.creditFromEvent(checkoutEvent("evt_race", 100)),
+    ]);
     expect(await svc.getBalance("t1", "u1")).toBe(100);
     expect(store.entries).toHaveLength(1);
   });

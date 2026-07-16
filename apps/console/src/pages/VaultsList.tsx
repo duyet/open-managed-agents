@@ -49,6 +49,7 @@ export function VaultsList() {
   const {
     items: vaults,
     isLoading: loading,
+    error,
     hasMore,
     isLoadingMore,
     loadMore,
@@ -200,6 +201,9 @@ export function VaultsList() {
       filters={filters}
       data={vaults}
       loading={loading}
+      error={error}
+      onRetry={load}
+      errorTitle="Couldn't load vaults"
       getRowId={(v) => v.id}
       onRowClick={(v) => nav(`/vaults/${v.id}`)}
       hasMore={hasMore}

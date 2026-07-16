@@ -786,6 +786,7 @@ const sessionRegistry = new SessionRegistry({
     return buildTools(agent, sandbox, {
       ANTHROPIC_API_KEY: apiKey,
       ANTHROPIC_BASE_URL: baseUrl,
+      WEB_FETCH_ALLOW_PRIVATE: process.env.WEB_FETCH_ALLOW_PRIVATE,
       toMarkdown: toMarkdownProvider,
       mcpBinding: nodeMcpBinding,
       tenantId: ctx.tenantId,

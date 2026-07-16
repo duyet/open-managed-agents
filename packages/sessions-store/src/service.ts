@@ -337,6 +337,15 @@ export class SessionService {
     return this.repo.hasActiveByEnvironment(opts.tenantId, opts.environmentId);
   }
 
+  /** `max_sessions` concurrency-cap check for the agent-schedule cron tick
+   *  (issue #165) — see {@link SessionRepo.countActiveByScheduleId}. */
+  async countActiveByScheduleId(opts: {
+    tenantId: string;
+    scheduleId: string;
+  }): Promise<number> {
+    return this.repo.countActiveByScheduleId(opts.tenantId, opts.scheduleId);
+  }
+
   /** Cheap COUNT for /v1/stats. Default counts only non-archived rows. */
   async count(opts: {
     tenantId: string;

@@ -206,9 +206,12 @@ export default defineConfig({
       "test/e2e/**",
       "apps/console/**",
       "apps/main-node/**",
+      "packages/browser-harness/test/**",
       "packages/cap/test/**",
       "packages/integrations-adapters-node/**",
+      "packages/observability/test/**",
       "packages/session-runtime/test/**",
+      "packages/vault-forward/test/**",
       // @grpc/grpc-js can't load under the Cloudflare workers pool (unlike
       // @kubernetes/client-node, which the pool tolerates) — this test only
       // runs via the sandbox package's own node-pool vitest.config.ts

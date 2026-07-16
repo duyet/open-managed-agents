@@ -221,6 +221,19 @@ export class InMemorySessionRepo implements SessionRepo {
     return false;
   }
 
+  async countActiveByScheduleId(tenantId: string, scheduleId: string): Promise<number> {
+    const ACTIVE: ReadonlySet<SessionStatus> = new Set(["running", "rescheduling"]);
+    let n = 0;
+    for (const s of this.sessions.values()) {
+      const linked = (s.metadata?.scheduled_run as { schedule_id?: string } | undefined)
+        ?.schedule_id;
+      if (s.tenant_id === tenantId && linked === scheduleId && ACTIVE.has(s.status)) {
+        n += 1;
+      }
+    }
+    return n;
+  }
+
   async count(
     tenantId: string,
     opts: { includeArchived: boolean },

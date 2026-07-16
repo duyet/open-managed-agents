@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, beforeAll } from "vitest";
+import { env } from "cloudflare:workers";
 import {
   scheduledDeploymentRunsTick,
   type ClaimedDeployment,
@@ -7,9 +8,16 @@ import {
   type ScheduledDeploymentRunLauncher,
 } from "./scheduled-deployment-runs";
 import { SqlClientScheduledDeploymentRunsStore } from "./scheduled-deployment-runs-store";
+import { CfD1SqlClient } from "@duyet/oma-sql-client/adapters/cf-d1";
 import { Cron } from "croner";
 import { computeNextRunWith, type CronCtor } from "./scheduled-agent-runs";
 import type { SqlClient, SqlStatement } from "@duyet/oma-sql-client";
+// The ACTUAL deployments migration — the source of truth for the schema the
+// claim SQL runs against. Importing it (rather than an inlined CREATE TABLE)
+// is what makes the real-schema test below catch a SELECT of a column the
+// migration doesn't define (e.g. the phantom `timezone` column bug).
+// @ts-expect-error ?raw is a Vite string import, no type decl
+import deploymentsMigration from "../../../../apps/main/migrations/0023_deployments.sql?raw";
 
 const compute = (cron: string, tz: string, fromMs: number) =>
   computeNextRunWith(Cron as unknown as CronCtor, cron, tz, fromMs);
@@ -248,9 +256,10 @@ describe("SqlClientScheduledDeploymentRunsStore.claimDue", () => {
         user_id: "user_1",
         vault_ids: '["vlt_a"]',
         memory_store_ids: '["ms_a"]',
-        timezone: "UTC",
         initial_message: "hi",
-        trigger: '{"type":"schedule","cron_expression":"*/5 * * * *","timezone":"UTC"}',
+        // timezone lives INSIDE the trigger JSON — there is no `timezone`
+        // column on `deployments` (see the real-schema test below).
+        trigger: '{"type":"schedule","cron_expression":"*/5 * * * *","timezone":"America/New_York"}',
         next_run_at: new Date(Date.UTC(2026, 0, 1, 0, 0, 0)).toISOString(),
       },
     ]);
@@ -263,9 +272,127 @@ describe("SqlClientScheduledDeploymentRunsStore.claimDue", () => {
       vaultIds: ["vlt_a"],
       memoryStoreIds: ["ms_a"],
       cron: "*/5 * * * *",
+      // timezone comes out of the trigger JSON, not a column.
+      timezone: "America/New_York",
       initialMessage: "hi",
     });
     // CAS UPDATE fired with the advanced next_run_at as first bind.
     expect(client.updates.length).toBe(1);
+  });
+});
+
+// ─── Real-schema claim: runs the actual claim SQL against a table created ────
+// from the real 0023_deployments.sql migration on the D1 MAIN_DB binding.
+//
+// This is the test that would have caught the phantom `timezone` column: the
+// FakeSqlClient above happily returns whatever columns the fake row carries,
+// so a `SELECT ... timezone ...` that references a non-existent column never
+// surfaces there. Here the schema is the migration itself, so selecting a
+// column the migration doesn't define throws "no such column" — exactly the
+// runtime failure that broke every scheduled deployment run.
+
+const d1 = () => (env as unknown as { MAIN_DB: D1Database }).MAIN_DB;
+
+/** Apply the real migration file to the D1 binding (idempotent — the
+ *  migration uses CREATE TABLE/INDEX IF NOT EXISTS). D1's exec wants
+ *  comment-free, one-statement-per-line SQL, so normalize the file. */
+async function applyDeploymentsMigration(): Promise<void> {
+  const sql = (deploymentsMigration as string)
+    .split("\n")
+    .filter((l) => !l.trim().startsWith("--"))
+    .join("\n")
+    .split(";")
+    .map((s) => s.trim().replace(/\s+/g, " "))
+    .filter(Boolean)
+    .map((s) => `${s};`)
+    .join("\n");
+  await d1().exec(sql);
+}
+
+describe("SqlClientScheduledDeploymentRunsStore.claimDue — real 0023 schema", () => {
+  beforeAll(applyDeploymentsMigration);
+  beforeEach(async () => {
+    await d1().prepare("DELETE FROM deployments").run();
+  });
+
+  async function insertScheduleRow(over: Record<string, unknown> = {}): Promise<void> {
+    const nowIso = new Date().toISOString();
+    const r = {
+      id: "dep_real",
+      tenant_id: "t1",
+      name: "nightly",
+      agent_id: "agent_1",
+      agent_version: 2 as number | null,
+      environment_id: "env_1",
+      vault_ids: '["vlt_a"]',
+      memory_store_ids: '["ms_a"]',
+      initial_message: "hi",
+      trigger: '{"type":"schedule","cron_expression":"*/5 * * * *","timezone":"America/New_York"}',
+      user_id: "user_1" as string | null,
+      enabled: 1,
+      // Due at epoch so any NOW selects it.
+      next_run_at: new Date(Date.UTC(2026, 0, 1, 0, 0, 0)).toISOString(),
+      ...over,
+    };
+    await d1()
+      .prepare(
+        `INSERT INTO deployments
+           (id, tenant_id, name, agent_id, agent_version, environment_id, vault_ids,
+            memory_store_ids, initial_message, trigger, user_id, enabled, next_run_at,
+            created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        r.id,
+        r.tenant_id,
+        r.name,
+        r.agent_id,
+        r.agent_version,
+        r.environment_id,
+        r.vault_ids,
+        r.memory_store_ids,
+        r.initial_message,
+        r.trigger,
+        r.user_id,
+        r.enabled,
+        r.next_run_at,
+        nowIso,
+        nowIso,
+      )
+      .run();
+  }
+
+  it("claims a due schedule row and reads cron + timezone from the trigger JSON", async () => {
+    await insertScheduleRow();
+    const store = new SqlClientScheduledDeploymentRunsStore(new CfD1SqlClient(d1()));
+    const claimed = await store.claimDue(Date.UTC(2026, 0, 1, 0, 1, 0), 50, compute);
+    expect(claimed).toHaveLength(1);
+    expect(claimed[0]).toMatchObject({
+      id: "dep_real",
+      agentVersion: 2,
+      environmentId: "env_1",
+      userId: "user_1",
+      vaultIds: ["vlt_a"],
+      memoryStoreIds: ["ms_a"],
+      cron: "*/5 * * * *",
+      timezone: "America/New_York",
+      initialMessage: "hi",
+    });
+    // CAS advanced next_run_at to the next occurrence.
+    const after = await d1()
+      .prepare("SELECT next_run_at FROM deployments WHERE id = ?")
+      .bind("dep_real")
+      .first<{ next_run_at: string }>();
+    expect(new Date(after!.next_run_at).getTime()).toBeGreaterThan(Date.UTC(2026, 0, 1, 0, 1, 0));
+  });
+
+  it("skips a non-due future row", async () => {
+    await insertScheduleRow({
+      id: "dep_future",
+      next_run_at: new Date(Date.UTC(2999, 0, 1)).toISOString(),
+    });
+    const store = new SqlClientScheduledDeploymentRunsStore(new CfD1SqlClient(d1()));
+    const claimed = await store.claimDue(Date.UTC(2026, 0, 1, 0, 1, 0), 50, compute);
+    expect(claimed).toHaveLength(0);
   });
 });
