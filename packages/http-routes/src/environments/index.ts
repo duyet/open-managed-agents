@@ -26,6 +26,11 @@ import {
 } from "@duyet/oma-environments-store";
 import type { RouteServicesArg } from "../types";
 import { resolveServices } from "../types";
+import {
+  validateEnvVars,
+  reconcileEnvVars,
+  deleteAllEnvSecrets,
+} from "./env-vars";
 
 interface Vars {
   Variables: { tenant_id: string };
@@ -158,17 +163,42 @@ export function buildEnvironmentRoutes(deps: EnvironmentRoutesDeps) {
     if (!limitCheck.ok) {
       return c.json({ error: limitCheck.error }, 400);
     }
+    const envVarsCheck = validateEnvVars(body.config?.env_vars);
+    if (!envVarsCheck.ok) {
+      return c.json({ error: envVarsCheck.error }, 400);
+    }
 
+    const config = body.config || { type: "cloud" };
+    // Create first (without persisting raw env-var values) so we have the
+    // environment id to key sensitive secrets by; then reconcile secrets into
+    // KV and store the sanitized array back on the record.
+    const hasEnvVars = Array.isArray(config.env_vars);
     const row = await services.environments.create({
       tenantId: t,
       name: body.name,
       description: body.description,
-      config: body.config || { type: "cloud" },
+      config: hasEnvVars ? { ...config, env_vars: [] } : config,
       // Setup-on-warmup means env is immediately usable — no async build.
       status: "ready",
       sandboxWorkerName: "sandbox-default",
       imageStrategy: null,
     });
+
+    if (hasEnvVars) {
+      const stored = await reconcileEnvVars(
+        services.kv,
+        t,
+        row.id,
+        config.env_vars,
+        [],
+      );
+      const updated = await services.environments.update({
+        tenantId: t,
+        environmentId: row.id,
+        config: { ...config, env_vars: stored },
+      });
+      return c.json(toEnvironmentConfig(updated), 201);
+    }
 
     return c.json(toEnvironmentConfig(row), 201);
   });
@@ -297,6 +327,10 @@ export function buildEnvironmentRoutes(deps: EnvironmentRoutesDeps) {
     if (!limitCheck.ok) {
       return c.json({ error: limitCheck.error }, 400);
     }
+    const envVarsCheck = validateEnvVars(body.config?.env_vars);
+    if (!envVarsCheck.ok) {
+      return c.json({ error: envVarsCheck.error }, 400);
+    }
 
     const patch: Parameters<typeof services.environments.update>[0] = {
       tenantId: t,
@@ -304,7 +338,22 @@ export function buildEnvironmentRoutes(deps: EnvironmentRoutesDeps) {
     };
     if (body.name !== undefined) patch.name = body.name;
     if (body.description !== undefined) patch.description = body.description;
-    if (body.config !== undefined) patch.config = body.config;
+    if (body.config !== undefined) {
+      // Reconcile env-var secrets against what's currently stored: write /
+      // rotate / delete KV secrets and persist only the sanitized array.
+      if (Array.isArray(body.config.env_vars)) {
+        const stored = await reconcileEnvVars(
+          services.kv,
+          t,
+          id,
+          body.config.env_vars,
+          existing.config.env_vars,
+        );
+        patch.config = { ...body.config, env_vars: stored };
+      } else {
+        patch.config = body.config;
+      }
+    }
     if (body.metadata !== undefined) patch.metadata = body.metadata;
 
     const row = await services.environments.update(patch);
@@ -354,7 +403,13 @@ export function buildEnvironmentRoutes(deps: EnvironmentRoutesDeps) {
         );
       }
 
+      // Best-effort purge of the environment's KV env secrets before the row
+      // is gone (afterwards we can't enumerate which names were sensitive).
+      const toDelete = await services.environments.get({ tenantId: t, environmentId: id });
       await services.environments.delete({ tenantId: t, environmentId: id });
+      if (toDelete) {
+        await deleteAllEnvSecrets(services.kv, t, id, toDelete.config.env_vars);
+      }
       return c.json({ type: "environment_deleted", id });
     } catch (err) {
       if (err instanceof EnvironmentNotFoundError) {

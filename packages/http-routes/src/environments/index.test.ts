@@ -6,7 +6,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Hono } from "hono";
 import { createInMemoryEnvironmentService, ManualClock } from "@duyet/oma-environments-store/test-fakes";
+import { InMemoryKvStore } from "@duyet/oma-kv-store";
 import { buildEnvironmentRoutes } from "./index";
+import { envSecretKey } from "./env-vars";
 import type { RouteServicesArg } from "../types";
 
 const TENANT = "tenant-1";
@@ -25,9 +27,12 @@ function makeApp() {
     hasActiveByEnvironment: async () => sessionsHasActive,
   };
 
+  const kv = new InMemoryKvStore();
+
   const services = {
     environments,
     sessions,
+    kv,
   } as unknown as RouteServicesArg;
 
   const app = new Hono<{ Variables: { tenant_id: string } }>();
@@ -36,7 +41,7 @@ function makeApp() {
     await next();
   });
   app.route("/v1/environments", buildEnvironmentRoutes({ services }));
-  return { app, repo, environments };
+  return { app, repo, environments, kv };
 }
 
 async function createEnv(
@@ -182,5 +187,105 @@ describe("environments routes", () => {
     const res = await app.request(`/v1/environments/${created.id}`, { method: "DELETE" });
     expect(res.status).toBe(409);
     expect(((await res.json()) as { error: string }).error).toMatch(/active sessions/);
+  });
+
+  // ── Environment-level env vars ─────────────────────────────────────────
+
+  type EnvVarOut = { name: string; value?: string; sensitive?: boolean; has_value?: boolean };
+
+  it("POST / stores non-sensitive env vars inline and keeps sensitive values out of the response", async () => {
+    const { app, kv } = makeApp();
+    const res = await createEnv(app, {
+      name: "with-vars",
+      config: {
+        type: "cloud",
+        env_vars: [
+          { name: "LOG_LEVEL", value: "debug" },
+          { name: "API_TOKEN", value: "supersecret", sensitive: true },
+        ],
+      },
+    });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { id: string; config: { env_vars: EnvVarOut[] } };
+    const vars = body.config.env_vars;
+
+    const plain = vars.find((v) => v.name === "LOG_LEVEL")!;
+    expect(plain.value).toBe("debug");
+    expect(plain.sensitive).toBeFalsy();
+
+    const secret = vars.find((v) => v.name === "API_TOKEN")!;
+    expect(secret.sensitive).toBe(true);
+    expect(secret.has_value).toBe(true);
+    expect(secret.value).toBeUndefined();
+
+    // The secret value is written to KV, never persisted in the record.
+    expect(await kv.get(envSecretKey(TENANT, body.id, "API_TOKEN"))).toBe("supersecret");
+    expect(JSON.stringify(body)).not.toContain("supersecret");
+  });
+
+  it("PUT /:id rotates a sensitive value, preserves it when omitted, and purges removed secrets", async () => {
+    const { app, kv } = makeApp();
+    const created = (await (
+      await createEnv(app, {
+        name: "rotate",
+        config: {
+          type: "cloud",
+          env_vars: [
+            { name: "TOKEN_A", value: "a1", sensitive: true },
+            { name: "TOKEN_B", value: "b1", sensitive: true },
+          ],
+        },
+      })
+    ).json()) as { id: string };
+
+    // Update: rotate TOKEN_A, keep TOKEN_B (no value supplied), drop nothing new.
+    const res = await app.request(`/v1/environments/${created.id}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        config: {
+          type: "cloud",
+          env_vars: [
+            { name: "TOKEN_A", value: "a2", sensitive: true },
+            { name: "TOKEN_B", sensitive: true },
+          ],
+        },
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(await kv.get(envSecretKey(TENANT, created.id, "TOKEN_A"))).toBe("a2");
+    expect(await kv.get(envSecretKey(TENANT, created.id, "TOKEN_B"))).toBe("b1");
+
+    // Update: drop TOKEN_B entirely → its secret is purged.
+    await app.request(`/v1/environments/${created.id}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        config: { type: "cloud", env_vars: [{ name: "TOKEN_A", sensitive: true }] },
+      }),
+    });
+    expect(await kv.get(envSecretKey(TENANT, created.id, "TOKEN_B"))).toBeNull();
+  });
+
+  it("POST / rejects an invalid env-var name (400)", async () => {
+    const { app } = makeApp();
+    const res = await createEnv(app, {
+      name: "bad",
+      config: { type: "cloud", env_vars: [{ name: "has space", value: "x" }] },
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("DELETE /:id purges the environment's sensitive secrets from KV", async () => {
+    const { app, kv } = makeApp();
+    const created = (await (
+      await createEnv(app, {
+        name: "del-secrets",
+        config: { type: "cloud", env_vars: [{ name: "SECRET", value: "s", sensitive: true }] },
+      })
+    ).json()) as { id: string };
+    expect(await kv.get(envSecretKey(TENANT, created.id, "SECRET"))).toBe("s");
+    await app.request(`/v1/environments/${created.id}`, { method: "DELETE" });
+    expect(await kv.get(envSecretKey(TENANT, created.id, "SECRET"))).toBeNull();
   });
 });
