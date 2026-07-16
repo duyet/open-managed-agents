@@ -13,6 +13,7 @@
 
 import { Hono } from "hono";
 import { nanoid } from "nanoid";
+import { z } from "zod";
 import { getLogger } from "@duyet/oma-observability";
 import {
   isPaymentsEnabled,
@@ -130,6 +131,134 @@ export async function getPricingForPublication(
     .bind(publicationId)
     .first<PublicationPricing>();
   return row ?? null;
+}
+
+// ── Pricing config write (issue #163) ────────────────────────────────────────
+//
+// Until now no route inserted a `publication_pricing` row, so the metered
+// paywall was unconfigurable through the API. This is the tenant-authed write
+// surface behind PUT /v1/publications/:id/pricing. Fields mirror the
+// `publication_pricing` schema (migration 0021) exactly.
+
+/** Body for PUT /v1/publications/:id/pricing. `price_amount` is credits per
+ *  unit (per message, or per 1k tokens); ignored for free/subscription. */
+export const publicationPricingInputSchema = z.object({
+  mode: z.enum(["free", "per_message", "per_1k_tokens", "subscription"]),
+  price_amount: z.number().int().min(0).default(0),
+  currency: z.string().min(1).max(16).default("credits"),
+  included_credits: z.number().int().min(0).default(0),
+  stripe_price_id: z.string().min(1).nullable().default(null),
+});
+
+export type PublicationPricingInput = z.infer<typeof publicationPricingInputSchema>;
+
+/** Upsert the (1:1) pricing row for a publication. Idempotent on
+ *  `publication_id` (its unique index); preserves `id` + `created_at` on
+ *  update. The caller MUST have already verified the publication belongs to
+ *  `tenantId`. */
+export async function upsertPublicationPricing(
+  db: D1Database,
+  tenantId: string,
+  publicationId: string,
+  input: PublicationPricingInput,
+): Promise<PublicationPricing> {
+  const now = new Date().toISOString();
+  const existing = await getPricingForPublication(db, publicationId);
+  const id = existing?.id ?? `pp_${nanoid()}`;
+  const createdAt = existing?.created_at ?? now;
+  await db
+    .prepare(
+      `INSERT INTO publication_pricing
+         (id, tenant_id, publication_id, mode, price_amount, currency, included_credits, stripe_price_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(publication_id) DO UPDATE SET
+         mode = excluded.mode,
+         price_amount = excluded.price_amount,
+         currency = excluded.currency,
+         included_credits = excluded.included_credits,
+         stripe_price_id = excluded.stripe_price_id,
+         updated_at = excluded.updated_at`,
+    )
+    .bind(
+      id,
+      tenantId,
+      publicationId,
+      input.mode,
+      input.price_amount,
+      input.currency,
+      input.included_credits,
+      input.stripe_price_id,
+      createdAt,
+      now,
+    )
+    .run();
+  const row = await getPricingForPublication(db, publicationId);
+  return row!;
+}
+
+export interface PublicationPricingRoutesDeps {
+  /** Resolve a publication the tenant owns, or null (not found / not owned).
+   *  Guards a cross-tenant write: `publication_pricing` keys on the globally
+   *  unique publication_id, so without this a tenant could edit another
+   *  tenant's pricing. Receives the request context so the impl can build the
+   *  per-tenant services container. */
+  getOwnedPublication: (
+    c: import("hono").Context,
+    tenantId: string,
+    publicationId: string,
+  ) => Promise<{ id: string } | null>;
+}
+
+/**
+ * GET/PUT /v1/publications/:id/pricing — tenant-authed pricing config (#163).
+ *
+ * Mounted (prefix-stripped to `/:id/pricing`) before the catch-all publications
+ * routes; its two specific routes match first and every other publications path
+ * falls through. Reads MAIN_DB from env, requires the auth-resolved tenant_id,
+ * and verifies publication ownership before any read/write.
+ */
+export function buildPublicationPricingRoutes(deps: PublicationPricingRoutesDeps) {
+  const app = new Hono<{ Bindings: Env["Bindings"]; Variables: { tenant_id: string } }>();
+
+  app.get("/:id/pricing", async (c) => {
+    if (!c.env.MAIN_DB) return c.json({ error: "Payments not configured" }, 503);
+    const publicationId = c.req.param("id");
+    const pub = await deps.getOwnedPublication(c, c.var.tenant_id, publicationId);
+    if (!pub) return c.json({ error: "Publication not found" }, 404);
+    const pricing = await getPricingForPublication(c.env.MAIN_DB, publicationId);
+    return c.json(
+      pricing ?? {
+        publication_id: publicationId,
+        mode: "free",
+        price_amount: 0,
+        currency: "credits",
+        included_credits: 0,
+        stripe_price_id: null,
+      },
+    );
+  });
+
+  app.put("/:id/pricing", async (c) => {
+    if (!c.env.MAIN_DB) return c.json({ error: "Payments not configured" }, 503);
+    const publicationId = c.req.param("id");
+    const pub = await deps.getOwnedPublication(c, c.var.tenant_id, publicationId);
+    if (!pub) return c.json({ error: "Publication not found" }, 404);
+    const parsed = publicationPricingInputSchema.safeParse(
+      await c.req.json().catch(() => ({})),
+    );
+    if (!parsed.success) {
+      return c.json({ error: "Invalid pricing", details: parsed.error.flatten() }, 422);
+    }
+    const pricing = await upsertPublicationPricing(
+      c.env.MAIN_DB,
+      c.var.tenant_id,
+      publicationId,
+      parsed.data,
+    );
+    return c.json(pricing);
+  });
+
+  return app;
 }
 
 /**
