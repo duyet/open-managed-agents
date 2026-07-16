@@ -641,7 +641,10 @@ export class K8sManager {
   }): Promise<string> {
     const boxId = "box-" + sessionId.replace(/[^a-zA-Z0-9-]/g, "-").slice(0, 60);
 
-    const mod = await import("@duyet/oma-sandbox/adapters/kubernetes");
+    // Untyped dynamic import: the sandbox package ships raw .ts via
+    // "exports", which this CJS tsc build can't resolve — typing comes
+    // from the structural KubernetesSandboxExecutorLike interface above.
+    const mod = await import("@duyet/oma-sandbox/adapters/kubernetes" as string);
     const executor: KubernetesSandboxExecutorLike = new mod.KubernetesSandboxExecutor({
       sessionId,
       namespace: options?.namespace ?? this.namespace,
