@@ -130,6 +130,7 @@ describe("forwardWithRefresh — OAuth refresh on 401", () => {
     };
 
     const res = await forwardWithRefresh(
+      {},
       services,
       TENANT,
       target,
@@ -194,6 +195,7 @@ describe("forwardWithRefresh — OAuth refresh on 401", () => {
     };
 
     const res = await forwardWithRefresh(
+      {},
       services,
       TENANT,
       target,
@@ -271,6 +273,7 @@ describe("forwardWithRefresh — OAuth refresh on 401", () => {
     };
 
     const res = await forwardWithRefresh(
+      {},
       services,
       TENANT,
       target,
@@ -327,6 +330,7 @@ describe("forwardWithRefresh — OAuth refresh on 401", () => {
     };
 
     const res = await forwardWithRefresh(
+      {},
       services,
       TENANT,
       target,
@@ -366,6 +370,7 @@ describe("forwardWithRefresh — OAuth refresh on 401", () => {
     };
 
     const res = await forwardWithRefresh(
+      {},
       services,
       TENANT,
       target,
@@ -377,5 +382,42 @@ describe("forwardWithRefresh — OAuth refresh on 401", () => {
     expect(res.status).toBe(401);
     // Exactly one fetch — refresh path skipped because no metadata.
     expect(mock.calls).toHaveLength(1);
+  });
+
+  it("tenant rate limit exceeded (issue #200) → 429 immediately, no upstream call", async () => {
+    const { services } = makeServices();
+
+    mock.restore();
+    mock = installFetchMock([
+      () => {
+        throw new Error("forwardToUpstream must not be called when the tenant is rate-limited");
+      },
+    ]);
+
+    const target = {
+      upstreamUrl: SERVER,
+      upstreamToken: "irrelevant",
+    };
+    // Stub RL_MCP_PROXY_TENANT.limit() to report the budget already spent —
+    // mirrors how other CF Rate Limiting bindings are stubbed in this repo
+    // (a raw { limit: async () => ({ success }) } duck-type, no SDK needed).
+    const rateLimitedEnv = {
+      RL_MCP_PROXY_TENANT: { limit: async () => ({ success: false }) },
+    };
+
+    const res = await forwardWithRefresh(
+      rateLimitedEnv,
+      services,
+      TENANT,
+      target,
+      "POST",
+      new Headers({ "content-type": "application/json" }),
+      '{"jsonrpc":"2.0","id":1,"method":"initialize"}',
+    );
+
+    expect(res.status).toBe(429);
+    // Critical: zero fetch calls — the limiter short-circuits before
+    // forwardToUpstream, so a throttled tenant never reaches the upstream.
+    expect(mock.calls).toHaveLength(0);
   });
 });

@@ -52,6 +52,7 @@ import type { Services } from "@duyet/oma-services";
 import type { KvStore } from "@duyet/oma-kv-store";
 import { builtinSpecs, createSpecRegistry } from "@duyet/oma-cap";
 import { resolveRegisteredMcpServer } from "@duyet/oma-http-routes";
+import { rateLimitMcpProxy } from "../rate-limit";
 
 // Module-level: the cap spec registry is pure data + immutable. Building
 // once amortises validation across every outbound request.
@@ -445,8 +446,18 @@ export async function forwardToUpstream(
  * snapshot. The KV snapshot is gone (see previous commit); refresh
  * persistence is now D1-direct so the canonical credential row is the
  * single source of truth and stays consistent across sessions.
+ *
+ * Also enforces the per-tenant `RL_MCP_PROXY_TENANT` budget (issue #200)
+ * before ever touching the upstream — this is the single chokepoint all
+ * three callers (HTTP endpoint, RPC mcpForward/fetch, RPC outboundForward)
+ * share, so the check lives here rather than being duplicated at each
+ * call site. Exceeding it returns a 429 without any upstream traffic;
+ * the attempt is still recorded through the same `mcp_proxy.forward` log
+ * line (status 429, rate_limited: true) so it's visible alongside every
+ * other call for observability.
  */
 export async function forwardWithRefresh(
+  env: Env,
   services: Services,
   tenantId: string,
   target: ProxyTarget,
@@ -470,6 +481,32 @@ export async function forwardWithRefresh(
     upstreamHost = new URL(target.upstreamUrl).hostname;
   } catch {
     /* never */
+  }
+
+  if (await rateLimitMcpProxy(env.RL_MCP_PROXY_TENANT, tenantId)) {
+    log(
+      {
+        op: "mcp_proxy.forward",
+        caller: audit?.callerKind ?? "unknown",
+        tenant_id: tenantId,
+        session_id: audit?.sessionId,
+        server: audit?.serverName,
+        host: upstreamHost,
+        method,
+        status: 429,
+        refreshed: false,
+        rate_limited: true,
+        ms: Date.now() - started,
+      },
+      "mcp_proxy forward blocked — tenant rate limit exceeded",
+    );
+    return new Response(
+      JSON.stringify({
+        error:
+          "Rate limit exceeded — too many MCP proxy requests for this tenant, try again shortly",
+      }),
+      { status: 429, headers: { "content-type": "application/json" } },
+    );
   }
 
   const first = await forwardToUpstream(target, method, inboundHeaders, body);
@@ -792,6 +829,7 @@ app.all("/:sid/:server", async (c) => {
   const body = ["GET", "HEAD"].includes(method) ? null : await c.req.text();
 
   return forwardWithRefresh(
+    c.env,
     services,
     tenantId,
     target,
