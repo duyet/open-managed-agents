@@ -83,6 +83,42 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
     });
   });
 
+  // GET /p/:slug/widget.js — self-contained embed script (issue #75).
+  //
+  // A creator drops `<script src="https://host/p/<slug>/widget.js"></script>`
+  // on any third-party page. The script injects a floating launcher bubble
+  // that toggles an iframe of the hosted chat page (/p/:slug). No framework
+  // dependency on the embedder's side. Guardrails mirror the metadata route:
+  // a hidden/paused publication never ships a working widget.
+  app.get("/:slug/widget.js", async (c) => {
+    const resolved = await deps.resolvePublication(c.req.param("slug"), c.env);
+    if (resolved instanceof Response) {
+      // Return the guardrail status but as JS so the <script> tag fails
+      // quietly (a JSON body would throw a SyntaxError in the console).
+      return new Response(
+        `/* Open Managed Agents: publication unavailable (${resolved.status}). */`,
+        {
+          status: resolved.status,
+          headers: {
+            "content-type": "application/javascript; charset=utf-8",
+            "cache-control": "public, max-age=60",
+          },
+        },
+      );
+    }
+    const pub = resolved;
+    const js = renderWidgetScript({
+      slug: pub.slug,
+      title: pub.title,
+    });
+    return new Response(js, {
+      headers: {
+        "content-type": "application/javascript; charset=utf-8",
+        "cache-control": "public, max-age=300",
+      },
+    });
+  });
+
   // POST /p/:slug/sessions — create a session bound to the published
   // agent+version, owned by the publication's tenant, tagged publication_id.
   app.post("/:slug/sessions", async (c) => {
@@ -210,6 +246,92 @@ async function forwardToSessions(
     c.env,
     executionCtx,
   );
+}
+
+/**
+ * Build the embeddable widget bootstrap script for a publication. The script
+ * is fully self-contained (no external deps) and derives its own origin from
+ * the currently-executing <script> tag, so the same bytes work regardless of
+ * which host serves them. It renders a launcher bubble that toggles an iframe
+ * pointing at the hosted chat page (/p/<slug>).
+ *
+ * `slug` and `title` are injected as JSON literals so quotes/backslashes in a
+ * title can't break out of the string or inject markup.
+ */
+export function renderWidgetScript(opts: { slug: string; title: string }): string {
+  const slug = JSON.stringify(opts.slug);
+  const title = JSON.stringify(opts.title);
+  return `(function () {
+  "use strict";
+  var SLUG = ${slug};
+  var TITLE = ${title};
+  if (window.__omaWidgetLoaded_${sanitizeIdent(opts.slug)}) return;
+  window.__omaWidgetLoaded_${sanitizeIdent(opts.slug)} = true;
+
+  // Derive the serving origin from this script's own URL.
+  var current = document.currentScript;
+  var origin;
+  try {
+    origin = new URL(current.src).origin;
+  } catch (e) {
+    origin = window.location.origin;
+  }
+  var chatUrl = origin + "/p/" + encodeURIComponent(SLUG);
+
+  var Z = 2147483000;
+  var open = false;
+
+  var frame = document.createElement("iframe");
+  frame.title = TITLE;
+  frame.src = chatUrl;
+  frame.setAttribute("allow", "clipboard-write");
+  frame.style.cssText = [
+    "position:fixed", "bottom:88px", "right:20px",
+    "width:min(400px, calc(100vw - 40px))",
+    "height:min(600px, calc(100vh - 120px))",
+    "border:0", "border-radius:16px",
+    "box-shadow:0 12px 48px rgba(0,0,0,0.24)",
+    "z-index:" + Z, "background:#fff",
+    "display:none", "overflow:hidden"
+  ].join(";");
+
+  var button = document.createElement("button");
+  button.type = "button";
+  button.setAttribute("aria-label", "Open " + TITLE + " chat");
+  button.style.cssText = [
+    "position:fixed", "bottom:20px", "right:20px",
+    "width:56px", "height:56px", "border:0", "border-radius:50%",
+    "cursor:pointer", "background:#5b5bd6",
+    "color:#fff", "font-size:26px", "line-height:56px", "text-align:center",
+    "box-shadow:0 6px 20px rgba(0,0,0,0.28)", "z-index:" + (Z + 1),
+    "transition:transform 0.15s ease"
+  ].join(";");
+  button.textContent = "\\uD83D\\uDCAC";
+
+  function setOpen(next) {
+    open = next;
+    frame.style.display = open ? "block" : "none";
+    button.textContent = open ? "\\u2715" : "\\uD83D\\uDCAC";
+    button.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  button.addEventListener("click", function () { setOpen(!open); });
+
+  function mount() {
+    document.body.appendChild(frame);
+    document.body.appendChild(button);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", mount);
+  } else {
+    mount();
+  }
+})();
+`;
+}
+
+/** Turn a slug into a safe JS identifier fragment for the load-once guard. */
+function sanitizeIdent(slug: string): string {
+  return slug.replace(/[^a-zA-Z0-9_]/g, "_");
 }
 
 function clientIp(req: Request): string {
