@@ -18,6 +18,10 @@ interface Env {
      *  Default (unset/anything else): token is never returned, only
      *  delivered via email. Never enable in production. */
     CONSUMER_AUTH_DEV_ECHO_TOKEN?: string;
+    /** Public origin used to build the absolute clickable link in the
+     *  magic-link email (issue #215). Falls back to the incoming request's
+     *  own origin when unset (mirrors deployments.ts' webhookUrl). */
+    PUBLIC_BASE_URL?: string;
   };
   Variables: {
     consumer_id?: string;
@@ -27,6 +31,15 @@ interface Env {
 const consumerSchema = z.object({
   email: z.string().email(),
   name: z.string().min(1).max(100).optional(),
+});
+
+// Magic-link requests may optionally carry the originating bot's slug so
+// the clickable email link can bounce the visitor back to /p/<slug> after
+// verifying (issue #215). The token itself isn't scoped to any one
+// publication — slug is purely a UX hint for the landing page — so it's
+// kept out of the shared `consumerSchema` (also used by /auth/upgrade).
+const magicLinkRequestSchema = consumerSchema.extend({
+  slug: z.string().min(1).max(200).optional(),
 });
 
 const MAGIC_LINK_EXPIRY = 15 * 60 * 1000;
@@ -77,6 +90,57 @@ async function issueSession(
   return { token, expires_at: expiresAt };
 }
 
+export interface VerifyMagicLinkOk {
+  ok: true;
+  session_token: string;
+  consumer_id: string;
+  expires_at: string;
+}
+
+export interface VerifyMagicLinkErr {
+  ok: false;
+  error: string;
+  status: 401;
+}
+
+export type VerifyMagicLinkResult = VerifyMagicLinkOk | VerifyMagicLinkErr;
+
+/**
+ * Exchange a magic-link token for a consumer session. Extracted so the
+ * clickable landing page (GET /p/auth/verify, issue #215,
+ * apps/main/src/routes/publications.ts) shares the exact same
+ * query/expiry/consume/issue-session logic as POST /auth/verify below
+ * instead of duplicating it.
+ */
+export async function verifyMagicLinkToken(
+  db: D1Database,
+  token: string,
+): Promise<VerifyMagicLinkResult> {
+  const link = await db
+    .prepare("SELECT * FROM magic_links WHERE token = ? AND used = ?")
+    .bind(token, false)
+    .first<{
+      token: string;
+      consumer_id: string;
+      expires_at: string;
+      used: boolean;
+      created_at: string;
+    }>();
+
+  if (!link) {
+    return { ok: false, error: "Invalid or expired token", status: 401 };
+  }
+
+  if (new Date(link.expires_at) < new Date()) {
+    return { ok: false, error: "Token expired", status: 401 };
+  }
+
+  await db.prepare("UPDATE magic_links SET used = ? WHERE token = ?").bind(true, token).run();
+
+  const { token: sessionToken, expires_at } = await issueSession(db, link.consumer_id);
+  return { ok: true, session_token: sessionToken, consumer_id: link.consumer_id, expires_at };
+}
+
 /** Resolve the owning tenant for a publication id (public, no auth). */
 async function tenantForPublication(
   db: D1Database,
@@ -89,14 +153,30 @@ async function tenantForPublication(
   return row?.tenant_id ?? null;
 }
 
-/** Transactional email body for a consumer magic-link (issue #162). No
- *  clickable callback page exists yet for the public chat surface, so the
- *  token is presented as a copyable sign-in code — the recipient (or the
- *  publication's UI, once built) submits it to POST /v1/public/auth/verify. */
-function magicLinkEmailHtml(token: string): string {
+/** Absolute URL for the clickable magic-link landing page (issue #215,
+ *  GET /p/auth/verify in apps/main/src/routes/publications.ts). `slug`
+ *  bounces the visitor back to the right bot once the token is exchanged. */
+function magicLinkVerifyUrl(base: string, token: string, slug: string): string {
+  return `${base.replace(/\/$/, "")}/p/auth/verify?token=${encodeURIComponent(token)}&slug=${encodeURIComponent(slug)}`;
+}
+
+/** Transactional email body for a consumer magic-link (issue #162, updated
+ *  #215). When `verifyUrl` is available (the request named the bot's slug)
+ *  the email leads with a clickable "Sign in" link that lands on
+ *  GET /p/auth/verify and exchanges the token automatically; the raw code
+ *  always stays too as copy-paste fallback text. */
+function magicLinkEmailHtml(token: string, verifyUrl?: string): string {
+  const heading = verifyUrl ? "Your sign-in link" : "Your sign-in code";
+  const linkHtml = verifyUrl
+    ? [
+        `<p style="margin:0 0 20px"><a href="${verifyUrl.replace(/&/g, "&amp;")}" style="display:inline-block;background:#5b5bd6;color:#fff;text-decoration:none;font-weight:bold;padding:10px 20px;border-radius:8px">Sign in</a></p>`,
+        '<p style="color:#666;font-size:13px;margin:0 0 4px">Or use this code if the button doesn\'t work:</p>',
+      ].join("")
+    : "";
   return [
     '<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:32px">',
-    '<h2 style="margin:0 0 16px">Your sign-in code</h2>',
+    `<h2 style="margin:0 0 16px">${heading}</h2>`,
+    linkHtml,
     `<p style="font-size:16px;letter-spacing:1px;font-weight:bold;margin:24px 0;word-break:break-all">${token}</p>`,
     '<p style="color:#666;font-size:14px">This code expires in 15 minutes. If you did not request this, ignore this email.</p>',
     "</div>",
@@ -125,12 +205,12 @@ const wrapper = new Hono<Env>();
 
 wrapper.post("/auth/magic-link", async (c) => {
   const body = await c.req.json().catch(() => ({}));
-  const parsed = consumerSchema.safeParse(body);
+  const parsed = magicLinkRequestSchema.safeParse(body);
   if (!parsed.success) {
     return c.json({ error: "Invalid email", details: parsed.error.flatten() }, 400);
   }
 
-  const { email, name } = parsed.data;
+  const { email, name, slug } = parsed.data;
 
   // Anti-spam-the-victim: an attacker who doesn't own `email` can otherwise
   // hammer this endpoint to flood the real owner's inbox. Reject BEFORE any
@@ -176,13 +256,22 @@ wrapper.post("/auth/magic-link", async (c) => {
   // echoed back in the HTTP response, since that lets anyone impersonate any
   // email address. A transient send failure is logged, not fatal: the token
   // is already persisted and the caller can retry (rate-limited above).
+  //
+  // `slug` (issue #215) lets the email link straight to GET /p/auth/verify;
+  // without it (caller didn't say which bot) the email falls back to the
+  // copyable-code-only form, same as before #215.
+  const verifyUrl = slug
+    ? magicLinkVerifyUrl(c.env.PUBLIC_BASE_URL || new URL(c.req.url).origin, token, slug)
+    : undefined;
   try {
     await sendEmail(
       c.env,
       email,
       "Your sign-in code — oma",
-      magicLinkEmailHtml(token),
-      `Your sign-in code: ${token} (expires in 15 minutes)`,
+      magicLinkEmailHtml(token, verifyUrl),
+      verifyUrl
+        ? `Sign in: ${verifyUrl}\n\nOr use this code: ${token} (expires in 15 minutes)`
+        : `Your sign-in code: ${token} (expires in 15 minutes)`,
     );
   } catch (err) {
     log.warn({ consumer_id: consumerId, email, err }, "magic link email dispatch failed");
@@ -208,35 +297,16 @@ wrapper.post("/auth/verify", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const { token } = z.object({ token: z.string().min(1) }).parse(body);
 
-  const db = c.env.MAIN_DB;
-  const link = await db
-    .prepare("SELECT * FROM magic_links WHERE token = ? AND used = ?")
-    .bind(token, false)
-    .first<{
-      token: string;
-      consumer_id: string;
-      expires_at: string;
-      used: boolean;
-      created_at: string;
-    }>();
-
-  if (!link) {
-    return c.json({ error: "Invalid or expired token" }, 401);
+  const result = await verifyMagicLinkToken(c.env.MAIN_DB, token);
+  if (!result.ok) {
+    return c.json({ error: result.error }, result.status);
   }
-
-  if (new Date(link.expires_at) < new Date()) {
-    return c.json({ error: "Token expired" }, 401);
-  }
-
-  await db.prepare("UPDATE magic_links SET used = ? WHERE token = ?").bind(true, token).run();
-
-  const { token: sessionToken, expires_at } = await issueSession(db, link.consumer_id);
 
   return c.json(
     {
-      session_token: sessionToken,
-      consumer_id: link.consumer_id,
-      expires_at,
+      session_token: result.session_token,
+      consumer_id: result.consumer_id,
+      expires_at: result.expires_at,
     },
     200,
   );
