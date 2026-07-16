@@ -97,7 +97,7 @@ interface Env {
 // row arrays so the UI keeps a stable visual position while editing,
 // rather than reshuffling whenever the underlying object's key order
 // changes during normalize-on-save.
-interface PackageRow {
+export interface PackageRow {
   manager: Manager;
   /** Space-separated package specs, e.g. `pandas numpy==2.0` */
   packages: string;
