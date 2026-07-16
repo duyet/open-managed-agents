@@ -420,4 +420,66 @@ describe("forwardWithRefresh — OAuth refresh on 401", () => {
     // forwardToUpstream, so a throttled tenant never reaches the upstream.
     expect(mock.calls).toHaveLength(0);
   });
+
+  it("SSRF guard (issue #217): blocks a loopback upstream URL → 400, no upstream call", async () => {
+    const { services } = makeServices();
+
+    mock.restore();
+    mock = installFetchMock([
+      () => {
+        throw new Error("forwardToUpstream must not be called for a blocked upstream URL");
+      },
+    ]);
+
+    const target = {
+      upstreamUrl: "http://127.0.0.1:9999/mcp",
+      upstreamToken: "irrelevant",
+    };
+
+    const res = await forwardWithRefresh(
+      {},
+      services,
+      TENANT,
+      target,
+      "POST",
+      new Headers({ "content-type": "application/json" }),
+      '{"jsonrpc":"2.0","id":1,"method":"initialize"}',
+    );
+
+    expect(res.status).toBe(400);
+    expect(mock.calls).toHaveLength(0);
+  });
+
+  it("SSRF guard (issue #217): MCP_ALLOW_PRIVATE_UPSTREAMS opts a self-host deployment back in", async () => {
+    const { services } = makeServices();
+
+    mock.restore();
+    mock = installFetchMock([
+      () =>
+        new Response('{"jsonrpc":"2.0","id":1,"result":{"capabilities":{}}}', {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+    ]);
+
+    const target = {
+      upstreamUrl: "http://127.0.0.1:9999/mcp",
+      upstreamToken: "internal-token",
+    };
+    const allowPrivateEnv = { MCP_ALLOW_PRIVATE_UPSTREAMS: "1" };
+
+    const res = await forwardWithRefresh(
+      allowPrivateEnv,
+      services,
+      TENANT,
+      target,
+      "POST",
+      new Headers({ "content-type": "application/json" }),
+      '{"jsonrpc":"2.0","id":1,"method":"initialize"}',
+    );
+
+    expect(res.status).toBe(200);
+    expect(mock.calls).toHaveLength(1);
+    expect(mock.calls[0].url).toBe("http://127.0.0.1:9999/mcp");
+  });
 });

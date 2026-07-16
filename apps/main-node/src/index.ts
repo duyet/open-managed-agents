@@ -765,6 +765,8 @@ const nodeMcpBinding = buildNodeMcpBinding({
   sessions: sessionsService,
   credentials: credentialService,
   kv,
+  allowPrivateUpstreams:
+    process.env.MCP_ALLOW_PRIVATE_UPSTREAMS === "1" || process.env.MCP_ALLOW_PRIVATE_UPSTREAMS === "true",
 });
 
 const sessionRegistry = new SessionRegistry({

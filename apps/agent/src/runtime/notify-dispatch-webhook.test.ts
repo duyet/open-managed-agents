@@ -32,6 +32,7 @@ function depsFor(map: Record<string, string | null>, overrides: Partial<{
   webhookRateLimitGate: { consume: (k: string) => Promise<{ ok: boolean; retryAfter?: number }> };
   tenantId: string;
   httpClient: HttpClient;
+  allowPrivateWebhookUrls: boolean;
 }> = {}) {
   return {
     resolveCredentialToken: async (id?: string) => (id ? map[id] ?? null : null),
@@ -159,6 +160,46 @@ describe("webhook notify target", () => {
     const onError = vi.fn();
     await dispatchSessionNotifications(event, [webhookTarget], depsFor({ cred_webhook_secret: "s" }, { httpClient: http, onError }));
     expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it("SSRF guard (#217): blocks a webhook.url pointing at a private/metadata host — reports via onError, never posts", async () => {
+    const http = new FakeHttpClient();
+    const onError = vi.fn();
+    const privateTarget: NotificationTarget = {
+      type: "webhook",
+      url: "http://169.254.169.254/latest/meta-data/",
+      secret_ref: "cred_webhook_secret",
+    };
+    await dispatchSessionNotifications(
+      event,
+      [privateTarget],
+      depsFor({ cred_webhook_secret: "topsecret" }, { httpClient: http, onError }),
+    );
+    expect(http.calls).toHaveLength(0);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(String((onError.mock.calls[0][1] as Error).message)).toContain("Blocked URL");
+  });
+
+  it("SSRF guard (#217): allowPrivateWebhookUrls opts a self-host deployment back in", async () => {
+    const http = new FakeHttpClient();
+    http.setFallback({ status: 200, headers: {}, body: "" });
+    const onError = vi.fn();
+    const loopbackTarget: NotificationTarget = {
+      type: "webhook",
+      url: "http://127.0.0.1:9000/hooks/agent",
+      secret_ref: "cred_webhook_secret",
+    };
+    await dispatchSessionNotifications(
+      event,
+      [loopbackTarget],
+      depsFor(
+        { cred_webhook_secret: "topsecret" },
+        { httpClient: http, onError, allowPrivateWebhookUrls: true },
+      ),
+    );
+    expect(http.calls).toHaveLength(1);
+    expect(http.calls[0].url).toBe("http://127.0.0.1:9000/hooks/agent");
+    expect(onError).not.toHaveBeenCalled();
   });
 });
 

@@ -47,7 +47,7 @@
 
 import { Hono } from "hono";
 import type { Env, AgentConfig, CredentialConfig } from "@duyet/oma-shared";
-import { log, logWarn } from "@duyet/oma-shared";
+import { log, logWarn, assertPublicUrl } from "@duyet/oma-shared";
 import type { Services } from "@duyet/oma-services";
 import type { KvStore } from "@duyet/oma-kv-store";
 import { builtinSpecs, createSpecRegistry } from "@duyet/oma-cap";
@@ -405,7 +405,31 @@ export async function forwardToUpstream(
   method: string,
   inboundHeaders: Headers,
   body: BodyInit | null,
+  opts?: {
+    /** Escape hatch for self-host operators who legitimately run internal
+     *  MCP servers — wired from MCP_ALLOW_PRIVATE_UPSTREAMS. Off by
+     *  default (see the SSRF guard below). */
+    allowPrivate?: boolean;
+  },
 ): Promise<Response> {
+  // SSRF guard (issue #217) — target.upstreamUrl is tenant-configured
+  // (agent.mcp_servers[].url / registry URL) or, for the outboundForward
+  // vault-credential-injection path, the destination the sandbox asked to
+  // reach. Either way this fetch runs from the WORKER process, not the
+  // sandbox — the same class of risk web_fetch guards against (see
+  // packages/shared/src/ssrf.ts), except here the threat model is a
+  // malicious/compromised tenant rather than prompt injection. Fails
+  // closed: a blocked target never reaches fetch().
+  try {
+    assertPublicUrl(target.upstreamUrl, { allowPrivate: opts?.allowPrivate });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "blocked upstream URL";
+    return new Response(JSON.stringify({ error: message }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
   const upstreamHeaders = new Headers(inboundHeaders);
   upstreamHeaders.set("authorization", `Bearer ${target.upstreamToken}`);
   upstreamHeaders.delete("host");
@@ -482,6 +506,8 @@ export async function forwardWithRefresh(
   } catch {
     /* never */
   }
+  const allowPrivateUpstream =
+    env.MCP_ALLOW_PRIVATE_UPSTREAMS === "1" || env.MCP_ALLOW_PRIVATE_UPSTREAMS === "true";
 
   if (await rateLimitMcpProxy(env.RL_MCP_PROXY_TENANT, tenantId)) {
     log(
@@ -509,7 +535,7 @@ export async function forwardWithRefresh(
     );
   }
 
-  const first = await forwardToUpstream(target, method, inboundHeaders, body);
+  const first = await forwardToUpstream(target, method, inboundHeaders, body, { allowPrivate: allowPrivateUpstream });
   // Trigger refresh on either 401 (canonical "your token is expired /
   // invalid") or 403 (some MCP servers — observed on mcp.airtable.com,
   // mcp.asana.com, mcp.sentry.dev — return Forbidden instead of
@@ -557,7 +583,7 @@ export async function forwardWithRefresh(
   if (!fresh) {
     // Refresh failed: re-issue the original request unchanged so the
     // caller gets the upstream's actual 401 (matches old behavior).
-    const retry = await forwardToUpstream(target, method, inboundHeaders, body);
+    const retry = await forwardToUpstream(target, method, inboundHeaders, body, { allowPrivate: allowPrivateUpstream });
     logWarn(
       {
         op: "mcp_proxy.refresh_failed",
@@ -579,6 +605,7 @@ export async function forwardWithRefresh(
     method,
     inboundHeaders,
     body,
+    { allowPrivate: allowPrivateUpstream },
   );
   log(
     {

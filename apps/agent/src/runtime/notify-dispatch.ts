@@ -9,6 +9,7 @@
 
 import type { HttpClient, SessionNotifyEvent, WebhookEnvelope } from "@duyet/oma-integrations-core";
 import type { NotificationTarget } from "@duyet/oma-api-types";
+import { assertPublicUrl } from "@duyet/oma-shared";
 import { GitHubApiClient, postSessionStatusComment } from "@duyet/oma-github";
 import { SlackApiClient, postSessionStatusMessage as postSlackStatusMessage } from "@duyet/oma-slack";
 import { MatrixApiClient, postSessionStatusMessage as postMatrixStatusMessage } from "@duyet/oma-matrix";
@@ -43,6 +44,11 @@ export interface NotifyDispatchDeps {
    *  credential, so telegram_message targets resolve auth here, not via
    *  resolveCredentialToken. */
   resolveTelegramBotToken?: () => string | null | Promise<string | null>;
+  /** Escape hatch for the `webhook` target's SSRF guard (issue #217) —
+   *  wire to NOTIFY_WEBHOOK_ALLOW_PRIVATE for self-host operators who
+   *  legitimately point webhook.url at an internal receiver. Off by
+   *  default: a private/loopback/link-local/localhost target is blocked. */
+  allowPrivateWebhookUrls?: boolean;
 }
 
 /**
@@ -165,6 +171,16 @@ async function dispatchWebhook(
   target: Extract<NotificationTarget, { type: "webhook" }>,
   deps: NotifyDispatchDeps,
 ): Promise<void> {
+  // SSRF guard (issue #217) — webhook.url is tenant-configured; a
+  // malicious/compromised tenant could point it at loopback/metadata/
+  // internal hosts and use the platform as an internal-network proxy for
+  // signed-payload deliveries. Throws SsrfBlockedError on a blocked
+  // target — caught by dispatchOne's outer try/catch, which reports it
+  // via deps.onError and never rethrows, matching this module's
+  // fail-open contract (a bad target is logged + skipped, never thrown
+  // back into the session loop).
+  assertPublicUrl(target.url, { allowPrivate: deps.allowPrivateWebhookUrls });
+
   // Honor the events filter: when set, only deliver for listed statuses.
   if (target.events && !target.events.includes(event.status)) {
     return;

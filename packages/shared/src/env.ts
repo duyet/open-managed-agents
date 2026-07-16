@@ -208,6 +208,17 @@ export interface Env {
    *  only set this if the deployment intentionally wants web_fetch to
    *  reach internal services. */
   WEB_FETCH_ALLOW_PRIVATE?: string;
+  /** Escape hatch for the notify `webhook` target's SSRF guard
+   *  (apps/agent/src/runtime/notify-dispatch.ts dispatchWebhook). "1" or
+   *  "true" lets a webhook.url notify target point at private/loopback/
+   *  link-local/localhost hosts. Off by default — see issue #217. */
+  NOTIFY_WEBHOOK_ALLOW_PRIVATE?: string;
+  /** Escape hatch for the MCP proxy's SSRF guard
+   *  (apps/main/src/routes/mcp-proxy.ts forwardToUpstream). "1" or "true"
+   *  lets an agent.mcp_servers[] upstream URL point at private/loopback/
+   *  link-local/localhost hosts — for self-host operators who legitimately
+   *  run internal MCP servers. Off by default — see issue #217. */
+  MCP_ALLOW_PRIVATE_UPSTREAMS?: string;
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   GITHUB_TOKEN?: string;

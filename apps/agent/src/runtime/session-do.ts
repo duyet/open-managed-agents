@@ -3633,6 +3633,8 @@ export class SessionDO extends DurableObject<Env> {
         tenantId: this.state.tenant_id,
         webhookRateLimitGate: this.webhookRateLimitGate(),
         httpClient: new WorkerHttpClient(),
+        allowPrivateWebhookUrls:
+          this.env.NOTIFY_WEBHOOK_ALLOW_PRIVATE === "1" || this.env.NOTIFY_WEBHOOK_ALLOW_PRIVATE === "true",
         onError: (target, err) => {
           logWarn(
             {

@@ -27,6 +27,7 @@
  */
 
 import type { AgentConfig } from "@duyet/oma-shared";
+import { assertPublicUrl } from "@duyet/oma-shared";
 import type { KvStore } from "@duyet/oma-kv-store";
 import type { SessionService } from "@duyet/oma-sessions-store";
 import type { CredentialService } from "@duyet/oma-credentials-store";
@@ -39,6 +40,11 @@ export interface NodeMcpProxyDeps {
   sessions: SessionService;
   credentials: CredentialService;
   kv: KvStore;
+  /** Escape hatch for self-host operators who legitimately run internal
+   *  MCP servers — wired from MCP_ALLOW_PRIVATE_UPSTREAMS (issue #217).
+   *  Off by default: a private/loopback/link-local/localhost upstream is
+   *  blocked. */
+  allowPrivateUpstreams?: boolean;
 }
 
 interface ProxyTarget {
@@ -118,7 +124,24 @@ async function forwardToUpstream(
   method: string,
   inboundHeaders: Headers,
   body: BodyInit | null,
+  opts?: { allowPrivate?: boolean },
 ): Promise<Response> {
+  // SSRF guard (issue #217) — target.upstreamUrl is tenant-configured
+  // (agent.mcp_servers[].url / registry URL) and this fetch runs from the
+  // main-node process, not the sandbox. Mirrors the Cloudflare proxy's
+  // guard in apps/main/src/routes/mcp-proxy.ts exactly (see
+  // packages/shared/src/ssrf.ts). Fails closed: a blocked target never
+  // reaches fetch().
+  try {
+    assertPublicUrl(target.upstreamUrl, { allowPrivate: opts?.allowPrivate });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "blocked upstream URL";
+    return new Response(JSON.stringify({ error: message }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
   const upstreamHeaders = new Headers(inboundHeaders);
   upstreamHeaders.set("authorization", `Bearer ${target.upstreamToken}`);
   upstreamHeaders.delete("host");
@@ -176,7 +199,9 @@ export function buildNodeMcpBinding(deps: NodeMcpProxyDeps): {
 
       const method = request.method;
       const body = ["GET", "HEAD"].includes(method) ? null : await request.text();
-      return forwardToUpstream(target, method, request.headers, body);
+      return forwardToUpstream(target, method, request.headers, body, {
+        allowPrivate: deps.allowPrivateUpstreams,
+      });
     },
   };
 }

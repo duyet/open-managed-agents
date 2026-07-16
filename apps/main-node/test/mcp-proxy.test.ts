@@ -79,7 +79,11 @@ describe("buildNodeMcpBinding", () => {
       agentSnapshot: baseAgent([{ name: "linear", type: "http", url: upstream.url }]),
     });
 
-    const binding = buildNodeMcpBinding({ sessions, credentials, kv });
+    // Fixture upstream is a real local server bound to 127.0.0.1 — opt
+    // into the SSRF guard's escape hatch (issue #217) so this loopback
+    // test target isn't blocked; see the dedicated SSRF tests below for
+    // the guard's default-blocking behavior.
+    const binding = buildNodeMcpBinding({ sessions, credentials, kv, allowPrivateUpstreams: true });
     const req = new Request(upstream.url, {
       headers: {
         "x-oma-tenant": TENANT,
@@ -111,7 +115,7 @@ describe("buildNodeMcpBinding", () => {
       ]),
     });
 
-    const binding = buildNodeMcpBinding({ sessions, credentials, kv });
+    const binding = buildNodeMcpBinding({ sessions, credentials, kv, allowPrivateUpstreams: true });
     const req = new Request(upstream.url, {
       headers: {
         "x-oma-tenant": TENANT,
@@ -163,7 +167,7 @@ describe("buildNodeMcpBinding", () => {
       agentSnapshot: baseAgent([{ name: "linear", type: "http", registry_id: "mcps_1" }]),
     });
 
-    const binding = buildNodeMcpBinding({ sessions, credentials, kv });
+    const binding = buildNodeMcpBinding({ sessions, credentials, kv, allowPrivateUpstreams: true });
     const req = new Request("http://ignored/", {
       headers: {
         "x-oma-tenant": TENANT,
@@ -207,7 +211,7 @@ describe("buildNodeMcpBinding", () => {
       ]),
     });
 
-    const binding = buildNodeMcpBinding({ sessions, credentials, kv });
+    const binding = buildNodeMcpBinding({ sessions, credentials, kv, allowPrivateUpstreams: true });
     const req = new Request("http://ignored/", {
       headers: {
         "x-oma-tenant": TENANT,
@@ -247,5 +251,60 @@ describe("buildNodeMcpBinding", () => {
     const binding = buildNodeMcpBinding({ sessions, credentials, kv });
     const res = await binding.fetch(new Request("http://ignored/"));
     expect(res.status).toBe(400);
+  });
+
+  describe("SSRF guard (#217)", () => {
+    it("blocks a loopback upstream URL by default — never reaches the fixture server", async () => {
+      upstream = await startUpstream();
+      const { sessions, credentials, kv } = makeServices();
+
+      const { session } = await sessions.create({
+        tenantId: TENANT,
+        agentId: "agent_1",
+        environmentId: "env_1",
+        agentSnapshot: baseAgent([
+          { name: "linear", type: "http", url: upstream.url, authorization_token: "inline-secret" },
+        ]),
+      });
+
+      // No allowPrivateUpstreams — the default, fail-closed posture.
+      const binding = buildNodeMcpBinding({ sessions, credentials, kv });
+      const req = new Request(upstream.url, {
+        headers: {
+          "x-oma-tenant": TENANT,
+          "x-oma-session": session.id,
+          "x-oma-mcp-server": "linear",
+        },
+      });
+      const res = await binding.fetch(req);
+      expect(res.status).toBe(400);
+      expect(upstream.lastAuth()).toBeUndefined();
+    });
+
+    it("allowPrivateUpstreams opts a self-host deployment back in", async () => {
+      upstream = await startUpstream();
+      const { sessions, credentials, kv } = makeServices();
+
+      const { session } = await sessions.create({
+        tenantId: TENANT,
+        agentId: "agent_1",
+        environmentId: "env_1",
+        agentSnapshot: baseAgent([
+          { name: "linear", type: "http", url: upstream.url, authorization_token: "inline-secret" },
+        ]),
+      });
+
+      const binding = buildNodeMcpBinding({ sessions, credentials, kv, allowPrivateUpstreams: true });
+      const req = new Request(upstream.url, {
+        headers: {
+          "x-oma-tenant": TENANT,
+          "x-oma-session": session.id,
+          "x-oma-mcp-server": "linear",
+        },
+      });
+      const res = await binding.fetch(req);
+      expect(res.status).toBe(200);
+      expect(upstream.lastAuth()).toBe("Bearer inline-secret");
+    });
   });
 });
