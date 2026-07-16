@@ -1078,10 +1078,14 @@ Credits are an append-only wallet ledger keyed by `(tenant_id, end_user_id)`
 with a cached balance row for the hot-path gate. `enforcePaywall` gates every
 public turn: `free` / no pricing / payments disabled → allow; metered modes
 require `balance >= cost`; blocked turns return **HTTP 402**
-`{code:"insufficient_credits", balance, shortfall, top_up_url}`. Top-ups run
-through Stripe Checkout; `POST /webhooks/stripe` (signature-verified,
-idempotent via `stripe_processed_events`) credits the ledger. Creator revenue:
-`GET /v1/publications/:id/revenue`.
+`{code:"insufficient_credits", balance, shortfall, top_up_url}`. `per_message`
+debits up front; `per_1k_tokens` gates on a minimal reserve (`max(1,
+price_amount)`) and debits the real token cost **post-turn** in the agent DO at
+`session.status_idle` (`maybeMeterTurn` → `debitTurnUsage`, idempotent per turn
+via the `turn_debits` guard). Configure a publication's pricing via `PUT
+/v1/publications/:id/pricing`. Top-ups run through Stripe Checkout; `POST
+/webhooks/stripe` (signature-verified, idempotent via `stripe_processed_events`)
+credits the ledger. Creator revenue: `GET /v1/publications/:id/revenue`.
 
 Secrets: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `PAYMENTS_DISABLED`
 (kill-switch → everything free), `PUBLIC_BASE_URL` (redirect/top-up URLs).

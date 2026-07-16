@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeTurnCost,
+  debitTurnUsage,
   isMetered,
   isPaymentsEnabled,
   isPricingMode,
@@ -11,6 +12,7 @@ import {
   type LedgerEntry,
   type PaymentsStore,
   type StripeEvent,
+  type TurnDebitStore,
 } from "./index";
 
 describe("pricing", () => {
@@ -205,5 +207,118 @@ describe("PaymentsService.checkGate + debit", () => {
     store.subscriptions.add("t1:u1");
     gate = await svc.checkGate({ tenantId: "t1", endUserId: "u1", mode: "subscription", cost: 0 });
     expect(gate.allowed).toBe(true);
+  });
+
+  it("per_1k_tokens gate requires a max(1, price_amount) reserve (#163)", async () => {
+    const store = new FakeStore();
+    const svc = new PaymentsService(store);
+    // price_amount=5 → require 5, not the old flat 1.
+    await svc.creditFromEvent(checkoutEvent("evt_a", 4));
+    let gate = await svc.checkGate({
+      tenantId: "t1",
+      endUserId: "u1",
+      mode: "per_1k_tokens",
+      cost: 0, // per_1k can't be priced pre-turn
+      priceAmount: 5,
+    });
+    expect(gate.allowed).toBe(false);
+    expect(gate.shortfall).toBe(1); // 5 required − 4 balance
+
+    await svc.creditFromEvent(checkoutEvent("evt_b", 1)); // balance → 5
+    gate = await svc.checkGate({
+      tenantId: "t1",
+      endUserId: "u1",
+      mode: "per_1k_tokens",
+      cost: 0,
+      priceAmount: 5,
+    });
+    expect(gate.allowed).toBe(true);
+  });
+
+  it("per_1k_tokens gate floors the reserve at 1 when price_amount is 0", async () => {
+    const svc = new PaymentsService(new FakeStore());
+    const gate = await svc.checkGate({
+      tenantId: "t1",
+      endUserId: "u1",
+      mode: "per_1k_tokens",
+      cost: 0,
+      priceAmount: 0,
+    });
+    expect(gate.allowed).toBe(false);
+    expect(gate.shortfall).toBe(1);
+  });
+});
+
+/** In-memory idempotent turn-debit store (#163). Mirrors the D1 guard: a
+ *  turnKey applies exactly once. */
+class FakeTurnStore implements TurnDebitStore {
+  keys = new Set<string>();
+  entries: LedgerEntry[] = [];
+  async recordTurnDebit(turnKey: string, entry: LedgerEntry) {
+    if (this.keys.has(turnKey)) return false;
+    this.keys.add(turnKey);
+    this.entries.push(entry);
+    return true;
+  }
+  balance() {
+    return this.entries.reduce((s, e) => s + e.delta, 0);
+  }
+}
+
+describe("debitTurnUsage (post-turn per_1k_tokens metering, #163)", () => {
+  it("debits the computed turn cost as a negative delta", async () => {
+    const store = new FakeTurnStore();
+    // 2500 tokens @ 5 credits / 1k → ceil(2500/1000) * 5 = 15.
+    const credits = computeTurnCost("per_1k_tokens", 5, { messages: 0, tokens: 2500 });
+    expect(credits).toBe(15);
+    const res = await debitTurnUsage(store, {
+      tenantId: "t1",
+      endUserId: "u1",
+      credits,
+      turnKey: "sess_1:2500",
+      publicationId: "pub_1",
+      sessionId: "sess_1",
+    });
+    expect(res).toEqual({ debited: true, credits: 15 });
+    expect(store.balance()).toBe(-15);
+    expect(store.entries[0]).toMatchObject({ delta: -15, reason: "per_1k_tokens" });
+  });
+
+  it("is idempotent — the same turn signal twice debits once", async () => {
+    const store = new FakeTurnStore();
+    const args = {
+      tenantId: "t1",
+      endUserId: "u1",
+      credits: 15,
+      turnKey: "sess_1:2500",
+      sessionId: "sess_1",
+    };
+    const first = await debitTurnUsage(store, args);
+    const second = await debitTurnUsage(store, args); // redelivered idle
+    expect(first.debited).toBe(true);
+    expect(second.debited).toBe(false); // guard absorbed the duplicate
+    expect(second.credits).toBe(15); // still reports the cost for observability
+    expect(store.entries).toHaveLength(1);
+    expect(store.balance()).toBe(-15);
+  });
+
+  it("no-ops for a zero/negative cost without touching the store", async () => {
+    const store = new FakeTurnStore();
+    const res = await debitTurnUsage(store, {
+      tenantId: "t1",
+      endUserId: "u1",
+      credits: 0,
+      turnKey: "sess_1:0",
+    });
+    expect(res).toEqual({ debited: false, credits: 0 });
+    expect(store.entries).toHaveLength(0);
+  });
+
+  it("distinct turns (distinct keys) each debit once", async () => {
+    const store = new FakeTurnStore();
+    await debitTurnUsage(store, { tenantId: "t1", endUserId: "u1", credits: 5, turnKey: "sess_1:1000" });
+    await debitTurnUsage(store, { tenantId: "t1", endUserId: "u1", credits: 5, turnKey: "sess_1:2000" });
+    expect(store.entries).toHaveLength(2);
+    expect(store.balance()).toBe(-10);
   });
 });

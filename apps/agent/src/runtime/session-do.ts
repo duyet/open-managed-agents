@@ -93,6 +93,7 @@ import {
 import type { SessionNotifyEvent, SessionNotifyStatus } from "@duyet/oma-integrations-core";
 import { WorkerHttpClient } from "@duyet/oma-integrations-adapters-cf";
 import { dispatchSessionNotifications } from "./notify-dispatch";
+import { meterTurnDebit } from "./turn-metering";
 
 interface SessionInitParams {
   agent_id: string;
@@ -192,6 +193,21 @@ interface SessionState {
    */
   input_tokens: number;
   output_tokens: number;
+  /**
+   * High-water mark of `input_tokens + output_tokens` already billed by the
+   * post-turn `per_1k_tokens` metering hook (issue #163). Each idle debits the
+   * delta since this mark, then advances it. Optional: pre-#163 sessions read as
+   * `undefined` (treated as 0) and only public metered sessions ever set it.
+   */
+  metered_token_total?: number;
+  /**
+   * Cached wallet identity for the metering hook (issue #163), resolved once
+   * from the persisted session row (session metadata isn't mirrored into DO
+   * state). `undefined` = not yet resolved; `null` = resolved as a non-metered
+   * session (cheap-skip every future idle, no D1 read); an object = the
+   * `(publication_id, end_user_id)` wallet to debit each turn.
+   */
+  metering_wallet?: { publication_id: string; end_user_id: string } | null;
   /**
    * Per-thread cumulative usage. Keyed by session_thread_id
    * ("sthr_primary" or sub-agent "sthr_*"). Mirrors the AMA
@@ -3521,6 +3537,7 @@ export class SessionDO extends DurableObject<Env> {
       }
     }
     this.maybeFireSessionNotifications(event);
+    this.maybeMeterTurn(event);
   }
 
   /**
@@ -3609,6 +3626,120 @@ export class SessionDO extends DurableObject<Env> {
     })().catch((err) => {
       console.error(`[maybeFireSessionNotifications] unexpected failure: ${(err as Error).message}`);
     });
+  }
+
+  /**
+   * Post-turn `per_1k_tokens` metering (issue #163). Fire-and-forget on a
+   * primary-thread `session.status_idle`, mirroring maybeFireSessionNotifications
+   * (same seam, same fail-open discipline): debit the turn's real token cost
+   * against the end-user credit wallet in MAIN_DB. Never throws back into
+   * broadcastEvent — a metering hiccup must never fail or block the turn.
+   *
+   * No-op unless this is a public consumer turn (publication_id + end_user_id on
+   * the session) priced `per_1k_tokens` with new tokens this turn. The wallet
+   * identity is resolved once from the persisted session row (session metadata
+   * isn't mirrored into DO state) and cached in `metering_wallet` so a
+   * non-metered session pays the lookup only on its first idle. Sub-agent thread
+   * idles are skipped (non-primary session_thread_id); the primary turn's
+   * cumulative total already includes sub-agent tokens, so one debit per user
+   * turn covers everything. Cost math, idempotency, and the negative-overshoot
+   * policy live in turn-metering.ts / @duyet/oma-payments.
+   */
+  private maybeMeterTurn(event: SessionEvent): void {
+    if (event.type !== "session.status_idle") return;
+    // Only the primary turn's completion — sub-agent idles carry a sub-thread
+    // id and their tokens are already folded into the session-wide totals.
+    const threadId = (event as { session_thread_id?: string }).session_thread_id;
+    if (threadId && threadId !== "sthr_primary") return;
+
+    const db = this.env.MAIN_DB;
+    if (!db) return;
+    // Cheap skip: a session already resolved as non-metered never touches D1
+    // or advances the mark again.
+    if (this.state.metering_wallet === null) return;
+    // Respect the payments kill-switch if the agent worker carries it (parity
+    // with apps/main isPaymentsEnabled → "everything free"). The agent worker
+    // holds no Stripe secrets, so we key only on this explicit flag.
+    const disabled = (this.env as { PAYMENTS_DISABLED?: string }).PAYMENTS_DISABLED;
+    if (disabled && disabled !== "0" && disabled !== "false") return;
+
+    const total = (this.state.input_tokens ?? 0) + (this.state.output_tokens ?? 0);
+    const prior = this.state.metered_token_total ?? 0;
+    const turnTokens = total - prior;
+    if (turnTokens <= 0) return;
+
+    const tenantId = this.state.tenant_id;
+    const sessionId = this.state.session_id;
+
+    // Advance the high-water mark SYNCHRONOUSLY — turns are serialized, so the
+    // next turn's maybeMeterTurn must read the advanced mark and bill only its
+    // own delta, never re-slice [prior, total]. (If we advanced inside the
+    // detached debit below, a slow debit could still be in-flight when the next
+    // turn idles, which would recompute the delta from a stale mark and
+    // double-bill.) The `turn_debits` guard (keyed on `${sessionId}:${total}`)
+    // is the durable idempotency backstop; this mark just partitions cumulative
+    // tokens into per-turn slices. Advancing before the debit means a debit
+    // failure under-bills (fail-open, honest) rather than risking a double-bill.
+    this.setState({ ...this.state, metered_token_total: total });
+
+    const cached = this.state.metering_wallet;
+
+    // Detached — never awaited (same idiom as maybeFireSessionNotifications).
+    void (async () => {
+      try {
+        let wallet: { publication_id: string; end_user_id: string } | null | undefined =
+          cached;
+        if (wallet === undefined) {
+          wallet = await this.resolveMeteringWallet(tenantId, sessionId);
+          // Cache the (immutable) resolution — an object to debit each turn, or
+          // null to cheap-skip future idles. Idempotent: always the same value.
+          this.setState({ ...this.state, metering_wallet: wallet });
+        }
+        if (!wallet) return;
+        await meterTurnDebit({
+          db,
+          tenantId,
+          sessionId,
+          publicationId: wallet.publication_id,
+          endUserId: wallet.end_user_id,
+          turnTokens,
+          cumulativeTotal: total,
+        });
+      } catch (err) {
+        logWarn(
+          {
+            op: "session_do.meter_turn",
+            session_id: sessionId,
+            err,
+          },
+          "per_1k_tokens turn metering failed",
+        );
+      }
+    })().catch((err) => {
+      console.error(`[maybeMeterTurn] unexpected failure: ${(err as Error).message}`);
+    });
+  }
+
+  /**
+   * Resolve the metering wallet identity (publication_id + end_user_id) from the
+   * persisted session row — session metadata isn't mirrored into DO state, so
+   * the debit hook reads it from the store (same path as
+   * assertSessionOwnedByPublication in apps/main). Returns null for any session
+   * that isn't a public consumer session (no publication_id / end_user_id).
+   */
+  private async resolveMeteringWallet(
+    tenantId: string,
+    sessionId: string,
+  ): Promise<{ publication_id: string; end_user_id: string } | null> {
+    const { getCfServicesForTenant } = await import("@duyet/oma-services");
+    const services = await getCfServicesForTenant(this.env, tenantId);
+    const session = await services.sessions.get({ tenantId, sessionId });
+    const meta = (session?.metadata ?? undefined) as Record<string, unknown> | undefined;
+    const publicationId = meta?.publication_id ? String(meta.publication_id) : "";
+    const endUserId = meta?.end_user_id ? String(meta.end_user_id) : "";
+    return publicationId && endUserId
+      ? { publication_id: publicationId, end_user_id: endUserId }
+      : null;
   }
 
   /**

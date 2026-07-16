@@ -65,6 +65,7 @@ import consumerMeteringRoutes from "./routes/consumer-metering";
 import consumerAdminRoutes from "./routes/consumer-admin";
 import paymentsWebhookRoutes, {
   buildConsumerPaymentsRoutes,
+  buildPublicationPricingRoutes,
   enforcePaywall as enforcePaywallImpl,
   createD1PaymentsStore,
 } from "./routes/payments";
@@ -586,6 +587,22 @@ app.get("/v1/publications/:id/revenue", async (c) => {
     // an informational revenue view only.
   });
 });
+// Publication pricing config (issue #163) — the tenant-authed write surface for
+// the metered paywall (previously the paywall was unconfigurable via the API).
+// Its two specific routes (:id/pricing GET/PUT) are registered before the
+// catch-all /v1/publications mount so they match first; every other publications
+// path falls through. Tenant-scoped via the auth-resolved tenant_id; publication
+// ownership verified before any read/write.
+app.route(
+  "/v1/publications",
+  buildPublicationPricingRoutes({
+    getOwnedPublication: async (c, tenantId, id) => {
+      const services = cfRouteServicesFromCtx(c as unknown as AppCtx);
+      const pub = await services.publications.get({ tenantId, id });
+      return pub ? { id: pub.id } : null;
+    },
+  }),
+);
 app.route("/v1/publications", publicationsRoutes);
 app.route("/v1/environments", environmentsRoutes);
 app.route("/v1/sessions", sessionsRoutes);

@@ -154,6 +154,15 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
     });
     if (!agent) return c.json({ error: "Published agent not found" }, 404);
 
+    // Bind the wallet identity to the session at create so the post-turn
+    // per_1k_tokens metering hook (agent DO, issue #74/#163) can resolve which
+    // wallet to debit — the DO can't recompute it from the request. Same
+    // resolver the paywall gate uses. Also unblocks notify-dispatch /
+    // consumer-admin, which already read metadata.end_user_id.
+    const endUserId = deps.resolveEndUserId
+      ? await deps.resolveEndUserId(c.req.raw, c.env)
+      : endUserIdFor(c.req.raw);
+
     // Forward the create into the per-tenant session app, but rewrite the
     // body to pin the published agent + version + the publication tag.
     const forwarded = await forwardToSessions(c, pub.tenant_id, () => {
@@ -165,6 +174,7 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
         metadata: {
           ...(body.metadata ?? {}),
           publication_id: pub.id,
+          end_user_id: endUserId,
         },
       };
     });
