@@ -2,21 +2,21 @@
   Apple touch icon (and Android home-screen icon fallback).
   Apple expects an opaque rounded square — they mask + round it themselves
   on iOS, but a transparent SVG flashes the wallpaper through the corners
-  during the install animation, so we paint an opaque coral square underneath.
+  during the install animation, so we paint an opaque iris square underneath.
 
   180×180 to match the standard apple-touch-icon size. The inner glyph is the
-  brand [•] mark (square brackets = the harness, dot = the agent it runs) in
-  the brand ink tone (#3d2520) for AA contrast on coral.
+  2026 oma mark (rounded-square frame = the sandbox, edge wired into the solid
+  node = the agent it runs) in white for AA contrast on the iris ground.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180" role="img" aria-label="oma">
-  <!-- Opaque coral background. rx≈22% matches the iOS app-icon mask radius. -->
-  <rect width="180" height="180" rx="40" ry="40" fill="#FF6B50" />
+  <!-- Opaque iris background. rx≈22% matches the iOS app-icon mask radius. -->
+  <rect width="180" height="180" rx="40" ry="40" fill="#4f46e5" />
 
-  <!-- [•] mark from logo.svg (64 viewBox), recolored to the ink tone and
-       scaled to ~100px centered in the 180 tile. -->
-  <g transform="translate(40, 40) scale(1.5625)" fill="none" stroke="#3d2520" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M24 15 H15 V49 H24" />
-    <path d="M40 15 H49 V49 H40" />
-    <circle cx="32" cy="32" r="8" fill="#3d2520" stroke="none" />
+  <!-- oma mark from logo.svg (24 viewBox), drawn white and scaled to ~100px
+       centered in the 180 tile (scale 100/24 ≈ 4.1667, translate 40,40). -->
+  <g transform="translate(40, 40) scale(4.1667)" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round">
+    <rect x="3.25" y="3.25" width="17.5" height="17.5" rx="5" />
+    <path d="M7 7 11 11" />
+    <circle cx="12" cy="12" r="2.75" fill="#ffffff" stroke="none" />
   </g>
 </svg>

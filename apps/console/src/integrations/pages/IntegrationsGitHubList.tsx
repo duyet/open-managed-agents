@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { IntegrationsApi } from "../api/client";
 import type { GitHubInstallation, GitHubPublication } from "../api/types";
 import { StatusPill } from "../components/StatusPill";
+import { IntegrationSetupCard } from "../components/IntegrationSetupCard";
 import { Avatar } from "../../components/Avatar";
 import { EmptyState } from "../../components/EmptyState";
 import { formatRelative } from "../../lib/format";
@@ -84,6 +85,51 @@ export function IntegrationsGitHubList() {
             {error}
           </div>
         )}
+
+        <div className="mb-6">
+          <IntegrationSetupCard
+            name="GitHub"
+            status={items.length > 0 ? "connected" : "not-connected"}
+            statusDetail={
+              items.length > 0
+                ? `${items.length} org${items.length === 1 ? "" : "s"} connected`
+                : undefined
+            }
+            whatIsThis={
+              <>
+                A GitHub App gives each agent its own bot identity so it can
+                open PRs, review code, and reply to issues on your repos. You
+                register the App once per org, then bind agents to it.
+              </>
+            }
+            requirements={[
+              { label: "A GitHub App", detail: "registered on your org (App ID + private key)" },
+              { label: "Webhook secret", detail: "so the App can verify inbound events" },
+              { label: "An OMA agent", detail: "the identity that acts in GitHub" },
+            ]}
+            steps={[
+              {
+                title: "Start the bind wizard",
+                body: (
+                  <>
+                    Click <span className="font-medium text-fg">Bind agent</span> above.
+                    The wizard walks you through registering (or reusing) a
+                    GitHub App and staging its credentials.
+                  </>
+                ),
+              },
+              {
+                title: "Paste the App credentials",
+                body: "App ID, the .pem private key, and the webhook secret. They're stored encrypted in your vault — never handed to the sandbox.",
+              },
+              {
+                title: "Install the App on your org",
+                body: "Follow the install link the wizard hands you, pick the repos, and the agent goes live as a bot user.",
+              },
+            ]}
+            collapsibleSteps
+          />
+        </div>
 
         {pending.length > 0 && (
           <section className="mb-6">

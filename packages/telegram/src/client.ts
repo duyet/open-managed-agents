@@ -15,18 +15,38 @@ export interface TelegramChat {
   username?: string;
 }
 
+export interface TelegramPhotoSize {
+  file_id: string;
+  file_unique_id: string;
+  width: number;
+  height: number;
+  file_size?: number;
+}
+
+export interface TelegramDocument {
+  file_id: string;
+  file_unique_id: string;
+  file_name?: string;
+  mime_type?: string;
+  file_size?: number;
+}
+
 export interface TelegramMessage {
   message_id: number;
   from?: TelegramUser;
   chat: TelegramChat;
   date: number;
   text?: string;
+  caption?: string;
   reply_to_message?: TelegramMessage;
   entities?: Array<{
     type: string;
     offset: number;
     length: number;
   }>;
+  /** Telegram sends one entry per resolution; largest is last. */
+  photo?: TelegramPhotoSize[];
+  document?: TelegramDocument;
 }
 
 export interface TelegramUpdate {
@@ -124,4 +144,33 @@ export class TelegramClient {
     if (!file.file_path) return null;
     return `https://api.telegram.org/file/bot${this.botToken}/${file.file_path}`;
   }
+
+  /**
+   * Downloads a file's bytes (photo/document) and returns them base64-encoded
+   * for inline embedding in a `user.message` content block. Returns `null`
+   * when Telegram has no `file_path` for the id (expired/invalid file).
+   */
+  async downloadFileAsBase64(fileId: string): Promise<{ data: string; filePath: string } | null> {
+    const url = await this.getFileUrl(fileId);
+    if (!url) return null;
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new TelegramApiError("downloadFile", `HTTP ${res.status}`, res.status);
+    }
+    const buf = await res.arrayBuffer();
+    const data = base64Encode(new Uint8Array(buf));
+    const file = await this.getFile(fileId);
+    return { data, filePath: file.file_path ?? "" };
+  }
+}
+
+function base64Encode(bytes: Uint8Array): string {
+  // btoa is available on both Workers and Node 18+ globalThis; avoid a
+  // Buffer dependency so this stays runtime-agnostic.
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
 }

@@ -21,6 +21,12 @@ export type { VaultRoutesDeps } from "./vaults";
 
 export { buildEnvironmentRoutes } from "./environments";
 export type { EnvironmentRoutesDeps } from "./environments";
+export {
+  validateEnvVars,
+  reconcileEnvVars,
+  deleteAllEnvSecrets,
+  envSecretKey,
+} from "./environments/env-vars";
 
 export { buildSessionRoutes } from "./sessions";
 export type {
@@ -56,6 +62,11 @@ export type {
 export { buildEvalRoutes } from "./evals";
 export type { EvalRoutesDeps, EvalTaskSpec } from "./evals";
 
+export { buildPublicationRoutes, buildAgentPublicationRoutes } from "./publications";
+export type {
+  PublicationRoutesDeps,
+} from "./publications";
+
 export { buildIntegrationsRoutes } from "./integrations";
 export type {
   IntegrationsRoutesDeps,
@@ -78,3 +89,9 @@ export type {
   AnyRouterConnectHooks,
   AnyRouterConnectedInfo,
 } from "./providers/anyrouter";
+
+export { buildMcpServerRoutes, resolveRegisteredMcpServer } from "./mcp-servers";
+export type { McpServerRoutesDeps, McpRegistryRow } from "./mcp-servers";
+
+export { buildTelegramWebhookRoute } from "./telegram";
+export type { TelegramWebhookRouteDeps } from "./telegram";

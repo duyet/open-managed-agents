@@ -42,6 +42,7 @@ import { RuntimesList } from "./pages/RuntimesList";
 import { ConnectRuntime } from "./pages/ConnectRuntime";
 import { CrashPage } from "./pages/CrashPage";
 import { AgentBuilder } from "./pages/AgentBuilder";
+import { MyBots } from "./pages/MyBots";
 import { AgentChat } from "./pages/AgentChat";
 import { EvalRunsList } from "./pages/EvalRunsList";
 import { EvalRunDetail } from "./pages/EvalRunDetail";
@@ -61,6 +62,7 @@ import {
   IntegrationsSlackWorkspace,
   IntegrationsSlackPublishPage,
 } from "./pages/IntegrationsSlack";
+import { IntegrationsHub, IntegrationsTelegramSetup } from "./integrations";
 import { consolePlugins } from "./plugins/registry";
 
 /**
@@ -123,6 +125,7 @@ const protectedRoutes: RouteObject[] = [
       },
     ],
   },
+  { path: "my-bots", element: <MyBots />, handle: { crumb: "My Bots" } },
   { path: "files", element: <FilesList />, handle: { crumb: "Files" } },
   { path: "kanban", element: <KanbanBoard />, handle: { crumb: "Kanban Board" } },
   {
@@ -181,6 +184,7 @@ const protectedRoutes: RouteObject[] = [
     path: "integrations",
     handle: { crumb: "Integrations" },
     children: [
+      { index: true, element: <IntegrationsHub /> },
       {
         path: "linear",
         handle: { crumb: "Linear" },
@@ -236,6 +240,11 @@ const protectedRoutes: RouteObject[] = [
             handle: { crumb: "Workspace" },
           },
         ],
+      },
+      {
+        path: "telegram",
+        handle: { crumb: "Telegram" },
+        children: [{ index: true, element: <IntegrationsTelegramSetup /> }],
       },
     ],
   },

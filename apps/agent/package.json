@@ -51,6 +51,7 @@
     "@duyet/oma-shared": "workspace:*",
     "@duyet/oma-slack": "workspace:*",
     "@duyet/oma-sql-client": "workspace:*",
+    "@duyet/oma-telegram": "workspace:*",
     "@duyet/oma-vaults-store": "workspace:*",
     "ai": "^6.0.158",
     "bash-parser": "^0.5.0",

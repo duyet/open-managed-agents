@@ -30,7 +30,7 @@
 //
 // Box lifecycle: lazy-create on first exec/readFile/writeFile.
 
-import type { SandboxExecutor, SandboxFactory } from "../ports";
+import type { SandboxExecutor, SandboxFactory, SandboxCapacity } from "../ports";
 import { getLogger } from "@duyet/oma-observability";
 
 const moduleLogger = getLogger("k8s-bridge-sandbox");
@@ -237,6 +237,43 @@ export class K8sBridgeSandbox implements SandboxExecutor {
       return { status: "ok", latencyMs: Date.now() - start };
     } catch (err) {
       return { status: "error", latencyMs: Date.now() - start, details: (err as Error).message };
+    }
+  }
+
+  /**
+   * Cluster capacity snapshot, if the bridge exposes `/cluster/capacity`.
+   * Returns `null` on any failure (404, network error, unexpected shape) —
+   * capacity is best-effort and must never fail a health check.
+   */
+  async getCapacity(): Promise<SandboxCapacity | null> {
+    try {
+      const ac = new AbortController();
+      const t = setTimeout(() => ac.abort(), 10000);
+      const res = await this.fetch(`/cluster/capacity`, { signal: ac.signal });
+      clearTimeout(t);
+      if (!res.ok) return null;
+      const body = (await res.json()) as {
+        cpu?: { used?: number; total?: number };
+        memory?: { used?: number; total?: number; unit?: "MiB" | "GiB" };
+        pods?: { used?: number; total?: number };
+      };
+      const capacity: SandboxCapacity = {};
+      if (body.cpu?.total !== undefined) {
+        capacity.cpu = { used: body.cpu.used ?? 0, total: body.cpu.total, unit: "cores" };
+      }
+      if (body.memory?.total !== undefined) {
+        capacity.memory = {
+          used: body.memory.used ?? 0,
+          total: body.memory.total,
+          unit: body.memory.unit ?? "GiB",
+        };
+      }
+      if (body.pods?.total !== undefined) {
+        capacity.pods = { used: body.pods.used ?? 0, total: body.pods.total };
+      }
+      return Object.keys(capacity).length > 0 ? capacity : null;
+    } catch {
+      return null;
     }
   }
 

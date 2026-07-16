@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, MegaphoneIcon } from "lucide-react";
 
 import {
   Sidebar,
@@ -64,6 +64,10 @@ const navGroups: NavGroup[] = [
       { to: "/agents/new", label: "New Agent", icon: AgentIcon },
       { to: "/kanban", label: "Kanban Board", icon: SessionsIcon },
     ],
+  },
+  {
+    label: "Publishing",
+    items: [{ to: "/my-bots", label: "My Bots", icon: MegaphoneIcon }],
   },
   {
     label: "Infrastructure",

@@ -9,12 +9,14 @@
 
 import type { Context } from "hono";
 import type { AgentService } from "@duyet/oma-agents-store";
+import type { PublicationService } from "@duyet/oma-publications-store";
 import type { VaultService } from "@duyet/oma-vaults-store";
 import type { CredentialService } from "@duyet/oma-credentials-store";
 import type { MemoryStoreService } from "@duyet/oma-memory-store";
 import type { SessionService } from "@duyet/oma-sessions-store";
 import type { DreamService } from "@duyet/oma-dreams-store";
 import type { EnvironmentService } from "@duyet/oma-environments-store";
+import type { ModelCardService } from "@duyet/oma-model-cards-store";
 import type { SqlClient } from "@duyet/oma-sql-client";
 import type { KvStore } from "@duyet/oma-kv-store";
 import type {
@@ -59,6 +61,7 @@ export interface SessionRegistryLike {
 export interface RouteServices {
   sql: SqlClient;
   agents: AgentService;
+  publications: PublicationService;
   vaults: VaultService;
   credentials: CredentialService;
   memory: MemoryStoreService;
@@ -106,6 +109,12 @@ export interface RouteServices {
    *  backend is configured (legacy fixtures); the harness silently
    *  skips browser tool registration. */
   browser?: BrowserHarness | null;
+  // ── Model cards — appended (AnyRouter connect bind, #136). Optional
+  // because the self-host Node runtime has no D1 model-cards store (its
+  // model provider is process-global env vars — see
+  // apps/main-node/src/lib/anyrouter-provider.ts); routes that upsert a
+  // card from a connected provider must no-op when this is undefined. ──
+  modelCards?: ModelCardService;
 }
 
 /** Per-request services accessor. CF passes a callback that resolves

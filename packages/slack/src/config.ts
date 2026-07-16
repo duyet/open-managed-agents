@@ -55,6 +55,20 @@ export interface SlackConfig {
    * per thread. Defaults to `per_channel` if absent.
    */
   defaultSessionGranularity?: SessionGranularity;
+
+  /**
+   * OMA-hosted managed Slack App credentials. When set, `startManagedInstall`
+   * (the "Add to Slack" one-click flow) is available: a publication shell is
+   * created and immediately credentialed with these shared client_id/secret/
+   * signing_secret, skipping the BYOA "paste your own App credentials" step.
+   * When absent, `startManagedInstall` throws — deployments without a
+   * managed App only get the manifest/BYOA wizard.
+   */
+  managedApp?: {
+    clientId: string;
+    clientSecret: string;
+    signingSecret: string;
+  } | null;
 }
 
 /**

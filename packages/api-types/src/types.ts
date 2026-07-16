@@ -70,6 +70,30 @@ export type NotificationTarget =
       credential_id: string;
       homeserver_url: string;
       room_id: string;
+    }
+  | {
+      type: "telegram_message";
+      /** Telegram chat id (may be negative for group chats). Auth is the
+       *  bot token from env (TELEGRAM_BOT_TOKEN), not a vault credential. */
+      chat_id: number;
+    }
+  | {
+      /**
+       * POST a signed JSON envelope to an arbitrary customer URL. Used by
+       * creators integrating duyetbot with their own backend. The body is
+       * HMAC-SHA256 signed over the raw payload with `X-OMA-Signature`.
+       *
+       * `secret_ref` references a vault credential id whose `static_bearer`
+       * token is the HMAC secret — it is NEVER inlined into the agent config.
+       * When `secret_ref` is unset the envelope is sent unsigned and a
+       * warning is logged (fail-open, since a customer webhook may choose to
+       * accept unsigned deliveries).
+       */
+      type: "webhook";
+      url: string;
+      secret_ref?: string;
+      /** Subset of statuses to deliver. Default = all three when omitted. */
+      events?: Array<"idle" | "error" | "terminated">;
     };
 
 export interface AgentConfig {
@@ -84,6 +108,12 @@ export interface AgentConfig {
     /** Required for remote (HTTP/SSE) servers. Optional when `stdio` is set —
      *  in that case the URL is derived from the spawned process's localhost port. */
     url?: string;
+    /** Reference to a tenant-level registered MCP server (see
+     *  `/v1/mcp_servers`, Issue #91 Phase 3). When set and `url` is absent,
+     *  the MCP proxy expands this into the registered server's URL +
+     *  (optionally) a pinned vault credential at request time. Inline `url`
+     *  wins if both are present. */
+    registry_id?: string;
     authorization_token?: string;
     /** Spawn this MCP server in the sandbox container. The process binds to
      *  127.0.0.1:port using its built-in SSE transport, and OMA routes the
@@ -179,6 +209,39 @@ export interface AgentConfig {
 
 // --- Environment ---
 
+/**
+ * A persistent environment-level environment variable. Defined once on an
+ * Environment record and reused by every session created with that
+ * environment (merged into the sandbox process env at session warmup,
+ * before session-level `env` resources — so a session-level var of the
+ * same name overrides the environment-level one).
+ *
+ * Storage / security model (mirrors the session `env` resource precedent):
+ *   - Non-sensitive vars round-trip their `value` inline in the environment
+ *     record's `config.env_vars` (persisted to D1) so they're editable.
+ *   - Sensitive vars NEVER store their `value` in the plain record — the
+ *     value lives in the KV secret store under
+ *     `t:{tenant}:secret:env:{environmentId}:{name}`. The config row keeps
+ *     only `{ name, sensitive: true, has_value }`; API responses echo
+ *     `value: undefined` for these, plus `has_value: true` when a secret is
+ *     stored, so the Console can render a "•••• (set)" placeholder without
+ *     ever seeing the secret.
+ */
+export interface EnvVarSpec {
+  name: string;
+  /** Plaintext value. Present for non-sensitive vars (round-trips for
+   *  editing) and on write requests for sensitive vars; ALWAYS omitted from
+   *  API responses for sensitive vars. */
+  value?: string;
+  /** When true, the value is masked in the UI and stored in the KV secret
+   *  store rather than inline on the environment record. */
+  sensitive?: boolean;
+  /** Response-only marker: a sensitive var has a stored secret value. Lets
+   *  the Console distinguish "set but hidden" from "empty" without exposing
+   *  the value. */
+  has_value?: boolean;
+}
+
 export interface EnvironmentConfig {
   /** Always `"environment"` on the wire — Anthropic SDK uses this discriminator
    *  to recognize the resource type. Optional so existing internal callers that
@@ -235,6 +298,11 @@ export interface EnvironmentConfig {
       memory?: string;
       disk?: string;
     };
+    /** Persistent environment-level env vars, reused by every session
+     *  created with this environment. Sensitive values are stored out-of-band
+     *  in the KV secret store and never echoed in API responses — see
+     *  {@link EnvVarSpec}. */
+    env_vars?: EnvVarSpec[];
   };
   metadata?: Record<string, unknown>;
   created_at: string;

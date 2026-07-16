@@ -2,11 +2,12 @@
 import Base from "../layouts/Base.astro";
 import { softwareApplicationSchema } from "../lib/seo";
 import FeatureCard from "../components/FeatureCard.astro";
-import PixelAgent from "../components/PixelAgent.astro";
-import ArchDiagram from "../components/ArchDiagram.tsx";
+import Logo from "../components/Logo.astro";
+import AssemblyDemo from "../components/AssemblyDemo.tsx";
 import ManagedAgentsSection from "../components/ManagedAgentsSection.astro";
 import FeaturesSection from "../components/FeaturesSection.astro";
 import UseCasesSection from "../components/UseCasesSection.astro";
+import Icon from "../components/Icon.astro";
 
 // SoftwareApplication is the homepage-only schema — anchors the
 // "Open Managed Agents" entity in Google's knowledge graph and makes
@@ -152,168 +153,149 @@ const heroHalo = `
 
 `;
 
-// Pixel-art sandbox glyphs for the fleet band (crisp, themeable, brand-tinted).
-const fleet = [
+// Sandbox-provider marks for the fleet band. Rendered monochrome via
+// currentColor so they sit quietly in the zinc palette and pick up the iris
+// brand on hover.
+//
+// Icon sources / licenses:
+// - Cloudflare, Docker, Kubernetes: Simple Icons (https://simple-icons.org),
+//   CC0-1.0 — single-path 24-grid marks, filled with currentColor.
+// - Subprocess, OpenShell: not brands — a terminal and a square-terminal glyph
+//   (lucide.dev icons, ISC license) stand in.
+// - E2B: no Simple Icons entry and no clean single-path monochrome logo, so it
+//   is drawn as a square-bracket glyph echoing E2B's "[ ]" wordmark.
+const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = [
   {
     label: "Cloudflare",
-    map: [
-      "....KK....",
-      "...KLLK...",
-      "..KLLLLK..",
-      ".KLLLLLLK.",
-      ".KLLLLLLK.",
-      "..KLLLLK..",
-      "...KLLK...",
-      "....KK....",
-    ],
+    mode: "fill",
+    inner: `<path d="M16.5088 16.8447c.1475-.5068.0908-.9707-.1553-1.3154-.2246-.3164-.6045-.499-1.0615-.5205l-8.6592-.1123a.1559.1559 0 0 1-.1333-.0713c-.0283-.042-.0351-.0986-.021-.1553.0278-.084.1123-.1484.2036-.1562l8.7359-.1123c1.0351-.0489 2.1601-.8868 2.5537-1.9136l.499-1.3013c.0215-.0561.0293-.1128.0147-.168-.5625-2.5463-2.835-4.4453-5.5499-4.4453-2.5039 0-4.6284 1.6177-5.3876 3.8614-.4927-.3658-1.1187-.5625-1.794-.499-1.2026.119-2.1665 1.083-2.2861 2.2856-.0283.31-.0069.6128.0635.894C1.5683 13.171 0 14.7754 0 16.752c0 .1748.0142.3515.0352.5273.0141.083.0844.1475.1689.1475h15.9814c.0909 0 .1758-.0645.2032-.1553l.12-.4268zm2.7568-5.5634c-.0771 0-.1611 0-.2383.0112-.0566 0-.1054.0415-.127.0976l-.3378 1.1744c-.1475.5068-.0918.9707.1543 1.3164.2256.3164.6055.498 1.0625.5195l1.8437.1133c.0557 0 .1055.0263.1329.0703.0283.043.0351.1074.0214.1562-.0283.084-.1132.1485-.204.1553l-1.921.1123c-1.041.0488-2.1582.8867-2.5527 1.914l-.1406.3585c-.0283.0713.0215.1416.0986.1416h6.5977c.0771 0 .1474-.0489.169-.126.1122-.4082.1757-.837.1757-1.2803 0-2.6025-2.125-4.727-4.7344-4.727"/>`,
   },
   {
     label: "Docker",
-    map: [
-      "..KKKKKK..",
-      ".KOOOOOOK.",
-      "KKOOOOOOKK",
-      "KKKOOOKKKK",
-      "KKKOOOKKKK",
-      "KKOOOOOOKK",
-      ".KOOOOOOK.",
-      "..KKKKKK..",
-    ],
+    mode: "fill",
+    inner: `<path d="M13.983 11.078h2.119a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.119a.185.185 0 00-.185.185v1.888c0 .102.083.185.185.185m-2.954-5.43h2.118a.186.186 0 00.186-.186V3.574a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m0 2.716h2.118a.187.187 0 00.186-.186V6.29a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.887c0 .102.082.185.185.186m-2.93 0h2.12a.186.186 0 00.184-.186V6.29a.185.185 0 00-.185-.185H8.1a.185.185 0 00-.185.185v1.887c0 .102.083.185.185.186m-2.964 0h2.119a.186.186 0 00.185-.186V6.29a.185.185 0 00-.185-.185H5.136a.186.186 0 00-.186.185v1.887c0 .102.084.185.186.186m5.893 2.715h2.118a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m-2.93 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.083.185.185.185m-2.964 0h2.119a.185.185 0 00.185-.185V9.006a.185.185 0 00-.184-.186h-2.12a.186.186 0 00-.186.186v1.887c0 .102.084.185.186.185m-2.92 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.082.185.185.185M23.763 9.89c-.065-.051-.672-.51-1.954-.51-.338.001-.676.03-1.01.087-.248-1.7-1.653-2.53-1.716-2.566l-.344-.199-.226.327c-.284.438-.49.922-.612 1.43-.23.97-.09 1.882.403 2.661-.595.332-1.55.413-1.744.42H.751a.751.751 0 00-.75.748 11.376 11.376 0 00.692 4.062c.545 1.428 1.355 2.48 2.41 3.124 1.18.723 3.1 1.137 5.275 1.137.983.003 1.963-.086 2.93-.266a12.248 12.248 0 003.823-1.389c.98-.567 1.86-1.288 2.61-2.136 1.252-1.418 1.998-2.997 2.553-4.4h.221c1.372 0 2.215-.549 2.68-1.009.309-.293.55-.65.707-1.046l.098-.288Z"/>`,
   },
   {
-    label: "Subprocess",
-    map: [
-      "KKKKKKKKKK",
-      "K........K",
-      "K.KKKK.K.K",
-      "K.K..K.K.K",
-      "K.K..K.K.K",
-      "K.KKKK.K.K",
-      "K........K",
-      "KKKKKKKKKK",
-    ],
-  },
-  {
-    label: "K8s",
-    map: [
-      "...KKKK...",
-      "..KOOOK..",
-      ".KOLOLOK.",
-      "KOLOLOLOK",
-      "KOLOLOLOK",
-      ".KOLOLOK.",
-      "..KOOOK..",
-      "...KKKK...",
-    ],
+    label: "Kubernetes",
+    mode: "fill",
+    inner: `<path d="M10.204 14.35l.007.01-.999 2.413a5.171 5.171 0 0 1-2.075-2.597l2.578-.437.004.005a.44.44 0 0 1 .484.606zm-.833-2.129a.44.44 0 0 0 .173-.756l.002-.011L7.585 9.7a5.143 5.143 0 0 0-.73 3.255l2.514-.725.002-.009zm1.145-1.98a.44.44 0 0 0 .699-.337l.01-.005.15-2.62a5.144 5.144 0 0 0-3.01 1.442l2.147 1.523.004-.002zm.76 2.75l.723.349.722-.347.18-.78-.5-.623h-.804l-.5.623.179.779zm1.5-3.095a.44.44 0 0 0 .7.336l.008.003 2.134-1.513a5.188 5.188 0 0 0-2.992-1.442l.148 2.615.002.001zm10.876 5.97l-5.773 7.181a1.6 1.6 0 0 1-1.248.594l-9.261.003a1.6 1.6 0 0 1-1.247-.596l-5.776-7.18a1.583 1.583 0 0 1-.307-1.34L2.1 5.573c.108-.47.425-.864.863-1.073L11.305.513a1.606 1.606 0 0 1 1.385 0l8.345 3.985c.438.209.755.604.863 1.073l2.062 8.955c.108.47-.005.963-.308 1.34zm-3.289-2.057c-.042-.01-.103-.026-.145-.034-.174-.033-.315-.025-.479-.038-.35-.037-.638-.067-.895-.148-.105-.04-.18-.165-.216-.216l-.201-.059a6.45 6.45 0 0 0-.105-2.332 6.465 6.465 0 0 0-.936-2.163c.052-.047.15-.133.177-.159.008-.09.001-.183.094-.282.197-.185.444-.338.743-.522.142-.084.273-.137.415-.242.032-.024.076-.062.11-.089.24-.191.295-.52.123-.736-.172-.216-.506-.236-.745-.045-.034.027-.08.062-.111.088-.134.116-.217.23-.33.35-.246.25-.45.458-.673.609-.097.056-.239.037-.303.033l-.19.135a6.545 6.545 0 0 0-4.146-2.003l-.012-.223c-.065-.062-.143-.115-.163-.25-.022-.268.015-.557.057-.905.023-.163.061-.298.068-.475.001-.04-.001-.099-.001-.142 0-.306-.224-.555-.5-.555-.275 0-.499.249-.499.555l.001.014c0 .041-.002.092 0 .128.006.177.044.312.067.475.042.348.078.637.056.906a.545.545 0 0 1-.162.258l-.012.211a6.424 6.424 0 0 0-4.166 2.003 8.373 8.373 0 0 1-.18-.128c-.09.012-.18.04-.297-.029-.223-.15-.427-.358-.673-.608-.113-.12-.195-.234-.329-.349-.03-.026-.077-.062-.111-.088a.594.594 0 0 0-.348-.132.481.481 0 0 0-.398.176c-.172.216-.117.546.123.737l.007.005.104.083c.142.105.272.159.414.242.299.185.546.338.743.522.076.082.09.226.1.288l.16.143a6.462 6.462 0 0 0-1.02 4.506l-.208.06c-.055.072-.133.184-.215.217-.257.081-.546.11-.895.147-.164.014-.305.006-.48.039-.037.007-.09.02-.133.03l-.004.002-.007.002c-.295.071-.484.342-.423.608.061.267.349.429.645.365l.007-.001.01-.003.129-.029c.17-.046.294-.113.448-.172.33-.118.604-.217.87-.256.112-.009.23.069.288.101l.217-.037a6.5 6.5 0 0 0 2.88 3.596l-.09.218c.033.084.069.199.044.282-.097.252-.263.517-.452.813-.091.136-.185.242-.268.399-.02.037-.045.095-.064.134-.128.275-.034.591.213.71.248.12.556-.007.69-.282v-.002c.02-.039.046-.09.062-.127.07-.162.094-.301.144-.458.132-.332.205-.68.387-.897.05-.06.13-.082.215-.105l.113-.205a6.453 6.453 0 0 0 4.609.012l.106.192c.086.028.18.042.256.155.136.232.229.507.342.84.05.156.074.295.145.457.016.037.043.09.062.129.133.276.442.402.69.282.247-.118.341-.435.213-.71-.02-.039-.045-.096-.065-.134-.083-.156-.177-.261-.268-.398-.19-.296-.346-.541-.443-.793-.04-.13.007-.21.038-.294-.018-.022-.059-.144-.083-.202a6.499 6.499 0 0 0 2.88-3.622c.064.01.176.03.213.038.075-.05.144-.114.28-.104.266.039.54.138.87.256.154.06.277.128.448.173.036.01.088.019.13.028l.009.003.007.001c.297.064.584-.098.645-.365.06-.266-.128-.537-.423-.608zM16.4 9.701l-1.95 1.746v.005a.44.44 0 0 0 .173.757l.003.01 2.526.728a5.199 5.199 0 0 0-.108-1.674A5.208 5.208 0 0 0 16.4 9.7zm-4.013 5.325a.437.437 0 0 0-.404-.232.44.44 0 0 0-.372.233h-.002l-1.268 2.292a5.164 5.164 0 0 0 3.326.003l-1.27-2.296h-.01zm1.888-1.293a.44.44 0 0 0-.27.036.44.44 0 0 0-.214.572l-.003.004 1.01 2.438a5.15 5.15 0 0 0 2.081-2.615l-2.6-.44-.004.005z"/>`,
   },
   {
     label: "E2B",
-    map: [
-      "KK......KK",
-      "KOOK..KOOK",
-      "KOOK..KOOK",
-      "..KKKKKK..",
-      "..KKKKKK..",
-      "KOOK..KOOK",
-      "KOOK..KOOK",
-      "KK......KK",
-    ],
+    mode: "stroke",
+    inner: `<path d="M9 4H5v16h4"/><path d="M15 4h4v16h-4"/>`,
+  },
+  {
+    label: "Subprocess",
+    mode: "stroke",
+    inner: `<path d="m4 17 6-6-6-6"/><path d="M12 19h8"/>`,
   },
   {
     label: "OpenShell",
-    map: [
-      "..KKKKKK..",
-      ".KOOOOOOK.",
-      "KOOK..KOOK",
-      "KOKOOKOKK.",
-      "KOKOOKOKK.",
-      "KOOK..KOOK",
-      ".KOOOOOOK.",
-      "..KKKKKK..",
-    ],
+    mode: "stroke",
+    inner: `<rect width="18" height="18" x="3" y="3" rx="2"/><path d="m7 8 3 3-3 3"/><path d="M13 14h4"/>`,
   },
 ];
-const FLEET_PAL: Record<string, string> = {
-  K: "var(--color-fg)",
-  O: "var(--color-brand)",
-  L: "var(--color-brand-fg)",
-};
-function pixelRects(map: string[]) {
-  const r: { x: number; y: number; fill: string }[] = [];
-  map.forEach((row, y) =>
-    [...row].forEach((ch, x) => {
-      if (ch === ".") return;
-      r.push({ x: x * 10, y: y * 10, fill: FLEET_PAL[ch] });
-    }),
-  );
-  return r;
-}
 ---
 
 <Base
-  title="oma — Open Managed Agents: self-hosted agent platform for any LLM provider"
-  description="oma (Open Managed Agents) is an open-source, self-hostable agent platform — durable sessions, sandboxed execution, MCP tools — that runs on Anthropic, OpenAI-compatible gateways, or your own model, on Cloudflare Workers or Docker."
+  title="oma — Open Managed Agents: self-hosted agent platform for any LLM provider and any sandbox"
+  description="oma (Open Managed Agents) is an open-source, self-hostable agent platform — durable sessions, sandboxed execution, MCP tools — that runs on any LLM provider (Anthropic, OpenAI-compatible gateways, or your own model) and any sandbox platform (Cloudflare Containers, Kubernetes, E2B, Daytona, subprocess), on Cloudflare Workers or Docker."
   canonical="/"
   keywords="open managed agents, oma agent platform, self host ai agent, any llm provider agent platform, byok ai agent, claude agent sdk, mcp server host, ai agent cloudflare workers, self host claude code, claude code skills, claude managed agents alternative, claude tag alternative, open source claude tag"
   schemas={schemas}
 >
   <!-- Hero -->
   <section class="relative overflow-hidden border-b border-[var(--color-border)]">
+    <!-- Ground: a faint hairline grid (engineering-blueprint texture) with a
+         single soft iris glow bleeding from the top. Restrained, monochrome —
+         no colored mesh. -->
     <div
-      class="pointer-events-none absolute inset-0 opacity-[0.35] dark:opacity-[0.2]"
+      class="pointer-events-none absolute inset-0 opacity-70 dark:opacity-40"
       aria-hidden="true"
       style="background:
-        radial-gradient(ellipse 80% 50% at 50% -20%, color-mix(in srgb, var(--color-brand) 28%, transparent), transparent),
-        radial-gradient(ellipse 40% 40% at 90% 60%, color-mix(in srgb, var(--color-blue) 18%, transparent), transparent),
-        radial-gradient(ellipse 35% 35% at 10% 80%, color-mix(in srgb, var(--color-green) 16%, transparent), transparent);"
+        linear-gradient(to right, var(--color-border) 1px, transparent 1px) 0 0 / 56px 56px,
+        linear-gradient(to bottom, var(--color-border) 1px, transparent 1px) 0 0 / 56px 56px;
+        mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 78%);
+        -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 78%);"
+    ></div>
+    <div
+      class="pointer-events-none absolute inset-0 opacity-[0.5] dark:opacity-[0.35]"
+      aria-hidden="true"
+      style="background: radial-gradient(ellipse 70% 45% at 50% -10%, color-mix(in srgb, var(--color-brand) 22%, transparent), transparent 70%);"
     ></div>
     <div class="relative max-w-5xl mx-auto px-4 py-16 md:py-20">
       <div class="hero-grid">
         <!-- Left: pitch -->
         <div class="hero-pitch text-left">
           <h1 class="font-display text-4xl sm:text-5xl md:text-[3.1rem] lg:text-[3.4rem] font-bold tracking-tight leading-[1.07]">
-            The self-hosted agent platform for <span class="hero-accent">any&nbsp;LLM&nbsp;provider</span>
+            The self-hosted agent platform for
+            <span
+              class="hero-accent hero-rotate"
+              data-rotate='["LLM provider","Sandbox provider"]'
+              >any <span class="tw-rot">LLM provider</span><span class="typewriter-caret" aria-hidden="true"></span></span
+            >
           </h1>
           <p class="mt-5 text-lg md:text-xl text-[var(--color-fg-muted)] leading-relaxed font-medium max-w-xl line-clamp-2">
-            Run your own agents — on Cloudflare or with
+            Run your own agents on <strong class="text-[var(--color-fg)] font-semibold">any model</strong>,
+            in <strong class="text-[var(--color-fg)] font-semibold">any sandbox</strong> — on Cloudflare or with
             <code class="font-mono text-base md:text-lg">docker compose up</code>.
           </p>
           <p
             class="mt-3 text-base md:text-lg text-[var(--color-fg-muted)] leading-relaxed max-w-xl line-clamp-2"
           >
             An open-source meta-harness: the platform owns state, security, and sandboxes;
-            a harness owns the model loop. Durable sessions, vault-backed credentials, MCP,
-            and Bring Your Own Key for models and compute.
+            a harness owns the model loop. Durable sessions, vault-backed credentials, MCP —
+            and Bring Your Own Key for both the model provider and the compute it runs on.
           </p>
 
+          <!-- Primary CTAs: repo (brand) + docs (hairline). Mirror the
+               get-started section so the hero has a clear next action. -->
+          <div class="hero-cta">
+            <a
+              href="https://github.com/duyet/oma"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-2 px-5 py-3 rounded-md bg-[var(--color-brand)] text-[var(--color-brand-fg)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-brand-hover)] transition-colors"
+              ><Icon name="download" size={16} /> Clone the repo</a
+            >
+            <a
+              href="https://docs.oma.duyet.net"
+              class="inline-flex items-center gap-2 px-5 py-3 rounded-md border border-[var(--color-border-strong)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg-surface)] transition-colors"
+              ><Icon name="book" size={16} /> Read the docs</a
+            >
+          </div>
+
           <!-- Proof chips: compact, scannable differentiators under the CTAs. -->
-          <ul class="hero-chips mt-7">
-            <li>Apache&nbsp;2.0</li>
-            <li>Cloudflare-native</li>
+          <ul class="hero-chips">
+            <li>Any&nbsp;LLM&nbsp;provider</li>
+            <li>Any&nbsp;sandbox&nbsp;platform</li>
             <li>Self-hostable</li>
-            <li>Bring&nbsp;Your&nbsp;Own&nbsp;Key</li>
+            <li>Apache&nbsp;2.0</li>
           </ul>
         </div>
 
-        <!-- Right: framed terminal housing the interactive architecture diagram.
-             The dotted halo frames it from behind; CRT scanlines sit on top. -->
+        <!-- Right: framed terminal housing the live stacked-assembly demo —
+             an Agent card + the building blocks it uses, assembling and then
+             running a simulated turn. Echoes the Console's "How it fits
+             together". The dotted halo frames it from behind; CRT on top. -->
         <div class="hero-visual">
           <figure class="terminal-frame">
             <figcaption class="terminal-bar">
               <span class="terminal-dot" aria-hidden="true"></span>
               <span class="terminal-dot" aria-hidden="true"></span>
               <span class="terminal-dot" aria-hidden="true"></span>
-              <span class="terminal-title">oma://architecture — request trace</span>
+              <span class="terminal-title">oma://assemble — how it fits together</span>
             </figcaption>
             <div class="terminal-prompt select-none" aria-hidden="true">
-              <span class="typewriter-line" data-rotate='["run --sandbox=any","deploy claude-agent-sdk","pause &amp; resume fleet","bridge grok · openai","ship on Cloudflare ☁"]'>
+              <span class="typewriter-line" data-rotate='["oma agents create -f coder.json","oma sessions chat sess_9f2","oma sessions tail sess_9f2","oma envs create -f k8s.json","oma memory stores create notes","oma vaults list"]'>
                 <span class="prompt">oma@fleet:~$</span>
-                <span class="tw-static">./</span><span class="tw-rot"></span><span class="typewriter-caret"></span>
+                <span class="tw-static"></span><span class="tw-rot">oma agents create -f coder.json</span><span class="typewriter-caret"></span>
               </span>
             </div>
-            <div class="crt terminal-body select-none" aria-hidden="true">
-              <pre class="ascii-art ascii-halo">{heroHalo}</pre>
-              <ArchDiagram client:visible />
+            <div class="crt terminal-body select-none">
+              <pre class="ascii-art ascii-halo" aria-hidden="true">{heroHalo}</pre>
+              <AssemblyDemo client:visible />
             </div>
           </figure>
         </div>
@@ -323,8 +305,8 @@ function pixelRects(map: string[]) {
 
   <!-- What it is -->
   <section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="what-is-oma">
-    <p class="text-center font-mono text-xs uppercase tracking-widest text-[var(--color-brand)] mb-3">
-      Product
+    <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+      <Icon name="box" size={14} class="text-[var(--color-brand)]" /> Product
     </p>
     <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
       What Open Managed Agents is
@@ -372,8 +354,8 @@ function pixelRects(map: string[]) {
     id="how-designed"
   >
     <div class="max-w-5xl mx-auto px-4 py-16 md:py-20">
-      <p class="text-center font-mono text-xs uppercase tracking-widest text-[var(--color-blue)] mb-3">
-        Design
+      <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+        <Icon name="layers" size={14} class="text-[var(--color-brand)]" /> Design
       </p>
       <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
         How it is designed
@@ -426,7 +408,7 @@ function pixelRects(map: string[]) {
       <div class="arch-stack" role="list" aria-label="System architecture layers">
         {
           archLayers.map((layer) => (
-            <div class="arch-layer" role="listitem">
+            <div class:list={["arch-layer", layer.badge.replace("arch-badge", "arch-accent")]} role="listitem">
               <div class="flex flex-wrap items-center gap-2 mb-3">
                 <span class="font-mono text-xs font-bold text-[var(--color-fg-subtle)]">{layer.step}</span>
                 <span class:list={["arch-badge", layer.badge]}>{layer.label}</span>
@@ -448,8 +430,8 @@ function pixelRects(map: string[]) {
 
   <!-- Durable lifecycle visualization -->
   <section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="lifecycle">
-    <p class="text-center font-mono text-xs uppercase tracking-widest text-[var(--color-green)] mb-3">
-      Runtime
+    <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+      <Icon name="repeat" size={14} class="text-[var(--color-brand)]" /> Runtime
     </p>
     <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
       Durable lifecycle loop
@@ -467,7 +449,7 @@ function pixelRects(map: string[]) {
             class="lifecycle-step rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 shadow-2xs hover:border-[var(--color-border-strong)]"
           >
             <div class="flex items-center justify-between mb-3">
-              <span class="font-mono text-sm font-bold text-[var(--color-brand)]">{step.n}</span>
+              <span class="lifecycle-num font-mono text-sm font-bold text-[var(--color-brand)]">{step.n}</span>
               <span class="font-mono text-[9px] uppercase font-bold tracking-wider text-[var(--color-fg-subtle)]">
                 {step.phase}
               </span>
@@ -483,9 +465,12 @@ function pixelRects(map: string[]) {
   <FeaturesSection />
 
   <!-- Why -->
-  <section class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal>
-    <div class="max-w-5xl mx-auto px-4 py-16">
-      <h2 class="font-display text-3xl font-bold mb-3 text-center tracking-tight">Why Open Managed Agents</h2>
+  <section class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal id="why">
+    <div class="max-w-5xl mx-auto px-4 py-16 md:py-20">
+      <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+        <Icon name="check" size={14} class="text-[var(--color-brand)]" /> Why
+      </p>
+      <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">Why Open Managed Agents</h2>
       <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed">
         The same shape of platform you'd get from a closed vendor — sessions,
         sandboxes, tool dispatch, crash recovery, security controls — but every layer is
@@ -513,8 +498,11 @@ function pixelRects(map: string[]) {
   </section>
 
   <!-- API compatibility -->
-  <section class="max-w-5xl mx-auto px-4 py-16" data-reveal>
-    <h2 class="font-display text-3xl font-bold mb-4 tracking-tight">
+  <section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="api-compat">
+    <p class="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+      <Icon name="terminal" size={14} class="text-[var(--color-brand)]" /> API
+    </p>
+    <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 tracking-tight">
       Drop-in compatible with the Claude Managed Agents API
     </h2>
     <p class="text-[var(--color-fg-muted)] leading-relaxed mb-4">
@@ -542,9 +530,12 @@ function pixelRects(map: string[]) {
   </section>
 
   <!-- Fleet operations -->
-  <section class="border-t border-[var(--color-border)]" data-reveal>
-    <div class="max-w-5xl mx-auto px-4 py-16 text-center">
-      <h2 class="font-display text-3xl font-bold mb-4 tracking-tight">Built for multi-agent fleets</h2>
+  <section class="border-t border-[var(--color-border)]" data-reveal id="fleets">
+    <div class="max-w-5xl mx-auto px-4 py-16 md:py-20 text-center">
+      <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+        <Icon name="server" size={14} class="text-[var(--color-brand)]" /> Fleets
+      </p>
+      <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 tracking-tight">Built for multi-agent fleets</h2>
       <p class="text-[var(--color-fg-muted)] leading-relaxed mb-10 max-w-3xl mx-auto">
         Concurrent sub-agent delegation, structured liveness heartbeats for long-running
         runs, and native webhook notifications (GitHub, Slack, Matrix).
@@ -592,24 +583,25 @@ function pixelRects(map: string[]) {
         </article>
       </div>
 
-      <!-- Pixel-art sandbox fleet -->
-      <div class="pixel-fleet" aria-hidden="true">
+      <!-- Sandbox-provider fleet — real brand marks, monochrome, iris on hover -->
+      <div class="pixel-fleet">
         {
-          fleet.map((f) => (
-            <figure>
+          fleetLogos.map((f) => (
+            <figure class="group">
               <svg
-                class="pixel-art"
-                width="64"
-                height="64"
-                viewBox="0 0 80 80"
-                shape-rendering="crispEdges"
+                class="fleet-logo text-[var(--color-fg-subtle)] group-hover:text-[var(--color-brand)] transition-colors"
+                width="30"
+                height="30"
+                viewBox="0 0 24 24"
+                fill={f.mode === "fill" ? "currentColor" : "none"}
+                stroke={f.mode === "stroke" ? "currentColor" : "none"}
+                stroke-width={f.mode === "stroke" ? 1.75 : undefined}
+                stroke-linecap="round"
+                stroke-linejoin="round"
                 role="img"
-                aria-label={`${f.label} sandbox`}
-              >
-                {pixelRects(f.map).map((r) => (
-                  <rect x={r.x} y={r.y} width="10" height="10" fill={r.fill} />
-                ))}
-              </svg>
+                aria-label={`${f.label} sandbox provider`}
+                set:html={f.inner}
+              />
               <figcaption>{f.label}</figcaption>
             </figure>
           ))
@@ -622,8 +614,8 @@ function pixelRects(map: string[]) {
 
   <!-- Mascot + Get started -->
   <section class="border-t border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal id="get-started">
-    <div class="max-w-3xl mx-auto px-4 py-16 text-center">
-      <PixelAgent size={120} class="mx-auto mb-6" />
+    <div class="max-w-3xl mx-auto px-4 py-16 md:py-20 text-center">
+      <Logo size={64} class="block mx-auto mb-6 text-[var(--color-brand)]" />
       <h2 class="font-display text-3xl font-bold mb-3 tracking-tight">Get started</h2>
       <p class="text-[var(--color-fg-muted)] mb-8 leading-relaxed">
         Clone, deploy, or try the hosted deployment of the same codebase.
@@ -633,18 +625,18 @@ function pixelRects(map: string[]) {
           href="https://github.com/duyet/oma"
           target="_blank"
           rel="noopener noreferrer"
-          class="px-5 py-3 rounded-md bg-[var(--color-fg)] text-[var(--color-bg)] font-medium font-display no-underline hover:no-underline"
-          >Clone the repo</a
+          class="inline-flex items-center gap-2 px-5 py-3 rounded-md bg-[var(--color-brand)] text-[var(--color-brand-fg)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-brand-hover)] transition-colors"
+          ><Icon name="download" size={16} /> Clone the repo</a
         >
         <a
           href="https://docs.oma.duyet.net"
-          class="px-5 py-3 rounded-md border border-[var(--color-border-strong)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg)]"
-          >Read the docs</a
+          class="inline-flex items-center gap-2 px-5 py-3 rounded-md border border-[var(--color-border-strong)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg-surface)] transition-colors"
+          ><Icon name="book" size={16} /> Read the docs</a
         >
         <a
           href="https://app.oma.duyet.net/login"
-          class="px-5 py-3 rounded-md border border-[var(--color-border-strong)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg)]"
-          >Try hosted</a
+          class="inline-flex items-center gap-2 px-5 py-3 rounded-md border border-[var(--color-border-strong)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg-surface)] transition-colors"
+          ><Icon name="server" size={16} /> Try hosted</a
         >
       </div>
     </div>

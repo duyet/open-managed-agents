@@ -57,4 +57,44 @@ export interface Env {
   // Telegram bot token for incoming webhook processing. When set, the
   // Telegram webhook route at /telegram/webhook is operational.
   TELEGRAM_BOT_TOKEN?: string;
+
+  // Agent this bot's sessions run against, and the vault/environment they
+  // bind to. All required for the webhook route to actually create/resume
+  // sessions (TELEGRAM_BOT_TOKEN alone only gets you past the "not
+  // configured" 503).
+  TELEGRAM_AGENT_ID?: string;
+  // Comma-separated vault ids.
+  TELEGRAM_VAULT_IDS?: string;
+  TELEGRAM_ENVIRONMENT_ID?: string;
+  // Auto-idle threshold in milliseconds before a chat's session sandbox is
+  // paused. Defaults to 5 minutes (DEFAULT_IDLE_TIMEOUT_MS in
+  // @duyet/oma-telegram) when unset.
+  TELEGRAM_IDLE_TIMEOUT_MS?: string;
+  // Secret configured on Telegram's setWebhook call (secret_token param).
+  // When set, incoming webhook requests must present a matching
+  // `X-Telegram-Bot-Api-Secret-Token` header (constant-time compare) or the
+  // request is rejected with 401. Unset — passthrough (no verification).
+  TELEGRAM_WEBHOOK_SECRET?: string;
+  // ─── Unified OAuth "Connect" flow (OMA-hosted OAuth apps) ──────────────
+  // Per-provider OAuth app credentials backing the unified /oauth/:provider/*
+  // install surface (apps/integrations/src/oauth-unified.ts). A provider whose
+  // id/secret pair is unset is simply absent from the flow (routes 501). These
+  // are the OMA developer-account OAuth apps described in issue #92 — set them
+  // via `wrangler secret put` to enable one-click Connect for that provider.
+  LINEAR_OAUTH_CLIENT_ID?: string;
+  LINEAR_OAUTH_CLIENT_SECRET?: string;
+  GITHUB_OAUTH_CLIENT_ID?: string;
+  GITHUB_OAUTH_CLIENT_SECRET?: string;
+  SLACK_OAUTH_CLIENT_ID?: string;
+  SLACK_OAUTH_CLIENT_SECRET?: string;
+
+  // OMA-hosted managed Slack App credentials — powers the "Add to Slack"
+  // one-click install (POST /slack/publications/start-managed). All three
+  // must be set together; when any is missing the managed flow 503s and
+  // callers fall back to the manifest/BYOA wizard. From api.slack.com →
+  // your App → Basic Information (Client ID / Client Secret / Signing
+  // Secret).
+  SLACK_MANAGED_CLIENT_ID?: string;
+  SLACK_MANAGED_CLIENT_SECRET?: string;
+  SLACK_MANAGED_SIGNING_SECRET?: string;
 }

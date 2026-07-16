@@ -68,10 +68,15 @@ export interface SessionRegistryDeps {
    *  headers, picks the right provider. */
   buildModel(agent: AgentConfig): LanguageModel;
 
-  /** Build harness tools. Returns the tools dict the harness expects. */
+  /** Build harness tools. Returns the tools dict the harness expects.
+   *  `ctx` carries the sessionId/tenantId so the shell can thread MCP
+   *  proxy routing headers (env.mcpBinding needs to know which session/
+   *  tenant a tool call belongs to) without the machine itself knowing
+   *  about MCP. */
   buildTools(
     agent: AgentConfig,
     sandbox: SandboxExecutor,
+    ctx: { sessionId: string; tenantId: string },
   ): Promise<unknown>;
 
   /** Build harness instance + context. Each is platform-neutral so the
@@ -305,7 +310,7 @@ export class SessionRegistry {
       mountMemoryStores: async () => {},
       mountSessionOutputs: async () => {},
       buildModel: (agent) => this.deps.buildModel(agent),
-      buildTools: (agent, sb) => this.deps.buildTools(agent, sb),
+      buildTools: (agent, sb) => this.deps.buildTools(agent, sb, { sessionId, tenantId }),
       buildHarness: () => this.deps.buildHarness(),
       buildHarnessContext: (input) =>
         this.deps.buildHarnessContext({

@@ -63,6 +63,8 @@ export default defineConfig({
       { find: "@duyet/oma-model-cards-store", replacement: "./packages/model-cards-store/src/index.ts" },
       { find: "@duyet/oma-agents-store/test-fakes", replacement: "./packages/agents-store/src/test-fakes.ts" },
       { find: "@duyet/oma-agents-store", replacement: "./packages/agents-store/src/index.ts" },
+      { find: "@duyet/oma-publications-store/test-fakes", replacement: "./packages/publications-store/src/test-fakes.ts" },
+      { find: "@duyet/oma-publications-store", replacement: "./packages/publications-store/src/index.ts" },
       { find: "@duyet/oma-environments-store/test-fakes", replacement: "./packages/environments-store/src/test-fakes.ts" },
       { find: "@duyet/oma-environments-store", replacement: "./packages/environments-store/src/index.ts" },
       { find: "@duyet/oma-outbound-snapshots-store/test-fakes", replacement: "./packages/outbound-snapshots-store/src/test-fakes.ts" },
@@ -81,6 +83,8 @@ export default defineConfig({
       { find: "@duyet/oma-scheduler/jobs/memory-retention", replacement: "./packages/scheduler/src/jobs/memory-retention.ts" },
       { find: "@duyet/oma-scheduler/jobs/webhook-events-retention", replacement: "./packages/scheduler/src/jobs/webhook-events-retention.ts" },
       { find: "@duyet/oma-scheduler/jobs/linear-dispatch", replacement: "./packages/scheduler/src/jobs/linear-dispatch.ts" },
+      { find: "@duyet/oma-scheduler/jobs/scheduled-agent-runs-store", replacement: "./packages/scheduler/src/jobs/scheduled-agent-runs-store.ts" },
+      { find: "@duyet/oma-scheduler/jobs/scheduled-agent-runs", replacement: "./packages/scheduler/src/jobs/scheduled-agent-runs.ts" },
       { find: "@duyet/oma-scheduler", replacement: "./packages/scheduler/src/index.ts" },
 
       // ─── queue ────────────────────────────────────────────────────────
@@ -134,6 +138,7 @@ export default defineConfig({
       { find: "@duyet/oma-sandbox/adapters/boxrun", replacement: "./packages/sandbox/src/adapters/boxrun.ts" },
       { find: "@duyet/oma-sandbox/adapters/kubernetes", replacement: "./packages/sandbox/src/adapters/kubernetes.ts" },
       { find: "@duyet/oma-sandbox/adapters/k8s-bridge", replacement: "./packages/sandbox/src/adapters/k8s-bridge.ts" },
+      { find: "@duyet/oma-sandbox/adapters/kubernetes-remote", replacement: "./packages/sandbox/src/adapters/kubernetes-remote.ts" },
       { find: "@duyet/oma-sandbox/adapters/docker-compose", replacement: "./packages/sandbox/src/adapters/docker-compose.ts" },
       { find: "@duyet/oma-sandbox/adapters/github-actions", replacement: "./packages/sandbox/src/adapters/github-actions.ts" },
       { find: "@duyet/oma-sandbox/adapters/remote-agent", replacement: "./packages/sandbox/src/adapters/remote-agent.ts" },
@@ -155,6 +160,7 @@ export default defineConfig({
       { find: "@duyet/oma-kv-store", replacement: "./packages/kv-store/src/index.ts" },
       { find: "@duyet/oma-quotas", replacement: "./packages/quotas/src/index.ts" },
       { find: "@duyet/oma-rate-limit", replacement: "./packages/rate-limit/src/index.ts" },
+      { find: "@duyet/oma-payments", replacement: "./packages/payments/src/index.ts" },
       { find: "@duyet/oma-vault-forward", replacement: "./packages/vault-forward/src/index.ts" },
       { find: "@duyet/oma-schema", replacement: "./packages/schema/src/index.ts" },
       { find: "@duyet/oma-http-routes", replacement: "./packages/http-routes/src/index.ts" },
@@ -166,6 +172,7 @@ export default defineConfig({
       { find: "@duyet/oma-github", replacement: "./packages/github/src/index.ts" },
       { find: "@duyet/oma-slack", replacement: "./packages/slack/src/index.ts" },
       { find: "@duyet/oma-matrix", replacement: "./packages/matrix/src/index.ts" },
+      { find: "@duyet/oma-telegram", replacement: "./packages/telegram/src/index.ts" },
 
       // ─── markdown / session-runtime / acp-runtime / agent (internal) ──
       { find: "@duyet/oma-markdown/adapters/node", replacement: "./packages/markdown/src/adapters/node.ts" },
@@ -200,6 +207,11 @@ export default defineConfig({
       "packages/cap/test/**",
       "packages/integrations-adapters-node/**",
       "packages/session-runtime/test/**",
+      // @grpc/grpc-js can't load under the Cloudflare workers pool (unlike
+      // @kubernetes/client-node, which the pool tolerates) — this test only
+      // runs via the sandbox package's own node-pool vitest.config.ts
+      // (pnpm --filter @duyet/oma-sandbox test).
+      "packages/sandbox/test/openshell-probe.test.ts",
     ],
     pool: cloudflarePool(cfWorkerOptions),
   },

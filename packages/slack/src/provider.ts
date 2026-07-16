@@ -15,6 +15,7 @@
 import type {
   Container,
   ContinueInstallInput,
+  Installation,
   IntegrationProvider,
   InstallComplete,
   InstallStep,
@@ -323,6 +324,85 @@ export class SlackProvider implements IntegrationProvider {
       subscribedEvents: DEFAULT_SLACK_SUBSCRIBED_EVENTS,
     });
     return buildManifestLaunchUrl(manifest);
+  }
+
+  /**
+   * "Add to Slack" one-click install — the managed-App counterpart to
+   * startInstall + submitCredentials. Uses the deployment-wide App
+   * credentials from `config.managedApp` instead of asking the user to
+   * paste their own, so the flow collapses to a single redirect to Slack's
+   * OAuth consent screen.
+   *
+   * Throws if this deployment has no managed App configured — callers
+   * (the route handler) surface that as a 503 with remediation, so the
+   * Console button can fall back to (or simply hide in favor of) the BYOA
+   * wizard.
+   *
+   * Reuses the exact same publication-first shell + credential-staging
+   * machinery as the BYOA flow, so the OAuth callback
+   * (`/slack/oauth/pub/:pubId/callback` → completeInstall) needs no changes
+   * at all — it can't tell a managed install apart from a BYOA one once
+   * credentials are on the row.
+   */
+  async startManagedInstall(input: StartInstallInput): Promise<InstallStep> {
+    const managedApp = this.config.managedApp;
+    if (!managedApp) {
+      throw new Error(
+        "Slack managed install: no managed App configured on this deployment " +
+          "(SLACK_MANAGED_CLIENT_ID/SECRET/SIGNING_SECRET unset) — use the manifest/BYOA wizard instead",
+      );
+    }
+
+    const tenantId = await this.container.tenants.resolveByUserId(input.userId);
+    const publication = await this.container.publications.insertShell({
+      tenantId,
+      userId: input.userId,
+      agentId: input.agentId,
+      environmentId: input.environmentId,
+      persona: input.persona,
+      capabilities: new Set(
+        this.config.defaultCapabilities ?? ALL_SLACK_CAPABILITIES,
+      ),
+      sessionGranularity: this.config.defaultSessionGranularity ?? "per_channel",
+    });
+
+    const clientSecretCipher = await this.container.crypto.encrypt(managedApp.clientSecret);
+    const signingSecretCipher = await this.container.crypto.encrypt(managedApp.signingSecret);
+    await this.container.publications.setCredentials(publication.id, {
+      clientId: managedApp.clientId,
+      clientSecretCipher,
+      signingSecretCipher,
+    });
+    await this.container.publications.updateStatus(publication.id, "awaiting_install");
+
+    const state = await this.container.jwt.sign(
+      {
+        kind: "slack.oauth.pub",
+        publicationId: publication.id,
+        userId: input.userId,
+        returnUrl: input.returnUrl,
+        nonce: this.container.ids.generate(),
+      },
+      OAUTH_STATE_TTL_SECONDS,
+    );
+    const url = buildAuthorizeUrl({
+      clientId: managedApp.clientId,
+      redirectUri: this.callbackUriForPublication(publication.id),
+      botScopes: this.config.botScopes ?? DEFAULT_SLACK_BOT_SCOPES,
+      userScopes: this.config.userScopes ?? DEFAULT_SLACK_USER_SCOPES,
+      state,
+    });
+
+    return {
+      kind: "step",
+      step: "install_link",
+      data: {
+        url,
+        publicationId: publication.id,
+        callbackUrl: this.callbackUriForPublication(publication.id),
+        webhookUrl: this.webhookForPublication(publication.id),
+      },
+    };
   }
 
   async continueInstall(
@@ -784,6 +864,11 @@ export class SlackProvider implements IntegrationProvider {
     let pubId: string | null = null;
     let signingSecret: string | null = null;
     let appId: string | null = null;
+    // True when delivery arrived on the app-keyed URL (`/slack/webhook/app/:appId`)
+    // rather than the pub-keyed URL. The managed multi-workspace App uses ONE
+    // fixed events URL for every workspace it's installed into, so app-keyed
+    // deliveries must be fanned in by `team_id` — see the routing block below.
+    let routedByApp = false;
     const headerPubId = req.headers["x-internal-pub-id"];
     if (typeof headerPubId === "string" && headerPubId.length > 0) {
       const pub = await this.container.publications.get(headerPubId);
@@ -799,6 +884,7 @@ export class SlackProvider implements IntegrationProvider {
         return { handled: false, reason: "publication_not_yet_installed" };
       }
     } else {
+      routedByApp = true;
       appId = this.appIdFromHeaders(req);
       if (!appId) {
         return { handled: false, reason: "missing_app_id" };
@@ -863,7 +949,37 @@ export class SlackProvider implements IntegrationProvider {
     }
     const env = raw as RawEventCallback;
 
-    // Find the installation behind this app.
+    // Resolve the target installation + publication.
+    //
+    // For app-keyed delivery (the managed multi-workspace App) a single
+    // slack_app_id is shared by many publications — one per workspace the App
+    // was installed into — so `findBySlackAppId` (used above only to recover
+    // the shared signing secret) can't tell them apart. Fan in by `team_id`:
+    // look up the installation for THIS workspace, then its publication. This
+    // is what lets one managed App serve every workspace without cross-tenant
+    // leakage — a `team_id` maps to exactly one dedicated installation.
+    let installation: Installation | null = null;
+    if (routedByApp && appId) {
+      installation = await this.container.installations.findByWorkspace(
+        PROVIDER_ID,
+        env.team_id,
+        "dedicated",
+        appId,
+      );
+      if (!installation) {
+        // No live install for this workspace under this App. Either it was
+        // uninstalled (revoked rows are filtered) or the OAuth callback for
+        // this workspace never completed. Drop — nothing to route to.
+        return { handled: false, reason: "no_installation_for_workspace" };
+      }
+      const pubs = await this.container.publications.listByInstallation(installation.id);
+      const chosen = pubs.find((p) => p.status === "live") ?? pubs[0] ?? null;
+      if (!chosen) {
+        return { handled: false, reason: "no_publication_for_workspace" };
+      }
+      pubId = chosen.id;
+    }
+
     if (!pubId) {
       // App registered but install hasn't completed — drop.
       return { handled: false, reason: "no_publication_yet" };
@@ -872,7 +988,9 @@ export class SlackProvider implements IntegrationProvider {
     if (!pub) {
       return { handled: false, reason: "publication_not_found" };
     }
-    const installation = await this.container.installations.get(pub.installationId);
+    if (!installation) {
+      installation = await this.container.installations.get(pub.installationId);
+    }
     if (!installation || installation.revokedAt !== null) {
       return { handled: false, reason: "installation_not_found_or_revoked" };
     }

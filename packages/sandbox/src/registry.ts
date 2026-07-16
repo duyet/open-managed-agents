@@ -20,6 +20,7 @@ import type {
 } from "./ports";
 import type { SandboxProviderConfig, ResolvedSandboxProvider } from "./provider-config";
 import { seedSystemProviders, providerConfigToEnv, SYSTEM_PROVIDERS } from "./provider-config";
+import type { SandboxCapacity } from "./ports";
 
 export interface ProviderHealth {
   id: string;
@@ -27,6 +28,8 @@ export interface ProviderHealth {
   latencyMs: number;
   lastChecked: string;
   details?: string;
+  /** Best-effort capacity snapshot — only set for providers that expose one. */
+  capacity?: SandboxCapacity;
 }
 
 export class SandboxProviderRegistry {
@@ -214,12 +217,17 @@ export class SandboxProviderRegistry {
         {},
       );
       const result = await (executor.ping?.() ?? Promise.resolve({ status: "error" as const, latencyMs: 0, details: "ping not implemented" }));
+      // Best-effort capacity snapshot — never fails the health check.
+      const capacity = result.status === "ok"
+        ? await (executor.getCapacity?.().catch(() => null) ?? Promise.resolve(null))
+        : null;
       return {
         id: providerId,
         status: result.status,
         latencyMs: Math.round(performance.now() - start),
         lastChecked: new Date().toISOString(),
         details: result.details,
+        ...(capacity ? { capacity } : {}),
       };
     } catch (err) {
       return {

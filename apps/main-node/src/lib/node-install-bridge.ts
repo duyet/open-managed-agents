@@ -100,6 +100,11 @@ export interface NodeInstallBridgeOpts {
    *  unset, `InProcessSessionCreator.resume` is a no-op (older callers
    *  don't depend on it; main-node wires it). */
   appendUserEvent?: AppendUserEventHook;
+  /** OMA-hosted managed Slack App credentials (mirrors apps/integrations'
+   *  SLACK_MANAGED_CLIENT_ID/SECRET/SIGNING_SECRET). Powers the "Add to
+   *  Slack" one-click install (`mode: "start-managed"`); unset disables it
+   *  with a 503, same as the CF path. */
+  slackManagedApp?: { clientId: string; clientSecret: string; signingSecret: string } | null;
 }
 
 export class NodeInstallBridge implements InstallBridge {
@@ -189,6 +194,7 @@ export class NodeInstallBridge implements InstallBridge {
       botScopes: DEFAULT_SLACK_BOT_SCOPES,
       userScopes: DEFAULT_SLACK_USER_SCOPES,
       defaultCapabilities: ALL_SLACK_CAPABILITIES,
+      managedApp: this.opts.slackManagedApp ?? null,
     });
     const stateRaw = args.state ?? "";
     const result = await provider.continueInstall({
@@ -303,6 +309,7 @@ export class NodeInstallBridge implements InstallBridge {
         botScopes: DEFAULT_SLACK_BOT_SCOPES,
         userScopes: DEFAULT_SLACK_USER_SCOPES,
         defaultCapabilities: ALL_SLACK_CAPABILITIES,
+        managedApp: this.opts.slackManagedApp ?? null,
       }),
     } as const;
     const provider = providers[args.provider];
@@ -337,6 +344,41 @@ export class NodeInstallBridge implements InstallBridge {
         return jsonResp(500, { error: "unexpected install result", result });
       }
       return jsonResp(200, result.data);
+    }
+
+    if (args.mode === "start-managed") {
+      if (args.provider !== "slack") {
+        return jsonResp(400, { error: `managed install not supported for provider: ${args.provider}` });
+      }
+      if (!body.userId || !body.agentId || !body.environmentId || !body.personaName || !body.returnUrl) {
+        return jsonResp(400, {
+          error: "userId, agentId, environmentId, personaName, returnUrl required",
+        });
+      }
+      try {
+        const result = await (provider as SlackProvider).startManagedInstall({
+          userId: body.userId as string,
+          agentId: body.agentId as string,
+          environmentId: body.environmentId as string,
+          mode: "full",
+          persona: {
+            name: body.personaName as string,
+            avatarUrl: (body.personaAvatarUrl as string | null) ?? null,
+          },
+          returnUrl: body.returnUrl as string,
+        });
+        if (result.kind !== "step" || result.step !== "install_link") {
+          return jsonResp(500, { error: "unexpected install result", result });
+        }
+        return jsonResp(200, result.data);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return jsonResp(503, {
+          error: "managed_install_unavailable",
+          details: msg,
+          remediation: "Use mode=start-a1 (BYOA manifest wizard) instead.",
+        });
+      }
     }
 
     if (args.mode === "credentials") {
@@ -620,6 +662,18 @@ class InProcessSessionCreator implements SessionCreator {
       ...(event.metadata ? { metadata: event.metadata } : {}),
     } as unknown as UserMessageEvent;
     await this.opts.appendUserEvent(sessionId, session.tenant_id, agentRow.id, userMsg);
+  }
+
+  async pause(userId: UserId, sessionId: SessionId): Promise<void> {
+    // Sandbox pause/resume is a Cloudflare-Containers-specific cost
+    // optimization (destroy the container, keep the session record) — the
+    // self-host Node runtime doesn't provision per-session containers the
+    // same way, so there's nothing to pause here yet. No-op, mirroring the
+    // resume-without-hook fallback above.
+    log.warn(
+      { op: "install_bridge.pause.unsupported", session_id: sessionId, user_id: userId },
+      "session pause requested but not supported on the self-host Node runtime",
+    );
   }
 }
 

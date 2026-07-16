@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { WorkerEntrypoint } from "cloudflare:workers";
 import type { Env } from "@duyet/oma-shared";
-import { servicesMiddleware, tenantDbMiddleware, getCfServicesForTenant } from "@duyet/oma-services";
+import { servicesMiddleware, tenantDbMiddleware, getCfServicesForTenant, buildCfTenantDbProvider, type Services } from "@duyet/oma-services";
 import {
   buildAgentRoutes,
   buildVaultRoutes,
@@ -9,9 +9,17 @@ import {
   buildApiKeyRoutes,
   buildMeRoutes,
   buildTenantRoutes,
+  buildPublicationRoutes,
+  buildAgentPublicationRoutes,
   buildDeviceRoutes,
+  buildMcpServerRoutes,
   mintApiKeyOnStorage,
+  type RouteServices,
 } from "@duyet/oma-http-routes";
+import {
+  buildPublicPublicationRoutes,
+  publicSessionCaps,
+} from "./routes/publications";
 import {
   createCfShardPoolService,
   createCfTenantShardDirectoryService,
@@ -20,7 +28,7 @@ import { LOCAL_RUNTIME_ENV_ID } from "@duyet/oma-shared";
 import { toEnvironmentConfig } from "@duyet/oma-environments-store";
 import { authMiddleware } from "./auth";
 import { rateLimitMiddleware, authRateLimitMiddleware } from "./rate-limit";
-import { cfRouteServices } from "./lib/cf-route-services";
+import { cfRouteServices, cfRouteServicesForTenant } from "./lib/cf-route-services";
 import { cfApiKeyStorage } from "./lib/cf-api-key-storage";
 import { CfSessionRouter } from "./lib/cf-session-router";
 import {
@@ -50,8 +58,14 @@ import usageRoutes from "./routes/usage";
 import providersRoutes from "./routes/providers";
 import sandboxProvidersRoutes from "./routes/sandbox-providers";
 import webhookRoutes from "./routes/webhooks";
-import consumerAuthRoutes from "./routes/consumer-auth";
+import consumerAuthRoutes, { resolveConsumerSession } from "./routes/consumer-auth";
 import consumerMeteringRoutes from "./routes/consumer-metering";
+import consumerAdminRoutes from "./routes/consumer-admin";
+import paymentsWebhookRoutes, {
+  buildConsumerPaymentsRoutes,
+  enforcePaywall as enforcePaywallImpl,
+  createD1PaymentsStore,
+} from "./routes/payments";
 import schedulesRoutes from "./routes/schedules";
 import mcpProxyRoutes, {
   resolveProxyTargetByTenant,
@@ -132,6 +146,7 @@ app.get("/v1/hosting_types", async (c) => {
     latency_ms: number;
     last_checked: string;
     reason?: string;
+    capacity?: import("@duyet/oma-sandbox").SandboxCapacity;
   }>();
 
   for (const p of providers) {
@@ -156,6 +171,7 @@ app.get("/v1/hosting_types", async (c) => {
           latency_ms: h.latencyMs,
           last_checked: h.lastChecked,
           reason: h.status === "ok" ? undefined : (h.details ?? "Health check failed."),
+          capacity: h.capacity,
         });
       }
     } catch {}
@@ -185,6 +201,11 @@ app.get("/v1/hosting_types", async (c) => {
 // token auth. Mounted before /v1/* auth so they bypass the standard gate.
 app.route("/v1/public", consumerAuthRoutes);
 app.route("/v1/public", consumerMeteringRoutes);
+app.route("/v1/public", buildConsumerPaymentsRoutes());
+
+// Stripe webhook (issue #74) — bypasses tenant auth (see auth.ts); trust is
+// the Stripe signature verified inside the route.
+app.route("/webhooks", paymentsWebhookRoutes);
 
 // Auth routes (public — no authMiddleware, but rate-limited per-IP and
 // per-email so a stranger can't spam OTP sends and burn the mail budget).
@@ -256,6 +277,15 @@ type AppCtx = import("hono").Context<{
 const cfRouteServicesFromCtx = (c: AppCtx) =>
   cfRouteServices(c as never);
 
+/** Build the RouteServices bundle for the publication's tenant (public
+ *  /p/:slug surface) from an already-resolved Services container + DB. */
+const cfRouteServicesFromCtxForTenant = (
+  services: Services,
+  tenantDb: D1Database,
+): RouteServices => {
+  return cfRouteServicesForTenant(services, tenantDb);
+};
+
 const agentsRoutes = new Hono<{
   Bindings: Env;
   Variables: { tenant_id: string; user_id?: string };
@@ -291,6 +321,12 @@ const agentsRoutes = new Hono<{
 const vaultsRoutes = new Hono<{ Bindings: Env; Variables: { tenant_id: string } }>().all("*", (c) => {
   const ctx = c as unknown as AppCtx;
   const app = buildVaultRoutes({ services: () => cfRouteServicesFromCtx(ctx) });
+  return invokePackage(c, app);
+});
+
+const mcpServersRoutes = new Hono<{ Bindings: Env; Variables: { tenant_id: string } }>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  const app = buildMcpServerRoutes({ services: () => cfRouteServicesFromCtx(ctx) });
   return invokePackage(c, app);
 });
 
@@ -399,17 +435,17 @@ const tenantsRoutes = new Hono<{
   return invokePackage(c, app);
 });
 
-const sessionsRoutes = new Hono<{
-  Bindings: Env;
-  Variables: { tenant_id: string; user_id?: string };
-}>().all("*", (c) => {
-  const ctx = c as unknown as AppCtx;
-  const env = ctx.env;
-  const services = ctx.var.services;
-  const tenantId = ctx.var.tenant_id;
+/**
+ * Build the per-request session app. For the authenticated /v1/sessions
+ * mount, `services` is the auth-resolved Services container and `tenantId`
+ * is the auth-resolved tenant. The public /p/:slug surface reuses this same
+ * builder with the publication's tenant + services so public sessions
+ * inherit the exact same create/message/SSE behavior without a logic fork.
+ */
+function buildSessionsApp(services: Services, env: Env, tenantDb: D1Database, ctx: AppCtx | null, tenantId: string) {
   const router = new CfSessionRouter({ env, services, tenantId });
-  const app = buildSessionRoutes({
-    services: () => cfRouteServicesFromCtx(ctx),
+  return buildSessionRoutes({
+    services: () => cfRouteServicesFromCtxForTenant(services, tenantDb),
     router,
     localRuntimeEnvId: LOCAL_RUNTIME_ENV_ID,
     loadEnvironment: async ({ tenantId, environmentId }) => {
@@ -421,8 +457,16 @@ const sessionsRoutes = new Hono<{
       fetchVaultCredentials(services, tenantId, vaultIds),
     outputs: cfOutputsAdapter(env),
     debugRecoveryToken: (env as { DEBUG_TOKEN?: string }).DEBUG_TOKEN,
-    lifecycle: cfSessionLifecycle(c as never),
+    lifecycle: ctx ? cfSessionLifecycle(ctx as never) : undefined,
   });
+}
+
+const sessionsRoutes = new Hono<{
+  Bindings: Env;
+  Variables: { tenant_id: string; user_id?: string };
+}>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  const app = buildSessionsApp(ctx.var.services, ctx.env, ctx.var.tenantDb, ctx, ctx.var.tenant_id);
   return invokePackage(c, app);
 });
 
@@ -485,6 +529,51 @@ function invokePackage(
   );
 }
 app.route("/v1/agents", agentsRoutes);
+
+// Published-agent management API (issue #72) — tenant-authed. Mounted
+// beside /v1/agents; reuses authMiddleware + servicesMiddleware above.
+const agentPublicationsRoutes = new Hono<{
+  Bindings: Env;
+  Variables: { tenant_id: string; user_id?: string };
+}>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  const app = buildAgentPublicationRoutes(
+    { services: () => cfRouteServicesFromCtx(ctx) },
+    "id",
+  );
+  return invokePackage(c, app);
+});
+app.route("/v1/agents/:id/publications", agentPublicationsRoutes);
+
+const publicationsRoutes = new Hono<{
+  Bindings: Env;
+  Variables: { tenant_id: string; user_id?: string };
+}>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  const app = buildPublicationRoutes({ services: () => cfRouteServicesFromCtx(ctx) });
+  return invokePackage(c, app);
+});
+// Creator visibility into a publication's end-users (issue #73). Mounted
+// before the catch-all publicationsRoutes so GET /:id/users matches first.
+app.route("/v1/publications", consumerAdminRoutes);
+// Creator revenue view (issue #74) — aggregates consumer spend for a
+// publication. Registered before the catch-all /v1/publications mount so it
+// takes precedence. Tenant-scoped via the auth-resolved tenant_id.
+app.get("/v1/publications/:id/revenue", async (c) => {
+  if (!c.env.MAIN_DB) return c.json({ error: "Payments not configured" }, 503);
+  const tenantId = (c as unknown as AppCtx).var.tenant_id;
+  const publicationId = c.req.param("id");
+  const store = createD1PaymentsStore(c.env.MAIN_DB);
+  const totalSpend = await store.totalSpendForPublication(tenantId, publicationId);
+  return c.json({
+    publication_id: publicationId,
+    total_spend_credits: totalSpend,
+    // TODO(#74): platform take-rate + creator payout (Stripe Connect) — see
+    // packages/payments/src/index.ts. Until Connect onboarding ships, this is
+    // an informational revenue view only.
+  });
+});
+app.route("/v1/publications", publicationsRoutes);
 app.route("/v1/environments", environmentsRoutes);
 app.route("/v1/sessions", sessionsRoutes);
 app.route("/v1/vaults", vaultsRoutes);
@@ -495,6 +584,7 @@ app.route("/v1/dreams", dreamsRoutes);
 app.route("/v1/files", filesRoutes);
 app.route("/v1/skills", skillsRoutes);
 app.route("/v1/model_cards", modelCardsRoutes);
+app.route("/v1/mcp_servers", mcpServersRoutes);
 app.route("/v1/models", modelsRoutes);
 app.route("/v1/clawhub", clawhubRoutes);
 app.route("/v1/api_keys", apiKeysRoutes);
@@ -579,6 +669,7 @@ app.route("/v1/oma/integrations", integrationsRoutes);
 app.route("/v1/oma/runtimes", runtimesRoutes);
 app.route("/v1/oma/oauth", oauthRoutes);
 app.route("/v1/oma/model_cards", modelCardsRoutes);
+app.route("/v1/oma/mcp_servers", mcpServersRoutes);
 app.route("/v1/oma/sandbox_providers", sandboxProvidersRoutes);
 app.route("/v1/oma/webhooks", webhookRoutes);
 // /v1/mcp-proxy is intentionally NOT aliased: auth.ts path-prefix skip is
@@ -615,6 +706,125 @@ app.get("/agents/runtime/_attach", async (c) => {
 // the route file). Called only by the integrations gateway worker via service
 // binding.
 app.route("/v1/internal", internalRoutes);
+
+// ── Public chat surface for published agents (issue #72) ───────────────
+//
+// /p/:slug/* BYPASSES x-api-key (see auth.ts). Each request resolves the
+// owning tenant from the publication row, applies visibility/status
+// guardrails + per-slug/per-IP caps + ownership scoping, then forwards into
+// the shared session routes. No tenant auth middleware runs here.
+app.use("/p/*", rateLimitMiddleware);
+
+{
+  const resolvePublication = async (slug: string, env: Env) => {
+    const services = await getCfServicesForTenant(env, "");
+    const pub = await services.publications.getBySlug({ slug });
+    if (!pub) {
+      return new Response(JSON.stringify({ error: "Not found" }), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    // Guardrails: private/draft hidden (404); paused forbidden (403).
+    if (pub.visibility === "private" || pub.status === "draft") {
+      return new Response(JSON.stringify({ error: "Not found" }), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (pub.status === "paused") {
+      return new Response(JSON.stringify({ error: "Publication paused" }), {
+        status: 403,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return pub;
+  };
+
+  const guardSessionCreate = async (opts: {
+    publication: import("@duyet/oma-publications-store").PublicationRow;
+    ip: string;
+    env: Env;
+  }) => {
+    const services = await getCfServicesForTenant(opts.env, opts.publication.tenant_id);
+    const today = new Date().toISOString().slice(0, 10);
+    return publicSessionCaps(services.kv, opts.env, {
+      slug: opts.publication.slug,
+      ip: opts.ip,
+      today,
+    });
+  };
+
+  const assertSessionOwnedByPublication = async (
+    publication: import("@duyet/oma-publications-store").PublicationRow,
+    sessionId: string,
+    env: Env,
+  ): Promise<boolean> => {
+    const services = await getCfServicesForTenant(env, publication.tenant_id);
+    const sess = await services.sessions.get({
+      tenantId: publication.tenant_id,
+      sessionId,
+    });
+    if (!sess) return false;
+    const pubId = (sess.metadata as Record<string, unknown> | null)?.publication_id;
+    return pubId === publication.id;
+  };
+
+  // Build the session app bound to a publication tenant. Reuses the exact
+  // Builder/session app the /v1/sessions mount uses, just with the tenant
+  // captured from the publication row instead of the auth middleware.
+  const buildSessionsAppForTenant = async (tenantId: string, env: Env) => {
+    const services = await getCfServicesForTenant(env, tenantId);
+    const provider = buildCfTenantDbProvider(env);
+    const tenantDb = await provider.resolve(tenantId);
+    return buildSessionsApp(services, env, tenantDb, null, tenantId);
+  };
+
+  const pubRoutes = buildPublicPublicationRoutes({
+    env: {} as never,
+    servicesForTenant: (tenantId) => getCfServicesForTenant({} as never, tenantId) as never,
+    buildSessionsApp: buildSessionsAppForTenant as never,
+    resolvePublication: resolvePublication as never,
+    guardSessionCreate: guardSessionCreate as never,
+    assertSessionOwnedByPublication: assertSessionOwnedByPublication as never,
+    enforcePaywall: (async (opts: {
+      publication: import("@duyet/oma-publications-store").PublicationRow;
+      endUserId: string;
+      sessionId: string;
+      env: Env;
+    }) => {
+      if (!opts.env.MAIN_DB) return null;
+      return enforcePaywallImpl({
+        env: opts.env as never,
+        db: opts.env.MAIN_DB,
+        tenantId: opts.publication.tenant_id,
+        publicationId: opts.publication.id,
+        endUserId: opts.endUserId,
+        sessionId: opts.sessionId,
+      });
+    }) as never,
+    // Stable wallet identity (issue #73): map a consumer bearer token to
+    // `eu:<consumer_id>` so the paywall wallet survives token refresh and the
+    // guest -> email upgrade. Falls back to the built-in tok:/ip: scheme.
+    resolveEndUserId: (async (req: Request, env: Env) => {
+      const auth = req.headers.get("authorization");
+      const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
+      if (token && env.MAIN_DB) {
+        const session = await resolveConsumerSession(env.MAIN_DB, token);
+        if (session) return `eu:${session.consumer_id}`;
+      }
+      if (token) return `tok:${token}`;
+      const ip =
+        req.headers.get("cf-connecting-ip") ||
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        "anonymous";
+      return `ip:${ip}`;
+    }) as never,
+  });
+  app.route("/p", pubRoutes);
+}
+
+// Proxy public integrations gateway paths to the INTEGRATIONS service binding
 
 // Proxy public integrations gateway paths to the INTEGRATIONS service binding
 // so Linear/GitHub can hit the OAuth callback / webhook URLs at this worker's

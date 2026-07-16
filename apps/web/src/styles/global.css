@@ -7,29 +7,49 @@
 @import "@fontsource-variable/geist/index.css";
 @import "@fontsource-variable/geist-mono/index.css";
 
-/* Marketing brand tokens — Geist type system. Display + body both use
-   Geist Variable (it's a single variable family, so headings and body
-   share the family and differ only by weight/tracking). Mono is Geist
-   Mono for the terminal / ASCII hero. */
+/* ===========================================================================
+   Design system — 2026 redesign.
+
+   Prior identity leaned warm-craft (cream #faf9f5 ground, terracotta #d97757
+   chrome, soft pill cards) which read as an Anthropic clone. New identity is a
+   neutral, engineering-tool language: a zinc greyscale ground, a single
+   near-mono primary (ink in light, paper in dark), crisp 1px hairline borders,
+   tight radii, and restrained shadows. The three warm/cool hues (orange, blue,
+   green) survive ONLY as *functional* data-viz accents inside the interactive
+   architecture diagram, lifecycle, badges and use-case tabs — never as page
+   chrome. Type voice stays Geist (the neutral grotesk shadcn/Vercel ship).
+
+   Retired warm anchors kept here for reference (and so the palette history is
+   greppable): ink #141413, paper #faf9f5, stone #b0aea5, sand #e8e6dc,
+   orange #d97757, blue #6a9bcc, green #788c5d. */
 @theme {
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 
-  /* Brand anchors: dark #141413, light #faf9f5, mid #b0aea5, light-gray #e8e6dc,
-     orange #d97757, blue #6a9bcc, green #788c5d */
-  --color-bg: #faf9f5;
-  --color-bg-surface: #e8e6dc;
-  --color-fg: #141413;
-  --color-fg-muted: #61605a;
-  --color-fg-subtle: #828076;
-  --color-border: #e8e6dc;
-  --color-border-strong: #b0aea5;
-  --color-brand: #d97757;
-  --color-brand-hover: #bf6041;
-  --color-brand-subtle: #fbf1ee;
-  --color-brand-fg: #141413;
+  /* Neutral ground — zinc greyscale. */
+  --color-bg: #ffffff;
+  --color-bg-surface: #fafafa;
+  --color-bg-elevated: #f4f4f5;
+  --color-fg: #18181b;
+  --color-fg-muted: #52525b;
+  --color-fg-subtle: #71717a;
+  --color-border: #e4e4e7;
+  --color-border-strong: #d4d4d8;
 
+  /* Primary — "iris", one confident ownable accent. Carries all chrome:
+     logo, links, focus ring, section-marker icons, highlight borders,
+     primary buttons. Deliberately not terracotta (the Anthropic tell) and
+     not a washed AI-purple gradient — a single saturated indigo, used flat.
+     #4f46e5 on #ffffff = 6.6:1 (AA text); #fafafa on #4f46e5 = 6.6:1. */
+  --color-brand: #4f46e5;
+  --color-brand-hover: #4338ca;
+  --color-brand-subtle: #eef2ff;
+  --color-brand-fg: #ffffff;
+
+  /* Functional data-viz accents — used inside diagrams/badges/tabs only. */
+  --color-accent: #d97757;
+  --color-accent-subtle: #fbf1ee;
   --color-blue: #6a9bcc;
   --color-blue-subtle: #eaf2f8;
   --color-green: #788c5d;
@@ -37,19 +57,26 @@
 }
 
 .dark {
-  --color-bg: #141413;
-  --color-bg-surface: #222221;
-  --color-fg: #faf9f5;
-  --color-fg-muted: #b0aea5;
-  --color-fg-subtle: #828076;
-  --color-border: #2a2a29;
-  --color-border-strong: #40403e;
-  --color-brand: #d97757;
-  --color-brand-hover: #e09278;
-  --color-brand-subtle: #2d1a15;
-  --color-brand-fg: #141413;
-  --color-blue-subtle: #1a2833;
-  --color-green-subtle: #1e2418;
+  --color-bg: #09090b;
+  --color-bg-surface: #131316;
+  --color-bg-elevated: #1c1c20;
+  --color-fg: #fafafa;
+  --color-fg-muted: #a1a1aa;
+  --color-fg-subtle: #71717a;
+  --color-border: #27272a;
+  --color-border-strong: #3f3f46;
+
+  /* Iris lifts in dark for contrast on the near-black ground:
+     #818cf8 on #09090b ≈ 8.4:1; dark ink text on the button = ~7:1. */
+  --color-brand: #818cf8;
+  --color-brand-hover: #a5b4fc;
+  --color-brand-subtle: #1e1b3a;
+  --color-brand-fg: #0b0b12;
+
+  --color-accent: #e08a68;
+  --color-accent-subtle: #2d1a15;
+  --color-blue-subtle: #16232f;
+  --color-green-subtle: #1a2016;
 }
 
 html {
@@ -117,15 +144,18 @@ code, pre, kbd, samp,
 /* Card hover-lift — applies to anything tagged data-lift (FeatureCard,
    PricingCard, BlogPostCard). Cheap GPU transform, no layout cost. */
 [data-lift] {
-  transition: transform 180ms ease-out, box-shadow 180ms ease-out, border-color 180ms ease-out;
+  transition: transform 150ms ease-out, box-shadow 150ms ease-out, border-color 150ms ease-out;
   will-change: transform;
 }
+/* Restrained, shadcn-style elevation: a hairline-tight shadow, not a big soft
+   drop. Border-color does most of the hover work; the lift is a whisper. */
 [data-lift]:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+  border-color: var(--color-border-strong);
+  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.04), 0 2px 8px -4px rgba(24, 24, 27, 0.08);
 }
 .dark [data-lift]:hover {
-  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px -4px rgba(0, 0, 0, 0.5);
 }
 
 /* Anchor defaults — color is `inherit` by default so nav/breadcrumb/
@@ -205,10 +235,35 @@ input:focus-visible,
 }
 .arch-layer {
   position: relative;
-  border: 1px solid var(--color-border-strong);
-  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
   padding: 1.25rem 1.5rem;
   background: var(--color-bg);
+  /* Faint accent spine (inset, so no layout shift) keyed to the layer's
+     functional hue; brightens + the whole layer lifts on hover. */
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--layer-accent, transparent) 30%, transparent);
+  transition: border-color 160ms ease-out, box-shadow 160ms ease-out, transform 160ms ease-out;
+}
+.arch-accent-orange { --layer-accent: var(--color-accent); }
+.arch-accent-blue { --layer-accent: var(--color-blue); }
+.arch-accent-green { --layer-accent: var(--color-green); }
+.arch-layer:hover {
+  border-color: var(--color-border-strong);
+  transform: translateY(-1px);
+  box-shadow: inset 3px 0 0 var(--layer-accent, var(--color-border-strong)),
+    0 2px 10px -6px rgba(24, 24, 27, 0.12);
+}
+.dark .arch-layer:hover {
+  box-shadow: inset 3px 0 0 var(--layer-accent, var(--color-border-strong)),
+    0 2px 10px -6px rgba(0, 0, 0, 0.55);
+}
+/* Item cells within a layer pick up the accent border on hover. */
+.arch-layer li {
+  transition: border-color 140ms ease-out, color 140ms ease-out;
+}
+.arch-layer li:hover {
+  border-color: color-mix(in srgb, var(--layer-accent, var(--color-border-strong)) 55%, var(--color-border));
+  color: var(--color-fg);
 }
 .arch-layer + .arch-layer {
   margin-top: 0.75rem;
@@ -230,28 +285,39 @@ input:focus-visible,
   align-items: center;
   font-family: var(--font-mono);
   font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding: 0.2rem 0.5rem;
-  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.3rem;
+  border: 1px solid transparent;
 }
 .arch-badge-orange {
-  color: var(--color-brand);
-  background: var(--color-brand-subtle);
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  border-color: color-mix(in srgb, var(--color-accent) 24%, transparent);
 }
 .arch-badge-blue {
   color: var(--color-blue);
   background: var(--color-blue-subtle);
+  border-color: color-mix(in srgb, var(--color-blue) 24%, transparent);
 }
 .arch-badge-green {
   color: var(--color-green);
   background: var(--color-green-subtle);
+  border-color: color-mix(in srgb, var(--color-green) 24%, transparent);
 }
 .lifecycle-track {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.75rem;
+}
+/* Step number lights up in brand on hover (pairs with the data-lift). */
+.lifecycle-num {
+  transition: text-shadow 160ms ease-out;
+}
+.lifecycle-step:hover .lifecycle-num {
+  text-shadow: 0 0 10px color-mix(in srgb, var(--color-brand) 55%, transparent);
 }
 @media (min-width: 768px) {
   .lifecycle-track {
@@ -272,7 +338,7 @@ input:focus-visible,
     height: 2px;
     background: linear-gradient(
       90deg,
-      var(--color-brand) 0%,
+      var(--color-accent) 0%,
       var(--color-blue) 50%,
       var(--color-green) 100%
     );
@@ -392,17 +458,45 @@ input:focus-visible,
 .hero-eyebrow .typewriter-line {
   font-size: 0.9rem;
 }
-/* Brand accent on the headline's closing phrase — coral, AA-safe because
-   the surrounding headline is full-strength fg (#141413 on #faf9f5). */
+/* Emphasis on the headline's closing phrase. Monochrome now: the phrase
+   stays full-strength ink and picks up a thin accent underline so the
+   emphasis reads as intent, not as a colored word dropped into a headline. */
 .hero-accent {
-  color: var(--color-brand);
+  color: var(--color-fg);
+  box-shadow: inset 0 -0.12em 0 color-mix(in srgb, var(--color-brand) 60%, transparent);
 }
+/* Rotating headline phrase ("any LLM provider" ⇄ "any Sandbox provider").
+   The .tw-rot span is driven by the shared data-rotate script in Base.astro;
+   these overrides re-tune the terminal-prompt styling for display type. */
+.hero-rotate .tw-rot {
+  color: inherit;
+  font-weight: inherit;
+}
+.hero-rotate .typewriter-caret {
+  width: 0.09em;
+  height: 0.82em;
+  margin-left: 0.06em;
+  vertical-align: -0.08em;
+  background: var(--color-brand);
+  box-shadow: none;
+}
+/* Primary CTA row in the hero pitch. */
+.hero-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
 /* Proof chips: compact, scannable differentiators under the CTAs. No
    bullets, soft pill borders, mono label so they share the terminal
    vocabulary. */
 .hero-chips {
   list-style: none;
-  margin: 0;
+  /* Top margin lives here (not a Tailwind utility) — this component class
+     loads after the utilities layer and would silently override mt-*. Sits
+     directly under the CTA row, so the gap is tighter than the CTA's own. */
+  margin: 1.25rem 0 0;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
@@ -416,8 +510,8 @@ input:focus-visible,
   color: var(--color-fg-muted);
   border: 1px solid var(--color-border);
   background: var(--color-bg-surface);
-  padding: 0.3rem 0.65rem;
-  border-radius: 999px;
+  padding: 0.28rem 0.6rem;
+  border-radius: 0.3rem;
 }
 
 /* Framed terminal that houses the architecture diagram. Gives the hero
@@ -433,13 +527,13 @@ input:focus-visible,
   max-width: 560px;
   margin: 0;
   border: 1px solid var(--color-border-strong);
-  border-radius: 0.9rem;
+  border-radius: 0.625rem;
   background: var(--color-bg-surface);
-  box-shadow: 0 18px 50px -28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.04), 0 12px 40px -24px rgba(24, 24, 27, 0.22);
   overflow: hidden;
 }
 .dark .terminal-frame {
-  box-shadow: 0 18px 50px -24px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 16px 44px -24px rgba(0, 0, 0, 0.7);
 }
 .terminal-bar {
   display: flex;
@@ -482,8 +576,8 @@ input:focus-visible,
 }
 /* Brand mark inside the diagram's Client node: brackets + dot inherit the
    node accent via currentColor (overridden per-accent below). */
-.arch-diagram .ad-brand { color: var(--color-brand); }
-.arch-diagram .ad-node.ad-orange .ad-brand { color: var(--color-brand); }
+.arch-diagram .ad-brand { color: var(--color-accent); }
+.arch-diagram .ad-node.ad-orange .ad-brand { color: var(--color-accent); }
 .arch-diagram .ad-node.ad-blue .ad-brand { color: var(--color-blue); }
 .arch-diagram .ad-node.ad-green .ad-brand { color: var(--color-green); }
 .arch-diagram .ad-brand-bracket { stroke: currentColor; }
@@ -500,6 +594,252 @@ input:focus-visible,
 }
 .terminal-body .arch-diagram {
   width: 100%;
+}
+
+/* ── Live stacked-assembly demo (React island, hero) ─────────────────────
+   Echoes the Console's "How it fits together": one Agent card, then the
+   building-block chips it uses, each with a status dot. On the landing page
+   it's a looping *demo* — blocks assemble, then a simulated run lights the
+   blocks the agent touches and lands a result. All colours are CSS vars, so
+   light + dark apply automatically. Reduced-motion → clean static assembled
+   state (see the reduced-motion block at the foot of this file). */
+.asm {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  --asm-accent: var(--color-accent);
+}
+.asm-orange { --asm-accent: var(--color-accent); }
+.asm-blue { --asm-accent: var(--color-blue); }
+.asm-green { --asm-accent: var(--color-green); }
+
+/* Small status dot — matches the Console's ready/empty semantics. */
+.asm-status {
+  flex-shrink: 0;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-strong);
+  background: transparent;
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.asm-status.is-ready {
+  background: var(--color-green);
+  border-color: var(--color-green);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-green) 60%, transparent);
+}
+
+/* Hero agent card */
+.asm-agent {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0.8rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: 0.55rem;
+  background: var(--color-bg);
+  opacity: 0.6;
+  transform: translateY(3px);
+  transition: opacity 0.4s ease, transform 0.4s ease, border-color 0.3s ease,
+    background-color 0.3s ease, box-shadow 0.3s ease;
+}
+.asm-agent.is-on {
+  opacity: 1;
+  transform: none;
+  border-color: color-mix(in srgb, var(--color-brand) 55%, transparent);
+  background: color-mix(in srgb, var(--color-brand) 6%, var(--color-bg));
+}
+.asm-agent.is-thinking {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-brand) 30%, transparent),
+    0 0 18px -4px color-mix(in srgb, var(--color-brand) 55%, transparent);
+}
+.asm-agent-mark {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.05rem;
+  color: var(--color-brand);
+  font-weight: 700;
+}
+.asm-bracket { font-size: 1.05rem; line-height: 1; }
+.asm-dot {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: var(--color-brand);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-brand) 60%, transparent);
+}
+.asm-agent-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.asm-agent-name {
+  font-family: var(--font-display, var(--font-sans));
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--color-fg);
+  letter-spacing: -0.01em;
+}
+.asm-agent-sub {
+  font-size: 0.66rem;
+  color: var(--color-fg-subtle);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Working indicator: three pulsing dots + label */
+.asm-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+  color: var(--color-brand);
+}
+.asm-typing i {
+  width: 0.28rem;
+  height: 0.28rem;
+  border-radius: 999px;
+  background: currentColor;
+  animation: asm-bounce 1s ease-in-out infinite;
+}
+.asm-typing i:nth-child(2) { animation-delay: 0.15s; }
+.asm-typing i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes asm-bounce {
+  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+}
+
+/* "uses" connector */
+.asm-uses {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.05rem 0.2rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-fg-subtle);
+}
+.asm-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+/* Building-block grid */
+.asm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+.asm-block {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 0.45rem;
+  background: transparent;
+  opacity: 0.35;
+  transform: translateY(4px) scale(0.985);
+  transition: opacity 0.4s ease, transform 0.4s ease, border-color 0.3s ease,
+    background-color 0.3s ease, box-shadow 0.3s ease;
+}
+.asm-block.is-revealed {
+  opacity: 1;
+  transform: none;
+  border-style: solid;
+  border-color: var(--color-border);
+  background: var(--color-bg);
+}
+.asm-block.is-active {
+  border-color: var(--asm-accent);
+  background: color-mix(in srgb, var(--asm-accent) 12%, var(--color-bg));
+  box-shadow: 0 0 16px -4px color-mix(in srgb, var(--asm-accent) 65%, transparent);
+}
+.asm-block-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  color: var(--color-fg-subtle);
+  transition: color 0.3s ease;
+}
+.asm-block.is-active .asm-block-icon { color: var(--asm-accent); }
+.asm-block-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.asm-block-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.asm-block-sum {
+  font-size: 0.6rem;
+  color: var(--color-fg-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Run strip: user message → agent result */
+.asm-run {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+  min-height: 3.6rem;
+}
+.asm-msg {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.45rem;
+  background: var(--color-bg-surface);
+  font-size: 0.68rem;
+  color: var(--color-fg-muted);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+.asm-msg.is-in { opacity: 1; transform: none; }
+.asm-msg-agent {
+  border-color: color-mix(in srgb, var(--color-brand) 45%, transparent);
+  background: color-mix(in srgb, var(--color-brand) 6%, var(--color-bg-surface));
+}
+.asm-msg-tag {
+  flex-shrink: 0;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-fg-subtle);
+}
+.asm-msg-tag-agent { color: var(--color-brand); }
+.asm-msg-text {
+  min-width: 0;
+  color: var(--color-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (min-width: 400px) {
+  .asm-agent-name { font-size: 0.95rem; }
+  .asm-block-label { font-size: 0.72rem; }
+  .asm-msg { font-size: 0.7rem; }
 }
 
 /* Pixel art: keep blocks hard-edged at any scale (the whole point of pixel
@@ -536,8 +876,8 @@ input:focus-visible,
   font-feature-settings: "liga" 0, "calt" 0;
   font-variant-ligatures: none;
   font-kerning: none;
-  color: var(--color-brand);
-  text-shadow: 0 0 16px color-mix(in srgb, var(--color-brand) 45%, transparent);
+  color: var(--color-accent);
+  text-shadow: 0 0 16px color-mix(in srgb, var(--color-accent) 40%, transparent);
   white-space: pre;
   overflow-x: auto;
   margin: 0;
@@ -547,8 +887,8 @@ input:focus-visible,
    reads as depth rather than a flat block. It frames the diagram from
    behind (inset negative so the dots extend past the node edges). */
 .ascii-halo {
-  color: var(--color-brand);
-  opacity: 0.32;
+  color: var(--color-accent);
+  opacity: 0.3;
 }
 .ascii-caption {
   margin-top: 0.85rem;
@@ -618,8 +958,8 @@ input:focus-visible,
   display: inline-block;
   width: 0.55ch;
   height: 1.05em;
-  background: var(--color-brand);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--color-brand) 60%, transparent);
+  background: var(--color-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 55%, transparent);
   animation: tw-blink 1.05s steps(1, end) infinite;
 }
 @keyframes tw-blink {
@@ -629,7 +969,7 @@ input:focus-visible,
 /* Typewriter rotate: the terminal prompt's verb cycles through a list of
    verbs pulled from the element's data-rotate JSON. Pure CSS can't swap text,
    so a tiny inline script (Base.astro) drives .tw-rot; this just styles it. */
-.tw-static { color: var(--color-brand); }
+.tw-static { color: var(--color-accent); }
 .tw-rot { color: var(--color-fg); font-weight: 600; }
 .typewriter-line .typewriter-caret { margin-left: 1px; }
 
@@ -638,8 +978,8 @@ input:focus-visible,
    page shares one pixel vocabulary. */
 .pixel-bullet {
   font-family: var(--font-mono);
-  color: var(--color-brand);
-  text-shadow: 0 0 10px color-mix(in srgb, var(--color-brand) 40%, transparent);
+  color: var(--color-accent);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 38%, transparent);
   font-weight: 700;
 }
 
@@ -672,6 +1012,15 @@ input:focus-visible,
     animation: none;
   }
   .typewriter-caret { opacity: 1; }
+  /* Assembly demo: the island renders its fully-assembled + result state for
+     reduced motion; kill any residual transition/animation so it's fully
+     static (no bouncing "working" dots, no reveal easing). */
+  .asm-typing i { animation: none; opacity: 1; }
+  .asm-agent,
+  .asm-block,
+  .asm-msg,
+  .asm-status,
+  .asm-block-icon { transition: none; }
 }
 
 /* ── Interactive architecture diagram (React island, hero) ───────────────
@@ -693,7 +1042,7 @@ input:focus-visible,
   stroke-width: 1.5;
   transition: fill 0.25s ease, stroke 0.25s ease;
 }
-.arch-diagram .ad-node.ad-orange rect { stroke: var(--color-brand); }
+.arch-diagram .ad-node.ad-orange rect { stroke: var(--color-accent); }
 .arch-diagram .ad-node.ad-blue rect { stroke: var(--color-blue); }
 .arch-diagram .ad-node.ad-green rect { stroke: var(--color-green); }
 .arch-diagram .ad-node text {
@@ -710,8 +1059,8 @@ input:focus-visible,
 }
 /* Active (data-flow at this step) node lights up in its accent + brand glow */
 .arch-diagram .ad-node.is-active.ad-orange rect {
-  fill: color-mix(in srgb, var(--color-brand) 16%, var(--color-bg-surface));
-  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-brand) 55%, transparent));
+  fill: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg-surface));
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-accent) 55%, transparent));
 }
 .arch-diagram .ad-node.is-active.ad-blue rect {
   fill: color-mix(in srgb, var(--color-blue) 16%, var(--color-bg-surface));
@@ -730,10 +1079,10 @@ input:focus-visible,
   transition: stroke 0.25s ease;
 }
 .arch-diagram .ad-edge.is-active {
-  stroke: var(--color-brand);
+  stroke: var(--color-accent);
   stroke-dasharray: 6 6;
   animation: ad-flow 0.9s linear infinite;
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-brand) 50%, transparent));
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-accent) 50%, transparent));
 }
 @keyframes ad-flow { to { stroke-dashoffset: -24; } }
 /* Hover/focus caption (HTML, under the SVG) — wraps freely */
@@ -756,7 +1105,7 @@ input:focus-visible,
 }
 .arch-diagram-caption .ad-caption-label {
   display: inline-block;
-  color: var(--color-brand);
+  color: var(--color-accent);
   font-weight: 700;
   letter-spacing: 0.04em;
   margin-right: 0.4ch;
@@ -764,4 +1113,140 @@ input:focus-visible,
 .arch-diagram-caption .ad-caption-label::after { content: "—"; margin-left: 0.4ch; }
 @media (prefers-reduced-motion: reduce) {
   .arch-diagram .ad-edge.is-active { animation: none; }
+}
+
+/* ── Hero: live request trace under the arch diagram ─────────────────── */
+.arch-diagram-trace {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75ch;
+  margin-top: 0.65rem;
+  font-size: 0.68rem;
+  line-height: 1.5;
+  color: var(--color-fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.arch-diagram-trace .ad-trace-step {
+  flex: none;
+  font-weight: 700;
+  font-size: 0.62rem;
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+  border-radius: 4px;
+  padding: 0 0.45ch;
+}
+
+/* ── Use cases: interactive tabs + animated visual ────────────────────── */
+.usecases-grid {
+  display: grid;
+  gap: 1.25rem;
+  align-items: stretch;
+}
+@media (min-width: 768px) {
+  .usecases-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+}
+.usecases-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.usecase-tab {
+  position: relative;
+  text-align: left;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-bg);
+  padding: 1rem 1.25rem 1.1rem;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.usecase-tab:hover { border-color: var(--color-border-strong); }
+.usecase-tab.is-active.uc-green { border-color: var(--color-green); }
+.usecase-tab.is-active.uc-blue { border-color: var(--color-blue); }
+.usecase-tab.is-active.uc-orange { border-color: var(--color-accent); }
+.usecase-tab-title {
+  display: block;
+  font-family: var(--font-display, inherit);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.3rem;
+}
+.usecase-tab-blurb {
+  display: block;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--color-fg-muted);
+}
+.usecase-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: currentColor;
+  transition: width 500ms linear;
+}
+.uc-green .usecase-progress { background: var(--color-green); }
+.uc-blue .usecase-progress { background: var(--color-blue); }
+.uc-orange .usecase-progress { background: var(--color-accent); }
+
+.usecase-visual {
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-bg-surface);
+  display: flex;
+  flex-direction: column;
+  min-height: 16rem;
+  overflow: hidden;
+}
+.usecase-visual-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.9rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.usecase-visual-title {
+  margin-left: 0.35rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  color: var(--color-fg-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.usecase-visual-body {
+  padding: 1rem 1.1rem;
+  font-size: 0.74rem;
+  line-height: 1.7;
+  flex: 1;
+}
+.usecase-line {
+  display: flex;
+  gap: 1ch;
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 260ms ease, transform 260ms ease;
+  color: var(--color-fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.usecase-line.is-shown { opacity: 1; transform: none; }
+.usecase-line-tag {
+  flex: none;
+  min-width: 3.2ch;
+  text-align: right;
+  font-weight: 700;
+  color: var(--color-fg-subtle);
+}
+.usecase-line.ucl-green, .usecase-line.ucl-green .usecase-line-tag { color: var(--color-green); }
+.usecase-line.ucl-blue, .usecase-line.ucl-blue .usecase-line-tag { color: var(--color-blue); }
+.usecase-line.ucl-orange, .usecase-line.ucl-orange .usecase-line-tag { color: var(--color-accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .usecase-line { transition: none; opacity: 1; transform: none; }
+  .usecase-progress { display: none; }
 }

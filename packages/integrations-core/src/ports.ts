@@ -144,6 +144,14 @@ export interface SessionCreator {
    * scanning. Pass the same userId that owned the original `create` call.
    */
   resume(userId: UserId, sessionId: SessionId, event: SessionEventInput): Promise<void>;
+  /**
+   * Pause a session's sandbox (snapshot workspace + destroy container) to
+   * stop paying for an idle container. Reversible — the next `resume()`
+   * call implicitly reprovisions on first use. No-op if already paused;
+   * rejects if the session is mid-turn (matches the public /pause route's
+   * 409 semantics).
+   */
+  pause(userId: UserId, sessionId: SessionId): Promise<void>;
 }
 
 /**

@@ -6,6 +6,7 @@ import { GitHubIcon, LinearIcon, SlackIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import { PageHeader } from "../components/PageHeader";
 import { Button } from "@/components/ui/button";
+import { AgentWebhooks } from "./agents/AgentWebhooks";
 import type { AgentRecord as Agent } from "../types/agent";
 
 /** Shared publication shape across Linear / GitHub / Slack — they all
@@ -152,6 +153,11 @@ export function AgentDetail() {
           {agent.archived_at && <><span className="text-fg-muted">Archived</span><span className="text-warning">{new Date(agent.archived_at).toLocaleString()}</span></>}
         </div>
 
+      {/* Two-column on xl: integrations + webhooks left, system prompt +
+          version history right — uses wide screens instead of one long
+          scroll. Collapses back to a single column below xl. */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-8 items-start">
+      <div className="min-w-0">
       {/* Integrations — one fold per provider so adding a 4th / 5th doesn't
           push the rest of the page below the viewport. Default-open when
           there's at least one live publication so the user sees what's wired
@@ -183,9 +189,13 @@ export function AgentDetail() {
         </div>
       </div>
 
+      <AgentWebhooks agent={agent} />
+      </div>
+
+      <div className="min-w-0">
       {/* System prompt */}
       {agent.system && (
-        <div className="mt-8 max-w-2xl">
+        <div className="mt-6 xl:mt-6 max-w-2xl">
           <h2 className="font-display text-base font-semibold mb-2">System Prompt</h2>
           <pre className="bg-bg-surface border border-border rounded-lg p-4 text-sm whitespace-pre-wrap max-h-64 overflow-y-auto font-mono text-fg-muted leading-relaxed">
             {agent.system}
@@ -219,6 +229,8 @@ export function AgentDetail() {
           </div>
         </div>
       )}
+      </div>
+      </div>
       </div>
     </Page>
   );

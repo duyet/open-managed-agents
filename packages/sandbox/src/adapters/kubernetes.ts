@@ -378,6 +378,20 @@ export class KubernetesSandboxExecutor implements SandboxExecutor {
   }
 
   async writeFileBytes(path: string, bytes: Uint8Array): Promise<string> {
+    return this.writeFileBytesOnPod(path, bytes);
+  }
+
+  /** Backing implementation for writeFileBytes, with an optional
+   *  pre-resolved pod. The CA-cert upload inside createAndWaitForPod must
+   *  pass the pod it just resolved: it runs *inside* the still-pending
+   *  `podPromise`, so letting it call ensurePod() again would re-await that
+   *  same unresolved promise and deadlock the whole turn (no exec ever
+   *  starts, so runExec's timeout never arms either). See ensurePod. */
+  private async writeFileBytesOnPod(
+    path: string,
+    bytes: Uint8Array,
+    pod?: PodHandle,
+  ): Promise<string> {
     // No native file-transfer API on this transport (see module header) —
     // base64-encode and decode it back on the other side of the same
     // exec channel used for commands. Suitable for the config/script-size
@@ -388,7 +402,7 @@ export class KubernetesSandboxExecutor implements SandboxExecutor {
     const cmd =
       `mkdir -p ${shellEscape(dir)} && ` +
       `echo ${shellEscape(b64)} | base64 -d > ${shellEscape(path)}`;
-    const { stdout, stderr, exitCode } = await this.runExec(["/bin/sh", "-c", cmd], 30_000);
+    const { stdout, stderr, exitCode } = await this.runExec(["/bin/sh", "-c", cmd], 30_000, pod);
     if (exitCode !== 0) {
       throw new Error(`k8s-sandbox writeFileBytes ${path} failed (exit ${exitCode}): ${stderr || stdout}`);
     }
@@ -541,9 +555,24 @@ export class KubernetesSandboxExecutor implements SandboxExecutor {
   private async runExec(
     argv: string[],
     timeoutMs: number,
+    pod?: PodHandle,
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    // Bound the setup phase (client load + pod provisioning) so a hang here
+    // fails loud instead of wedging the turn forever. The per-exec timer
+    // below only arms *after* this await resolves, so without this guard any
+    // stall before the WebSocket opens (e.g. an unreachable API server, or a
+    // re-entrant ensurePod deadlock) would never surface. Pod provisioning
+    // legitimately runs up to readyTimeoutMs, so allow for that plus the
+    // exec budget.
     const { execClient } = await this.getClients();
-    const { podName, containerName } = await this.ensurePod();
+    const setupBudgetMs = this.opts.readyTimeoutMs + timeoutMs;
+    const { podName, containerName } = pod
+      ? pod
+      : await withTimeout(
+          this.ensurePod(),
+          setupBudgetMs,
+          `k8s exec: pod not ready within ${setupBudgetMs}ms`,
+        );
     const { Writable } = await import("node:stream");
 
     return new Promise((resolvePromise, rejectPromise) => {
@@ -696,7 +725,13 @@ export class KubernetesSandboxExecutor implements SandboxExecutor {
       try {
         const { promises: nodeFs } = await import("node:fs");
         const buf = await nodeFs.readFile(this.pendingCaUpload.hostPath);
-        await this.writeFileBytes(this.pendingCaUpload.guestPath, new Uint8Array(buf));
+        // Pass the pod we just resolved — see writeFileBytesOnPod: routing
+        // through ensurePod() here would re-await this very (still-pending)
+        // podPromise and deadlock the turn.
+        await this.writeFileBytesOnPod(this.pendingCaUpload.guestPath, new Uint8Array(buf), {
+          podName,
+          containerName: CONTAINER_NAME,
+        });
         this.logger.log(`uploaded vault CA cert (${buf.byteLength} bytes)`);
       } catch (err) {
         this.logger.warn(`vault CA upload failed: ${(err as Error).message} — outbound TLS through oma-vault will fail with cert errors`);
@@ -861,6 +896,25 @@ export async function sweepOrphanedSandboxes(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+/** Reject with `message` if `p` hasn't settled within `ms`. Used to bound
+ *  the exec setup phase so a stall there fails loud rather than hanging the
+ *  session turn indefinitely. */
+function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
 }
 
 /** Kubernetes object names must be RFC 1123 DNS subdomains: lowercase

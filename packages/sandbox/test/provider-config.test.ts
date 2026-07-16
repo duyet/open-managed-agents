@@ -4,8 +4,13 @@
 // adapter, or fails clearly because it's Node-only. See
 // apps/agent/src/runtime/sandbox.ts's `resolveCfSandbox` for the caller.
 
-import { describe, it, expect } from "vitest";
-import { classifyCfSandboxProvider, SYSTEM_PROVIDERS } from "../src/provider-config";
+import { describe, it, expect, vi } from "vitest";
+import {
+  classifyCfSandboxProvider,
+  SYSTEM_PROVIDERS,
+  parseOpenShellMode,
+  resolveDefaultLocalSandboxProvider,
+} from "../src/provider-config";
 
 describe("classifyCfSandboxProvider", () => {
   it("defaults to cloudflare when providerId is absent", () => {
@@ -24,7 +29,7 @@ describe("classifyCfSandboxProvider", () => {
     expect(classifyCfSandboxProvider("totally-unknown-provider")).toEqual({ kind: "cloudflare" });
   });
 
-  it.each(["boxrun", "daytona", "e2b"])(
+  it.each(["boxrun", "daytona", "e2b", "k8s-remote"])(
     "classifies remote HTTP-API adapter %s as remote",
     (type) => {
       expect(classifyCfSandboxProvider(type)).toEqual({ kind: "remote", type });
@@ -53,6 +58,7 @@ describe("classifyCfSandboxProvider", () => {
       daytona: true,
       e2b: true,
       k8s: false,
+      "k8s-remote": true,
       "k8s-bridge": true,
       cloud: true,
       "docker-compose": false,
@@ -66,5 +72,88 @@ describe("classifyCfSandboxProvider", () => {
     expect(classifyCfSandboxProvider("openshell")).toEqual({ kind: "unavailable", type: "openshell" });
     // case-insensitive
     expect(classifyCfSandboxProvider("OpenShell")).toEqual({ kind: "unavailable", type: "openshell" });
+  });
+});
+
+describe("parseOpenShellMode", () => {
+  it("defaults to auto for unset/unrecognized values", () => {
+    expect(parseOpenShellMode(undefined)).toBe("auto");
+    expect(parseOpenShellMode("")).toBe("auto");
+    expect(parseOpenShellMode("bogus")).toBe("auto");
+  });
+
+  it("recognizes openshell and subprocess, case-insensitively and trimmed", () => {
+    expect(parseOpenShellMode("openshell")).toBe("openshell");
+    expect(parseOpenShellMode("OpenShell")).toBe("openshell");
+    expect(parseOpenShellMode("  subprocess  ")).toBe("subprocess");
+  });
+});
+
+describe("resolveDefaultLocalSandboxProvider", () => {
+  it("picks openshell when the gateway is configured and probe reports reachable", async () => {
+    const probe = vi.fn().mockResolvedValue(true);
+    const result = await resolveDefaultLocalSandboxProvider(
+      { OPENSHELL_GATEWAY_ENDPOINT: "127.0.0.1:8080" },
+      probe,
+    );
+    expect(result.providerId).toBe("openshell");
+    expect(probe).toHaveBeenCalledWith("127.0.0.1:8080");
+  });
+
+  it("falls back to subprocess when the probe reports unreachable", async () => {
+    const probe = vi.fn().mockResolvedValue(false);
+    const result = await resolveDefaultLocalSandboxProvider(
+      { OPENSHELL_GATEWAY_ENDPOINT: "127.0.0.1:8080" },
+      probe,
+    );
+    expect(result.providerId).toBe("subprocess");
+    expect(result.reason).toMatch(/unreachable/);
+  });
+
+  it("falls back to subprocess without probing when no gateway endpoint is configured", async () => {
+    const probe = vi.fn().mockResolvedValue(true);
+    const result = await resolveDefaultLocalSandboxProvider({}, probe);
+    expect(result.providerId).toBe("subprocess");
+    expect(probe).not.toHaveBeenCalled();
+  });
+
+  it("falls back to subprocess when the probe throws", async () => {
+    const probe = vi.fn().mockRejectedValue(new Error("ECONNREFUSED"));
+    const result = await resolveDefaultLocalSandboxProvider(
+      { OPENSHELL_GATEWAY_ENDPOINT: "127.0.0.1:8080" },
+      probe,
+    );
+    expect(result.providerId).toBe("subprocess");
+    expect(result.reason).toMatch(/ECONNREFUSED/);
+  });
+
+  it("OPENSHELL_MODE=openshell forces openshell without probing", async () => {
+    const probe = vi.fn().mockResolvedValue(false);
+    const result = await resolveDefaultLocalSandboxProvider(
+      { OPENSHELL_MODE: "openshell", OPENSHELL_GATEWAY_ENDPOINT: "127.0.0.1:8080" },
+      probe,
+    );
+    expect(result.providerId).toBe("openshell");
+    expect(probe).not.toHaveBeenCalled();
+  });
+
+  it("OPENSHELL_MODE=openshell falls back to subprocess if no endpoint is configured to force", async () => {
+    const probe = vi.fn().mockResolvedValue(true);
+    const result = await resolveDefaultLocalSandboxProvider(
+      { OPENSHELL_MODE: "openshell" },
+      probe,
+    );
+    expect(result.providerId).toBe("subprocess");
+    expect(probe).not.toHaveBeenCalled();
+  });
+
+  it("OPENSHELL_MODE=subprocess forces subprocess without probing, even when reachable", async () => {
+    const probe = vi.fn().mockResolvedValue(true);
+    const result = await resolveDefaultLocalSandboxProvider(
+      { OPENSHELL_MODE: "subprocess", OPENSHELL_GATEWAY_ENDPOINT: "127.0.0.1:8080" },
+      probe,
+    );
+    expect(result.providerId).toBe("subprocess");
+    expect(probe).not.toHaveBeenCalled();
   });
 });

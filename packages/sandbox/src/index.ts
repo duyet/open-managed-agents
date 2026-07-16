@@ -4,6 +4,7 @@ export type {
   SandboxFactory,
   SandboxFactoryContext,
   SandboxFactoryEnv,
+  SandboxCapacity,
 } from "./ports";
 
 export {
@@ -27,6 +28,8 @@ export type {
   ResolvedSandboxProvider,
   SystemProviderDescriptor,
   CfSandboxResolution,
+  LocalSandboxMode,
+  DefaultProviderSelection,
 } from "./provider-config";
 
 export {
@@ -34,8 +37,12 @@ export {
   providerConfigToEnv,
   checkProviderRequirements,
   classifyCfSandboxProvider,
+  parseOpenShellMode,
+  resolveDefaultLocalSandboxProvider,
   SYSTEM_PROVIDERS,
 } from "./provider-config";
+
+export { KubernetesRemoteSandbox } from "./adapters/kubernetes-remote";
 
 export {
   InMemoryQuotaStore,

@@ -8,6 +8,13 @@ import { toast } from "sonner";
 import { Page } from "../components/Page";
 import { Field } from "../components/Field";
 import { friendlyHostingDescription, type HostingTypeLike } from "../lib/hostingTypes";
+import {
+  EnvVarsEditor,
+  envVarsToRows,
+  rowsToEnvVars,
+  type EnvVarRow,
+  type EnvVarSpec,
+} from "../components/EnvVarsEditor";
 
 // =================================================================
 // Types
@@ -69,6 +76,7 @@ interface EnvConfigBlock {
   networking?: NetworkingConfig;
   dockerfile?: string;
   resources?: ResourcesConfig;
+  env_vars?: EnvVarSpec[];
 }
 
 interface Env {
@@ -145,6 +153,7 @@ export function EnvironmentDetail() {
   const [allowedHostsText, setAllowedHostsText] = useState("");
   const [packageRows, setPackageRows] = useState<PackageRow[]>([]);
   const [metadataRows, setMetadataRows] = useState<MetadataRow[]>([]);
+  const [envVarRows, setEnvVarRows] = useState<EnvVarRow[]>([]);
   // `gem` packages aren't editable (no UI row) — preserved verbatim
   // so save doesn't silently strip them.
   const [preservedGem, setPreservedGem] = useState<string[] | undefined>(undefined);
@@ -192,6 +201,7 @@ export function EnvironmentDetail() {
     setResources(e.config.resources ?? {});
 
     setMetadataRows(metadataToRows(e.metadata));
+    setEnvVarRows(envVarsToRows(e.config.env_vars));
   }
 
   async function save() {
@@ -206,6 +216,7 @@ export function EnvironmentDetail() {
         packages: rowsToPackages(packageRows, preservedGem),
         networking: buildNetworking(networking, allowedHostsText),
         resources: buildResources(resources, env.config.type),
+        env_vars: rowsToEnvVars(envVarRows),
       };
 
       const body = {
@@ -259,7 +270,7 @@ export function EnvironmentDetail() {
 
   return (
     <Page>
-      <div className="max-w-3xl space-y-6">
+      <div className="max-w-6xl space-y-6">
         {/* Header: name input + hosting-type badge + status */}
         <section className="space-y-3">
           <h1 className="sr-only">{env.name || "Environment"}</h1>
@@ -302,6 +313,12 @@ export function EnvironmentDetail() {
             />
           </div>
         </section>
+
+        {/* Section cards — single column on small screens, two-column
+            grid on xl so the page uses wide viewports instead of one
+            long scroll. `items-start` keeps cards from stretching to
+            match their row partner's height. */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
 
         {/* Networking */}
         <SectionCard
@@ -540,6 +557,17 @@ export function EnvironmentDetail() {
           )}
         </SectionCard>
 
+        {/* Environment variables — full width, the table needs room */}
+        <SectionCard
+          title="Environment variables"
+          subtitle="Persistent variables injected into every session's sandbox created from this environment. Mark a variable sensitive to store it as a secret (masked, never returned by the API)."
+          className="xl:col-span-2"
+        >
+          <EnvVarsEditor rows={envVarRows} setRows={setEnvVarRows} />
+        </SectionCard>
+
+        </div>
+
         {/* Footer actions */}
         <div className="flex items-center gap-3 pt-2">
           <Button onClick={save} loading={saving} disabled={!name.trim()}>
@@ -565,15 +593,17 @@ function SectionCard({
   title,
   subtitle,
   action,
+  className,
   children,
 }: {
   title: string;
   subtitle?: string;
   action?: React.ReactNode;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="border border-border rounded-lg bg-bg-surface/30">
+    <section className={`border border-border rounded-lg bg-bg-surface/30 ${className ?? ""}`}>
       <header className="px-4 py-3 border-b border-border flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="font-display text-base font-semibold text-fg">{title}</h2>

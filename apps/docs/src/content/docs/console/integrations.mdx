@@ -7,6 +7,13 @@ import { Tabs, TabItem, Steps, Aside, LinkCard } from '@astrojs/starlight/compon
 
 Integrations let your agent live where your users already are. oma ships three out of the box; each follows the same shape: **install the app**, **grant scopes**, **publish an agent**.
 
+The Console **Integrations hub** (`/integrations`) lists every provider with its
+current connection status and a Connect / Manage / Disconnect control. Connecting
+runs through a unified OAuth flow — `GET /oauth/:provider/start` mints a signed,
+short-lived CSRF state and redirects to the provider; `GET /oauth/:provider/callback`
+verifies it, exchanges the code, and stores the token as a vault credential. The
+same two routes back Linear, GitHub, and Slack.
+
 This page is for the **hosted product**. If you self-host, the OAuth apps are yours to register — see [Self-host → OAuth Apps](/self-host/oauth-apps/).
 
 ## How integrations work
@@ -69,7 +76,7 @@ You need your own GitHub App first. See [Self-host → OAuth Apps → GitHub](/s
 
 Two trigger paths, in priority order:
 
-**Label-based engagement (primary).** On install, OMA auto-creates a label
+**Label-based engagement (primary).** On install, oma auto-creates a label
 named after your bot's persona (lowercased + slugified — e.g. persona "Coder"
 → label `coder`) in every selected repo. To engage the bot on any issue or PR,
 **add this label**. Once labeled, the bot wakes for every whitelisted activity
@@ -91,7 +98,7 @@ on that issue/PR — no need to re-mention for follow-ups:
 | `pull_request_review.submitted` | yes |
 | `pull_request_review_comment.created` (incl. inline replies) | yes |
 
-If you delete the label from a repo, OMA will not recreate it; the bot will
+If you delete the label from a repo, oma will not recreate it; the bot will
 stop responding in that repo until the label is re-added.
 
 **`@`-mention fallback.** Type `@<bot-slug>[bot]` (or `@<bot-slug>`) anywhere
@@ -112,6 +119,10 @@ ad-hoc engagement equivalent to having added the label.
 ## Connect Slack
 
 Slack installs are **per-agent dedicated Slack Apps** — each publication owns its own Slack App entry on `api.slack.com`, with its own OAuth credentials and bot user. This keeps tenants isolated (your bot lives in its own App, not a shared marketplace one) and lets each publication scope independently.
+
+<Aside type="tip" title="One-click managed install">
+  If the operator configured a single distributable managed Slack App (`SLACK_MANAGED_CLIENT_ID` / `SLACK_MANAGED_CLIENT_SECRET` / `SLACK_MANAGED_SIGNING_SECRET`), the publish wizard shows an **Add to Slack** button that skips the manifest / paste-credentials steps entirely — one click straight to the OAuth authorize screen (`POST /slack/publications/start-managed`). The same app installs into many workspaces from one shared events URL; inbound events are routed to the right per-workspace installation by `team_id`. Without those secrets it falls back to the bring-your-own-App manifest wizard below. Full guide: [`docs/slack-integration.md`](https://github.com/duyet/oma/blob/main/docs/slack-integration.md).
+</Aside>
 
 <Tabs>
   <TabItem label="Hosted (oma.duyet.net)">

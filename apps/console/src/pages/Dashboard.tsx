@@ -1,11 +1,10 @@
-import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../lib/auth";
 import { useApiQuery } from "../lib/useApiQuery";
-import { toast } from "sonner";
 import { StatusPill } from "../components/Badge";
 import { EmptyState } from "../components/EmptyState";
 import { Skeleton } from "../components/Skeleton";
+import { StackedAssembly } from "../components/StackedAssembly";
 
 interface Stats {
   agents: number;
@@ -28,8 +27,6 @@ interface RecentSession {
 export function Dashboard() {
   const nav = useNavigate();
   const { user: _user } = useAuth();
-  const [copied, setCopied] = useState<string | null>(null);
-
   // Headline cards + recent panel each ride their own TQ query so the
   // dashboard renders the parts it has — a flaky /v1/stats no longer
   // blocks the recent-sessions panel and vice versa. The previous
@@ -43,18 +40,11 @@ export function Dashboard() {
   const stats = statsQuery.data ?? null;
   const recentSessions = sessionsQuery.data?.data.slice(0, 5) ?? [];
 
-  const copy = (text: string, key: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(key);
-    toast.success("Copied");
-    setTimeout(() => setCopied(null), 1600);
-  };
-
   const stat = (label: string, value: number | undefined, to: string) => (
     <button
       key={label}
       onClick={() => nav(to)}
-      className="group relative text-left px-4 py-3.5 border border-border rounded-md bg-bg hover:border-border-strong hover:bg-bg-surface/40 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
+      className="group relative text-left px-4 py-3.5 border border-border rounded-md bg-bg hover:border-border-strong hover:bg-bg-surface/40 active:translate-y-px transition-[color,background-color,border-color,transform] duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
     >
       <div className="font-display text-[28px] leading-none font-semibold text-fg group-hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] tabular-nums">
         {value ?? "–"}
@@ -74,178 +64,35 @@ export function Dashboard() {
     { label: "Model Cards", value: stats?.model_cards, to: "/model-cards" },
   ];
 
-  const cmd = "npx -y -p @duyet/oma-cli oma";
-  const cmdGlobal = "npm i -g @duyet/oma-cli";
-  const examplePrompt =
-    "Use oma to create a research agent that monitors arXiv for new ML papers daily";
-
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="py-6 space-y-10">
+    <div className="pb-4">
+      <div className="space-y-10 pt-3">
         {/* Header */}
         <header>
           <h1 className="font-display text-[32px] leading-tight font-semibold tracking-tight text-fg">
             Get started with oma
           </h1>
           <p className="mt-1.5 text-[15px] text-fg-muted">
-            Hand the platform to your agent — install the CLI, mint a key, point them at it.
+            Configure the pieces below, compose them into an agent, and every
+            conversation runs as a session inside a sandbox. Click any box to
+            set it up. CLI install steps live on the{" "}
+            <button
+              onClick={() => nav("/runtimes")}
+              className="text-brand hover:underline"
+            >
+              Sandbox Runtime page
+            </button>
+            .
           </p>
         </header>
 
-        {/* Quickstart — single panel with three rows, no per-step cards */}
-        <section className="border border-border rounded-lg overflow-hidden">
-          {/* Step 1 */}
-          <div className="grid md:grid-cols-[180px_1fr] gap-x-6 gap-y-2 p-5 md:p-6 border-b border-border">
-            <div>
-              <div className="font-mono text-[11px] tracking-wider text-brand">STEP 01</div>
-              <div className="mt-1 font-medium text-fg text-[15px]">Install the CLI</div>
-            </div>
-            <div className="space-y-2.5 min-w-0">
-              <p className="text-sm text-fg-muted">
-                The <code className="font-mono text-[13px] text-fg">oma</code> CLI lets your
-                agent (or you) drive the platform from the terminal.
-              </p>
-              <button
-                onClick={() => copy(cmd, "cmd")}
-                className="group w-full sm:w-auto sm:inline-flex items-center gap-3 pl-3 pr-2 py-2 rounded-md border border-border bg-bg-surface/50 hover:border-border-strong transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] text-left"
-              >
-                <span className="text-fg-subtle select-none font-mono text-xs">›</span>
-                <span className="font-mono text-[13px] text-fg flex-1 truncate">{cmd}</span>
-                <span className="shrink-0 text-fg-subtle group-hover:text-fg transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] p-1">
-                  {copied === "cmd" ? (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
-                  ) : (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
-                  )}
-                </span>
-              </button>
-              <p className="text-[12px] text-fg-subtle">
-                or globally:{" "}
-                <button
-                  onClick={() => copy(cmdGlobal, "cmd-global")}
-                  className="inline-flex items-center min-h-11 sm:min-h-0 font-mono text-fg-muted hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
-                >
-                  {cmdGlobal}
-                </button>
-              </p>
-            </div>
-          </div>
-
-          {/* Step 2 */}
-          <div className="grid md:grid-cols-[180px_1fr] gap-x-6 gap-y-2 p-5 md:p-6 border-b border-border">
-            <div>
-              <div className="font-mono text-[11px] tracking-wider text-brand">STEP 02</div>
-              <div className="mt-1 font-medium text-fg text-[15px]">Mint an API key</div>
-            </div>
-            <div className="space-y-2.5">
-              <p className="text-sm text-fg-muted">
-                Your agent needs this to authenticate. Keep it somewhere it can read.
-              </p>
-              <button
-                onClick={() => nav("/api-keys")}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand text-brand-fg rounded-md text-[13px] font-medium hover:bg-brand-hover transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
-              >
-                Generate API key
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-              </button>
-            </div>
-          </div>
-
-          {/* Step 3 */}
-          <div className="grid md:grid-cols-[180px_1fr] gap-x-6 gap-y-2 p-5 md:p-6">
-            <div>
-              <div className="font-mono text-[11px] tracking-wider text-brand">STEP 03</div>
-              <div className="mt-1 font-medium text-fg text-[15px]">Hand it the reins</div>
-            </div>
-            <div className="space-y-2.5">
-              <p className="text-sm text-fg-muted">
-                Point your agent at the <code className="font-mono text-[13px] text-fg">oma-cli</code>{" "}
-                or <code className="font-mono text-[13px] text-fg">oma-api</code> skill, then
-                ask for what you want:
-              </p>
-              <button
-                onClick={() => copy(examplePrompt, "prompt")}
-                className="group w-full text-left rounded-md border border-border bg-bg-surface/50 hover:border-border-strong transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] p-3 flex items-start gap-3"
-              >
-                <span className="shrink-0 mt-0.5 font-mono text-[10px] tracking-wider text-fg-subtle">
-                  PROMPT
-                </span>
-                <span className="flex-1 text-[13px] text-fg leading-snug">{examplePrompt}</span>
-                <span className="shrink-0 text-fg-subtle group-hover:text-fg transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] mt-0.5">
-                  {copied === "prompt" ? (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
-                  ) : (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
-                  )}
-                </span>
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* First-session setup checklist — driven by /v1/stats so each
-            item shows done/pending and links straight to its page. A first
-            session needs: an API key (auth), a model card (LLM creds), an
-            environment (sandbox), and an agent to run. Vaults/skills are
-            optional polish, surfaced but not gating. */}
-        <section>
-          <h2 className="font-display text-lg font-semibold text-fg mb-3">
-            Before your first session
-          </h2>
-          <div className="border border-border rounded-lg divide-y divide-border">
-            {[
-              {
-                label: "API key",
-                hint: "Mint a key so the CLI / your agent can authenticate.",
-                to: "/api-keys",
-                done: (stats?.api_keys ?? 0) > 0,
-              },
-              {
-                label: "Model card",
-                hint: "Add at least one card to provide LLM credentials for cloud agents.",
-                to: "/model-cards",
-                done: (stats?.model_cards ?? 0) > 0,
-              },
-              {
-                label: "Environment",
-                hint: "Create a sandbox environment (e.g. Cloudflare Sandbox) for agents to run in.",
-                to: "/environments",
-                done: (stats?.environments ?? 0) > 0,
-              },
-              {
-                label: "Agent",
-                hint: "Create an agent that ties a model card + environment together.",
-                to: "/agents",
-                done: (stats?.agents ?? 0) > 0,
-              },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="flex items-center gap-3 px-4 py-3.5"
-              >
-                <span
-                  className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${
-                    item.done
-                      ? "bg-brand text-brand-fg"
-                      : "border border-border text-fg-subtle"
-                  }`}
-                >
-                  {item.done ? "✓" : ""}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-fg">{item.label}</div>
-                  <div className="text-xs text-fg-muted">{item.hint}</div>
-                </div>
-                <button
-                  onClick={() => nav(item.to)}
-                  className="inline-flex items-center min-h-11 sm:min-h-0 text-[13px] text-fg-muted hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] shrink-0"
-                >
-                  {item.done ? "Manage" : "Set up"} →
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
+        {/* How it fits together — stacked assembly: a hero Agent card that
+            "uses" a grid of building blocks (model, MCP, skills, runtime,
+            keys, chat). Each block's status dot doubles as the to-do list —
+            replaces the old three-stage arrow diagram and the separate
+            "Before your first session" checklist (issue: they duplicated
+            the same setup state). */}
+        <StackedAssembly />
 
         {/* Stats — number-forward, no decorative icons */}
         <section>
@@ -260,9 +107,12 @@ export function Dashboard() {
             <h2 className="font-display text-lg font-semibold text-fg">Recent sessions</h2>
             <button
               onClick={() => nav("/sessions")}
-              className="inline-flex items-center min-h-11 sm:min-h-0 text-[13px] text-fg-muted hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
+              className="group/cta inline-flex items-center gap-1 min-h-11 sm:min-h-0 text-[13px] text-fg-muted hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
             >
-              View all →
+              View all
+              <span className="transition-transform duration-[var(--dur-quick)] ease-[var(--ease-soft)] group-hover/cta:translate-x-0.5">
+                →
+              </span>
             </button>
           </div>
 

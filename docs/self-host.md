@@ -29,7 +29,7 @@ backends](#migrating-between-backends) below).
 | Extra services | None | + `postgres:16-alpine` (or external PG) |
 | When to switch | "I want PG already" / "want to scale out" | — |
 
-**Same Docker image either way** (`oma/main-node:dev` built from
+**Same Docker image either way** (`oma/main-node:dev` — the self-host Node.js server image, same control-plane API as the `apps/main` Cloudflare Worker, built from
 `apps/main-node/Dockerfile`) — `DATABASE_URL` env at runtime decides.
 SQLite needs only `DATABASE_PATH`; Postgres needs `DATABASE_URL=
 postgres://…`. In Postgres mode better-auth's tables live in the same
@@ -434,6 +434,18 @@ provider available:
 **The old `SANDBOX_PROVIDER` env var still works** as the fallback default
 when an environment has no explicit provider selection. New deployments should
 use per-environment `config.sandbox_provider` (see below) for finer control.
+
+**Auto-detected default:** when neither an environment's `sandbox_provider`
+nor `SANDBOX_PROVIDER` is set, main-node no longer falls back straight to
+`subprocess` — it first checks whether `OPENSHELL_GATEWAY_ENDPOINT` is
+configured and the gateway is currently reachable (a cheap gRPC
+connectivity probe, ~1.5s timeout, computed once and cached for the
+process lifetime), preferring OpenShell when it is. Override with
+`OPENSHELL_MODE`: `auto` (default) probes and picks the best fit,
+`openshell` forces OpenShell without probing (fails loudly at first use if
+actually unreachable, same as any other explicit selection), `subprocess`
+disables the auto-detect entirely. See `resolveDefaultLocalSandboxProvider`
+in `packages/sandbox/src/provider-config.ts`.
 
 ### BYOK (bring your own key)
 

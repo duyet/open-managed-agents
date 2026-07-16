@@ -1,0 +1,188 @@
+---
+title: How it works & the hard parts
+description: A plain walk-through of what happens when an agent runs in oma — and an honest look at the engineering problems that make an agent platform hard to build.
+---
+
+import { Aside, Steps, Card, CardGrid } from '@astrojs/starlight/components';
+
+oma runs on **any LLM provider** and **any sandbox platform**. This page
+explains what actually happens when an agent takes a turn, then walks through
+the problems that are genuinely hard — the ones that shape the whole design.
+
+If you want the component map first, read [Architecture](/architecture/). This
+page is the narrative version, plus the trade-offs.
+
+## What happens in one turn
+
+<Steps>
+
+1. **A message arrives.** A user (or a webhook, schedule, or another agent)
+   sends a `user.message` to a session. The session is a durable object with an
+   append-only event log — the message is written to that log **before**
+   anything else happens.
+
+2. **The harness wakes up.** The platform hands the harness everything the
+   agent is allowed to use — its tools, skills, memory mounts, and the full
+   event history — and the harness decides *how* to drive the model: how to
+   build the context, what to cache, how many tool steps to allow.
+
+3. **The model is called.** The harness resolves the agent's `model` handle to
+   a provider (Anthropic, an OpenAI-compatible gateway, or a model card) and
+   streams the response. Streaming chunks are broadcast live but are not the
+   source of truth — the final event is.
+
+4. **Tools run in a sandbox.** When the model calls `bash`, `read`, `write`, or
+   an MCP tool, the call is dispatched into the session's sandbox — a container,
+   a Kubernetes pod, a micro-VM, or a subprocess, depending on the environment.
+   The agent's code never holds a credential.
+
+5. **Credentials are injected at the edge.** If a tool makes an outbound HTTPS
+   call that matches a vault credential, an outbound proxy adds the auth header
+   *on the way out*. The token is never visible inside the sandbox.
+
+6. **Every step is persisted, then broadcast.** Each event is durably written
+   before it is sent to any listener. If the process dies mid-turn, a fresh
+   harness reads the log and continues — no lost work.
+
+</Steps>
+
+That "persist first, broadcast second" ordering, and the "credentials never
+enter the sandbox" rule, are not details — they are the two decisions
+everything else bends around.
+
+## The hard parts
+
+Building an agent platform is easy to start and hard to finish. These are the
+problems that take real work.
+
+### 1. Keeping credentials out of the sandbox
+
+The sandbox runs untrusted, model-driven code. It must never see a raw token —
+otherwise a prompt injection could exfiltrate every secret the agent can touch.
+
+oma solves this with an **outbound proxy**: the sandbox makes a normal HTTPS
+request, and a proxy in front of it matches the destination against the vault
+and injects the auth header. The token lives outside the box the whole time.
+
+The cost is subtle constraints that surface in practice:
+
+- The proxy has to be reachable *from inside* the sandbox's network — a
+  `localhost` URL that works on the host is meaningless inside a Kubernetes pod,
+  so the proxy is exposed on a cluster Service and referenced by DNS.
+- Only clients that honor `HTTPS_PROXY` (curl, git, most SDKs) get injection.
+  A client that ignores proxy environment variables bypasses it — a real
+  gotcha for coding agents that ship their own HTTP stack.
+- The proxy terminates TLS, so its CA has to be uploaded into the sandbox and
+  trusted before the first authenticated call.
+
+<Aside type="tip">
+MCP is handled the same way in spirit: every MCP call is proxied through the
+control plane, which is the only layer that ever holds the upstream credential.
+The sandbox and the harness never see it.
+</Aside>
+
+### 2. Never losing a turn
+
+If a session can crash — and at scale it will — then losing the conversation is
+not acceptable. oma's answer is an **append-only event log** as the single
+source of truth, with a strict rule: **persist before broadcast**.
+
+Because state lives only in the log, the harness is *stateless*. A crash
+mid-turn is recoverable: a new harness instance replays the log, rebuilds
+context, and resumes. Streaming chunks, thinking, and tool-input previews are
+broadcast-only — the persisted `agent.*` event is the record. Getting that
+split right is what makes "kill the process and it keeps working" true instead
+of aspirational.
+
+### 3. Not breaking the prompt cache
+
+Model providers cache identical prompt prefixes and bill the cached portion far
+cheaper. To benefit, the system prompt prefix has to be **byte-for-byte
+deterministic** across turns — any drift silently invalidates the cache and
+quietly multiplies cost.
+
+That means the context-building code can't casually reorder fields, and dynamic
+injections (like `<system-reminder>` blocks) have to sit inside the cached
+prefix in a stable position. It's an invisible constraint: nothing *breaks*
+when you get it wrong, the bill just goes up. This is why context assembly is
+treated as a contract, not a convenience.
+
+### 4. One business logic, two very different runtimes
+
+oma runs the same platform two ways: on **Cloudflare** (Workers + Durable
+Objects + Containers) and **self-hosted Node** (`docker compose`). A Cloudflare
+Worker is a single-file V8 isolate — no filesystem, no `child_process`, no
+dynamic module loading. Node has all three.
+
+So a sandbox provider that shells out or reads the disk (subprocess, a native
+micro-VM, local Kubernetes) simply *cannot* run in a Worker, while a provider
+that only speaks HTTP (a remote BoxRun, a k8s gateway) runs in both. The
+platform classifies providers up front and, on Cloudflare, fails **loudly and
+early** for the node-only ones rather than half-working. Keeping one codebase
+honest across two runtimes with different physics is a constant tension — even
+the test suite is split by execution pool because of it.
+
+### 5. Talking to a sandbox is harder than it looks
+
+Executing a command in a remote sandbox — a Kubernetes pod, say — means opening
+a streaming connection, wiring stdout/stderr/exit-code back, and tearing it
+down cleanly, every time. Small ordering mistakes turn into hangs.
+
+<Aside type="caution" title="A real bug, as an example">
+On the Kubernetes provider, the first shell command in a session would wedge
+*forever* whenever the vault proxy was configured. The cause was a re-entrancy
+deadlock: uploading the proxy's CA certificate into the pod happened *inside*
+the "wait for the pod to be ready" step, and the upload itself needed the pod
+to be ready — so each waited on the other. Worse, the per-command timeout was
+armed *after* that step, so it never fired: the turn just hung silently with no
+error. The fix passed the already-resolved pod handle to the upload, and moved
+the timeout earlier so a stalled setup **fails loud** instead of hanging.
+</Aside>
+
+The lesson generalized into a rule the platform now follows everywhere: a turn
+that can't make progress must surface an error and return to idle, never hang
+in silence. Silent failure is worse than a loud one.
+
+### 6. Any model, without special-casing every model
+
+"Any LLM provider" means the harness can't assume Anthropic's wire format.
+Providers are addressed through a compatibility layer — Anthropic-style
+`/messages`, OpenAI-style `/chat/completions`, or a custom gateway — resolved
+from the agent's model handle or a model card, with env-var fallbacks.
+
+The messy reality lives at the edges: a gateway may reject a large `max_tokens`
+even for a tiny reply, or advertise a model it can't actually serve. So the
+platform keeps output caps configurable and treats provider errors as
+first-class events, not surprises. Breadth costs you the comfort of a single
+well-behaved API.
+
+## Why it's built this way
+
+<CardGrid>
+  <Card title="Portable by construction" icon="random">
+    Because the model provider and the sandbox are both swappable behind
+    interfaces, "any LLM provider, any sandbox platform" is a property of the
+    architecture — not a feature bolted on later.
+  </Card>
+  <Card title="Safe by default" icon="approve-check">
+    Credentials never enter the sandbox, and every turn is durable before it is
+    visible. Safety isn't a mode you turn on; it's the default path.
+  </Card>
+  <Card title="Yours to inspect" icon="open-book">
+    Every rule above lives in source you can read and fork. When something
+    behaves unexpectedly, you can see exactly why — and your fix can ship as a
+    pull request.
+  </Card>
+  <Card title="Fails loud, not silent" icon="warning">
+    Unavailable providers error early, stalled turns surface errors, and
+    misconfigurations are reported — the platform prefers a clear failure over a
+    quiet wrong answer.
+  </Card>
+</CardGrid>
+
+## Keep reading
+
+- [Architecture](/architecture/) — the component map and data flow.
+- [Concepts](/concepts/) — every noun in oma, one page.
+- [Vault & MCP](/build/vault-and-mcp/) — how credential injection actually works.
+- [Recovery & Idempotency](/contribute/recovery-and-idempotency/) — the durability rules in depth.

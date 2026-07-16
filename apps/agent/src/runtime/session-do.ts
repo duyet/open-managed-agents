@@ -2779,6 +2779,49 @@ export class SessionDO extends DurableObject<Env> {
    * The non-method properties and helpers like setEnvVars are passed
    * through synchronously — they don't talk to the container itself.
    */
+  /**
+   * Merge persistent environment-level env vars into the sandbox process env.
+   *
+   * Vars are declared on the Environment record (config.env_vars) and reused
+   * by every session created with that environment. Non-sensitive values ride
+   * inline in the environment_snapshot; sensitive values are read from the KV
+   * secret store keyed `t:{tenant}:secret:env:{envId}:{name}` (their value is
+   * never present in the snapshot config). Best-effort: a missing binding or a
+   * setEnvVars failure is logged, never fatal to the session.
+   */
+  private async applyEnvironmentEnvVars(sandbox: SandboxExecutor): Promise<void> {
+    const envVars = this.state.environment_snapshot?.config?.env_vars;
+    if (!envVars || envVars.length === 0) return;
+    if (!sandbox.setEnvVars) return;
+    const envId = this.state.environment_id;
+    const tenantId = this.state.tenant_id;
+    const batch: Record<string, string> = {};
+    for (const v of envVars) {
+      if (!v?.name) continue;
+      if (v.sensitive) {
+        if (!v.has_value || !envId || !tenantId) continue;
+        try {
+          const secret = await this.env.CONFIG_KV.get(
+            `t:${tenantId}:secret:env:${envId}:${v.name}`,
+          );
+          if (secret) batch[v.name] = secret;
+        } catch {
+          // KV read failure: skip this var, don't fail the whole session.
+        }
+      } else if (typeof v.value === "string") {
+        batch[v.name] = v.value;
+      }
+    }
+    if (Object.keys(batch).length === 0) return;
+    try {
+      await sandbox.setEnvVars(batch);
+    } catch (err) {
+      console.error(
+        `[session-do] environment env-var injection failed (continuing): ${(err as Error).message}`,
+      );
+    }
+  }
+
   private wrapSandboxWithLazyWarmup(raw: SandboxExecutor): SandboxExecutor {
     const needsWarm = new Set<string>([
       "exec",
@@ -3262,6 +3305,14 @@ export class SessionDO extends DurableObject<Env> {
           if (secretData) secretStore.set(row.id, secretData);
         }
 
+        // Persistent environment-level env vars (defined on the Environment
+        // record, reused by every session). Applied BEFORE session-level
+        // `env` resources below so a session var of the same name overrides
+        // the environment-level one (mountResources' setEnvVars runs after
+        // this and later writes win). Sensitive values are read from the KV
+        // secret store — they never live in the environment_snapshot config.
+        await this.applyEnvironmentEnvVars(sandbox);
+
         if (resources.length) {
           await mountResources(
             sandbox,
@@ -3522,14 +3573,26 @@ export class SessionDO extends DurableObject<Env> {
       const agent = await this.getAgentConfig(this.state.agent_id);
       const targets = agent?.notify;
       if (!targets || targets.length === 0) return;
+
+      // Best-effort extras for the webhook envelope: derived publication /
+      // end-user ids (from session metadata) and the final agent message.
+      const meta = (this.state as { metadata?: Record<string, unknown> }).metadata;
       const notifyEvent: SessionNotifyEvent = {
         sessionId: this.state.session_id,
         status,
         ...(agent?.name ? { agentName: agent.name } : {}),
         ...(detail ? { detail } : {}),
+        ...(meta?.publication_id ? { publicationId: String(meta.publication_id) } : {}),
+        ...(meta?.end_user_id ? { endUserId: String(meta.end_user_id) } : {}),
+        ...(status !== "error" ? { finalMessage: this.getFinalAgentMessage() } : {}),
       };
+
       await dispatchSessionNotifications(notifyEvent, targets, {
         resolveCredentialToken: (id) => this.resolveCredentialToken(id),
+        resolveSecret: (ref) => this.resolveWebhookSecret(ref),
+        resolveTelegramBotToken: () => (this.env as { TELEGRAM_BOT_TOKEN?: string }).TELEGRAM_BOT_TOKEN ?? null,
+        tenantId: this.state.tenant_id,
+        webhookRateLimitGate: this.webhookRateLimitGate(),
         httpClient: new WorkerHttpClient(),
         onError: (target, err) => {
           logWarn(
@@ -3546,6 +3609,66 @@ export class SessionDO extends DurableObject<Env> {
     })().catch((err) => {
       console.error(`[maybeFireSessionNotifications] unexpected failure: ${(err as Error).message}`);
     });
+  }
+
+  /**
+   * Resolve the HMAC secret for a `webhook` NotificationTarget. The secret is
+   * a vault credential's `static_bearer` token referenced by `secret_ref` —
+   * it is NEVER stored inline on the agent config. Returns null when no
+   * ref is set (unsigned delivery) or the ref can't be resolved.
+   */
+  private async resolveWebhookSecret(secretRef?: string): Promise<string | null> {
+    if (!secretRef) return null;
+    return this.resolveCredentialToken(secretRef);
+  }
+
+  /**
+   * Per-tenant rate-limit gate for outbound `webhook` deliveries. The gate
+   * is plumbed from the per-tenant services bundle when available; absent on
+   * runtimes that haven't wired webhook rate limiting (soft-pass — see
+   * NotifyDispatchDeps.webhookRateLimitGate).
+   */
+  private webhookRateLimitGate():
+    | { consume(key: string): Promise<{ ok: boolean; retryAfter?: number }> }
+    | undefined {
+    const services = this.env as unknown as {
+      WEBHOOK_RATE_LIMIT?: { limit: (input: { key: string }) => Promise<{ success: boolean }> }; RL_WEBHOOK_TENANT?: { limit: (input: { key: string }) => Promise<{ success: boolean }> };
+    };
+    const binding = services.RL_WEBHOOK_TENANT ?? services.WEBHOOK_RATE_LIMIT;
+    if (!binding) return undefined;
+    return {
+      consume: async (key: string) => {
+        const r = await binding.limit({ key });
+        return { ok: r.success };
+      },
+    };
+  }
+
+  /**
+   * Last `agent.message` text from the event log, for the webhook envelope's
+   * `message` field. Best-effort — returns undefined when the log is empty
+   * or the last agent message has no plain-text content.
+   */
+  private getFinalAgentMessage(): string | undefined {
+    try {
+      const events = this.makeHistory().getEvents();
+      for (let i = events.length - 1; i >= 0; i--) {
+        const e = events[i];
+        if (e.type === "agent.message") {
+          const content = (e as { content?: Array<{ type: string; text?: string }> }).content;
+          if (Array.isArray(content)) {
+            const text = content
+              .filter((b) => b.type === "text" && b.text)
+              .map((b) => b.text as string)
+              .join("\n");
+            return text || undefined;
+          }
+        }
+      }
+    } catch {
+      // history unavailable (e.g. pre-schema) — fall back to no message.
+    }
+    return undefined;
   }
 
   /**

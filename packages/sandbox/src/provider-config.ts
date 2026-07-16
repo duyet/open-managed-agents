@@ -152,6 +152,15 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
     capabilities: ["exec", "files", "pause_resume"],
   },
   {
+    type: "k8s-remote",
+    label: "Kubernetes (remote gateway)",
+    description: "Talks to an in-cluster k8s-sandbox-gateway over plain fetch — k8s pods without a Worker-side kubeconfig.",
+    envKeys: ["K8S_SANDBOX_GATEWAY_URL", "K8S_SANDBOX_TOKEN"],
+    factoryPath: "@duyet/oma-sandbox/adapters/kubernetes-remote",
+    cfCompatible: true,
+    capabilities: ["exec", "files", "pause_resume"],
+  },
+  {
     type: "cloud",
     label: "Cloudflare Sandbox",
     description: "Managed sandbox — uses Cloudflare Containers.",
@@ -349,6 +358,102 @@ export function providerConfigToEnv(config: SandboxProviderConfig): Record<strin
   }
 
   return env;
+}
+
+// ─── Default local sandbox auto-detection (OpenShell vs subprocess) ──
+//
+// When a session's environment has no explicit `sandbox_provider` and the
+// deployment has no global SANDBOX_PROVIDER override, main-node has always
+// fallen back to the "subprocess" adapter (zero isolation, trusted local
+// dev only) — even when an OpenShell gateway is fully configured
+// (OPENSHELL_GATEWAY_ENDPOINT set). `resolveDefaultLocalSandboxProvider`
+// closes that gap: it prefers OpenShell for that *implicit* default case
+// when the gateway is configured AND currently reachable, and only then.
+// It never touches an explicit selection (per-environment
+// `sandbox_provider` or a set SANDBOX_PROVIDER) — those already work
+// today and keep failing loudly if misconfigured, per this repo's
+// "explicit selection is trusted, silent fallback is worse than failing
+// loud" convention (see AGENTS.md's sub-agent sandbox section).
+//
+// Pure / DI'd: the actual gRPC reachability probe (network I/O) lives in
+// adapters/openshell.ts (`probeOpenShellGateway`) and is passed in by the
+// caller, so this function — like `classifyCfSandboxProvider` above — is
+// unit-testable without any real network or Workers runtime.
+
+export type LocalSandboxMode = "auto" | "openshell" | "subprocess";
+
+/**
+ * Parse the OPENSHELL_MODE override env var.
+ *   "auto"       (default, or unset/unrecognized) — probe reachability.
+ *   "openshell"  — force OpenShell, skip the probe entirely.
+ *   "subprocess" — force subprocess, skip the probe entirely.
+ */
+export function parseOpenShellMode(raw: string | undefined): LocalSandboxMode {
+  const v = (raw ?? "").trim().toLowerCase();
+  if (v === "openshell" || v === "subprocess") return v;
+  return "auto";
+}
+
+export interface DefaultProviderSelection {
+  /** The provider id to use as the implicit default. */
+  providerId: "openshell" | "subprocess";
+  /** Human-readable reason, safe to log as-is. */
+  reason: string;
+}
+
+/**
+ * Decide the implicit default sandbox provider (used only when no
+ * explicit `sandbox_provider` / SANDBOX_PROVIDER is set) between
+ * "openshell" and "subprocess". Deterministic ordering:
+ *
+ *   1. OPENSHELL_MODE=subprocess → "subprocess", no probe.
+ *   2. OPENSHELL_MODE=openshell  → "openshell" if OPENSHELL_GATEWAY_ENDPOINT
+ *      is set (no probe — an explicit force is trusted, same as any other
+ *      explicit provider selection); "subprocess" (misconfiguration
+ *      warning) if the endpoint is missing, since there's nothing to force.
+ *   3. auto (default) + no OPENSHELL_GATEWAY_ENDPOINT → "subprocess", no
+ *      probe (nothing configured to probe).
+ *   4. auto + endpoint set → probe; reachable → "openshell", unreachable
+ *      or the probe throwing → "subprocess". The probe call is wrapped so
+ *      a throwing probe implementation can never take down session start.
+ */
+export async function resolveDefaultLocalSandboxProvider(
+  env: Record<string, string | undefined>,
+  probeReachable: (endpoint: string) => Promise<boolean>,
+): Promise<DefaultProviderSelection> {
+  const mode = parseOpenShellMode(env.OPENSHELL_MODE);
+  const endpoint = env.OPENSHELL_GATEWAY_ENDPOINT;
+
+  if (mode === "subprocess") {
+    return { providerId: "subprocess", reason: "OPENSHELL_MODE=subprocess (explicit override)" };
+  }
+
+  if (mode === "openshell") {
+    if (!endpoint) {
+      return {
+        providerId: "subprocess",
+        reason: "OPENSHELL_MODE=openshell but OPENSHELL_GATEWAY_ENDPOINT is unset — nothing to force, falling back",
+      };
+    }
+    return { providerId: "openshell", reason: "OPENSHELL_MODE=openshell (explicit override)" };
+  }
+
+  // auto
+  if (!endpoint) {
+    return { providerId: "subprocess", reason: "OPENSHELL_GATEWAY_ENDPOINT not set" };
+  }
+
+  try {
+    const reachable = await probeReachable(endpoint);
+    return reachable
+      ? { providerId: "openshell", reason: `OpenShell gateway ${endpoint} reachable` }
+      : { providerId: "subprocess", reason: `OpenShell gateway ${endpoint} unreachable` };
+  } catch (err) {
+    return {
+      providerId: "subprocess",
+      reason: `OpenShell gateway probe threw: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
 }
 
 /**

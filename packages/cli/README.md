@@ -14,9 +14,20 @@ This installs an `oma` binary on your `PATH`. (If a different `oma` is already i
 
 ## Configure
 
+Either log in interactively (recommended) or set env vars.
+
 ```bash
-export OMA_API_KEY=sk_...
-export OMA_BASE_URL=https://api.oma.duyet.net   # default
+# Browser handoff (default), device-code, or paste-token for headless boxes
+oma auth login                 # opens the console, waits for the redirect back
+oma auth login --device        # print a code, approve it in any browser
+oma auth login --paste-token   # fully headless: paste a token minted in the console
+```
+
+Or point the CLI at a deployment directly:
+
+```bash
+export OMA_API_KEY=oma_...
+export OMA_BASE_URL=https://app.oma.duyet.net   # default
 ```
 
 Generate an API key from the [oma console](https://oma.duyet.net) → API Keys.

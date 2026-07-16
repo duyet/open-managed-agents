@@ -48,7 +48,7 @@ export function organizationSchema() {
     // we register it (or any other social account), append the URL here.
     sameAs: [REPO_URL],
     description:
-      "Open Managed Agents (oma) — an open-source, self-hostable agent platform that runs with any LLM provider. Self-host on Cloudflare Workers or Docker. Apache 2.0.",
+      "Open Managed Agents (oma) — an open-source, self-hostable agent platform that runs on any LLM provider and any sandbox platform. Self-host on Cloudflare Workers or Docker. Apache 2.0.",
   };
 }
 
@@ -59,7 +59,7 @@ export function websiteSchema() {
     name: ORG_NAME,
     url: SITE_URL,
     description:
-      "Open-source, self-hostable agent platform for any LLM provider — self-host on Cloudflare or Docker.",
+      "Open-source, self-hostable agent platform for any LLM provider and any sandbox platform — self-host on Cloudflare or Docker.",
     potentialAction: {
       "@type": "SearchAction",
       // Stub for future sitelinks search box. Google indexes this even
@@ -95,9 +95,10 @@ export function softwareApplicationSchema() {
     downloadUrl: REPO_URL,
     license: "https://www.apache.org/licenses/LICENSE-2.0",
     keywords:
-      "self-hosted agent platform, any LLM provider, BYOK, MCP, Claude Managed Agents alternative, Claude Tag alternative, open-source Claude Tag, self-hosted Claude Tag",
+      "self-hosted agent platform, any LLM provider, any sandbox platform, BYOK, MCP, Claude Managed Agents alternative, Claude Tag alternative, open-source Claude Tag, self-hosted Claude Tag",
     featureList: [
       "Any LLM provider — Anthropic, OpenAI-compatible gateways, or a private model gateway",
+      "Any sandbox platform — Cloudflare Containers, Kubernetes, E2B, Daytona, subprocess, or OpenShell",
       "Claude Managed Agents API compatibility",
       "Claude Tag-style Slack publication",
       "MCP server hosting",
@@ -105,7 +106,7 @@ export function softwareApplicationSchema() {
       "Cloudflare Workers and Docker self-hosting",
     ],
     description:
-      "Open-source, self-hostable agent platform that runs with any LLM provider — Anthropic, OpenAI-compatible gateways, or your own model. Self-host on Cloudflare Workers or Docker. Wire-compatible with the Claude Managed Agents API, MCP + Claude Code skills built in.",
+      "Open-source, self-hostable agent platform that runs on any LLM provider (Anthropic, OpenAI-compatible gateways, or your own model) and any sandbox platform (Cloudflare Containers, Kubernetes, E2B, Daytona, subprocess). Self-host on Cloudflare Workers or Docker. Wire-compatible with the Claude Managed Agents API, MCP + Claude Code skills built in.",
     sameAs: [REPO_URL],
   };
 }

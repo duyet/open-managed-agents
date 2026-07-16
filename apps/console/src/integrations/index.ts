@@ -3,6 +3,7 @@
 // React UI for managing 3rd-party integrations (Linear + GitHub + Slack).
 // Pages are composed into the console app via react-router routes in main.tsx.
 
+export { IntegrationsHub } from "./pages/IntegrationsHub";
 export { IntegrationsLinearList } from "./pages/IntegrationsLinearList";
 export { IntegrationsLinearWorkspace } from "./pages/IntegrationsLinearWorkspace";
 export { IntegrationsLinearPublishWizard } from "./pages/IntegrationsLinearPublishWizard";
@@ -13,8 +14,16 @@ export { IntegrationsGitHubBindWizard } from "./pages/IntegrationsGitHubBindWiza
 export { IntegrationsSlackList } from "./pages/IntegrationsSlackList";
 export { IntegrationsSlackWorkspace } from "./pages/IntegrationsSlackWorkspace";
 export { IntegrationsSlackPublishWizard } from "./pages/IntegrationsSlackPublishWizard";
+export { IntegrationsTelegramSetup } from "./pages/IntegrationsTelegramSetup";
 export { IntegrationsApi } from "./api/client";
 export { StatusPill, type PublicationStatus } from "./components/StatusPill";
+export {
+  IntegrationSetupCard,
+  CopyableCommand,
+  type SetupStatus,
+  type SetupRequirement,
+  type SetupStep,
+} from "./components/IntegrationSetupCard";
 export { relativeTime } from "./components/relativeTime";
 export type {
   LinearInstallation,

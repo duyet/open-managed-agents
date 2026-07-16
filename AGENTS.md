@@ -406,7 +406,7 @@ Environments define the sandbox where tools execute:
 ### Sandbox Provider on the Cloudflare Deployment
 
 An environment's `config.sandbox_provider` (or legacy `config.type`) selects
-the sandbox adapter. On self-host Node, `apps/main-node` resolves it through
+the sandbox adapter. On self-host Node, `apps/main-node` — the self-host Node.js server (the same control-plane API as the `apps/main` Cloudflare Worker, packaged for `docker compose`) — resolves it through
 the full `SandboxProviderRegistry` (`packages/sandbox`) — every adapter is
 available there. On the **Cloudflare deployment**, only a subset works,
 because a Worker is a single-file V8 isolate with no filesystem, no
@@ -416,6 +416,7 @@ because a Worker is a single-file V8 isolate with no filesystem, no
 |---|---|
 | absent / `"cloud"` / unrecognized id | CloudflareSandbox (unchanged default — Cloudflare Containers) |
 | `"boxrun"` | Works — talks to a remote BoxRun (`boxlite serve`) control plane over plain `fetch`, no driver SDK. Requires `BOXRUN_URL` (`wrangler secret put`); missing it fails clearly with a `session.error` rather than silently falling back. |
+| `"k8s-remote"` | Works — talks to an in-cluster **k8s-sandbox-gateway** over plain `fetch` (boxrun-shaped HTTP API: create / exec+SSE / files-as-tar / destroy), no Node builtins. Requires `K8S_SANDBOX_GATEWAY_URL` (`wrangler secret put`); missing it fails clearly with a `session.error` (parity with boxrun's missing-`BOXRUN_URL`). The self-host Node path keeps using the direct `KubernetesSandboxExecutor` (in-cluster, unchanged). **Limitation:** memory-store / session-outputs bind-mounts aren't available over the HTTP tar API — like boxrun, those mounts aren't exposed by the gateway. |
 | `"daytona"` / `"e2b"` | Outbound-HTTP-only in principle (no Node builtins), but **not yet wired on Cloudflare** — their driver SDKs (`@daytonaio/sdk`, `e2b`) aren't bundled into the Worker. Selecting either fails clearly with a `session.error`; both already work on the self-host Node runtime. |
 | `"subprocess"` / `"litebox"` / `"k8s"` | Node-only (child_process, a native micro-VM binding, or local kubeconfig/filesystem access) — cannot run in a Worker at all. Selecting one fails clearly with a `session.error` explaining to use the self-host runtime instead. |
 
@@ -473,6 +474,52 @@ curl -s $BASE/v1/vaults/$VAULT_ID/credentials \
 5. Proxy injects the appropriate auth header
 6. Request reaches the external service with credentials
 7. Sandbox never sees the raw token
+
+---
+
+## MCP Servers
+
+Agents connect to remote MCP servers via `agent.mcp_servers`. The platform
+proxies every MCP call through the main worker (`/v1/mcp-proxy`), which is
+the only layer that ever holds the upstream credential — the sandbox and
+harness never see it. Because resolution happens in the proxy (not the
+sandbox), MCP servers work identically across **every** sandbox provider
+(Cloudflare, k8s-bridge, boxrun, subprocess, …). Local-runtime ACP agents
+receive proxy-rewritten server URLs in their spawn-cwd bundle and inject the
+per-tenant PAT as the bearer.
+
+### Tenant-level registry
+
+Instead of repeating a server URL on every agent, register it once at the
+tenant level and reference it by id:
+
+```bash
+# Register a server (optionally pinning a vault credential)
+curl -s $BASE/v1/mcp_servers \
+  -H "x-api-key: $KEY" -H "content-type: application/json" \
+  -d '{"name": "linear", "url": "https://linear.app/mcp", "credential_id": "cred_xxx"}'
+# → { "id": "mcps_xxx", "name": "linear", "url": "...", ... }
+```
+
+Reference it from an agent's `mcp_servers` via `registry_id` (in place of an
+inline `url`):
+
+```json
+{ "mcp_servers": [{ "name": "linear", "type": "http", "registry_id": "mcps_xxx" }] }
+```
+
+At request time the proxy expands `registry_id` → the registered URL and, if
+the row pins a `credential_id`, injects that specific vault credential;
+otherwise it falls back to matching a vault credential by the server URL
+(the same rule inline entries use). An inline `url` always wins over
+`registry_id`. Routes: `POST/GET/PATCH/DELETE /v1/mcp_servers`.
+
+### Health check
+
+`GET /v1/mcp-proxy/_health/:sid` (Bearer `omak_*`) reports, per declared MCP
+server on the session's agent, whether its credential currently resolves —
+`{ session_id, servers: [{ name, status }] }` where `status` is `"ok"` or
+`"unresolved"`. Powers the sandbox status page's MCP health indicator.
 
 ---
 
@@ -826,6 +873,197 @@ Attach external resources to a session at runtime:
   "memory_store_id": "ms_xxx"
 }
 ```
+
+---
+
+## Agent Schedules
+
+Schedules let an agent fire sessions on a cron cadence with no human turn —
+recurring maintenance, digests, polling jobs. They're stored per-agent in the
+shared control-plane D1 (`agent_schedules`, `sch_*` ids) and evaluated by a
+per-minute Cloudflare cron tick (`scheduled-agent-runs`, wired in
+`apps/main/src/lib/cf-scheduler-jobs.ts`; job in
+`packages/scheduler/src/jobs/scheduled-agent-runs.ts`).
+
+```bash
+# Create a schedule
+curl -s $BASE/v1/agents/$AGENT_ID/schedules \
+  -H "x-api-key: $KEY" -H "content-type: application/json" \
+  -d '{
+    "cron_expression": "0 9 * * 1",
+    "timezone": "America/New_York",
+    "environment_id": "env_xxx",
+    "input": "Post the weekly metrics digest to #general.",
+    "max_sessions": 1,
+    "enabled": true
+  }'
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `cron_expression` | Yes | Standard 5-field cron |
+| `environment_id` | Yes | Environment the scheduled session runs in |
+| `input` | Yes | Injected as the opening `user.message` (1–10000 chars) |
+| `timezone` | No | IANA zone, default `UTC` — DST-correct next-run math (via `croner`) |
+| `max_sessions` | No | Concurrency cap 1–100, default 1 |
+| `enabled` | No | Default true |
+
+Routes (all tenant-scoped):
+
+```http
+POST   /v1/agents/:agentId/schedules                    # Create (201)
+GET    /v1/agents/:agentId/schedules                    # List
+DELETE /v1/agents/:agentId/schedules/:scheduleId        # Delete
+POST   /v1/agents/:agentId/schedules/:scheduleId/run    # Run now → {status:"queued", next_run_at}
+```
+
+`next_run_at` is seeded at create from the cron + timezone and advanced to the
+next occurrence via an atomic compare-and-set during each tick — so overlapping
+ticks or replicas never double-fire. Each firing records
+`last_run_at` / `last_run_status` / `last_run_error` / `last_session_id`; a
+failing run is fail-open (logged, next occurrence still scheduled). An
+unparseable cron leaves `next_run_at` null and the schedule never fires.
+**Cloudflare only** — the self-host Node runtime does not yet fire schedules.
+
+(Distinct from the in-sandbox `schedule` / `cancel_schedule` / `list_schedules`
+tools, which let a *running* agent set its own wakeups — those wake the same
+session; agent schedules create fresh sessions.)
+
+---
+
+## Publishing, Consumers & Payments
+
+An agent can be **published** as a consumer-facing bot: a hosted chat page, an
+embeddable widget, guest access, and optional per-message billing. This is the
+duyetbot-style surface — an end user talks to the bot without an OMA account.
+
+### Publication surface
+
+A live publication is reachable at `/p/<slug>`:
+
+- **Hosted chat page** — `GET /p/<slug>`.
+- **Embeddable widget** — `GET /p/<slug>/widget.js` returns a self-contained,
+  dependency-free script that injects a floating launcher bubble toggling an
+  iframe of the chat page. Drop it into any site:
+
+  ```html
+  <script src="https://<host>/p/<slug>/widget.js" async></script>
+  ```
+
+  A paused/hidden publication ships a no-op script so embeds fail closed.
+- **QR + share** — the Console **My Bots** page (`/my-bots`) lists a creator's
+  published agents with pause/resume, the public URL, an inline-SVG QR code,
+  and the copy-paste embed snippet.
+
+### Consumer auth (`/v1/public/auth/*`)
+
+End users authenticate against a publication without a tenant membership:
+
+```http
+POST /v1/public/auth/magic-link      # request email magic link
+POST /v1/public/auth/verify          # verify → session_token + consumer_id + expires_at
+POST /v1/public/auth/guest           # anonymous guest session (optional publication_id)
+POST /v1/public/auth/upgrade         # attach email to the SAME guest consumer (history survives)
+POST /v1/public/auth/refresh         # rotate the bearer session token
+GET  /v1/public/auth/me              # current consumer identity
+```
+
+Guest mode mints an anonymous consumer (`cons_*`, `auth_provider="guest"`);
+`upgrade` flips it to an email identity in place so conversation history and
+publication associations carry over. Creators see who used their bot via
+`GET /v1/publications/:id/users` (tenant-authed) — `consumer_id`, `name`,
+`is_guest`, first/last-seen, and conversation count.
+
+### Metering & paywall (`@duyet/oma-payments`)
+
+Each publication has a pricing row (`publication_pricing`) with a mode:
+
+| Mode | Cost per turn |
+|---|---|
+| `free` | 0 |
+| `per_message` | `price_amount` credits, debited up front |
+| `per_1k_tokens` | `price_amount × ceil(tokens/1000)` credits |
+| `subscription` | 0 while the consumer's subscription is active |
+
+Credits are an append-only wallet ledger keyed by `(tenant_id, end_user_id)`
+with a cached balance row for the hot-path gate. `enforcePaywall` gates every
+public turn: `free` / no pricing / payments disabled → allow; metered modes
+require `balance >= cost`; blocked turns return **HTTP 402**
+`{code:"insufficient_credits", balance, shortfall, top_up_url}`. Top-ups run
+through Stripe Checkout; `POST /webhooks/stripe` (signature-verified,
+idempotent via `stripe_processed_events`) credits the ledger. Creator revenue:
+`GET /v1/publications/:id/revenue`.
+
+Secrets: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `PAYMENTS_DISABLED`
+(kill-switch → everything free), `PUBLIC_BASE_URL` (redirect/top-up URLs).
+
+---
+
+## Notify Targets
+
+`agent.notify` is an array of `NotificationTarget`s. Each session created from
+the agent inherits them via its `agent_snapshot` and, when the session reaches
+a terminal-ish status (`session.status_idle`, `session.error`,
+`session.status_terminated`), the platform fans out a session-status
+notification to every target. This lives in
+`apps/agent/src/runtime/notify-dispatch.ts` (extracted from `session-do.ts` so
+it's unit-testable without a Durable Object) and never throws back into the
+session loop — a misconfigured target is logged and skipped, it never blocks the
+session.
+
+Four target variants:
+
+```json
+{ "type": "github_comment", "credential_id": "cred_xxx", "owner": "acme", "repo": "widgets", "issue_number": 7 }
+```
+
+```json
+{ "type": "slack_message", "credential_id": "cred_xxx", "channel": "C123" }
+```
+
+```json
+{ "type": "matrix_message", "credential_id": "cred_xxx", "homeserver_url": "https://matrix.example.com", "room_id": "!room:example.com" }
+```
+
+### `webhook` — generic outbound webhook
+
+Posts a signed JSON envelope to an arbitrary customer URL so a creator can wire
+duyetbot into their own backend. The body is HMAC-SHA256-signed over the raw
+payload with the `X-OMA-Signature` header (`sha256=<hex>`), computed with Web
+Crypto `crypto.subtle` so it runs identically on Cloudflare Workers and Node.
+
+```json
+{
+  "type": "webhook",
+  "url": "https://hooks.example.com/agent",
+  "secret_ref": "cred_webhook_secret",
+  "events": ["idle", "terminated"]
+}
+```
+
+- **`secret_ref`** references a vault credential id whose `static_bearer` token
+  is the HMAC secret. The secret is **never stored inline** on the agent config
+  — it's resolved from the vault at dispatch time. When `secret_ref` is unset,
+  the envelope is sent **unsigned** and a warning is logged (fail-open, so a
+  customer endpoint that accepts unsigned deliveries still works). When
+  `secret_ref` is set but can't be resolved, the delivery is skipped + warned.
+- **`events`** is an optional filter over `idle | error | terminated`. Omit it
+  to deliver on all three.
+- **Envelope** (`WebhookEnvelope`): `{ session_id, publication_id?, end_user_id?,
+  agent_name?, status, stop_reason?, message?, session_url? }`. Field order is
+  fixed so a receiver can reproduce the exact signed bytes. Receivers verify
+  with `HMAC-SHA256(secret, raw_body)` and compare to the `sha256=…` value in
+  `X-OMA-Signature`.
+- **Rate limiting**: outbound webhook volume is capped **per tenant** via
+  `packages/rate-limit` (a `webhook:<tenantId>` bucket). On exhaustion the
+  delivery is dropped (fail-open) rather than blocking the session.
+
+### Validation
+
+The `notify` array is zod-validated at agent create/update in
+`packages/http-routes/src/agents/index.ts` via `notificationTargetsSchema`
+(`packages/api-types/src/notify-schema.ts`). An invalid target (e.g. a
+non-URL `webhook.url`, or an unknown `events` value) is rejected with HTTP 422.
 
 ---
 

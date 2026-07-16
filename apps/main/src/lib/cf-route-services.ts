@@ -18,19 +18,30 @@ interface AppContextLike {
 export function cfRouteServices(c: Context<AppContextLike>): RouteServices {
   const services = c.var.services;
   const sql = new CfD1SqlClient(c.var.tenantDb);
+  return buildRouteServices(services, sql);
+}
+
+/**
+ * Variant for the public /p/:slug surface: build the RouteServices bundle
+ * from an explicitly-resolved Services container + per-tenant DB (the
+ * publication's tenant), without needing a Hono context carrying them.
+ */
+export function cfRouteServicesForTenant(services: Services, tenantDb: D1Database): RouteServices {
+  const sql = new CfD1SqlClient(tenantDb);
+  return buildRouteServices(services, sql);
+}
+
+function buildRouteServices(services: Services, sql: CfD1SqlClient): RouteServices {
   return {
     sql,
     agents: services.agents,
+    publications: services.publications,
     vaults: services.vaults,
     credentials: services.credentials,
     memory: services.memory,
     sessions: services.sessions,
+    modelCards: services.modelCards,
     kv: services.kv,
-    // The http-routes session package uses these for SSE + event-log writes.
-    // CF doesn't read events from SQL — events live in SessionDO storage.
-    // Sessions extraction routes events through SessionRouter, which means
-    // CF never invokes the SQL event log path; these are present so the
-    // type checker is happy.
     newEventLog: () => ({
       appendAsync: async () => {},
       getEventsAsync: async () => [],
@@ -41,7 +52,8 @@ export function cfRouteServices(c: Context<AppContextLike>): RouteServices {
     },
     background: {
       run: (p) => {
-        c.executionCtx.waitUntil(p.catch(() => undefined));
+        // No Hono executionCtx in this path — best-effort fire-and-forget.
+        void p.catch(() => undefined);
       },
     },
     outputsRoot: null,

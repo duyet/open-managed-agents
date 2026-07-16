@@ -15,10 +15,24 @@
 //   POST /disconnect    — archive the credential
 //   GET  /models        — cached AnyRouter model catalog (GET /api/v1/models)
 //
+// Model-card bind (#136): on a successful callback, when `services.modelCards`
+// is wired (Cloudflare — see apps/main/src/lib/cf-route-services.ts), the
+// connected key is also upserted into a `model_cards` row keyed on the fixed
+// handle `model_id: "anyrouter"`, so `{"model": "anyrouter"}` on any agent
+// resolves through `resolveModelCardCredentials` (session-do.ts) with zero
+// env vars / pasted keys. Idempotent: a reconnect finds the existing card by
+// model_id and rotates only its `api_key` (the minted token doesn't
+// self-refresh, so "reconnect" IS the rotation mechanism) — it never
+// clobbers a `model` the user picked via the Console model picker. Disconnect
+// deletes the card outright (ModelCardService has no soft-delete) so a
+// revoked connection can't silently keep routing agents through a
+// now-invalid key.
+//
 // Node self-host has no D1 model-cards store (see apps/main-node/src/index.ts
 // buildModel) — its model provider is process-global env vars
-// (ANTHROPIC_API_KEY/ANTHROPIC_BASE_URL/OMA_API_COMPAT). `hooks.onConnected`
-// / `onDisconnected` let the Node entrypoint hot-swap an in-process provider
+// (ANTHROPIC_API_KEY/ANTHROPIC_BASE_URL/OMA_API_COMPAT), so `services.modelCards`
+// stays undefined there and the upsert/delete below no-op. `hooks.onConnected`
+// / `onDisconnected` let the Node entrypoint hot-swap that in-process provider
 // cache so a fresh OAuth connect takes effect without a restart.
 
 import { Hono } from "hono";
@@ -39,6 +53,16 @@ import {
 import type { KvStore } from "@duyet/oma-kv-store";
 import type { RouteServices, RouteServicesArg } from "../types";
 import { resolveServices } from "../types";
+
+/** Fixed tenant-facing handle the auto-minted card is upserted under.
+ *  `{"model": "anyrouter"}` on an agent resolves to this card. */
+const MODEL_CARD_MODEL_ID = "anyrouter";
+
+/** Sane default `provider/model` target for a freshly-connected tenant with
+ *  no prior card. Validated against the live catalog at connect time when
+ *  possible (falls back to this literal if the probe fails or the id isn't
+ *  in the catalog — never blocks the connect flow on it). */
+const DEFAULT_TARGET_MODEL = "anthropic/claude-sonnet-4-6";
 
 interface Vars {
   Variables: { tenant_id: string; user_id?: string };
@@ -143,6 +167,82 @@ export function buildAnyRouterRoutes(deps: AnyRouterRoutesDeps) {
     return null;
   }
 
+  /** Best-effort pick of a target `provider/model` for a freshly-created
+   *  card: validates DEFAULT_TARGET_MODEL against the live catalog and
+   *  falls back to the catalog's first entry when it's missing, or the
+   *  literal default when the catalog probe itself fails. Never throws —
+   *  a broken catalog fetch must not block the connect flow. */
+  async function pickDefaultTargetModel(apiKey: string): Promise<string> {
+    try {
+      const req = buildModelsRequest(apiKey);
+      const res = await fetchImpl(req.url, { headers: req.headers });
+      if (!res.ok) return DEFAULT_TARGET_MODEL;
+      const models = parseModelsResponse(await res.text());
+      if (models.some((m) => m.id === DEFAULT_TARGET_MODEL)) return DEFAULT_TARGET_MODEL;
+      return models[0]?.id ?? DEFAULT_TARGET_MODEL;
+    } catch {
+      return DEFAULT_TARGET_MODEL;
+    }
+  }
+
+  /**
+   * Upsert the `model_cards` row a connected key binds to. Idempotent on
+   * `model_id: "anyrouter"` — a reconnect finds the same row and rotates
+   * only `api_key`, leaving `model` (and anything else the Console model
+   * picker set) untouched. First connect creates the row with a
+   * catalog-validated default target model. No-ops when this deployment
+   * has no model-cards store (self-host Node — see module doc comment).
+   * Never throws — best-effort, same contract as `hooks.onConnected`.
+   */
+  async function upsertModelCard(
+    services: RouteServices,
+    tenantId: string,
+    apiKey: string,
+  ): Promise<void> {
+    if (!services.modelCards) return;
+    try {
+      const existing = await services.modelCards.findByModelId({
+        tenantId,
+        modelId: MODEL_CARD_MODEL_ID,
+      });
+      if (existing) {
+        await services.modelCards.update({ tenantId, cardId: existing.id, apiKey });
+        return;
+      }
+      const model = await pickDefaultTargetModel(apiKey);
+      await services.modelCards.create({
+        tenantId,
+        modelId: MODEL_CARD_MODEL_ID,
+        provider: ANYROUTER_API_COMPAT,
+        model,
+        apiKey,
+        baseUrl: ANYROUTER_API_BASE,
+      });
+    } catch (err) {
+      services.logger?.warn({ err }, "anyrouter: model card upsert failed");
+    }
+  }
+
+  /** Mirror of upsertModelCard for disconnect: deletes the bound card so a
+   *  revoked connection can't keep routing agents through a dead key.
+   *  ModelCardService has no soft-delete, so this is a hard delete —
+   *  matches the credential side, which is archived (not deletable) but
+   *  functionally dead once archived. No-ops when unwired (Node). */
+  async function deleteModelCard(services: RouteServices, tenantId: string): Promise<void> {
+    if (!services.modelCards) return;
+    try {
+      const existing = await services.modelCards.findByModelId({
+        tenantId,
+        modelId: MODEL_CARD_MODEL_ID,
+      });
+      if (existing) {
+        await services.modelCards.delete({ tenantId, cardId: existing.id });
+      }
+    } catch (err) {
+      services.logger?.warn({ err }, "anyrouter: model card delete failed");
+    }
+  }
+
   // ── Start the flow ─────────────────────────────────────────────────────
   app.get("/connect", async (c) => {
     const services = resolveServices(deps.services, c);
@@ -236,6 +336,11 @@ export function buildAnyRouterRoutes(deps: AnyRouterRoutesDeps) {
       auth: { type: "static_bearer", token: token.accessToken, provider: "anyrouter" },
     });
 
+    // Bind the connected key to a model card so `{"model": "anyrouter"}`
+    // resolves with zero further setup. Best-effort — never fails the
+    // callback (mirrors the onConnected hook right below it).
+    await upsertModelCard(services, pending.tenantId, token.accessToken);
+
     try {
       await deps.hooks?.onConnected?.({
         tenantId: pending.tenantId,
@@ -257,6 +362,12 @@ export function buildAnyRouterRoutes(deps: AnyRouterRoutesDeps) {
     if (!tenantId) return c.json({ error: "authentication required" }, 401);
     const hit = await findCredential(services, tenantId);
     if (!hit) return c.json({ connected: false });
+    // Surface the bound card (when this deployment has a model-cards store)
+    // so the Console's model picker can show + update the current target
+    // model without a second lookup.
+    const card = services.modelCards
+      ? await services.modelCards.findByModelId({ tenantId, modelId: MODEL_CARD_MODEL_ID })
+      : null;
     return c.json({
       connected: true,
       vault_id: hit.vaultId,
@@ -264,6 +375,7 @@ export function buildAnyRouterRoutes(deps: AnyRouterRoutesDeps) {
       base_url: ANYROUTER_API_BASE,
       compat: ANYROUTER_API_COMPAT,
       connected_at: hit.createdAt,
+      ...(card ? { model_card_id: card.id, model: card.model } : {}),
     });
   });
 
@@ -273,6 +385,7 @@ export function buildAnyRouterRoutes(deps: AnyRouterRoutesDeps) {
     if (!tenantId) return c.json({ error: "authentication required" }, 401);
     const hit = await findCredential(services, tenantId);
     if (!hit) return c.json({ disconnected: false });
+    await deleteModelCard(services, tenantId);
     await services.credentials.archive({ tenantId, vaultId: hit.vaultId, credentialId: hit.credentialId });
     try {
       await deps.hooks?.onDisconnected?.(tenantId);

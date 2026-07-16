@@ -6,6 +6,8 @@ import slackPublications from "./routes/slack/publications";
 import slackSetupPage from "./routes/slack/setup-page";
 import githubManifest from "./routes/github/manifest";
 import telegramWebhook from "./routes/telegram/webhook";
+import { telegramChatStore, telegramIdleTimeoutMs } from "./routes/telegram/wire";
+import { sweepIdleTelegramChats } from "@duyet/oma-telegram";
 import { buildProviders } from "./providers";
 import { buildContainer } from "./wire";
 import { CfInstallBridge } from "./cf-install-bridge";
@@ -14,6 +16,7 @@ import { linearDispatchTick } from "@duyet/oma-scheduler/jobs/linear-dispatch";
 import { getLogger } from "@duyet/oma-observability";
 import { pingHealthchecks } from "@duyet/oma-shared";
 import { buildIntegrationsGatewayRoutes } from "@duyet/oma-http-routes";
+import { buildUnifiedOAuthRoutes, buildUnifiedProvidersFromEnv } from "./oauth-unified";
 
 const log = getLogger("apps.integrations");
 
@@ -29,6 +32,21 @@ const log = getLogger("apps.integrations");
 // Slack setup-page also stays as its own file because it surfaces a
 // manifest-launch URL that isn't yet plumbed through the package; the
 // rest of the providers' setup pages run from the package.
+
+// Hostname the vault's static_bearer credential is injected for. The
+// outbound proxy matches this URL when the sandbox calls the provider API.
+function providerApiUrl(provider: string): string {
+  switch (provider) {
+    case "linear":
+      return "https://api.linear.app";
+    case "github":
+      return "https://api.github.com";
+    case "slack":
+      return "https://slack.com/api";
+    default:
+      return `https://api.${provider}.com`;
+  }
+}
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -69,6 +87,50 @@ app.route("/github/manifest", githubManifest);
 app.route("/slack/publications", slackPublications);
 app.route("/slack-setup", slackSetupPage);
 app.route("/telegram", telegramWebhook);
+
+// Unified OAuth "Connect" surface (issue #92). One consistent
+// /oauth/:provider/start + /oauth/:provider/callback pair, backed by the
+// shared CSRF-state helper (oauth-state.ts) and env-configured OMA OAuth
+// apps. Providers that fit a plain OAuth-app handshake (Linear, GitHub,
+// Slack, …) plug in via config alone. Mounted before the gateway catch-all
+// so these paths always win.
+//
+// Identity is resolved from headers apps/main sets when it proxies an
+// authenticated Console request, gated by INTEGRATIONS_INTERNAL_SECRET so
+// the callback can't be spoofed from the open internet. storeToken persists
+// the exchanged token into the user's vault as a static_bearer credential —
+// the same backing store every other integration uses (issue #92: "Vault
+// credentials are the backing store").
+app.use("/oauth/*", async (c, next) => {
+  const env = c.env;
+  const container = buildContainer(env);
+  const unified = buildUnifiedOAuthRoutes({
+    secret: env.PLATFORM_ROOT_SECRET,
+    gatewayOrigin: env.GATEWAY_ORIGIN,
+    providers: buildUnifiedProvidersFromEnv(env),
+    resolveIdentity: async (req) => {
+      const secret = env.INTEGRATIONS_INTERNAL_SECRET;
+      if (!secret || req.headers.get("x-internal-secret") !== secret) return null;
+      const userId = req.headers.get("x-internal-user-id");
+      const tenantId = req.headers.get("x-internal-tenant-id");
+      if (!userId || !tenantId) return null;
+      return { userId, tenantId };
+    },
+    storeToken: async ({ provider, userId, accessToken }) => {
+      await container.vaults.createCredentialForUser({
+        userId,
+        vaultName: `${provider} (OAuth)`,
+        displayName: `${provider} connection`,
+        mcpServerUrl: providerApiUrl(provider),
+        bearerToken: accessToken,
+        provider: provider === "github" || provider === "linear" ? provider : undefined,
+      });
+    },
+  });
+  const res = await unified.fetch(c.req.raw, env, c.executionCtx);
+  if (res.status !== 404) return res;
+  return next();
+});
 
 // Package routes: OAuth callbacks, setup pages, Linear MCP, GitHub
 // internal refresh, webhook receivers. The CfInstallBridge wraps the
@@ -134,6 +196,24 @@ async function scheduled(
         pingHealthchecks(env, "fail", `linear-dispatch tick failed: ${msg}`).catch(() => {});
       }),
   );
+
+  // Telegram auto-idle sweep — pauses chat sandboxes idle for
+  // TELEGRAM_IDLE_TIMEOUT_MS (default 5min, see issue #103). No-op when the
+  // bot isn't configured. Uses the same MAIN-service-binding SessionCreator
+  // as session create/resume — no public HTTP hop.
+  if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_AGENT_ID) {
+    const container = buildContainer(env);
+    ctx.waitUntil(
+      sweepIdleTelegramChats({
+        store: telegramChatStore,
+        pause: (userId, sessionId) => container.sessions.pause(userId, sessionId),
+        now: () => Date.now(),
+        idleTimeoutMs: telegramIdleTimeoutMs(env),
+      }).catch((err) => {
+        log.error({ err, op: "telegram-idle-sweep.fatal", cron: controller.cron }, "telegram idle sweep failed");
+      }),
+    );
+  }
 }
 
 export default {

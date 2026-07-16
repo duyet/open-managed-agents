@@ -1,6 +1,6 @@
 <!--
   Open Graph share image — 1200×630 (the Facebook/Twitter/LinkedIn standard
-  large-card size). Clean light background with the brand `[•]` glyph
+  large-card size). Clean zinc-white background with the 2026 oma glyph
   and the "oma" wordmark.
 
   NOTE on format: most modern social platforms (Facebook, Twitter/X,
@@ -12,44 +12,41 @@
   SVG keeps the asset crisp and ~2 KB instead of ~120 KB.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Open Managed Agents">
-  <!-- Background — same #fefefe as the light-mode bg token. -->
-  <rect width="1200" height="630" fill="#fefefe"/>
+  <!-- Background — same #ffffff as the light-mode bg token. -->
+  <rect width="1200" height="630" fill="#ffffff"/>
 
-  <!-- Subtle brand-tinted halo so the image isn't a flat white card in
-       a feed. Radial gradient, very low opacity coral, off-center to
+  <!-- Subtle iris-tinted halo so the image isn't a flat white card in
+       a feed. Radial gradient, very low opacity iris, off-center to
        feel intentional. -->
   <defs>
     <radialGradient id="halo" cx="0.18" cy="0.22" r="0.7">
-      <stop offset="0%"  stop-color="#FF6B50" stop-opacity="0.12"/>
-      <stop offset="60%" stop-color="#FF6B50" stop-opacity="0.03"/>
-      <stop offset="100%" stop-color="#FF6B50" stop-opacity="0"/>
+      <stop offset="0%"  stop-color="#4f46e5" stop-opacity="0.12"/>
+      <stop offset="60%" stop-color="#4f46e5" stop-opacity="0.03"/>
+      <stop offset="100%" stop-color="#4f46e5" stop-opacity="0"/>
     </radialGradient>
   </defs>
   <rect width="1200" height="630" fill="url(#halo)"/>
 
-  <!-- Brand glyph + wordmark, vertically stacked, optically centered.
-       Glyph drawn at ~3x of header size to fill the share card; wordmark
-       sits below at display weight. -->
-  <!-- [•] glyph — square brackets = the harness, dot = the agent it runs.
-       64-viewBox mark scaled ~3.6x and centered above the wordmark. -->
-  <g transform="translate(484.8, 130) scale(3.6)" fill="none" stroke="#FF6B50" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M24 15 H15 V49 H24"/>
-    <path d="M40 15 H49 V49 H40"/>
-    <circle cx="32" cy="32" r="8" fill="#FF6B50" stroke="none"/>
+  <!-- oma glyph — rounded-square frame = the sandbox, edge wired into the
+       solid node = the agent it runs. 24-viewBox mark scaled 7x (168px) and
+       centered above the wordmark (x = 600 - 84 = 516). -->
+  <g transform="translate(516, 130) scale(7)" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round">
+    <rect x="3.25" y="3.25" width="17.5" height="17.5" rx="5"/>
+    <path d="M7 7 11 11"/>
+    <circle cx="12" cy="12" r="2.75" fill="#4f46e5" stroke="none"/>
   </g>
 
-  <!-- Wordmark — "oma" in display serif, matches the display font
-       (Source Serif 4) we use in the app. Falls back to Georgia/serif on
-       systems that don't have the webfont, which is fine for a static
-       SVG meant for OG previews (most renderers don't load webfonts). -->
+  <!-- Wordmark — "oma" in the display font (Poppins) we use in the app.
+       Falls back to system sans on renderers that don't load the webfont,
+       which is fine for a static OG preview. -->
   <text x="600" y="475" text-anchor="middle"
-        font-family="'Source Serif 4', Georgia, 'Times New Roman', serif"
-        font-size="84" font-weight="700" fill="#1a1a1a"
+        font-family="'Poppins', -apple-system, 'Segoe UI', Arial, sans-serif"
+        font-size="84" font-weight="700" fill="#18181b"
         letter-spacing="-1">oma</text>
 
   <!-- Tagline -->
   <text x="600" y="540" text-anchor="middle"
         font-family="'DM Sans', -apple-system, 'Segoe UI', sans-serif"
-        font-size="26" font-weight="400" fill="#6b6b6b"
+        font-size="26" font-weight="400" fill="#52525b"
         letter-spacing="0.2">Manage agents, sessions, and infrastructure.</text>
 </svg>

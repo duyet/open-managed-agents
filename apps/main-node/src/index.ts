@@ -50,6 +50,7 @@ import { createSqliteSessionService } from "@duyet/oma-sessions-store";
 import { createSqliteFileService } from "@duyet/oma-files-store";
 import { createSqliteEvalRunService } from "@duyet/oma-evals-store";
 import { createSqliteEnvironmentService } from "@duyet/oma-environments-store";
+import { createSqlitePublicationService } from "@duyet/oma-publications-store";
 import { toFileRecord } from "@duyet/oma-files-store";
 import { SqlEventLog } from "@duyet/oma-event-log/sql";
 import type { SessionEvent } from "@duyet/oma-shared";
@@ -62,18 +63,21 @@ import { resolveModel } from "@duyet/oma-agent/harness/provider";
 import { composeSystemPrompt } from "@duyet/oma-agent/harness/platform-guidance";
 import type { HarnessContext } from "@duyet/oma-agent/harness/interface";
 import { nodeToMarkdown } from "@duyet/oma-markdown/adapters/node";
+import { buildNodeMcpBinding } from "./mcp-proxy";
 import { applyBetterAuthSchema } from "@duyet/oma-schema";
 import { ensureSchema as ensureEventLogSchema } from "@duyet/oma-event-log/sql";
 import {
   SandboxProviderRegistry,
   InMemoryQuotaStore,
   SYSTEM_PROVIDERS,
+  resolveDefaultLocalSandboxProvider,
   type SandboxProviderConfig,
   type SandboxUsageRecord,
 } from "@duyet/oma-sandbox";
 import {
   buildAgentRoutes,
   buildVaultRoutes,
+  buildMcpServerRoutes,
   buildEnvironmentRoutes,
   buildSessionRoutes,
   buildMemoryRoutes,
@@ -86,6 +90,7 @@ import {
   buildIntegrationsRoutes,
   buildIntegrationsGatewayRoutes,
   buildAnyRouterRoutes,
+  buildTelegramWebhookRoute,
   type RouteServices,
   type ApiKeyStorage,
   type ApiKeyMeta,
@@ -150,6 +155,12 @@ import { PgEventStreamHub } from "./lib/pg-event-stream-hub";
 import { NodeHarnessRuntime } from "./lib/node-harness-runtime";
 import { selectHarnessName } from "./lib/harness-select";
 import { SessionRegistry } from "./registry.js";
+import {
+  TelegramClient,
+  InMemoryTelegramChatStore,
+  TelegramAgentHandler,
+} from "@duyet/oma-telegram";
+import { NodeTelegramSessionCreator } from "./lib/node-telegram.js";
 
 const toMarkdownProvider = nodeToMarkdown();
 
@@ -364,6 +375,7 @@ const sessionsService = createSqliteSessionService({ db: drizzleDb });
 const filesService = createSqliteFileService({ db: drizzleDb });
 const evalsService = createSqliteEvalRunService({ db: drizzleDb });
 const environmentsService = createSqliteEnvironmentService({ db: drizzleDb });
+const publicationsService = createSqlitePublicationService({ db: drizzleDb });
 
 let memoryBlobs: import("@duyet/oma-memory-store").BlobStore;
 let memoryBlobDescription: string;
@@ -593,13 +605,43 @@ async function resolveEnvProvider(sessionId: string): Promise<string | null> {
   }
 }
 
+// Auto-detect a reachable OpenShell gateway for the *implicit* default
+// sandbox provider — i.e. only when neither the session's environment nor
+// SANDBOX_PROVIDER pin a provider explicitly. Historically that implicit
+// default was hardcoded to "subprocess"; now it prefers OpenShell when
+// OPENSHELL_GATEWAY_ENDPOINT is configured and currently reachable.
+// Overridable via OPENSHELL_MODE=auto|openshell|subprocess (see
+// resolveDefaultLocalSandboxProvider). The reachability probe is real
+// network I/O, so the decision is computed once (lazily, on first use)
+// and cached for the process lifetime rather than re-probed per session.
+let defaultLocalSandboxProviderPromise: Promise<string> | null = null;
+function getDefaultLocalSandboxProvider(): Promise<string> {
+  if (!defaultLocalSandboxProviderPromise) {
+    defaultLocalSandboxProviderPromise = (async () => {
+      const { probeOpenShellGateway, resolveOpenShellTlsFromEnv } = await import(
+        "@duyet/oma-sandbox/adapters/openshell"
+      );
+      const tls = resolveOpenShellTlsFromEnv(process.env);
+      const decision = await resolveDefaultLocalSandboxProvider(process.env, (endpoint) =>
+        probeOpenShellGateway(endpoint, tls),
+      );
+      logger.info(
+        { op: "main-node.sandbox.default_provider", provider_id: decision.providerId, reason: decision.reason },
+        `default sandbox provider: ${decision.providerId} (${decision.reason})`,
+      );
+      return decision.providerId;
+    })();
+  }
+  return defaultLocalSandboxProviderPromise;
+}
+
 async function buildSandbox(
   sessionId: string,
   workdir: string,
 ): Promise<import("@duyet/oma-sandbox").SandboxExecutor> {
   const envProvider = await resolveEnvProvider(sessionId);
   const providerId = (
-    envProvider ?? process.env.SANDBOX_PROVIDER ?? "subprocess"
+    envProvider ?? process.env.SANDBOX_PROVIDER ?? (await getDefaultLocalSandboxProvider())
   ).toLowerCase();
 
   const sandbox = await sandboxRegistry.createExecutor(
@@ -688,6 +730,21 @@ function resolveProviderCreds(
   );
 }
 
+// Built here (rather than down in the services bundle) because
+// sessionRegistry's buildTools callback below needs it — the mcp_servers
+// registry (KV-backed) and the MCP proxy share the same store.
+const kv = new SqlKvStore({ db: drizzleDb, tenantId: "default" });
+
+// Node counterpart to the CF agent worker's `env.MAIN_MCP` service binding
+// — resolves vault credentials + forwards to the upstream MCP server
+// in-process instead of over an RPC. See mcp-proxy.ts for the full
+// resolution rules.
+const nodeMcpBinding = buildNodeMcpBinding({
+  sessions: sessionsService,
+  credentials: credentialService,
+  kv,
+});
+
 const sessionRegistry = new SessionRegistry({
   sql,
   hub,
@@ -723,12 +780,15 @@ const sessionRegistry = new SessionRegistry({
       parseCustomHeaders(process.env.ANTHROPIC_CUSTOM_HEADERS),
     );
   },
-  buildTools: async (agent, sandbox) => {
+  buildTools: async (agent, sandbox, ctx) => {
     const { apiKey, baseUrl } = resolveProviderCreds(agent);
     return buildTools(agent, sandbox, {
       ANTHROPIC_API_KEY: apiKey,
       ANTHROPIC_BASE_URL: baseUrl,
       toMarkdown: toMarkdownProvider,
+      mcpBinding: nodeMcpBinding,
+      tenantId: ctx.tenantId,
+      sessionId: ctx.sessionId,
     });
   },
   buildHarness: () => {
@@ -797,8 +857,6 @@ await loadActiveAnyRouterProvider({ sql, vaults: vaultService, credentials: cred
 
 // ─── Services bundle ────────────────────────────────────────────────────
 
-const kv = new SqlKvStore({ db: drizzleDb, tenantId: "default" });
-
 const services: RouteServices = {
   sql,
   agents: agentsService,
@@ -808,6 +866,7 @@ const services: RouteServices = {
   sessions: sessionsService,
   dreams: dreamsService,
   environments: environmentsService,
+  publications: publicationsService,
   kv,
   newEventLog,
   hub: {
@@ -1084,6 +1143,7 @@ v1.route("/sessions", buildSessionRoutes({
   },
 }));
 v1.route("/vaults", buildVaultRoutes({ services }));
+v1.route("/mcp_servers", buildMcpServerRoutes({ services }));
 v1.route("/memory_stores", buildMemoryRoutes({ services }));
 v1.route("/dreams", buildDreamRoutes({
   services,
@@ -1170,6 +1230,7 @@ v1.get("/hosting_types", async (c) => {
     latency_ms: number;
     last_checked: string;
     reason?: string;
+    capacity?: import("@duyet/oma-sandbox").SandboxCapacity;
   }>();
   for (const p of providers) {
     try {
@@ -1193,6 +1254,7 @@ v1.get("/hosting_types", async (c) => {
           latency_ms: h.latencyMs,
           last_checked: h.lastChecked,
           reason: h.status === "ok" ? undefined : (h.details ?? "Health check failed."),
+          capacity: h.capacity,
         });
       }
     } catch {}
@@ -1338,6 +1400,19 @@ v1.get("/sandbox_providers/:id/usage", (c) => {
 // CF /linear/publications/* etc. wire shapes verbatim.
 const integrationsInternalToken = process.env.INTEGRATIONS_INTERNAL_TOKEN ?? null;
 const gatewayOrigin = process.env.GATEWAY_ORIGIN ?? process.env.PUBLIC_BASE_URL ?? "http://localhost:8787";
+// OMA-hosted managed Slack App credentials — mirrors apps/integrations'
+// SLACK_MANAGED_CLIENT_ID/SECRET/SIGNING_SECRET. Powers the "Add to Slack"
+// one-click install; unset disables it (503, BYOA wizard still works).
+const slackManagedApp =
+  process.env.SLACK_MANAGED_CLIENT_ID &&
+  process.env.SLACK_MANAGED_CLIENT_SECRET &&
+  process.env.SLACK_MANAGED_SIGNING_SECRET
+    ? {
+        clientId: process.env.SLACK_MANAGED_CLIENT_ID,
+        clientSecret: process.env.SLACK_MANAGED_CLIENT_SECRET,
+        signingSecret: process.env.SLACK_MANAGED_SIGNING_SECRET,
+      }
+    : null;
 let installBridge: NodeInstallBridge | null = null;
 if (platformRootSecret) {
   installBridge = new NodeInstallBridge({
@@ -1349,6 +1424,7 @@ if (platformRootSecret) {
     credentials: credentialService,
     sessions: sessionsService,
     agents: agentsService,
+    slackManagedApp,
     resolveTenantId: async (userId) => {
       const row = await sql
         .prepare(
@@ -1617,6 +1693,56 @@ if (installBridge) {
   );
 }
 
+// ─── Telegram bot ────────────────────────────────────────────────────
+//
+// Inbound webhook → OMA session (create/resume) → agent's final message
+// posted back to the chat, via a direct one-shot EventStreamHub observer
+// (design doc "Approach B" — Node has no generic agent.notify fan-out with
+// a per-session *dynamic* target, and the chat_id is dynamic per inbound
+// message). The route is always mounted (mirrors CF's /telegram/webhook
+// path) so Telegram's setWebhook call never 404s; when TELEGRAM_BOT_TOKEN
+// or TELEGRAM_AGENT_ID is unset, buildHandler returns null and every
+// request gets a clear 503 instead of silently no-op'ing.
+let telegramHandler: TelegramAgentHandler | null = null;
+if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_AGENT_ID) {
+  const telegramClient = new TelegramClient(process.env.TELEGRAM_BOT_TOKEN);
+  const telegramSessions = new NodeTelegramSessionCreator({
+    sessionsService,
+    agentsService,
+    sessionRouter,
+    hub,
+    client: telegramClient,
+    resolveTenantId: async (userId) => {
+      const row = await sql
+        .prepare(
+          `SELECT tenant_id FROM membership WHERE user_id = ? ORDER BY created_at ASC, tenant_id ASC LIMIT 1`,
+        )
+        .bind(userId)
+        .first<{ tenant_id: string }>();
+      return row?.tenant_id ?? null;
+    },
+  });
+  const telegramVaultIds = (process.env.TELEGRAM_VAULT_IDS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  telegramHandler = new TelegramAgentHandler(telegramClient, {
+    sessions: telegramSessions,
+    agentId: process.env.TELEGRAM_AGENT_ID,
+    vaultIds: telegramVaultIds,
+    environmentId: process.env.TELEGRAM_ENVIRONMENT_ID,
+    store: new InMemoryTelegramChatStore(),
+  });
+}
+app.route(
+  "/telegram",
+  buildTelegramWebhookRoute({
+    buildHandler: () => telegramHandler,
+    webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET,
+    log: logger,
+  }),
+);
+
 // oma-cap-adapter wire — exposes a Resolver against the in-process vault
 // services so a future Node outbound proxy (mirroring CF's mcp-proxy) can
 // inject cap_cli credentials into sandbox traffic. Wired here at the
@@ -1807,7 +1933,7 @@ function bridgeAsInstallProxy(bridge: NodeInstallBridge): InstallProxyForwarder 
         });
       }
 
-      const m = /^([^/]+)\/publications\/(start-a1|credentials|handoff-link|personal-token)$/.exec(
+      const m = /^([^/]+)\/publications\/(start-a1|start-managed|credentials|handoff-link|personal-token)$/.exec(
         subpath,
       );
       if (!m) {
@@ -1819,7 +1945,7 @@ function bridgeAsInstallProxy(bridge: NodeInstallBridge): InstallProxyForwarder 
       const [, provider, mode] = m;
       const result = await bridge.startInstallation!({
         provider: provider as "linear" | "github" | "slack",
-        mode: mode as "start-a1" | "credentials" | "handoff-link" | "personal-token",
+        mode: mode as "start-a1" | "start-managed" | "credentials" | "handoff-link" | "personal-token",
         body: (body ?? {}) as Record<string, unknown>,
       });
       return new Response(JSON.stringify(result.body), {

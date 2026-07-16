@@ -24,8 +24,20 @@ export const authMiddleware = createMiddleware<{
   if (c.req.path.startsWith("/v1/mcp-proxy/")) {
     return next();
   }
+  // Public chat surface for published agents (issue #72): /p/:slug/* and
+  // /p/:slug resolve the owning tenant from the publication row itself, so
+  // they must bypass x-api-key auth. Guardrails (visibility/status, per-slug
+  // + per-IP caps, ownership scoping) live in routes/publications.ts.
+  if (c.req.path === "/p" || c.req.path.startsWith("/p/")) {
+    return next();
+  }
   // Public routes use their own auth (magic-link consumer tokens, etc.).
   if (c.req.path.startsWith("/v1/public/")) {
+    return next();
+  }
+  // Stripe webhook (issue #74): authenticated by the Stripe signature, not an
+  // x-api-key. Verified inside routes/payments.ts against STRIPE_WEBHOOK_SECRET.
+  if (c.req.path.startsWith("/webhooks/")) {
     return next();
   }
   // Device Authorization Grant (RFC 8628) — /code (issue) + /token (poll)

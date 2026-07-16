@@ -1,0 +1,46 @@
+---
+/**
+ * oma brand mark — 2026 redesign.
+ *
+ * Retires the old bracket-dot "[·]" motif for a sharper, single geometric
+ * glyph: a rounded-square *frame* (the environment / sandbox) with an edge
+ * running in from the top-left corner into a solid *node* at the center (the
+ * managed agent a request lands on). It reads as "a request wired into an
+ * agent inside its durable frame" — the whole product in one mark.
+ *
+ * Pure inline SVG using `currentColor`, so it's theme-aware: set the color on
+ * the wrapper (the header uses text-[var(--color-brand)] → iris) and the mark
+ * follows light/dark automatically. Stroke geometry stays crisp at any size.
+ */
+export interface Props {
+  size?: number;
+  class?: string;
+}
+const { size = 28, class: className = "" } = Astro.props;
+---
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width={size}
+  height={size}
+  viewBox="0 0 24 24"
+  fill="none"
+  class={className}
+  aria-hidden="true"
+>
+  <rect
+    x="3.25"
+    y="3.25"
+    width="17.5"
+    height="17.5"
+    rx="5"
+    stroke="currentColor"
+    stroke-width="2"
+  />
+  <path
+    d="M7 7 11 11"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+  />
+  <circle cx="12" cy="12" r="2.75" fill="currentColor" />
+</svg>
