@@ -372,7 +372,7 @@ GET    /v1/skills                          # 列出技能
 | `glob` | 按模式查找文件 |
 | `grep` | 用正则搜索文件内容 |
 | `web_fetch` | URL → markdown，通过 Workers AI；当 `agent.aux_model` 设置时自动摘要，原文保存到 `/workspace/.web/` |
-| `web_search` | 通过 Tavily API 的网页搜索（需要 `TAVILY_API_KEY`） |
+| `web_search` | 网页搜索。默认使用 DuckDuckGo（免费，无需 key）。可通过工具 `type` 切换到其他后端：`web_search_20250305`（Anthropic 服务器端，仅限 Claude 模型）、`web_search_tavily`（需要 `TAVILY_API_KEY`） |
 | `schedule` / `cancel_schedule` / `list_schedules` | Cron 风格的自唤醒，用于长时运行的 agent |
 | `browser`（按需启用） | 无头浏览器会话 —— 导航、点击、截屏。需通过 `tools: [{ name: "browser", enabled: true }]` 显式启用，默认工具列表会优先引导 agent 使用更便宜的 `web_fetch` |
 
@@ -657,7 +657,7 @@ open-managed-agents/
 | `ANTHROPIC_BASE_URL` | 否 | 切到任意 Anthropic 兼容代理。 |
 | `PUBLIC_BASE_URL` | 否（开发） / 是（生产） | Cookie 域和 OAuth redirect 的根。默认 `*` trusted-origins —— 只适合本地开发。 |
 | `SANDBOX_PROVIDER` | 否 | `subprocess`（默认，无隔离）、`litebox`（Firecracker）、`daytona`、`e2b`、`boxrun`。运行不可信 agent 请用带隔离的后端。 |
-| `TAVILY_API_KEY` | 否 | `web_search` 内置工具的后端。 |
+| `TAVILY_API_KEY` | 否 | 仅 `web_search_tavily` 这个工具变体需要 —— `web_search` 默认使用免费的 DuckDuckGo，无需 key。 |
 
 完整变量列表（集成 OAuth 凭证、Postgres URL、沙箱调参、记忆桶配置、Google 登录等）：**[docs.oma.duyet.net/reference/configuration](https://docs.oma.duyet.net/reference/configuration/)** 以及 `.env.example` / `.dev.vars.example`。
 

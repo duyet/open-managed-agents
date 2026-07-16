@@ -137,6 +137,9 @@ A **vault** is a secure credential store. Credentials in vaults are **never expo
 | `aux_model_card_id` | string | No | Companion to `aux_model` — explicit model card binding when needed |
 | `harness` | string | No | Harness implementation to use (default: `"default"`) |
 | `metadata` | object | No | Arbitrary key-value metadata |
+| `appendable_prompts` | string[] | No | Opt-in registry of prompt IDs to inject as additional system prompt segments at session/turn start. Empty/missing = no extra segments |
+| `enable_general_subagent` | boolean | No | Opt-in built-in delegation tool. When true, the harness exposes a `general_subagent(task)` tool that spawns a generic sub-agent thread inheriting this agent's model + sandbox — bypasses the `callable_agents` roster |
+| `notify` | array | No | Notification targets to post session-status updates to (issue/PR comments, chat messages) — see [Notify Targets](#notify-targets) |
 
 See [`examples/`](examples/) for copy-paste-ready agent and environment
 configs (coding assistant, data analyst, research agent, plus full harness
@@ -159,7 +162,7 @@ The `agent_toolset_20260401` provides 8 tools designed for general-purpose agent
 | **glob** | File search | Pattern matching (e.g. `**/*.ts`). Returns sorted file list. |
 | **grep** | Content search | Regex search across files. Returns matching lines with context. |
 | **web_fetch** | URL → markdown | Fetches a URL, converts HTML/PDF/DOCX/etc. to markdown via Workers AI `env.AI.toMarkdown()`. When `agent.aux_model` is set, large pages (>5KB) are summarized by the aux model and the full markdown is offloaded to `/workspace/.web/<sha>.md` (readable via the `read` tool with offset/limit). Falls back to raw curl with an explicit warning if extraction fails. |
-| **web_search** | Web search | Search via Tavily API. Requires `TAVILY_API_KEY`. |
+| **web_search** | Web search | Defaults to DuckDuckGo (free, no key). Optional backends via tool `type`: `web_search_20250305` (Anthropic server-side, Claude models only), `web_search_tavily` (requires `TAVILY_API_KEY`). |
 
 ### Tool Configuration
 
