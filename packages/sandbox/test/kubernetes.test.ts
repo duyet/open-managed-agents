@@ -270,6 +270,55 @@ describe("KubernetesSandboxExecutor", () => {
     const sandbox = new KubernetesSandboxExecutor({ sessionId: "s8" });
     await expect(sandbox.startProcess("sleep 100")).resolves.toBeNull();
   });
+
+  it("does not deadlock when setOutboundContext armed a CA upload (regression)", async () => {
+    // Regression for the k8s exec hang: setOutboundContext queues a
+    // pendingCaUpload, whose file write runs *inside* createAndWaitForPod
+    // (the in-flight podPromise). Routing that write back through
+    // ensurePod() re-awaited the same unresolved promise → permanent
+    // deadlock: the first bash exec never returned, no timer ever armed,
+    // and the session turn wedged forever. The upload must instead use the
+    // pod just resolved. A real temp CA file backs the fs.readFile.
+    const { promises: fs } = await import("node:fs");
+    const os = await import("node:os");
+    const path = await import("node:path");
+    const caPath = path.join(os.tmpdir(), `oma-vault-ca-${Date.now()}.crt`);
+    await fs.writeFile(caPath, "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----\n");
+
+    const prevProxy = process.env.OMA_VAULT_PROXY_URL;
+    const prevCa = process.env.OMA_VAULT_CA_CERT;
+    process.env.OMA_VAULT_PROXY_URL = "http://oma.oma.svc.cluster.local:14322";
+    process.env.OMA_VAULT_CA_CERT = caPath;
+    try {
+      const sandbox = new KubernetesSandboxExecutor({ sessionId: "s9", readyTimeoutMs: 2_000 });
+      await sandbox.setOutboundContext({ tenantId: "t", sessionId: "s9" });
+      world.execResult = { stdout: "ok\n", stderr: "", exitCode: 0 };
+
+      // Before the fix this never resolves. Fail loud if it regresses
+      // instead of hanging the whole test run.
+      const result = await Promise.race([
+        sandbox.exec("echo ok"),
+        new Promise<string>((_r, reject) =>
+          setTimeout(() => reject(new Error("exec() deadlocked (CA-upload re-entrancy)")), 5_000),
+        ),
+      ]);
+
+      expect(result).toBe("ok");
+      // The CA cert was uploaded via the base64-over-exec channel, then the
+      // user's command ran — both on the same pod, no second provisioning.
+      expect(world.createCalls).toHaveLength(1);
+      const uploadedCa = world.execCalls.some((argv) =>
+        argv[argv.length - 1].includes("/etc/ssl/oma-vault-ca.crt"),
+      );
+      expect(uploadedCa).toBe(true);
+    } finally {
+      if (prevProxy === undefined) delete process.env.OMA_VAULT_PROXY_URL;
+      else process.env.OMA_VAULT_PROXY_URL = prevProxy;
+      if (prevCa === undefined) delete process.env.OMA_VAULT_CA_CERT;
+      else process.env.OMA_VAULT_CA_CERT = prevCa;
+      await fs.unlink(caPath).catch(() => {});
+    }
+  });
 });
 
 describe("sweepOrphanedSandboxes", () => {
