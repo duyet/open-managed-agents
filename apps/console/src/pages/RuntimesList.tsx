@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { XCircleIcon, TimerIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useApi } from "../lib/api";
-import { useApiQuery } from "../lib/useApiQuery";
+import { formatQueryError, useApiQuery } from "../lib/useApiQuery";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -530,6 +530,7 @@ export function RuntimesList() {
   const {
     data: runtimesRes,
     isLoading: runtimesLoading,
+    error: runtimesQueryError,
     refetch,
   } = useApiQuery<{ runtimes: Runtime[] }>(
     "/v1/runtimes",
@@ -537,6 +538,7 @@ export function RuntimesList() {
     { refetchInterval: 15_000 },
   );
   const runtimes = runtimesRes?.runtimes ?? [];
+  const runtimesError = formatQueryError(runtimesQueryError);
 
   const remove = async (id: string) => {
     if (!confirm("Revoke this runtime? Daemon on that machine will stop being able to attach.")) return;
@@ -555,7 +557,12 @@ export function RuntimesList() {
   };
 
   const loading = providersLoading || runtimesLoading;
-  const isEmpty = !loading && !providersError && providers.length === 0 && runtimes.length === 0;
+  const isEmpty =
+    !loading &&
+    !providersError &&
+    !runtimesError &&
+    providers.length === 0 &&
+    runtimes.length === 0;
 
   return (
     <div role="main" aria-label="Sandbox Runtime" className="-m-3 p-4 space-y-10">
@@ -590,8 +597,20 @@ export function RuntimesList() {
         )}
 
         {providersError && (
-          <div className="rounded-lg border border-border bg-bg-surface p-4 text-sm text-fg-muted">
-            Failed to load providers: {providersError}
+          <div className="rounded-lg border border-border bg-bg-surface p-4 text-sm text-fg-muted flex items-center justify-between gap-3">
+            <span>Failed to load providers: {providersError}</span>
+            <Button size="sm" variant="outline" onClick={() => void loadProviders()}>
+              Retry
+            </Button>
+          </div>
+        )}
+
+        {runtimesError && (
+          <div className="mt-3 rounded-lg border border-border bg-bg-surface p-4 text-sm text-fg-muted flex items-center justify-between gap-3">
+            <span>Failed to load runtimes: {runtimesError}</span>
+            <Button size="sm" variant="outline" onClick={() => void refetch()}>
+              Retry
+            </Button>
           </div>
         )}
 

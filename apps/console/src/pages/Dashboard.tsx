@@ -1,10 +1,12 @@
 import { useNavigate } from "react-router";
+import { TriangleAlertIcon } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { useApiQuery } from "../lib/useApiQuery";
+import { formatQueryError, useApiQuery } from "../lib/useApiQuery";
 import { StatusPill } from "../components/Badge";
 import { EmptyState } from "../components/EmptyState";
 import { Skeleton } from "../components/Skeleton";
 import { StackedAssembly } from "../components/StackedAssembly";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { formatSandboxTime } from "../lib/format";
 
@@ -58,30 +60,39 @@ export function Dashboard() {
   const runningCount = runningSessionsQuery.data?.data.length;
   const runningHasMore = Boolean(runningSessionsQuery.data?.next_page);
 
+  // A failed /v1/stats or /v1/sessions?status=running used to leave these
+  // cards showing "0"/"–" forever with no indication anything went wrong
+  // (issue #182) — captions swap to a danger-toned "Couldn't load" instead
+  // of the misleading "No usage yet" zero-state when the underlying query
+  // errored and never got any data.
   const metrics = [
     {
       label: "Sandbox time",
       value: formatSandboxTime(stats?.total_sandbox_seconds),
-      caption: stats?.total_sandbox_seconds ? "all time" : "No usage yet",
+      caption: statsQuery.error ? "Couldn't load" : stats?.total_sandbox_seconds ? "all time" : "No usage yet",
       isLoading: statsQuery.isLoading,
+      isError: !!statsQuery.error,
     },
     {
       label: "Sessions run",
       value: (stats?.total_usage_sessions ?? 0).toLocaleString(),
-      caption: stats?.total_usage_sessions ? "all time" : "No usage yet",
+      caption: statsQuery.error ? "Couldn't load" : stats?.total_usage_sessions ? "all time" : "No usage yet",
       isLoading: statsQuery.isLoading,
+      isError: !!statsQuery.error,
     },
     {
       label: "Active sessions",
       value: `${runningCount ?? 0}${runningHasMore ? "+" : ""}`,
-      caption: "right now",
+      caption: runningSessionsQuery.error ? "Couldn't load" : "right now",
       isLoading: runningSessionsQuery.isLoading,
+      isError: !!runningSessionsQuery.error,
     },
     {
       label: "Agents",
       value: (stats?.agents ?? 0).toLocaleString(),
-      caption: stats?.agents ? "total" : "No agents yet",
+      caption: statsQuery.error ? "Couldn't load" : stats?.agents ? "total" : "No agents yet",
       isLoading: statsQuery.isLoading,
+      isError: !!statsQuery.error,
     },
   ];
 
@@ -155,7 +166,7 @@ export function Dashboard() {
                   <div className="mt-2.5 text-[11px] uppercase tracking-[0.08em] text-fg-muted font-medium">
                     {m.label}
                   </div>
-                  <div className="mt-0.5 text-[12px] text-fg-subtle">
+                  <div className={`mt-0.5 text-[12px] ${m.isError ? "text-danger" : "text-fg-subtle"}`}>
                     {m.caption}
                   </div>
                 </CardContent>
@@ -204,6 +215,14 @@ export function Dashboard() {
                 </div>
               ))}
             </div>
+          ) : sessionsQuery.error && recentSessions.length === 0 ? (
+            <EmptyState
+              title="Couldn't load recent sessions"
+              body={formatQueryError(sessionsQuery.error)}
+              tone="danger"
+              icon={<TriangleAlertIcon className="text-danger" />}
+              action={<Button onClick={() => sessionsQuery.refetch()}>Retry</Button>}
+            />
           ) : recentSessions.length === 0 ? (
             <EmptyState
               title="No sessions yet — the stable's empty."

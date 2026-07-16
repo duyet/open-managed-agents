@@ -41,6 +41,7 @@ export function FilesList() {
   const {
     items,
     isLoading: loading,
+    error,
     hasMore,
     isLoadingMore,
     loadMore,
@@ -283,6 +284,9 @@ export function FilesList() {
       filters={filters}
       data={filtered}
       loading={loading}
+      error={error}
+      onRetry={refreshFiles}
+      errorTitle="Couldn't load files"
       getRowId={(f) => f.id}
       hasMore={hasMore && !search}
       loadingMore={isLoadingMore}

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { TrashIcon, XCircleIcon } from "lucide-react";
 
 import { useApi } from "../lib/api";
-import { useApiQuery } from "../lib/useApiQuery";
+import { formatQueryError, useApiQuery } from "../lib/useApiQuery";
 import { DataTable, type ColumnDef } from "../components/DataTable";
 import { FacetedFilter } from "../components/FacetedFilter";
 import { FilterChip } from "../components/FilterChip";
@@ -100,7 +100,12 @@ export function EvalRunsList() {
   // run reaching a terminal state pauses the poll on its own — matches
   // the previous `anyActive` guard without the manual setInterval +
   // cancelled flag dance.
-  const { data: runsRes, isLoading: loading, refetch } = useApiQuery<{ data: EvalRunSummary[] }>(
+  const {
+    data: runsRes,
+    isLoading: loading,
+    error: runsQueryError,
+    refetch,
+  } = useApiQuery<{ data: EvalRunSummary[] }>(
     "/v1/evals/runs",
     params,
     {
@@ -114,6 +119,7 @@ export function EvalRunsList() {
     },
   );
   const runs = runsRes?.data ?? [];
+  const runsError = formatQueryError(runsQueryError);
 
   // TanStack column defs. Order, filtering, and search all flow through
   // server params — no per-column sort/filter UI. Required columns (id,
@@ -277,6 +283,9 @@ export function EvalRunsList() {
       filters={filters}
       data={runs}
       loading={loading}
+      error={runsError}
+      onRetry={() => void refetch()}
+      errorTitle="Couldn't load eval runs"
       getRowId={(r) => r.id}
       onRowClick={(r) => nav(`/evals/${r.id}`)}
       columns={columns}

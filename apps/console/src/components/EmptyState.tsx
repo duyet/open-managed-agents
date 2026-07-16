@@ -87,6 +87,11 @@ interface EmptyStateProps {
    *  use this for one-off empty states (e.g. integration pages) that
    *  don't fit one of the core entity kinds. */
   icon?: ReactNode;
+  /** Danger-toned variant for failed fetches — tints the title red instead
+   *  of the neutral empty-state palette. There's no entity-specific
+   *  illustration for errors, so callers pass their own `icon` (e.g. a
+   *  lucide `TriangleAlertIcon`) alongside this. */
+  tone?: "default" | "danger";
   className?: string;
 }
 
@@ -98,6 +103,7 @@ export function EmptyState({
   loading,
   kind,
   icon,
+  tone = "default",
   className = "",
 }: EmptyStateProps) {
   const s = SIZE[size];
@@ -124,7 +130,9 @@ export function EmptyState({
           </span>
         )}
       </div>
-      <p className={`text-fg ${s.title} font-medium`}>{title}</p>
+      <p className={`${tone === "danger" ? "text-danger" : "text-fg"} ${s.title} font-medium`}>
+        {title}
+      </p>
       {body && <p className={`text-fg-muted mt-1.5 ${s.body}`}>{body}</p>}
       {action && <div className="mt-4 inline-flex">{action}</div>}
     </div>

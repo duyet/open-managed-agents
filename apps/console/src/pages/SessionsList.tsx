@@ -298,6 +298,7 @@ export function SessionsList() {
   const {
     items: sessions,
     isLoading: loading,
+    error,
     hasMore,
     isLoadingMore,
     loadMore,
@@ -820,6 +821,9 @@ export function SessionsList() {
       filters={filters}
       data={displayed}
       loading={loading}
+      error={error}
+      onRetry={refreshSessions}
+      errorTitle="Couldn't load sessions"
       getRowId={(s) => s.id}
       onRowClick={(s) => nav(`/sessions/${s.id}`)}
       hasMore={hasMore}
