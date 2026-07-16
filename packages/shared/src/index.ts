@@ -17,5 +17,6 @@ export * from "./log";
 export * from "./metrics";
 export * from "./file-storage";
 export * from "./pagination";
+export * from "./json";
 export * from "./sql-like";
 export * from "./healthchecks";
