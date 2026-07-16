@@ -3,10 +3,12 @@ import { useEffect, useRef, useState } from "react";
 /**
  * Interactive "Built for Real Workflows" panel.
  *
- * Three selectable use cases, each with a small animated visual that plays
- * its lines in sequence (terminal deploy trace, multi-channel chat thread,
- * durable event-log replay). Tabs auto-advance until the visitor interacts,
- * then stay put. Reduced-motion users get every line rendered statically.
+ * Four selectable use cases, each with a small animated visual that plays its
+ * lines in sequence (issue→PR coding trace, production rollout, Slack/Telegram
+ * teammate thread, durable event-log replay). Tabs auto-advance until the
+ * visitor interacts, then stay put. Reduced-motion users get every line
+ * rendered statically. The non-animated use cases (publish a consumer bot,
+ * scheduled runs) live in a companion card grid in UseCasesSection.astro.
  *
  * Theme-aware: colors come from the site's CSS custom properties.
  */
@@ -32,6 +34,22 @@ interface UseCase {
 
 const CASES: UseCase[] = [
   {
+    id: "ship",
+    title: "Ship code",
+    blurb:
+      "Assign an issue to a coding agent: the claude-agent-sdk harness runs Claude Code in a sandbox, fixes the failing test, and opens the PR.",
+    accent: "orange",
+    visualTitle: "issue #482 — automated fix",
+    lines: [
+      { tag: "gh", text: "issue #482 assigned to @oma-coder", accent: "blue" },
+      { tag: "$", text: "session sess_a1c · harness claude-agent-sdk" },
+      { tag: "⚙", text: "bash · pnpm vitest run cart.test.ts" },
+      { tag: "edit", text: "src/cart.ts · await the fetch in getTotal()", accent: "orange" },
+      { tag: "ok", text: "42 passed · 0 failed", accent: "green" },
+      { tag: "↳", text: "pushed fix/cart-total · PR #483 opened", accent: "green" },
+    ],
+  },
+  {
     id: "deploy",
     title: "Deploy & Operate",
     blurb:
@@ -49,9 +67,9 @@ const CASES: UseCase[] = [
   },
   {
     id: "channels",
-    title: "Multi-Channel",
+    title: "Slack & Telegram teammate",
     blurb:
-      "Slack, Telegram, Linear — agents as real teammates with their own identity: @mentionable, assignable, threaded.",
+      "@mention an agent in Slack or Telegram: it replies in-thread, works the task, and goes idle on its own. Same agent, same session, across channels.",
     accent: "blue",
     visualTitle: "#eng-platform — Slack thread",
     lines: [
