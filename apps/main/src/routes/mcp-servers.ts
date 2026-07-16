@@ -135,7 +135,9 @@ app.get("/", async (c) => {
     }
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
-  rows.sort((a, b) => b.created_at - a.created_at);
+  // (created_at, id) DESC — same tie-break convention as paginated tables,
+  // so same-millisecond creates still list deterministically.
+  rows.sort((a, b) => b.created_at - a.created_at || (b.id > a.id ? 1 : -1));
   return c.json({ data: rows.map(toApiShape) });
 });
 

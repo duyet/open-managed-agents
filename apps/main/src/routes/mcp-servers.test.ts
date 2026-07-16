@@ -57,6 +57,9 @@ describe("mcp_servers registry routes", () => {
 
   it("lists only this tenant's servers, newest first", async () => {
     await post({ name: "a", url: "https://a.example/mcp" });
+    // created_at is Date.now(); step past the current millisecond so
+    // "newest first" has an actual ordering to assert.
+    await new Promise((r) => setTimeout(r, 2));
     await post({ name: "b", url: "https://b.example/mcp" });
     // Seed another tenant's row directly — must not leak.
     const other = makeApp(kv, "tn_other");
