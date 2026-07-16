@@ -268,6 +268,35 @@ curl -H "Authorization: Bearer $K8S_BRIDGE_TOKEN" \
 }
 ```
 
+### GET /api/v1/cluster/capacity
+
+Aggregate cluster capacity — used to feed the console runtime gauges and the
+`estimatedAdditionalSandboxes` headroom figure. Default per-sandbox request
+size comes from `OMA_K8S_CPU` (default `500m`) and `OMA_K8S_MEMORY` (default
+`512Mi`).
+
+```bash
+curl -H "Authorization: Bearer $K8S_BRIDGE_TOKEN" \
+  https://k8s-bridge.example.com/api/v1/cluster/capacity
+```
+
+```json
+{
+  "totalCpu": "4",
+  "totalMemory": "16384Mi",
+  "allocatableCpu": "3.5",
+  "allocatableMemory": "15500Mi",
+  "requestedCpu": "2",
+  "requestedMemory": "6144Mi",
+  "runningPods": 12,
+  "maxPods": 105,
+  "estimatedAdditionalSandboxes": 3
+}
+```
+
+`estimatedAdditionalSandboxes = max(0, min(remainingCpu/defaultCpu,
+remainingMem/defaultMem, remainingPodSlots))`.
+
 ### GET /api/v1/sandboxes
 
 List all sandbox pods in the target namespace.
@@ -344,6 +373,65 @@ curl -H "Authorization: Bearer $K8S_BRIDGE_TOKEN" \
   ]
 }
 ```
+
+### GET /api/v1/sandboxes/:id
+
+Full detail for a single sandbox — pod status, per-container states, resource
+requests, and live metrics (when `metrics-server` is present). Returns 404
+`{"error":"not_found"}` if no matching pod exists.
+
+```bash
+curl -H "Authorization: Bearer $K8S_BRIDGE_TOKEN" \
+  https://k8s-bridge.example.com/api/v1/sandboxes/box-abc123
+```
+
+```json
+{
+  "id": "box-abc123",
+  "boxId": "box-abc123",
+  "sessionId": "sess_xyz",
+  "namespace": "oma-sandbox",
+  "podName": "box-abc123",
+  "nodeName": "pool-1-abcde",
+  "status": "Running",
+  "phase": "Running",
+  "containerStatuses": [
+    { "name": "sandbox", "ready": true, "restartCount": 0, "state": "running" }
+  ],
+  "cpuRequest": "1",
+  "memoryRequest": "512Mi",
+  "createdAt": "2026-07-15T10:00:00Z",
+  "durationSeconds": 3420,
+  "labels": { "oma.sh/session": "sess_xyz" },
+  "metrics": {
+    "podName": "box-abc123",
+    "namespace": "oma-sandbox",
+    "cpuUsage": "12m",
+    "memoryUsage": "45Mi",
+    "timestamp": "2026-07-15T12:00:00Z",
+    "containers": [{ "name": "sandbox", "cpuUsage": "12m", "memoryUsage": "45Mi" }]
+  }
+}
+```
+
+### Slack sandbox-event notifications
+
+Set `SLACK_WEBHOOK_URL` to enable a background poller (`SandboxMonitor`, every
+15s by default) that posts to Slack when a sandbox misbehaves:
+
+| Event | Fires when |
+|---|---|
+| `sandbox_oom` | container terminated / last-terminated reason is `OOMKilled` |
+| `sandbox_crashed` | container waiting reason is `CrashLoopBackOff` |
+| `sandbox_pending` | pod stuck `Pending` past ~30s |
+| `cluster_low_capacity` | CPU or memory used ≥ 90% |
+
+Per-session events (`sandbox_oom` / `sandbox_crashed` / `sandbox_pending`) are
+debounced (default 30s per `event:sessionId`) so a flapping pod doesn't spam
+the channel. Narrow the set with `SLACK_NOTIFY_ON` (comma-separated allowlist;
+default is all event types). The notifier is fail-open — a Slack outage never
+affects sandbox operation. No `SLACK_WEBHOOK_URL` means no poller and no
+notifications.
 
 ### POST /api/v1/boxes
 

@@ -469,6 +469,12 @@ oma connect linear --vault $VAULT_ID
 
 Tool discovery is bounded at 15 s per server; one bad server logs and skips, the rest stay live. Full design: [docs.oma.duyet.net/build/vault-and-mcp](https://docs.oma.duyet.net/build/vault-and-mcp/).
 
+**Tenant-level registry.** Register a server once (`POST /v1/mcp_servers`,
+optionally pinning a vault `credential_id`) and reference it from any agent by
+`registry_id` instead of repeating the inline `url`. An inline `url` always
+wins; `GET /v1/mcp-proxy/_health/:sid` reports per-server credential
+resolution for the sandbox status page.
+
 ---
 
 ## Skills
@@ -645,6 +651,8 @@ oma slack update <pub-id> --caps message.write,thread.reply,reaction.add,…
 oma slack unpublish <pub-id>
 ```
 
+**One-click managed install.** When the operator configures a single distributable Slack App (`SLACK_MANAGED_CLIENT_ID` / `SLACK_MANAGED_CLIENT_SECRET` / `SLACK_MANAGED_SIGNING_SECRET`), the publish wizard shows an **Add to Slack** button that skips the manifest + paste-credentials steps and goes straight to OAuth (`POST /slack/publications/start-managed`). One app installs into **many** workspaces from one events URL — inbound events fan in by `team_id` to the right per-workspace installation. Without the three secrets it falls back to the bring-your-own-App manifest flow above. Full operator + end-user guide: [`docs/slack-integration.md`](docs/slack-integration.md).
+
 The full agent-side playbook (manifest-flow caveats, `GATEWAY_ORIGIN` HTTPS requirement, what to paste where, MCP toggle probe) lives at [`skills/oma/integrations-slack.md`](skills/oma/integrations-slack.md).
 
 How it works:
@@ -660,6 +668,56 @@ How it works:
 The Slack integration ships in `packages/slack/` with thin CF wrappers in `apps/integrations/src/routes/slack/`.
 
 **Operator setup:** the integrations gateway needs `GATEWAY_ORIGIN` pointing at a publicly-reachable HTTPS host — Slack verifies both the OAuth redirect URL and the Events Request URL before letting an install complete.
+
+### Telegram
+
+Run a Telegram bot backed by an OMA agent. Unlike the OAuth integrations above,
+this is a single deployment-level bot wired entirely through env vars on the
+integrations gateway — set `TELEGRAM_BOT_TOKEN` (BotFather) plus `TELEGRAM_AGENT_ID`
+(and optionally `TELEGRAM_VAULT_IDS` / `TELEGRAM_ENVIRONMENT_ID`), then point
+BotFather's webhook at `/telegram/webhook`. One session per chat.
+
+- **Attachments** — inbound photos and documents are downloaded and forwarded to
+  the agent as image / document content blocks (caption becomes the text); an
+  oversized or expired file degrades to a text placeholder so the turn still lands.
+- **Auto-idle** — a periodic sweep pauses the sandbox of any chat idle longer than
+  `TELEGRAM_IDLE_TIMEOUT_MS` (default 5 minutes) to stop paying for idle
+  containers. The next message implicitly resumes it (the sandbox warms lazily),
+  so no explicit resume is needed.
+
+---
+
+## Publish an agent to consumers
+
+Publish an agent as a standalone bot that end users talk to without an OMA
+account — a hosted chat page at `/p/<slug>`, an embeddable widget, guest access,
+and optional per-message billing.
+
+- **Widget embed** — `<script src="https://<host>/p/<slug>/widget.js" async></script>`
+  drops a floating chat launcher onto any site. The Console **My Bots** page
+  (`/my-bots`) surfaces the public URL, a QR code, and the copy-paste snippet.
+- **Consumer auth** (`/v1/public/auth/*`) — magic-link, one-tap **guest** mode,
+  and in-place **upgrade** (guest → email, history preserved). Creators see who
+  used their bot via `GET /v1/publications/:id/users`.
+- **Metering & paywall** (`@duyet/oma-payments`) — per-publication pricing
+  (`free` / `per_message` / `per_1k_tokens` / `subscription`) over a credit
+  wallet. Blocked turns return HTTP 402; top-ups run through Stripe Checkout
+  (`POST /webhooks/stripe`). Kill-switch via `PAYMENTS_DISABLED`.
+
+## Schedule an agent
+
+Fire sessions on a cron cadence with no human turn — digests, polling, recurring
+maintenance:
+
+```bash
+curl -s $BASE/v1/agents/$AGENT/schedules -H "x-api-key: $KEY" \
+  -d '{"cron_expression":"0 9 * * 1","timezone":"America/New_York",
+       "environment_id":"env_xxx","input":"Post the weekly digest."}'
+```
+
+`next_run_at` advances via an atomic compare-and-set on each per-minute tick
+(no double-fire); `POST .../schedules/:id/run` fires immediately. Cloudflare
+deployment only for now. Full reference in [`AGENTS.md`](AGENTS.md).
 
 ---
 

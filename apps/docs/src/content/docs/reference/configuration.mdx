@@ -214,8 +214,22 @@ Required for self-host. Set as Worker secrets via `npx wrangler secret put NAME`
 | `SLACK_CLIENT_ID` | integrations | Slack OAuth |
 | `SLACK_CLIENT_SECRET` | integrations | Slack OAuth |
 | `SLACK_SIGNING_SECRET` | integrations | Verify inbound Slack events |
+| `SLACK_MANAGED_CLIENT_ID` | integrations | Shared managed Slack App for one-click "Add to Slack" — all three `SLACK_MANAGED_*` must be set together, else the wizard falls back to the bring-your-own-App manifest flow |
+| `SLACK_MANAGED_CLIENT_SECRET` | integrations | Managed Slack App client secret |
+| `SLACK_MANAGED_SIGNING_SECRET` | integrations | Managed Slack App signing secret |
+| `LINEAR_OAUTH_CLIENT_ID` / `LINEAR_OAUTH_CLIENT_SECRET` | integrations | Unified OAuth connect flow (`/oauth/linear/*`) — provider is absent (501) unless both are set |
+| `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` | integrations | Unified OAuth connect flow (`/oauth/github/*`) |
+| `SLACK_OAUTH_CLIENT_ID` / `SLACK_OAUTH_CLIENT_SECRET` | integrations | Unified OAuth connect flow (`/oauth/slack/*`) |
+| `TELEGRAM_BOT_TOKEN` | integrations | BotFather token — enables the `/telegram/webhook` route. Alone it only gets past the "not configured" 503; a bound agent is also required |
+| `TELEGRAM_AGENT_ID` | integrations | Agent that Telegram chats run against (required to actually create/resume sessions) |
+| `TELEGRAM_VAULT_IDS` | integrations | Comma-separated vault ids bound to Telegram sessions |
+| `TELEGRAM_ENVIRONMENT_ID` | integrations | Environment for Telegram sessions |
+| `TELEGRAM_IDLE_TIMEOUT_MS` | integrations | Idle window before a chat's sandbox is auto-paused. Default 5 min (`300000`) |
 | `GOOGLE_CLIENT_ID` | main | Google sign-in for Console |
 | `GOOGLE_CLIENT_SECRET` | main | Google sign-in for Console |
+| `STRIPE_SECRET_KEY` | main | Consumer payments / paywall (`@duyet/oma-payments`). Unset → checkout returns 501 |
+| `STRIPE_WEBHOOK_SECRET` | main | Verify `POST /webhooks/stripe` signatures |
+| `PAYMENTS_DISABLED` | main | Kill-switch — set truthy to make every publication turn free regardless of pricing |
 
 ### Optional infra
 
@@ -228,6 +242,7 @@ Required for self-host. Set as Worker secrets via `npx wrangler secret put NAME`
 | `PER_TENANT_DB_ENABLED` | main | Set `"true"` to enable per-tenant D1 isolation |
 | `STORE_BACKENDS` | main | JSON config for storage backends (advanced) |
 | `DATABASE_URL` | main | External Postgres URL (advanced) |
+| `SCHEDULED_AGENT_RUNS_CRON` | main | Override the agent-schedule tick cron (default `* * * * *`, per minute). Cloudflare only |
 
 ## Cloudflare bindings
 

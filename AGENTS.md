@@ -876,6 +876,129 @@ Attach external resources to a session at runtime:
 
 ---
 
+## Agent Schedules
+
+Schedules let an agent fire sessions on a cron cadence with no human turn —
+recurring maintenance, digests, polling jobs. They're stored per-agent in the
+shared control-plane D1 (`agent_schedules`, `sch_*` ids) and evaluated by a
+per-minute Cloudflare cron tick (`scheduled-agent-runs`, wired in
+`apps/main/src/lib/cf-scheduler-jobs.ts`; job in
+`packages/scheduler/src/jobs/scheduled-agent-runs.ts`).
+
+```bash
+# Create a schedule
+curl -s $BASE/v1/agents/$AGENT_ID/schedules \
+  -H "x-api-key: $KEY" -H "content-type: application/json" \
+  -d '{
+    "cron_expression": "0 9 * * 1",
+    "timezone": "America/New_York",
+    "environment_id": "env_xxx",
+    "input": "Post the weekly metrics digest to #general.",
+    "max_sessions": 1,
+    "enabled": true
+  }'
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `cron_expression` | Yes | Standard 5-field cron |
+| `environment_id` | Yes | Environment the scheduled session runs in |
+| `input` | Yes | Injected as the opening `user.message` (1–10000 chars) |
+| `timezone` | No | IANA zone, default `UTC` — DST-correct next-run math (via `croner`) |
+| `max_sessions` | No | Concurrency cap 1–100, default 1 |
+| `enabled` | No | Default true |
+
+Routes (all tenant-scoped):
+
+```http
+POST   /v1/agents/:agentId/schedules                    # Create (201)
+GET    /v1/agents/:agentId/schedules                    # List
+DELETE /v1/agents/:agentId/schedules/:scheduleId        # Delete
+POST   /v1/agents/:agentId/schedules/:scheduleId/run    # Run now → {status:"queued", next_run_at}
+```
+
+`next_run_at` is seeded at create from the cron + timezone and advanced to the
+next occurrence via an atomic compare-and-set during each tick — so overlapping
+ticks or replicas never double-fire. Each firing records
+`last_run_at` / `last_run_status` / `last_run_error` / `last_session_id`; a
+failing run is fail-open (logged, next occurrence still scheduled). An
+unparseable cron leaves `next_run_at` null and the schedule never fires.
+**Cloudflare only** — the self-host Node runtime does not yet fire schedules.
+
+(Distinct from the in-sandbox `schedule` / `cancel_schedule` / `list_schedules`
+tools, which let a *running* agent set its own wakeups — those wake the same
+session; agent schedules create fresh sessions.)
+
+---
+
+## Publishing, Consumers & Payments
+
+An agent can be **published** as a consumer-facing bot: a hosted chat page, an
+embeddable widget, guest access, and optional per-message billing. This is the
+duyetbot-style surface — an end user talks to the bot without an OMA account.
+
+### Publication surface
+
+A live publication is reachable at `/p/<slug>`:
+
+- **Hosted chat page** — `GET /p/<slug>`.
+- **Embeddable widget** — `GET /p/<slug>/widget.js` returns a self-contained,
+  dependency-free script that injects a floating launcher bubble toggling an
+  iframe of the chat page. Drop it into any site:
+
+  ```html
+  <script src="https://<host>/p/<slug>/widget.js" async></script>
+  ```
+
+  A paused/hidden publication ships a no-op script so embeds fail closed.
+- **QR + share** — the Console **My Bots** page (`/my-bots`) lists a creator's
+  published agents with pause/resume, the public URL, an inline-SVG QR code,
+  and the copy-paste embed snippet.
+
+### Consumer auth (`/v1/public/auth/*`)
+
+End users authenticate against a publication without a tenant membership:
+
+```http
+POST /v1/public/auth/magic-link      # request email magic link
+POST /v1/public/auth/verify          # verify → session_token + consumer_id + expires_at
+POST /v1/public/auth/guest           # anonymous guest session (optional publication_id)
+POST /v1/public/auth/upgrade         # attach email to the SAME guest consumer (history survives)
+POST /v1/public/auth/refresh         # rotate the bearer session token
+GET  /v1/public/auth/me              # current consumer identity
+```
+
+Guest mode mints an anonymous consumer (`cons_*`, `auth_provider="guest"`);
+`upgrade` flips it to an email identity in place so conversation history and
+publication associations carry over. Creators see who used their bot via
+`GET /v1/publications/:id/users` (tenant-authed) — `consumer_id`, `name`,
+`is_guest`, first/last-seen, and conversation count.
+
+### Metering & paywall (`@duyet/oma-payments`)
+
+Each publication has a pricing row (`publication_pricing`) with a mode:
+
+| Mode | Cost per turn |
+|---|---|
+| `free` | 0 |
+| `per_message` | `price_amount` credits, debited up front |
+| `per_1k_tokens` | `price_amount × ceil(tokens/1000)` credits |
+| `subscription` | 0 while the consumer's subscription is active |
+
+Credits are an append-only wallet ledger keyed by `(tenant_id, end_user_id)`
+with a cached balance row for the hot-path gate. `enforcePaywall` gates every
+public turn: `free` / no pricing / payments disabled → allow; metered modes
+require `balance >= cost`; blocked turns return **HTTP 402**
+`{code:"insufficient_credits", balance, shortfall, top_up_url}`. Top-ups run
+through Stripe Checkout; `POST /webhooks/stripe` (signature-verified,
+idempotent via `stripe_processed_events`) credits the ledger. Creator revenue:
+`GET /v1/publications/:id/revenue`.
+
+Secrets: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `PAYMENTS_DISABLED`
+(kill-switch → everything free), `PUBLIC_BASE_URL` (redirect/top-up URLs).
+
+---
+
 ## Notify Targets
 
 `agent.notify` is an array of `NotificationTarget`s. Each session created from
