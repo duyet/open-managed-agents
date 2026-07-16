@@ -199,8 +199,8 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
 ---
 
 <Base
-  title="oma — Open Managed Agents: self-hosted agent platform for any LLM provider"
-  description="oma (Open Managed Agents) is an open-source, self-hostable agent platform — durable sessions, sandboxed execution, MCP tools — that runs on Anthropic, OpenAI-compatible gateways, or your own model, on Cloudflare Workers or Docker."
+  title="oma — Open Managed Agents: self-hosted agent platform for any LLM provider and any sandbox"
+  description="oma (Open Managed Agents) is an open-source, self-hostable agent platform — durable sessions, sandboxed execution, MCP tools — that runs on any LLM provider (Anthropic, OpenAI-compatible gateways, or your own model) and any sandbox platform (Cloudflare Containers, Kubernetes, E2B, Daytona, subprocess), on Cloudflare Workers or Docker."
   canonical="/"
   keywords="open managed agents, oma agent platform, self host ai agent, any llm provider agent platform, byok ai agent, claude agent sdk, mcp server host, ai agent cloudflare workers, self host claude code, claude code skills, claude managed agents alternative, claude tag alternative, open source claude tag"
   schemas={schemas}
@@ -237,15 +237,16 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
             >
           </h1>
           <p class="mt-5 text-lg md:text-xl text-[var(--color-fg-muted)] leading-relaxed font-medium max-w-xl line-clamp-2">
-            Run your own agents — on Cloudflare or with
+            Run your own agents on <strong class="text-[var(--color-fg)] font-semibold">any model</strong>,
+            in <strong class="text-[var(--color-fg)] font-semibold">any sandbox</strong> — on Cloudflare or with
             <code class="font-mono text-base md:text-lg">docker compose up</code>.
           </p>
           <p
             class="mt-3 text-base md:text-lg text-[var(--color-fg-muted)] leading-relaxed max-w-xl line-clamp-2"
           >
             An open-source meta-harness: the platform owns state, security, and sandboxes;
-            a harness owns the model loop. Durable sessions, vault-backed credentials, MCP,
-            and Bring Your Own Key for models and compute.
+            a harness owns the model loop. Durable sessions, vault-backed credentials, MCP —
+            and Bring Your Own Key for both the model provider and the compute it runs on.
           </p>
 
           <!-- Primary CTAs: repo (brand) + docs (hairline). Mirror the
@@ -267,10 +268,10 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
 
           <!-- Proof chips: compact, scannable differentiators under the CTAs. -->
           <ul class="hero-chips">
-            <li>Apache&nbsp;2.0</li>
-            <li>Cloudflare-native</li>
+            <li>Any&nbsp;LLM&nbsp;provider</li>
+            <li>Any&nbsp;sandbox&nbsp;platform</li>
             <li>Self-hostable</li>
-            <li>Bring&nbsp;Your&nbsp;Own&nbsp;Key</li>
+            <li>Apache&nbsp;2.0</li>
           </ul>
         </div>
 
