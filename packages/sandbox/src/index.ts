@@ -4,6 +4,7 @@ export type {
   SandboxFactory,
   SandboxFactoryContext,
   SandboxFactoryEnv,
+  SandboxCapacity,
 } from "./ports";
 
 export {
