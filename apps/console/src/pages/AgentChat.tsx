@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
+import { readApiError } from "../lib/api";
 
 interface ChatMessage {
   role: "user" | "agent";
@@ -34,9 +35,12 @@ export function AgentChat() {
         const res = await fetch("/v1/sessions", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ agent_id }),
+          body: JSON.stringify({ agent: agent_id }),
         });
-        if (!res.ok) throw new Error("Failed to create session");
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(readApiError(body, res.status).message);
+        }
         const session = await res.json();
         sid = session.id;
         setSessionId(sid);
