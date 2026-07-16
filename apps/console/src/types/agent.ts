@@ -33,5 +33,12 @@ export interface AgentRecord {
     harness?: string;
     runtime_binding?: { runtime_id: string; acp_agent_id: string };
     appendable_prompts?: string[];
+    notify?: Array<{
+      type: string;
+      url?: string;
+      secret_ref?: string;
+      events?: Array<"idle" | "error" | "terminated">;
+      [key: string]: unknown;
+    }>;
   };
 }
