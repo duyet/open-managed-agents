@@ -502,7 +502,11 @@ export async function buildTools(
   // an LLM-readable install-instructions message.
   if (env?.browser && enabled.has("browser")) {
     const { buildBrowserTools } = await import("@duyet/oma-browser-harness");
-    Object.assign(tools, buildBrowserTools(env.browser, env.browserBillingHook ?? null));
+    // Same WEB_FETCH_ALLOW_PRIVATE escape hatch web_fetch reads below —
+    // browser-harness has no direct env access, so thread the coerced
+    // boolean in as an options flag (see ./ssrf.ts, issue #216).
+    const allowPrivate = env?.WEB_FETCH_ALLOW_PRIVATE === "1" || env?.WEB_FETCH_ALLOW_PRIVATE === "true";
+    Object.assign(tools, buildBrowserTools(env.browser, env.browserBillingHook ?? null, { allowPrivate }));
   }
 
   if (enabled.has("bash")) {
