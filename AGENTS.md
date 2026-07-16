@@ -522,7 +522,15 @@ otherwise it falls back to matching a vault credential by the server URL
 `GET /v1/mcp-proxy/_health/:sid` (Bearer `omak_*`) reports, per declared MCP
 server on the session's agent, whether its credential currently resolves —
 `{ session_id, servers: [{ name, status }] }` where `status` is `"ok"` or
-`"unresolved"`. Powers the sandbox status page's MCP health indicator.
+`"unresolved"`. Powers the sandbox status page's MCP health indicator. Pass
+`?probe=1` to additionally perform a real upstream JSON-RPC round-trip per
+server (parallel, ~5s timeout each, so one hung upstream can't stall the
+rest) — `status` can then also be `"unreachable"`, with an added
+`latency_ms` on a completed probe. Opt-in because it costs a real upstream
+call per server; each probe shares the same per-tenant rate-limit budget
+as the MCP proxy's forward path (see `docs/mcp-credential-architecture.md`),
+so a spent budget silently degrades that server back to the presence-only
+`"ok"` rather than failing the request.
 
 ---
 
