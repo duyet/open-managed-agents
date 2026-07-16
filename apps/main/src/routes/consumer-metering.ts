@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { nanoid } from "nanoid";
 import { getLogger } from "@duyet/oma-observability";
+import { isPaymentsEnabled, PaymentsService, StripeClient } from "@duyet/oma-payments";
 import { resolveConsumerSession } from "./consumer-auth";
+import { createD1PaymentsStore, getPricingForPublication } from "./payments";
 
 const log = getLogger("consumer-metering");
 
@@ -10,14 +11,13 @@ interface Env {
   Bindings: {
     MAIN_DB: D1Database;
     STRIPE_SECRET_KEY?: string;
-    STRIPE_PRICE_ID?: string;
+    PAYMENTS_DISABLED?: string;
+    PUBLIC_BASE_URL?: string;
   };
   Variables: {
     consumer_id: string;
   };
 }
-
-const CREDIT_COST_PER_MESSAGE = 1;
 
 const wrapper = new Hono<Env>();
 
@@ -40,99 +40,61 @@ function requireConsumer() {
   };
 }
 
+/**
+ * Resolve the publication a consumer is buying/checking credits for. The
+ * shared control-plane D1 makes a cross-tenant lookup by `agent_id` safe
+ * (same assumption `PublicationRepo.getBySlug` already relies on for slugs) —
+ * `requireConsumer()` only proves who the consumer is, not which tenant owns
+ * the agent, so the tenant has to come from here.
+ */
+async function resolvePublicationForAgent(
+  db: D1Database,
+  agentId: string,
+): Promise<{ id: string; tenant_id: string } | null> {
+  const row = await db
+    .prepare(
+      "SELECT id, tenant_id FROM agent_publication WHERE agent_id = ? ORDER BY created_at DESC LIMIT 1",
+    )
+    .bind(agentId)
+    .first<{ id: string; tenant_id: string }>();
+  return row ?? null;
+}
+
+/** Stable wallet identity for a consumer bearer session. MUST match
+ *  resolveEndUserId in apps/main/src/index.ts so a Stripe webhook credits the
+ *  exact wallet enforcePaywall reads (issue #159). */
+function endUserIdForConsumer(consumerId: string): string {
+  return `eu:${consumerId}`;
+}
+
+// GET /credits?agent_id=<agent_id> — read the real wallet balance
+// (end_user_balance, via PaymentsService) for the publication behind
+// `agent_id`. Replaces the old consumer_credits-backed read (issue #159).
 wrapper.get("/credits", requireConsumer(), async (c) => {
   const consumerId = c.var.consumer_id;
   const agentId = c.req.query("agent_id");
-  const db = c.env.MAIN_DB;
-
-  let sql = "SELECT * FROM consumer_credits WHERE consumer_id = ?";
-  const params: unknown[] = [consumerId];
-  if (agentId) {
-    sql += " AND agent_id = ?";
-    params.push(agentId);
+  if (!agentId) {
+    return c.json({ error: "agent_id is required" }, 400);
   }
 
-  const rows = await db.prepare(sql).bind(...params).all();
-  return c.json({ data: rows.results }, 200);
-});
-
-wrapper.post("/credits/deduct", requireConsumer(), async (c) => {
-  const consumerId = c.var.consumer_id;
-  const body = await c.req.json().catch(() => ({}));
-  const { agent_id, amount = CREDIT_COST_PER_MESSAGE } = z
-    .object({ agent_id: z.string(), amount: z.number().int().positive().optional() })
-    .parse(body);
-
   const db = c.env.MAIN_DB;
-
-  const credit = await db
-    .prepare("SELECT * FROM consumer_credits WHERE consumer_id = ? AND agent_id = ?")
-    .bind(consumerId, agent_id)
-    .first<{ id: string; credits_remaining: number; updated_at: string }>();
-
-  if (!credit || credit.credits_remaining < amount) {
-    return c.json({
-      error: "Insufficient credits",
-      credits_remaining: credit?.credits_remaining ?? 0,
-      cost: amount,
-    }, 402);
+  const publication = await resolvePublicationForAgent(db, agentId);
+  if (!publication) {
+    return c.json({ error: "Unknown agent" }, 404);
   }
 
-  const newBalance = credit.credits_remaining - amount;
-  await db
-    .prepare("UPDATE consumer_credits SET credits_remaining = ?, updated_at = ? WHERE id = ?")
-    .bind(newBalance, new Date().toISOString(), credit.id)
-    .run();
+  const svc = new PaymentsService(createD1PaymentsStore(db));
+  const balance = await svc.getBalance(publication.tenant_id, endUserIdForConsumer(consumerId));
 
-  await db
-    .prepare(
-      "INSERT INTO credit_usage_log (id, consumer_id, agent_id, credits_used, balance_after, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-    )
-    .bind(`cul_${nanoid(24)}`, consumerId, agent_id, amount, newBalance, new Date().toISOString())
-    .run();
-
-  log.info({ consumer_id: consumerId, agent_id, amount, new_balance: newBalance }, "credits deducted");
-
-  return c.json({
-    credits_remaining: newBalance,
-    credits_used: amount,
-  }, 200);
+  return c.json({ agent_id: agentId, tenant_id: publication.tenant_id, balance }, 200);
 });
 
-wrapper.post("/credits/topup", requireConsumer(), async (c) => {
-  const consumerId = c.var.consumer_id;
-  const body = await c.req.json().catch(() => ({}));
-  const { agent_id, amount } = z
-    .object({ agent_id: z.string(), amount: z.number().int().positive() })
-    .parse(body);
-
-  const db = c.env.MAIN_DB;
-
-  const existing = await db
-    .prepare("SELECT * FROM consumer_credits WHERE consumer_id = ? AND agent_id = ?")
-    .bind(consumerId, agent_id)
-    .first<{ id: string; credits_remaining: number }>();
-
-  if (existing) {
-    const newBalance = existing.credits_remaining + amount;
-    await db
-      .prepare("UPDATE consumer_credits SET credits_remaining = ?, updated_at = ? WHERE id = ?")
-      .bind(newBalance, new Date().toISOString(), existing.id)
-      .run();
-  } else {
-    await db
-      .prepare(
-        "INSERT INTO consumer_credits (id, consumer_id, agent_id, credits_remaining, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-      )
-      .bind(`ccr_${nanoid(24)}`, consumerId, agent_id, amount, new Date().toISOString(), new Date().toISOString())
-      .run();
-  }
-
-  log.info({ consumer_id: consumerId, agent_id, amount }, "credits topped up");
-
-  return c.json({ credits_added: amount }, 200);
-});
-
+// POST /buy-credits — Stripe Checkout for a wallet top-up. Rewritten to
+// stamp the SAME metadata keys the webhook (creditFromEvent) reads and to
+// credit the SAME wallet enforcePaywall gates against — the previous
+// implementation stamped metadata[consumer_id]/[agent_id] against a global
+// STRIPE_PRICE_ID and wrote to the orphaned consumer_credits table, so the
+// webhook never matched it and no credits were ever granted (issue #159).
 wrapper.post("/buy-credits", requireConsumer(), async (c) => {
   const consumerId = c.var.consumer_id;
   const body = await c.req.json().catch(() => ({}));
@@ -140,40 +102,46 @@ wrapper.post("/buy-credits", requireConsumer(), async (c) => {
     .object({ agent_id: z.string(), credits: z.number().int().positive() })
     .parse(body);
 
-  const stripeKey = c.env.STRIPE_SECRET_KEY;
-  if (!stripeKey) {
-    return c.json({ error: "Stripe not configured" }, 501);
+  if (!isPaymentsEnabled(c.env)) {
+    return c.json({ error: "Payments disabled" }, 501);
   }
 
-  const priceId = c.env.STRIPE_PRICE_ID || "price_1_credits_starter";
+  const db = c.env.MAIN_DB;
+  const publication = await resolvePublicationForAgent(db, agent_id);
+  if (!publication) {
+    return c.json({ error: "Unknown agent" }, 404);
+  }
 
-  const url = "https://api.stripe.com/v1/checkout/sessions";
-  const stripeRes = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${stripeKey}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      "mode": "payment",
-      "success_url": `${c.req.header("origin") || "http://localhost:8787"}/credits/success?session_id={CHECKOUT_SESSION_ID}`,
-      "cancel_url": `${c.req.header("origin") || "http://localhost:8787"}/credits/cancel`,
-      "line_items[0][price]": priceId,
-      "line_items[0][quantity]": String(credits),
-      "client_reference_id": consumerId,
-      "metadata[consumer_id]": consumerId,
-      "metadata[agent_id]": agent_id,
-      "metadata[credits]": String(credits),
-    }),
-  });
+  const pricing = await getPricingForPublication(db, publication.id);
+  if (!pricing?.stripe_price_id) {
+    return c.json({ error: "Publication has no purchasable price" }, 400);
+  }
 
-  if (!stripeRes.ok) {
-    const err = await stripeRes.text().catch(() => "stripe error");
-    log.error({ consumer_id: consumerId, status: stripeRes.status }, err);
+  const endUserId = endUserIdForConsumer(consumerId);
+  const base = c.env.PUBLIC_BASE_URL ?? c.req.header("origin") ?? "http://localhost:8787";
+  const client = new StripeClient(c.env.STRIPE_SECRET_KEY!);
+
+  let session;
+  try {
+    session = await client.createCheckoutSession({
+      mode: "payment",
+      priceId: pricing.stripe_price_id,
+      quantity: credits,
+      successUrl: `${base}/credits/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${base}/credits/cancel`,
+      clientReferenceId: endUserId,
+      metadata: {
+        tenant_id: publication.tenant_id,
+        end_user_id: endUserId,
+        publication_id: publication.id,
+        credits: String(credits),
+      },
+    });
+  } catch (err) {
+    log.error({ consumer_id: consumerId, err: String(err) }, "stripe checkout create failed");
     return c.json({ error: "Payment gateway error" }, 502);
   }
 
-  const session = await stripeRes.json() as { id: string; url: string | null };
   return c.json({
     checkout_url: session.url,
     session_id: session.id,
