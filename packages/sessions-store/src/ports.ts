@@ -62,10 +62,10 @@ export interface SessionUpdateFields {
   toolCallCount?: number;
   messageCount?: number;
   /**
-   * Cumulative session token usage. Production writes go through raw SQL in
-   * RuntimeAdapterImpl (packages/session-runtime), not this port — exposed
-   * here for the same reasons as the counters above (SessionRow round-trip +
-   * test seeding).
+   * Cumulative session token usage (absolute set). Production increments go
+   * through {@link SessionRepo.addTokenUsage} from SessionDO's reportUsage
+   * hook, not this update path — these fields exist so tests can seed exact
+   * values and so SessionRow round-trips them.
    */
   inputTokens?: number;
   outputTokens?: number;
@@ -146,6 +146,19 @@ export interface SessionRepo {
     tenantId: string,
     opts: { agentId?: string; startMs: number; endMs: number },
   ): Promise<AnalyticsSessionRow[]>;
+
+  /**
+   * Atomically increment a session's cumulative token counters. Called
+   * fire-and-forget from SessionDO's reportUsage hook — the SAME emission
+   * site that records the durable `usage_events` rows — so the sessions row
+   * and usage_events never diverge and there is only one token-recording
+   * path. A missing session row is a no-op (WHERE matches nothing).
+   */
+  addTokenUsage(
+    tenantId: string,
+    sessionId: string,
+    delta: { inputTokens: number; outputTokens: number; updatedAt: number },
+  ): Promise<void>;
 
   /** Returns true if any non-archived session in the tenant references this agent. */
   hasActiveByAgent(tenantId: string, agentId: string): Promise<boolean>;

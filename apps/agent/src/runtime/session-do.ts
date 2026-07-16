@@ -3828,6 +3828,18 @@ export class SessionDO extends DurableObject<Env> {
             value: outputTokens,
           });
         }
+        // Second sink for the SAME per-turn delta: increment the sessions
+        // row's cumulative input_tokens/output_tokens. Powers the Console's
+        // "Tokens in / out" list column and the range-scoped session
+        // analytics endpoints (single-scan percentiles/time-series) without
+        // a per-page usage_events GROUP BY. One emission site, two sinks —
+        // the sessions row and usage_events never diverge.
+        await services.sessions.addTokenUsage({
+          tenantId,
+          sessionId,
+          inputTokens,
+          outputTokens,
+        });
       } catch (err) {
         console.error(
           `[session_do] token usage emit failed: ${(err as Error).message ?? err}`,

@@ -133,4 +133,16 @@ describe("session responses expose input_tokens / output_tokens", () => {
     expect(body.input_tokens).toBe(0);
     expect(body.output_tokens).toBe(0);
   });
+
+  it("addTokenUsage increments cumulatively (reportUsage sink) and surfaces in list", async () => {
+    const { service, repo } = createInMemorySessionService({ clock: new ManualClock(BASE) });
+    await seed(repo, { id: "s3", createdAt: BASE });
+    // Two per-turn deltas — the sink is additive, not absolute.
+    await service.addTokenUsage({ tenantId: TENANT, sessionId: "s3", inputTokens: 100, outputTokens: 20 });
+    await service.addTokenUsage({ tenantId: TENANT, sessionId: "s3", inputTokens: 50, outputTokens: 30 });
+    const res = await makeApp(service).request("/v1/sessions");
+    const row = ((await res.json()) as any).data.find((r: { id: string }) => r.id === "s3");
+    expect(row.input_tokens).toBe(150);
+    expect(row.output_tokens).toBe(50);
+  });
 });

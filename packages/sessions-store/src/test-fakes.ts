@@ -180,6 +180,21 @@ export class InMemorySessionRepo implements SessionRepo {
       }));
   }
 
+  async addTokenUsage(
+    tenantId: string,
+    sessionId: string,
+    delta: { inputTokens: number; outputTokens: number; updatedAt: number },
+  ): Promise<void> {
+    const row = this.sessions.get(sessionId);
+    if (!row || row.tenant_id !== tenantId) return;
+    const input = delta.inputTokens > 0 ? Math.floor(delta.inputTokens) : 0;
+    const output = delta.outputTokens > 0 ? Math.floor(delta.outputTokens) : 0;
+    if (input === 0 && output === 0) return;
+    row.input_tokens += input;
+    row.output_tokens += output;
+    row.updated_at = delta.updatedAt;
+  }
+
   async hasActiveByAgent(tenantId: string, agentId: string): Promise<boolean> {
     for (const s of this.sessions.values()) {
       if (

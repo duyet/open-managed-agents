@@ -86,21 +86,10 @@ export class RuntimeAdapterImpl implements RuntimeAdapter {
         .prepare(
           `UPDATE sessions
               SET status=?, turn_id=NULL, turn_started_at=NULL, updated_at=?,
-                  stop_reason=?, tool_call_count=?, message_count=?,
-                  input_tokens=?, output_tokens=?
+                  stop_reason=?, tool_call_count=?, message_count=?
             WHERE id=? AND turn_id=?`,
         )
-        .bind(
-          status,
-          now,
-          stopReason,
-          counts.toolCallCount,
-          counts.messageCount,
-          counts.inputTokens,
-          counts.outputTokens,
-          sessionId,
-          turnId,
-        )
+        .bind(status, now, stopReason, counts.toolCallCount, counts.messageCount, sessionId, turnId)
         .run();
     } else {
       await this.sql
@@ -127,18 +116,10 @@ export class RuntimeAdapterImpl implements RuntimeAdapter {
           `UPDATE sessions
               SET status='terminated', terminated_at=?, turn_id=NULL,
                   turn_started_at=NULL, updated_at=?, stop_reason='terminated',
-                  tool_call_count=?, message_count=?, input_tokens=?, output_tokens=?
+                  tool_call_count=?, message_count=?
             WHERE id=? AND terminated_at IS NULL`,
         )
-        .bind(
-          now,
-          now,
-          counts.toolCallCount,
-          counts.messageCount,
-          counts.inputTokens,
-          counts.outputTokens,
-          sessionId,
-        )
+        .bind(now, now, counts.toolCallCount, counts.messageCount, sessionId)
         .run();
     } else {
       await this.sql
@@ -169,19 +150,12 @@ export class RuntimeAdapterImpl implements RuntimeAdapter {
    * The core status-flip UPDATE must never be blocked by this.
    */
   private async tryComputeRunCounts(): Promise<
-    {
-      toolCallCount: number;
-      messageCount: number;
-      inputTokens: number;
-      outputTokens: number;
-    } | null
+    { toolCallCount: number; messageCount: number } | null
   > {
     try {
       const events = await this.freshEvents();
       let toolCallCount = 0;
       let messageCount = 0;
-      let inputTokens = 0;
-      let outputTokens = 0;
       for (const e of events) {
         switch (e.type) {
           case "agent.tool_use":
@@ -192,22 +166,9 @@ export class RuntimeAdapterImpl implements RuntimeAdapter {
           case "agent.message":
             messageCount++;
             break;
-          case "span.model_request_end": {
-            // Cumulative model token usage for the session analytics tab.
-            // model_usage is optional on older events / error spans — skip
-            // those. cache_read / cache_creation tokens are deliberately
-            // excluded so input_tokens tracks fresh prompt tokens only.
-            const usage = (e as { model_usage?: { input_tokens?: number; output_tokens?: number } })
-              .model_usage;
-            if (usage) {
-              inputTokens += usage.input_tokens ?? 0;
-              outputTokens += usage.output_tokens ?? 0;
-            }
-            break;
-          }
         }
       }
-      return { toolCallCount, messageCount, inputTokens, outputTokens };
+      return { toolCallCount, messageCount };
     } catch {
       return null;
     }
