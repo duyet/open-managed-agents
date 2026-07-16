@@ -102,6 +102,12 @@ export interface AgentConfig {
     /** Required for remote (HTTP/SSE) servers. Optional when `stdio` is set —
      *  in that case the URL is derived from the spawned process's localhost port. */
     url?: string;
+    /** Reference to a tenant-level registered MCP server (see
+     *  `/v1/mcp_servers`, Issue #91 Phase 3). When set and `url` is absent,
+     *  the MCP proxy expands this into the registered server's URL +
+     *  (optionally) a pinned vault credential at request time. Inline `url`
+     *  wins if both are present. */
+    registry_id?: string;
     authorization_token?: string;
     /** Spawn this MCP server in the sandbox container. The process binds to
      *  127.0.0.1:port using its built-in SSE transport, and OMA routes the
