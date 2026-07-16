@@ -15,6 +15,7 @@
 import type {
   Container,
   ContinueInstallInput,
+  Installation,
   IntegrationProvider,
   InstallComplete,
   InstallStep,
@@ -863,6 +864,11 @@ export class SlackProvider implements IntegrationProvider {
     let pubId: string | null = null;
     let signingSecret: string | null = null;
     let appId: string | null = null;
+    // True when delivery arrived on the app-keyed URL (`/slack/webhook/app/:appId`)
+    // rather than the pub-keyed URL. The managed multi-workspace App uses ONE
+    // fixed events URL for every workspace it's installed into, so app-keyed
+    // deliveries must be fanned in by `team_id` — see the routing block below.
+    let routedByApp = false;
     const headerPubId = req.headers["x-internal-pub-id"];
     if (typeof headerPubId === "string" && headerPubId.length > 0) {
       const pub = await this.container.publications.get(headerPubId);
@@ -878,6 +884,7 @@ export class SlackProvider implements IntegrationProvider {
         return { handled: false, reason: "publication_not_yet_installed" };
       }
     } else {
+      routedByApp = true;
       appId = this.appIdFromHeaders(req);
       if (!appId) {
         return { handled: false, reason: "missing_app_id" };
@@ -942,7 +949,37 @@ export class SlackProvider implements IntegrationProvider {
     }
     const env = raw as RawEventCallback;
 
-    // Find the installation behind this app.
+    // Resolve the target installation + publication.
+    //
+    // For app-keyed delivery (the managed multi-workspace App) a single
+    // slack_app_id is shared by many publications — one per workspace the App
+    // was installed into — so `findBySlackAppId` (used above only to recover
+    // the shared signing secret) can't tell them apart. Fan in by `team_id`:
+    // look up the installation for THIS workspace, then its publication. This
+    // is what lets one managed App serve every workspace without cross-tenant
+    // leakage — a `team_id` maps to exactly one dedicated installation.
+    let installation: Installation | null = null;
+    if (routedByApp && appId) {
+      installation = await this.container.installations.findByWorkspace(
+        PROVIDER_ID,
+        env.team_id,
+        "dedicated",
+        appId,
+      );
+      if (!installation) {
+        // No live install for this workspace under this App. Either it was
+        // uninstalled (revoked rows are filtered) or the OAuth callback for
+        // this workspace never completed. Drop — nothing to route to.
+        return { handled: false, reason: "no_installation_for_workspace" };
+      }
+      const pubs = await this.container.publications.listByInstallation(installation.id);
+      const chosen = pubs.find((p) => p.status === "live") ?? pubs[0] ?? null;
+      if (!chosen) {
+        return { handled: false, reason: "no_publication_for_workspace" };
+      }
+      pubId = chosen.id;
+    }
+
     if (!pubId) {
       // App registered but install hasn't completed — drop.
       return { handled: false, reason: "no_publication_yet" };
@@ -951,7 +988,9 @@ export class SlackProvider implements IntegrationProvider {
     if (!pub) {
       return { handled: false, reason: "publication_not_found" };
     }
-    const installation = await this.container.installations.get(pub.installationId);
+    if (!installation) {
+      installation = await this.container.installations.get(pub.installationId);
+    }
     if (!installation || installation.revokedAt !== null) {
       return { handled: false, reason: "installation_not_found_or_revoked" };
     }
