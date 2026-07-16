@@ -1,10 +1,11 @@
-// "How it fits together" — numbered setup-steps grid. One panel that is BOTH
-// the conceptual map and the setup tracker: three numbered step-columns
-// ordered by real setup dependency (① Foundation → ② Agent → ③ Reach).
-// Each card's title is a component TYPE, its body the actual created
-// instances as badges, and each step header earns a checkmark when its
-// required cards are satisfied — so an empty/grey card *is* the to-do item
-// and no separate checklist is needed.
+// "How it fits together" — one panel that is BOTH the conceptual map and the
+// setup tracker. The Agent is the hero card (the thing you're building — most
+// important, visually dominant); beneath it, three columns of pieces it is
+// built from, ordered by importance: ① Foundation (required — model,
+// environment, runtime, keys), ② Capabilities (skills + MCP connections),
+// ③ Reach (channels + publications). Each card's title is a component TYPE,
+// its body the actual created instances as badges — an empty/grey card *is*
+// the to-do item, so nothing needs a second checklist.
 import { useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -261,6 +262,9 @@ export function StackedAssembly() {
 
   const countStatus = (n: number): CardStatus => (n > 0 ? "ready" : "empty");
 
+  const agentReady = agents.length > 0;
+  const firstAgent = agents[0];
+
   const foundation: Step = {
     number: "1",
     name: "Foundation",
@@ -305,20 +309,12 @@ export function StackedAssembly() {
     ],
   };
 
-  const agentStep: Step = {
+  const capabilities: Step = {
     number: "2",
-    name: "Agent",
-    done: agents.length > 0,
+    name: "Capabilities",
+    optional: true,
+    done: skills.length > 0 || mcps.length > 0,
     cards: [
-      {
-        key: "agent",
-        icon: <AgentIcon className="w-4 h-4 text-brand" />,
-        title: "Agent",
-        to: "/agents",
-        status: countStatus(agents.length),
-        badges: agents.map((a) => a.name),
-        emptyCta: "+ Create your first agent",
-      },
       {
         key: "skills",
         icon: <SkillsIcon className="w-4 h-4" />,
@@ -332,7 +328,9 @@ export function StackedAssembly() {
         key: "mcp",
         icon: <PlugIcon className="w-4 h-4" />,
         title: "Connections (MCP)",
-        to: "/agents",
+        // MCP servers are configured on the agent itself — deep-link to the
+        // agent (or its creation flow) rather than the bare list.
+        to: firstAgent ? `/agents/${firstAgent.id}` : "/agents/new",
         status: countStatus(mcps.length),
         badges: mcps.map((m) => m.name),
         emptyCta: "+ Connect a tool or API",
@@ -367,8 +365,10 @@ export function StackedAssembly() {
     ],
   };
 
-  const steps = [foundation, agentStep, reach];
-  const requiredDone = [foundation.done, agentStep.done].filter(Boolean).length;
+  const steps = [foundation, capabilities, reach];
+  const requiredDone = [foundation.done, agentReady].filter(Boolean).length;
+
+  const heroTo = agentReady ? "/agents" : "/agents/new";
 
   return (
     <section className="border border-border rounded-lg p-5 md:p-6">
@@ -381,9 +381,58 @@ export function StackedAssembly() {
         </span>
       </div>
       <p className="mt-1 mb-5 text-[13px] text-fg-muted">
-        Set up the pieces in order — each step checks off as its required
-        pieces turn green. Click any card to manage that piece.
+        The agent is what you're building. It needs a foundation to run;
+        capabilities and reach are optional extras. Click any card to manage
+        that piece.
       </p>
+
+      {/* Hero: the agent — the most important piece, everything below feeds it. */}
+      <div
+        role="link"
+        tabIndex={0}
+        aria-label={
+          agentReady
+            ? `Agent — ${agents.map((a) => a.name).join(", ")}`
+            : "Agent — not set up yet"
+        }
+        onClick={() => nav(heroTo)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            nav(heroTo);
+          }
+        }}
+        className={cn(
+          "group relative w-full text-left rounded-md border px-4 py-3.5 cursor-pointer select-none",
+          "active:translate-y-px transition-[color,background-color,border-color,transform,opacity] duration-[var(--dur-quick)] ease-[var(--ease-soft)]",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50",
+          agentReady
+            ? "border-brand/50 bg-brand/5 hover:border-brand"
+            : "border-dashed border-border bg-transparent opacity-80 hover:opacity-100 hover:border-border-strong",
+        )}
+      >
+        <div className="flex items-center gap-2">
+          <AgentIcon className="w-5 h-5 text-brand shrink-0" />
+          <span className="text-[15px] font-semibold text-fg flex-1 min-w-0 truncate">
+            Agent
+          </span>
+          <StatusDot status={agentReady ? "ready" : "empty"} />
+        </div>
+        {agentReady ? (
+          <InstanceBadges names={agents.map((a) => a.name)} />
+        ) : (
+          <div className="mt-1 text-[12px] text-fg-muted">
+            + Create your first agent — it composes everything below
+          </div>
+        )}
+      </div>
+
+      {/* Soft "built from" connector */}
+      <div className="flex items-center justify-center gap-2 py-2.5 text-[11px] text-fg-subtle">
+        <span className="h-px flex-1 bg-border" />
+        <span>built from</span>
+        <span className="h-px flex-1 bg-border" />
+      </div>
 
       <div className="grid grid-cols-1 gap-x-5 gap-y-6 md:grid-cols-2 lg:grid-cols-3">
         {steps.map((s) => (
