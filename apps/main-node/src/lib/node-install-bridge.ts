@@ -621,6 +621,18 @@ class InProcessSessionCreator implements SessionCreator {
     } as unknown as UserMessageEvent;
     await this.opts.appendUserEvent(sessionId, session.tenant_id, agentRow.id, userMsg);
   }
+
+  async pause(userId: UserId, sessionId: SessionId): Promise<void> {
+    // Sandbox pause/resume is a Cloudflare-Containers-specific cost
+    // optimization (destroy the container, keep the session record) — the
+    // self-host Node runtime doesn't provision per-session containers the
+    // same way, so there's nothing to pause here yet. No-op, mirroring the
+    // resume-without-hook fallback above.
+    log.warn(
+      { op: "install_bridge.pause.unsupported", session_id: sessionId, user_id: userId },
+      "session pause requested but not supported on the self-host Node runtime",
+    );
+  }
 }
 
 class InProcessVaultManager implements VaultManager {

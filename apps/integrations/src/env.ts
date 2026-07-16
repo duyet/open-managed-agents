@@ -57,4 +57,17 @@ export interface Env {
   // Telegram bot token for incoming webhook processing. When set, the
   // Telegram webhook route at /telegram/webhook is operational.
   TELEGRAM_BOT_TOKEN?: string;
+
+  // Agent this bot's sessions run against, and the vault/environment they
+  // bind to. All required for the webhook route to actually create/resume
+  // sessions (TELEGRAM_BOT_TOKEN alone only gets you past the "not
+  // configured" 503).
+  TELEGRAM_AGENT_ID?: string;
+  // Comma-separated vault ids.
+  TELEGRAM_VAULT_IDS?: string;
+  TELEGRAM_ENVIRONMENT_ID?: string;
+  // Auto-idle threshold in milliseconds before a chat's session sandbox is
+  // paused. Defaults to 5 minutes (DEFAULT_IDLE_TIMEOUT_MS in
+  // @duyet/oma-telegram) when unset.
+  TELEGRAM_IDLE_TIMEOUT_MS?: string;
 }

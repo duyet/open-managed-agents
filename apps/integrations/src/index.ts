@@ -6,6 +6,8 @@ import slackPublications from "./routes/slack/publications";
 import slackSetupPage from "./routes/slack/setup-page";
 import githubManifest from "./routes/github/manifest";
 import telegramWebhook from "./routes/telegram/webhook";
+import { telegramChatStore, telegramIdleTimeoutMs } from "./routes/telegram/wire";
+import { sweepIdleTelegramChats } from "@duyet/oma-telegram";
 import { buildProviders } from "./providers";
 import { buildContainer } from "./wire";
 import { CfInstallBridge } from "./cf-install-bridge";
@@ -134,6 +136,24 @@ async function scheduled(
         pingHealthchecks(env, "fail", `linear-dispatch tick failed: ${msg}`).catch(() => {});
       }),
   );
+
+  // Telegram auto-idle sweep — pauses chat sandboxes idle for
+  // TELEGRAM_IDLE_TIMEOUT_MS (default 5min, see issue #103). No-op when the
+  // bot isn't configured. Uses the same MAIN-service-binding SessionCreator
+  // as session create/resume — no public HTTP hop.
+  if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_AGENT_ID) {
+    const container = buildContainer(env);
+    ctx.waitUntil(
+      sweepIdleTelegramChats({
+        store: telegramChatStore,
+        pause: (userId, sessionId) => container.sessions.pause(userId, sessionId),
+        now: () => Date.now(),
+        idleTimeoutMs: telegramIdleTimeoutMs(env),
+      }).catch((err) => {
+        log.error({ err, op: "telegram-idle-sweep.fatal", cron: controller.cron }, "telegram idle sweep failed");
+      }),
+    );
+  }
 }
 
 export default {
