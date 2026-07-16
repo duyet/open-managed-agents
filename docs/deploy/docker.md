@@ -15,7 +15,7 @@ Edit `docker-compose.yml` to use Postgres instead of SQLite:
 ```yaml
 services:
   oma:
-    image: ghcr.io/duyet/oma:latest
+    image: ghcr.io/duyet/oma-main-node:latest
     env_file: .env
     environment:
       - DATABASE_URL=postgres://oma:secure_password@postgres:5432/oma
