@@ -31,6 +31,7 @@ import { AgentDeploymentsTab } from "./pages/agents/AgentDeploymentsTab";
 import { AgentObservabilityTab } from "./pages/agents/AgentObservabilityTab";
 import { SessionsList } from "./pages/SessionsList";
 import { KanbanBoard } from "./pages/KanbanBoard";
+import { Usage } from "./pages/Usage";
 import { FilesList } from "./pages/FilesList";
 import { EnvironmentsList } from "./pages/EnvironmentsList";
 import { EnvironmentDetail } from "./pages/EnvironmentDetail";
@@ -95,11 +96,12 @@ import { consolePlugins } from "./plugins/registry";
  */
 const SESSIONS_HUB: HubConfig = {
   title: "Sessions",
-  description: "Trace, debug, and organize your agents' sessions.",
+  description: "Trace, debug, organize, and monitor your agents' sessions.",
   tabs: [
     { label: "Sessions", path: "/sessions" },
     { label: "Kanban Board", path: "/kanban" },
     { label: "Eval Runs", path: "/evals" },
+    { label: "Usage", path: "/usage" },
   ],
 };
 
@@ -199,6 +201,7 @@ const protectedRoutes: RouteObject[] = [
           },
         ],
       },
+      { path: "usage", element: <Usage />, handle: { crumb: "Usage" } },
     ],
   },
   // Session detail — full-page, no hub tabs. Pathless parent carries the
