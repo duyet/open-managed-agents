@@ -481,6 +481,9 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
       environmentSnapshot: envSnap ?? undefined,
       vaultCredentials: vaultCreds,
       initEvents: refreshEvents,
+      // Mirror whatever metadata ended up on the just-created row into DO
+      // state (issue #222) — see SessionInitParams.metadata.
+      metadata: session.metadata ?? undefined,
     };
     await router.init(sessionId, initParams).catch((err) => {
       console.warn(`[sessions] router.init failed for ${sessionId}:`, err);

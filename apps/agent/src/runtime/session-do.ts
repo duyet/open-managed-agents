@@ -94,6 +94,7 @@ import type { SessionNotifyEvent, SessionNotifyStatus } from "@duyet/oma-integra
 import { WorkerHttpClient } from "@duyet/oma-integrations-adapters-cf";
 import { dispatchSessionNotifications } from "./notify-dispatch";
 import { meterTurnDebit } from "./turn-metering";
+import { resolveSessionMetadata, walletFromMetadata } from "./resolve-session-metadata";
 
 interface SessionInitParams {
   agent_id: string;
@@ -117,6 +118,17 @@ interface SessionInitParams {
    * otherwise read via `CONFIG_KV.list({ prefix: t:tenantId:cred:vaultId: })`.
    */
   vault_credentials?: Array<{ vault_id: string; credentials: CredentialConfig[] }>;
+  /**
+   * Session metadata (arbitrary key/value bag persisted on the session row —
+   * e.g. `publication_id`/`end_user_id` for a public consumer session,
+   * `deployment_run.deployment_id`, `scheduled_run.schedule_id`). Mirrored
+   * verbatim into DO state so notify-dispatch and turn-metering can read it
+   * synchronously instead of round-tripping to the row (issue #222). Optional
+   * for back-compat: a caller that omits it leaves `state.metadata` at
+   * whatever it was previously (or unset for a brand-new session) — see
+   * resolve-session-metadata.ts for the legacy-session fallback this enables.
+   */
+  metadata?: Record<string, unknown>;
   /**
    * Generic per-event POST hooks. Each hook gets the canonical SessionEvent
    * verbatim on every broadcast. Use for provider-specific side effects
@@ -201,13 +213,17 @@ interface SessionState {
    */
   metered_token_total?: number;
   /**
-   * Cached wallet identity for the metering hook (issue #163), resolved once
-   * from the persisted session row (session metadata isn't mirrored into DO
-   * state). `undefined` = not yet resolved; `null` = resolved as a non-metered
-   * session (cheap-skip every future idle, no D1 read); an object = the
-   * `(publication_id, end_user_id)` wallet to debit each turn.
+   * Session metadata, mirrored from the session row at /init (issue #222).
+   * `undefined` = a pre-#222 session whose DO state was last written before
+   * this field existed — notify-dispatch and the metering hook
+   * (resolveMetadata below) fall back to a one-time row read and cache the
+   * result back here. Any other value (including `{}`) is authoritative for
+   * this DO's lifetime — no further row reads. Read-mostly: a `POST
+   * /v1/sessions/:id` metadata update lands on the row only and does not
+   * invalidate this mirror, same tradeoff `agent_snapshot`/
+   * `environment_snapshot` already make for their /init-time snapshots.
    */
-  metering_wallet?: { publication_id: string; end_user_id: string } | null;
+  metadata?: Record<string, unknown>;
   /**
    * Per-thread cumulative usage. Keyed by session_thread_id
    * ("sthr_primary" or sub-agent "sthr_*"). Mirrors the AMA
@@ -1596,6 +1612,11 @@ export class SessionDO extends DurableObject<Env> {
         agent_snapshot: params.agent_snapshot,
         environment_snapshot: params.environment_snapshot,
         vault_credentials: params.vault_credentials,
+        // Default to {} rather than leaving it unset: an object (even empty)
+        // marks this DO's state as post-#222 — resolveMetadata() then trusts
+        // it outright instead of falling back to a row read. See
+        // resolve-session-metadata.ts.
+        metadata: params.metadata ?? {},
         event_hooks: params.event_hooks,
         terminated_at: null,
         // Stamp wall-clock create on first /init only — re-init shouldn't
@@ -3592,15 +3613,16 @@ export class SessionDO extends DurableObject<Env> {
       if (!targets || targets.length === 0) return;
 
       // Best-effort extras for the webhook envelope: derived publication /
-      // end-user ids (from session metadata) and the final agent message.
-      const meta = (this.state as { metadata?: Record<string, unknown> }).metadata;
+      // end-user ids (from session metadata, issue #222) and the final
+      // agent message.
+      const meta = await this.resolveMetadata();
       const notifyEvent: SessionNotifyEvent = {
         sessionId: this.state.session_id,
         status,
         ...(agent?.name ? { agentName: agent.name } : {}),
         ...(detail ? { detail } : {}),
-        ...(meta?.publication_id ? { publicationId: String(meta.publication_id) } : {}),
-        ...(meta?.end_user_id ? { endUserId: String(meta.end_user_id) } : {}),
+        ...(meta.publication_id ? { publicationId: String(meta.publication_id) } : {}),
+        ...(meta.end_user_id ? { endUserId: String(meta.end_user_id) } : {}),
         ...(status !== "error" ? { finalMessage: this.getFinalAgentMessage() } : {}),
       };
 
@@ -3637,13 +3659,13 @@ export class SessionDO extends DurableObject<Env> {
    *
    * No-op unless this is a public consumer turn (publication_id + end_user_id on
    * the session) priced `per_1k_tokens` with new tokens this turn. The wallet
-   * identity is resolved once from the persisted session row (session metadata
-   * isn't mirrored into DO state) and cached in `metering_wallet` so a
-   * non-metered session pays the lookup only on its first idle. Sub-agent thread
-   * idles are skipped (non-primary session_thread_id); the primary turn's
-   * cumulative total already includes sub-agent tokens, so one debit per user
-   * turn covers everything. Cost math, idempotency, and the negative-overshoot
-   * policy live in turn-metering.ts / @duyet/oma-payments.
+   * identity is derived from resolveMetadata() (issue #222's DO-state mirror,
+   * falling back to a one-time persisted-row read + cache for sessions that
+   * predate it) so a non-metered session pays at most one lookup ever. Sub-agent
+   * thread idles are skipped (non-primary session_thread_id); the primary
+   * turn's cumulative total already includes sub-agent tokens, so one debit
+   * per user turn covers everything. Cost math, idempotency, and the
+   * negative-overshoot policy live in turn-metering.ts / @duyet/oma-payments.
    */
   private maybeMeterTurn(event: SessionEvent): void {
     if (event.type !== "session.status_idle") return;
@@ -3654,9 +3676,11 @@ export class SessionDO extends DurableObject<Env> {
 
     const db = this.env.MAIN_DB;
     if (!db) return;
-    // Cheap skip: a session already resolved as non-metered never touches D1
-    // or advances the mark again.
-    if (this.state.metering_wallet === null) return;
+    // Cheap skip: once metadata has resolved (state.metadata !== undefined —
+    // true from /init onward for every post-#222 session) and carries no
+    // wallet identity, every future idle skips without an async hop or D1 read.
+    const cachedMeta = this.state.metadata;
+    if (cachedMeta !== undefined && !walletFromMetadata(cachedMeta)) return;
     // Respect the payments kill-switch if the agent worker carries it (parity
     // with apps/main isPaymentsEnabled → "everything free"). The agent worker
     // holds no Stripe secrets, so we key only on this explicit flag.
@@ -3682,19 +3706,11 @@ export class SessionDO extends DurableObject<Env> {
     // failure under-bills (fail-open, honest) rather than risking a double-bill.
     this.setState({ ...this.state, metered_token_total: total });
 
-    const cached = this.state.metering_wallet;
-
     // Detached — never awaited (same idiom as maybeFireSessionNotifications).
     void (async () => {
       try {
-        let wallet: { publication_id: string; end_user_id: string } | null | undefined =
-          cached;
-        if (wallet === undefined) {
-          wallet = await this.resolveMeteringWallet(tenantId, sessionId);
-          // Cache the (immutable) resolution — an object to debit each turn, or
-          // null to cheap-skip future idles. Idempotent: always the same value.
-          this.setState({ ...this.state, metering_wallet: wallet });
-        }
+        const meta = await this.resolveMetadata();
+        const wallet = walletFromMetadata(meta);
         if (!wallet) return;
         await meterTurnDebit({
           db,
@@ -3721,25 +3737,33 @@ export class SessionDO extends DurableObject<Env> {
   }
 
   /**
-   * Resolve the metering wallet identity (publication_id + end_user_id) from the
-   * persisted session row — session metadata isn't mirrored into DO state, so
-   * the debit hook reads it from the store (same path as
-   * assertSessionOwnedByPublication in apps/main). Returns null for any session
-   * that isn't a public consumer session (no publication_id / end_user_id).
+   * Resolve this session's metadata bag (issue #222), preferring the DO-state
+   * mirror written at /init and falling back to a one-time persisted-row read
+   * for sessions that predate that mirror (same row path
+   * assertSessionOwnedByPublication in apps/main uses) — then caching the
+   * result back into state so no session ever pays the row read twice.
+   * Shared by maybeFireSessionNotifications and maybeMeterTurn so both read
+   * the exact same resolution + cache.
    */
-  private async resolveMeteringWallet(
-    tenantId: string,
-    sessionId: string,
-  ): Promise<{ publication_id: string; end_user_id: string } | null> {
-    const { getCfServicesForTenant } = await import("@duyet/oma-services");
-    const services = await getCfServicesForTenant(this.env, tenantId);
-    const session = await services.sessions.get({ tenantId, sessionId });
-    const meta = (session?.metadata ?? undefined) as Record<string, unknown> | undefined;
-    const publicationId = meta?.publication_id ? String(meta.publication_id) : "";
-    const endUserId = meta?.end_user_id ? String(meta.end_user_id) : "";
-    return publicationId && endUserId
-      ? { publication_id: publicationId, end_user_id: endUserId }
-      : null;
+  private async resolveMetadata(): Promise<Record<string, unknown>> {
+    const cached = this.state.metadata;
+    const resolved = await resolveSessionMetadata(
+      cached,
+      this.state.tenant_id,
+      this.state.session_id,
+      {
+        lookupRow: async (tenantId, sessionId) => {
+          const { getCfServicesForTenant } = await import("@duyet/oma-services");
+          const services = await getCfServicesForTenant(this.env, tenantId);
+          const session = await services.sessions.get({ tenantId, sessionId });
+          return (session?.metadata ?? null) as Record<string, unknown> | null;
+        },
+      },
+    );
+    if (cached === undefined) {
+      this.setState({ ...this.state, metadata: resolved });
+    }
+    return resolved;
   }
 
   /**
