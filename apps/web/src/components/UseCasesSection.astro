@@ -3,11 +3,12 @@
 // The tab rail + animated visual live in UseCasesInteractive.tsx (React
 // island); this wrapper owns the section chrome and the CTA.
 import UseCasesInteractive from "./UseCasesInteractive.tsx";
+import Icon from "./Icon.astro";
 ---
 
 <section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="use-cases">
-  <p class="text-center font-mono text-xs uppercase tracking-widest text-[var(--color-green)] mb-3">
-    Workflows
+  <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+    <Icon name="workflow" size={14} class="text-[var(--color-brand)]" /> Workflows
   </p>
   <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
     Built for Real Workflows
@@ -23,9 +24,9 @@ import UseCasesInteractive from "./UseCasesInteractive.tsx";
   <div class="mt-12 text-center">
     <a
       href="https://docs.oma.duyet.net/quickstart"
-      class="inline-flex px-6 py-3 rounded-md bg-[var(--color-fg)] text-[var(--color-bg)] font-medium font-display no-underline hover:no-underline"
+      class="inline-flex items-center gap-2 px-6 py-3 rounded-md bg-[var(--color-brand)] text-[var(--color-brand-fg)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-brand-hover)] transition-colors"
     >
-      Get Started &rarr;
+      Get Started <Icon name="arrowRight" size={16} />
     </a>
   </div>
 </section>

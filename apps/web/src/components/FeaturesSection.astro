@@ -1,5 +1,6 @@
 ---
 // "Everything You Need" section — 6 feature cards in a 3x2 grid.
+import Icon from "./Icon.astro";
 ---
 
 <section
@@ -8,8 +9,8 @@
   id="features"
 >
   <div class="max-w-5xl mx-auto px-4 py-16 md:py-20">
-    <p class="text-center font-mono text-xs uppercase tracking-widest text-[var(--color-blue)] mb-3">
-      Platform
+    <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+      <Icon name="grid" size={14} class="text-[var(--color-brand)]" /> Platform
     </p>
     <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
       Everything You Need

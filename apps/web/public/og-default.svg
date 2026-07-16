@@ -1,83 +1,61 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <!-- 1200x630 OG card. Designed to read clearly when scaled down to
-       the small thumbnail Twitter / LinkedIn / Slack render in feed.
-       Background uses brand orange-50; text uses fg + brand-orange. -->
+  <!-- 1200x630 OG card (2026 redesign). Neutral zinc ground, iris (#4f46e5)
+       accent, and the new frame+node brand mark. NOTE: the shipped social
+       image is og-default.png (rasterized) — regenerate it from this source
+       so the card matches the redesigned brand. -->
 
   <!-- Background -->
   <rect width="1200" height="630" fill="#ffffff"/>
   <rect width="1200" height="630" fill="url(#bg-grad)"/>
   <defs>
     <linearGradient id="bg-grad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#fff7ed"/>
-      <stop offset="100%" stop-color="#ffedd5"/>
+      <stop offset="0%" stop-color="#fafafa"/>
+      <stop offset="100%" stop-color="#f1f2f6"/>
     </linearGradient>
   </defs>
 
-  <!-- Subtle geometric mark (top right) — orange tinted blocks evoking the
-       harness/sandbox/infrastructure split shown in the homepage diagram. -->
-  <g opacity="0.18" transform="translate(960, 80)">
-    <rect x="0"   y="0"   width="160" height="36" fill="#f97316" rx="4"/>
-    <rect x="0"   y="56"  width="160" height="36" fill="#f97316" rx="4"/>
-    <rect x="0"   y="112" width="160" height="36" fill="#f97316" rx="4"/>
+  <!-- Brand mark (top right): the frame + edge + node glyph, iris tinted. -->
+  <g transform="translate(980, 96)" opacity="0.9">
+    <rect x="0" y="0" width="120" height="120" rx="30" fill="none" stroke="#4f46e5" stroke-width="12"/>
+    <path d="M32 32 68 68" stroke="#4f46e5" stroke-width="12" stroke-linecap="round"/>
+    <circle cx="60" cy="60" r="17" fill="#4f46e5"/>
   </g>
 
-  <!-- Brand row -->
-  <g transform="translate(80, 100)">
-    <!-- Wordmark (mono) -->
-    <text x="0" y="0"
-      font-family="'JetBrains Mono','Menlo','Monaco',monospace"
-      font-weight="700"
-      font-size="36"
-      fill="#16181d"
-      letter-spacing="0.5">oma</text>
-  </g>
+  <!-- Wordmark (mono) -->
+  <text x="80" y="120"
+    font-family="'Geist Mono','JetBrains Mono','Menlo',monospace"
+    font-weight="700" font-size="36" fill="#18181b" letter-spacing="0.5">oma</text>
 
   <!-- Eyebrow -->
   <text x="80" y="240"
-    font-family="'DM Sans',-apple-system,'Segoe UI','Helvetica Neue',sans-serif"
-    font-weight="500"
-    font-size="22"
-    letter-spacing="3"
-    fill="#ea580c">APACHE 2.0  ·  CLOUDFLARE-NATIVE  ·  SELF-HOSTABLE</text>
+    font-family="'Geist','DM Sans',-apple-system,'Segoe UI',sans-serif"
+    font-weight="600" font-size="22" letter-spacing="3"
+    fill="#4f46e5">APACHE 2.0  ·  CLOUDFLARE-NATIVE  ·  SELF-HOSTABLE</text>
 
   <!-- Headline -->
-  <text x="80" y="320"
-    font-family="'Source Serif 4',Georgia,'Times New Roman',serif"
-    font-weight="700"
-    font-size="76"
-    fill="#16181d">Open Managed Agents</text>
+  <text x="80" y="322"
+    font-family="'Geist','DM Sans',-apple-system,'Segoe UI',sans-serif"
+    font-weight="700" font-size="76" letter-spacing="-1.5" fill="#18181b">Open Managed Agents</text>
 
   <!-- Subhead -->
   <text x="80" y="400"
-    font-family="'DM Sans',-apple-system,'Segoe UI','Helvetica Neue',sans-serif"
-    font-weight="400"
-    font-size="36"
-    fill="#4a4f5a">Open-source alternative to Claude Managed Agents.</text>
+    font-family="'Geist','DM Sans',-apple-system,'Segoe UI',sans-serif"
+    font-weight="400" font-size="36" fill="#52525b">Open-source alternative to Claude Managed Agents.</text>
 
   <!-- Body line -->
   <text x="80" y="465"
-    font-family="'DM Sans',-apple-system,'Segoe UI','Helvetica Neue',sans-serif"
-    font-weight="400"
-    font-size="26"
-    fill="#4a4f5a">Cloudflare Workers + Durable Objects.  Drop-in compatible API.</text>
+    font-family="'Geist','DM Sans',-apple-system,'Segoe UI',sans-serif"
+    font-weight="400" font-size="26" fill="#52525b">Cloudflare Workers + Durable Objects.  Drop-in compatible API.</text>
 
   <!-- Bottom row: URL on left, github tag on right -->
-  <g transform="translate(80, 560)">
-    <text x="0" y="0"
-      font-family="'JetBrains Mono','Menlo','Monaco',monospace"
-      font-weight="500"
-      font-size="22"
-      fill="#16181d">oma.duyet.net</text>
-  </g>
-  <g transform="translate(1120, 560)" text-anchor="end">
-    <text x="0" y="0"
-      font-family="'JetBrains Mono','Menlo','Monaco',monospace"
-      font-weight="500"
-      font-size="22"
-      fill="#4a4f5a">github.com/duyet/oma</text>
-  </g>
+  <text x="80" y="560"
+    font-family="'Geist Mono','JetBrains Mono','Menlo',monospace"
+    font-weight="500" font-size="22" fill="#18181b">oma.duyet.net</text>
+  <text x="1120" y="560" text-anchor="end"
+    font-family="'Geist Mono','JetBrains Mono','Menlo',monospace"
+    font-weight="500" font-size="22" fill="#52525b">github.com/duyet/oma</text>
 
   <!-- Brand accent bar bottom -->
-  <rect x="0" y="620" width="1200" height="10" fill="#f97316"/>
+  <rect x="0" y="620" width="1200" height="10" fill="#4f46e5"/>
 </svg>

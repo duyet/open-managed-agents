@@ -1,17 +1,17 @@
 ---
 /**
- * Pixel-art agent mascot (v2 — friendlier, more detailed). The oma brand is
- * brackets + a dot (the harness box wrapping the agent it runs); this renders
- * that idea as a cheerful pixel robot — dark outline, brand-orange body, light
- * visor + eyes, little antenna. Uses the site's CSS custom properties so it
- * follows light/dark + brand tokens, and shape-rendering: crispEdges (set in
- * .pixel-art global rule) keeps blocks hard-edged at any scale. Eyes blink
- * via the .pa-eye keyframes.
+ * Pixel-art agent mascot (v2 — friendlier, more detailed). A cheerful pixel
+ * robot: dark outline, a warm terracotta body, light visor + eyes, little
+ * antenna. The mascot stays deliberately *warm* — it's a playful secondary
+ * mark, kept distinct from the iris (indigo) brand chrome so the page reads as
+ * "serious tool, friendly guide". Uses the site's CSS custom properties so it
+ * follows light/dark, and shape-rendering: crispEdges (set in .pixel-art global
+ * rule) keeps blocks hard-edged at any scale. Eyes blink via .pa-eye keyframes.
  */
 const PALETTE: Record<string, string> = {
   K: "var(--color-fg)",
-  O: "var(--color-brand)",
-  L: "var(--color-brand-fg)",
+  O: "var(--color-accent)",
+  L: "var(--color-bg)",
   B: "var(--color-bg-surface)",
 };
 

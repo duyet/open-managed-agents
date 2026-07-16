@@ -7,6 +7,7 @@ import ArchDiagram from "../components/ArchDiagram.tsx";
 import ManagedAgentsSection from "../components/ManagedAgentsSection.astro";
 import FeaturesSection from "../components/FeaturesSection.astro";
 import UseCasesSection from "../components/UseCasesSection.astro";
+import Icon from "../components/Icon.astro";
 
 // SoftwareApplication is the homepage-only schema — anchors the
 // "Open Managed Agents" entity in Google's knowledge graph and makes
@@ -235,8 +236,8 @@ const fleet = [
 ];
 const FLEET_PAL: Record<string, string> = {
   K: "var(--color-fg)",
-  O: "var(--color-brand)",
-  L: "var(--color-brand-fg)",
+  O: "var(--color-accent)",
+  L: "var(--color-bg)",
 };
 function pixelRects(map: string[]) {
   const r: { x: number; y: number; fill: string }[] = [];
@@ -259,13 +260,22 @@ function pixelRects(map: string[]) {
 >
   <!-- Hero -->
   <section class="relative overflow-hidden border-b border-[var(--color-border)]">
+    <!-- Ground: a faint hairline grid (engineering-blueprint texture) with a
+         single soft iris glow bleeding from the top. Restrained, monochrome —
+         no colored mesh. -->
     <div
-      class="pointer-events-none absolute inset-0 opacity-[0.35] dark:opacity-[0.2]"
+      class="pointer-events-none absolute inset-0 opacity-70 dark:opacity-40"
       aria-hidden="true"
       style="background:
-        radial-gradient(ellipse 80% 50% at 50% -20%, color-mix(in srgb, var(--color-brand) 28%, transparent), transparent),
-        radial-gradient(ellipse 40% 40% at 90% 60%, color-mix(in srgb, var(--color-blue) 18%, transparent), transparent),
-        radial-gradient(ellipse 35% 35% at 10% 80%, color-mix(in srgb, var(--color-green) 16%, transparent), transparent);"
+        linear-gradient(to right, var(--color-border) 1px, transparent 1px) 0 0 / 56px 56px,
+        linear-gradient(to bottom, var(--color-border) 1px, transparent 1px) 0 0 / 56px 56px;
+        mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 78%);
+        -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 78%);"
+    ></div>
+    <div
+      class="pointer-events-none absolute inset-0 opacity-[0.5] dark:opacity-[0.35]"
+      aria-hidden="true"
+      style="background: radial-gradient(ellipse 70% 45% at 50% -10%, color-mix(in srgb, var(--color-brand) 22%, transparent), transparent 70%);"
     ></div>
     <div class="relative max-w-5xl mx-auto px-4 py-16 md:py-20">
       <div class="hero-grid">
@@ -323,8 +333,8 @@ function pixelRects(map: string[]) {
 
   <!-- What it is -->
   <section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="what-is-oma">
-    <p class="text-center font-mono text-xs uppercase tracking-widest text-[var(--color-brand)] mb-3">
-      Product
+    <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+      <Icon name="box" size={14} class="text-[var(--color-brand)]" /> Product
     </p>
     <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
       What Open Managed Agents is
@@ -372,8 +382,8 @@ function pixelRects(map: string[]) {
     id="how-designed"
   >
     <div class="max-w-5xl mx-auto px-4 py-16 md:py-20">
-      <p class="text-center font-mono text-xs uppercase tracking-widest text-[var(--color-blue)] mb-3">
-        Design
+      <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+        <Icon name="layers" size={14} class="text-[var(--color-brand)]" /> Design
       </p>
       <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
         How it is designed
@@ -448,8 +458,8 @@ function pixelRects(map: string[]) {
 
   <!-- Durable lifecycle visualization -->
   <section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="lifecycle">
-    <p class="text-center font-mono text-xs uppercase tracking-widest text-[var(--color-green)] mb-3">
-      Runtime
+    <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+      <Icon name="repeat" size={14} class="text-[var(--color-brand)]" /> Runtime
     </p>
     <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
       Durable lifecycle loop
@@ -633,18 +643,18 @@ function pixelRects(map: string[]) {
           href="https://github.com/duyet/oma"
           target="_blank"
           rel="noopener noreferrer"
-          class="px-5 py-3 rounded-md bg-[var(--color-fg)] text-[var(--color-bg)] font-medium font-display no-underline hover:no-underline"
-          >Clone the repo</a
+          class="inline-flex items-center gap-2 px-5 py-3 rounded-md bg-[var(--color-brand)] text-[var(--color-brand-fg)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-brand-hover)] transition-colors"
+          ><Icon name="download" size={16} /> Clone the repo</a
         >
         <a
           href="https://docs.oma.duyet.net"
-          class="px-5 py-3 rounded-md border border-[var(--color-border-strong)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg)]"
-          >Read the docs</a
+          class="inline-flex items-center gap-2 px-5 py-3 rounded-md border border-[var(--color-border-strong)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg-surface)] transition-colors"
+          ><Icon name="book" size={16} /> Read the docs</a
         >
         <a
           href="https://app.oma.duyet.net/login"
-          class="px-5 py-3 rounded-md border border-[var(--color-border-strong)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg)]"
-          >Try hosted</a
+          class="inline-flex items-center gap-2 px-5 py-3 rounded-md border border-[var(--color-border-strong)] font-medium font-display no-underline hover:no-underline hover:bg-[var(--color-bg-surface)] transition-colors"
+          ><Icon name="server" size={16} /> Try hosted</a
         >
       </div>
     </div>
