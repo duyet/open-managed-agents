@@ -141,6 +141,9 @@ importers:
       '@duyet/oma-outbound-snapshots-store':
         specifier: workspace:*
         version: link:../../packages/outbound-snapshots-store
+      '@duyet/oma-payments':
+        specifier: workspace:*
+        version: link:../../packages/payments
       '@duyet/oma-sandbox':
         specifier: workspace:*
         version: link:../../packages/sandbox

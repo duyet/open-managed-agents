@@ -93,6 +93,7 @@ import {
 import type { SessionNotifyEvent, SessionNotifyStatus } from "@duyet/oma-integrations-core";
 import { WorkerHttpClient } from "@duyet/oma-integrations-adapters-cf";
 import { dispatchSessionNotifications } from "./notify-dispatch";
+import { meterTurnDebit } from "./turn-metering";
 
 interface SessionInitParams {
   agent_id: string;
@@ -192,6 +193,13 @@ interface SessionState {
    */
   input_tokens: number;
   output_tokens: number;
+  /**
+   * High-water mark of `input_tokens + output_tokens` already billed by the
+   * post-turn `per_1k_tokens` metering hook (issue #163). Each idle debits the
+   * delta since this mark, then advances it. Optional: pre-#163 sessions read as
+   * `undefined` (treated as 0) and only public metered sessions ever set it.
+   */
+  metered_token_total?: number;
   /**
    * Per-thread cumulative usage. Keyed by session_thread_id
    * ("sthr_primary" or sub-agent "sthr_*"). Mirrors the AMA
@@ -3521,6 +3529,7 @@ export class SessionDO extends DurableObject<Env> {
       }
     }
     this.maybeFireSessionNotifications(event);
+    this.maybeMeterTurn(event);
   }
 
   /**
@@ -3608,6 +3617,88 @@ export class SessionDO extends DurableObject<Env> {
       });
     })().catch((err) => {
       console.error(`[maybeFireSessionNotifications] unexpected failure: ${(err as Error).message}`);
+    });
+  }
+
+  /**
+   * Post-turn `per_1k_tokens` metering (issue #163). Fire-and-forget on a
+   * primary-thread `session.status_idle`, mirroring maybeFireSessionNotifications
+   * (same seam, same fail-open discipline): debit the turn's real token cost
+   * against the end-user credit wallet in MAIN_DB. Never throws back into
+   * broadcastEvent — a metering hiccup must never fail or block the turn.
+   *
+   * No-op unless this is a public consumer turn (publication_id + end_user_id in
+   * session metadata) priced `per_1k_tokens` with new tokens this turn. Sub-agent
+   * thread idles are skipped (they carry a non-primary session_thread_id); the
+   * primary turn's cumulative total already includes sub-agent tokens, so one
+   * debit per user turn covers everything. Cost math, idempotency, and the
+   * negative-overshoot policy live in turn-metering.ts / @duyet/oma-payments.
+   */
+  private maybeMeterTurn(event: SessionEvent): void {
+    if (event.type !== "session.status_idle") return;
+    // Only the primary turn's completion — sub-agent idles carry a sub-thread
+    // id and their tokens are already folded into the session-wide totals.
+    const threadId = (event as { session_thread_id?: string }).session_thread_id;
+    if (threadId && threadId !== "sthr_primary") return;
+
+    const db = this.env.MAIN_DB;
+    if (!db) return;
+    // Respect the payments kill-switch if the agent worker carries it (parity
+    // with apps/main isPaymentsEnabled → "everything free"). The agent worker
+    // holds no Stripe secrets, so we key only on this explicit flag.
+    const disabled = (this.env as { PAYMENTS_DISABLED?: string }).PAYMENTS_DISABLED;
+    if (disabled && disabled !== "0" && disabled !== "false") return;
+
+    const meta = (this.state as { metadata?: Record<string, unknown> }).metadata;
+    const publicationId = meta?.publication_id ? String(meta.publication_id) : "";
+    const endUserId = meta?.end_user_id ? String(meta.end_user_id) : "";
+    // Both are present only on public consumer turns — everything else unmetered.
+    if (!publicationId || !endUserId) return;
+
+    const total = (this.state.input_tokens ?? 0) + (this.state.output_tokens ?? 0);
+    const prior = this.state.metered_token_total ?? 0;
+    const turnTokens = total - prior;
+    if (turnTokens <= 0) return;
+
+    const tenantId = this.state.tenant_id;
+    const sessionId = this.state.session_id;
+
+    // Advance the high-water mark SYNCHRONOUSLY — turns are serialized, so the
+    // next turn's maybeMeterTurn must read the advanced mark and bill only its
+    // own delta, never re-slice [prior, total]. (If we advanced inside the
+    // detached debit below, a slow debit could still be in-flight when the next
+    // turn idles, which would recompute the delta from a stale mark and
+    // double-bill.) The `turn_debits` guard (keyed on `${sessionId}:${total}`)
+    // is the durable idempotency backstop; this mark just partitions cumulative
+    // tokens into per-turn slices. Advancing before the debit means a debit
+    // failure under-bills (fail-open, honest) rather than risking a double-bill.
+    this.setState({ ...this.state, metered_token_total: total });
+
+    // Detached — never awaited (same idiom as maybeFireSessionNotifications).
+    void (async () => {
+      try {
+        await meterTurnDebit({
+          db,
+          tenantId,
+          sessionId,
+          publicationId,
+          endUserId,
+          turnTokens,
+          cumulativeTotal: total,
+        });
+      } catch (err) {
+        logWarn(
+          {
+            op: "session_do.meter_turn",
+            session_id: sessionId,
+            publication_id: publicationId,
+            err,
+          },
+          "per_1k_tokens turn metering failed",
+        );
+      }
+    })().catch((err) => {
+      console.error(`[maybeMeterTurn] unexpected failure: ${(err as Error).message}`);
     });
   }
 
