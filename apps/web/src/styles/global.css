@@ -765,3 +765,139 @@ input:focus-visible,
 @media (prefers-reduced-motion: reduce) {
   .arch-diagram .ad-edge.is-active { animation: none; }
 }
+
+/* ── Hero: live request trace under the arch diagram ─────────────────── */
+.arch-diagram-trace {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75ch;
+  margin-top: 0.65rem;
+  font-size: 0.68rem;
+  line-height: 1.5;
+  color: var(--color-fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.arch-diagram-trace .ad-trace-step {
+  flex: none;
+  font-weight: 700;
+  font-size: 0.62rem;
+  color: var(--color-brand);
+  border: 1px solid color-mix(in srgb, var(--color-brand) 45%, transparent);
+  border-radius: 4px;
+  padding: 0 0.45ch;
+}
+
+/* ── Use cases: interactive tabs + animated visual ────────────────────── */
+.usecases-grid {
+  display: grid;
+  gap: 1.25rem;
+  align-items: stretch;
+}
+@media (min-width: 768px) {
+  .usecases-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+}
+.usecases-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.usecase-tab {
+  position: relative;
+  text-align: left;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-bg);
+  padding: 1rem 1.25rem 1.1rem;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.usecase-tab:hover { border-color: var(--color-border-strong); }
+.usecase-tab.is-active.uc-green { border-color: var(--color-green); }
+.usecase-tab.is-active.uc-blue { border-color: var(--color-blue); }
+.usecase-tab.is-active.uc-orange { border-color: var(--color-brand); }
+.usecase-tab-title {
+  display: block;
+  font-family: var(--font-display, inherit);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.3rem;
+}
+.usecase-tab-blurb {
+  display: block;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--color-fg-muted);
+}
+.usecase-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: currentColor;
+  transition: width 500ms linear;
+}
+.uc-green .usecase-progress { background: var(--color-green); }
+.uc-blue .usecase-progress { background: var(--color-blue); }
+.uc-orange .usecase-progress { background: var(--color-brand); }
+
+.usecase-visual {
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-bg-surface);
+  display: flex;
+  flex-direction: column;
+  min-height: 16rem;
+  overflow: hidden;
+}
+.usecase-visual-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.9rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.usecase-visual-title {
+  margin-left: 0.35rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  color: var(--color-fg-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.usecase-visual-body {
+  padding: 1rem 1.1rem;
+  font-size: 0.74rem;
+  line-height: 1.7;
+  flex: 1;
+}
+.usecase-line {
+  display: flex;
+  gap: 1ch;
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 260ms ease, transform 260ms ease;
+  color: var(--color-fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.usecase-line.is-shown { opacity: 1; transform: none; }
+.usecase-line-tag {
+  flex: none;
+  min-width: 3.2ch;
+  text-align: right;
+  font-weight: 700;
+  color: var(--color-fg-subtle);
+}
+.usecase-line.ucl-green, .usecase-line.ucl-green .usecase-line-tag { color: var(--color-green); }
+.usecase-line.ucl-blue, .usecase-line.ucl-blue .usecase-line-tag { color: var(--color-blue); }
+.usecase-line.ucl-orange, .usecase-line.ucl-orange .usecase-line-tag { color: var(--color-brand); }
+
+@media (prefers-reduced-motion: reduce) {
+  .usecase-line { transition: none; opacity: 1; transform: none; }
+  .usecase-progress { display: none; }
+}
