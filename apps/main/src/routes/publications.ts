@@ -63,6 +63,12 @@ export interface PublicPublicationRoutesDeps {
     sessionId: string;
     env: Env;
   }) => Promise<Response | null>;
+  /** Resolve the wallet identity for the paywall from the request (issue #73).
+   *  When a consumer bearer token maps to a signed-in end-user, this returns a
+   *  stable `eu:<consumer_id>` id so the wallet survives token refresh AND the
+   *  guest -> email upgrade (same consumer id). When omitted or unresolved, the
+   *  surface falls back to the built-in `tok:<token>` / `ip:<ip>` scheme. */
+  resolveEndUserId?: (req: Request, env: Env) => Promise<string>;
 }
 
 const DEFAULT_PUBLIC_SESSION_CAP_PER_SLUG = 50;
@@ -173,7 +179,9 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
     // Paywall gate (issue #74) — runs before the message reaches the agent.
     // free / payments-disabled publications pass straight through.
     if (deps.enforcePaywall) {
-      const endUserId = endUserIdFor(c.req.raw);
+      const endUserId = deps.resolveEndUserId
+        ? await deps.resolveEndUserId(c.req.raw, c.env)
+        : endUserIdFor(c.req.raw);
       const gate = await deps.enforcePaywall({
         publication: pub,
         endUserId,
