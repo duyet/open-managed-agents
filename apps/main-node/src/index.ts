@@ -1341,6 +1341,19 @@ v1.get("/sandbox_providers/:id/usage", (c) => {
 // CF /linear/publications/* etc. wire shapes verbatim.
 const integrationsInternalToken = process.env.INTEGRATIONS_INTERNAL_TOKEN ?? null;
 const gatewayOrigin = process.env.GATEWAY_ORIGIN ?? process.env.PUBLIC_BASE_URL ?? "http://localhost:8787";
+// OMA-hosted managed Slack App credentials — mirrors apps/integrations'
+// SLACK_MANAGED_CLIENT_ID/SECRET/SIGNING_SECRET. Powers the "Add to Slack"
+// one-click install; unset disables it (503, BYOA wizard still works).
+const slackManagedApp =
+  process.env.SLACK_MANAGED_CLIENT_ID &&
+  process.env.SLACK_MANAGED_CLIENT_SECRET &&
+  process.env.SLACK_MANAGED_SIGNING_SECRET
+    ? {
+        clientId: process.env.SLACK_MANAGED_CLIENT_ID,
+        clientSecret: process.env.SLACK_MANAGED_CLIENT_SECRET,
+        signingSecret: process.env.SLACK_MANAGED_SIGNING_SECRET,
+      }
+    : null;
 let installBridge: NodeInstallBridge | null = null;
 if (platformRootSecret) {
   installBridge = new NodeInstallBridge({
@@ -1352,6 +1365,7 @@ if (platformRootSecret) {
     credentials: credentialService,
     sessions: sessionsService,
     agents: agentsService,
+    slackManagedApp,
     resolveTenantId: async (userId) => {
       const row = await sql
         .prepare(
@@ -1810,7 +1824,7 @@ function bridgeAsInstallProxy(bridge: NodeInstallBridge): InstallProxyForwarder 
         });
       }
 
-      const m = /^([^/]+)\/publications\/(start-a1|credentials|handoff-link|personal-token)$/.exec(
+      const m = /^([^/]+)\/publications\/(start-a1|start-managed|credentials|handoff-link|personal-token)$/.exec(
         subpath,
       );
       if (!m) {
@@ -1822,7 +1836,7 @@ function bridgeAsInstallProxy(bridge: NodeInstallBridge): InstallProxyForwarder 
       const [, provider, mode] = m;
       const result = await bridge.startInstallation!({
         provider: provider as "linear" | "github" | "slack",
-        mode: mode as "start-a1" | "credentials" | "handoff-link" | "personal-token",
+        mode: mode as "start-a1" | "start-managed" | "credentials" | "handoff-link" | "personal-token",
         body: (body ?? {}) as Record<string, unknown>,
       });
       return new Response(JSON.stringify(result.body), {

@@ -180,6 +180,36 @@ export function IntegrationsSlackPublishWizard({
     }
   }
 
+  // "Add to Slack" one-click install. Skips the credentials/manifest steps
+  // entirely — the server stages this deployment's managed App credentials
+  // and hands back the Slack OAuth authorize URL, so we redirect straight
+  // there. Slack lands back on this page (via the gateway callback) with
+  // `?install=ok`. Falls back with an inline error (surfacing the server's
+  // remediation message) when no managed App is configured — the BYOA
+  // "Continue" flow below always works as the fallback.
+  async function startManagedPublish() {
+    if (!agentId || !envId || !personaName) {
+      setError("Pick agent, environment, and persona name first");
+      return;
+    }
+    setError(null);
+    setWorking(true);
+    try {
+      const link = await api.slack.startManaged({
+        agentId,
+        environmentId: envId,
+        personaName,
+        personaAvatarUrl: personaAvatar || null,
+        returnUrl,
+      });
+      if (link.publicationId) pinPublicationToUrl(link.publicationId);
+      window.location.href = link.url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setWorking(false);
+    }
+  }
+
   async function submitA1Credentials() {
     if (!a1Form || !clientId || !clientSecret || !signingSecret) return;
     setError(null);
@@ -284,6 +314,7 @@ export function IntegrationsSlackPublishWizard({
             setPersonaAvatar={setPersonaAvatar}
             working={working}
             onContinue={startPublish}
+            onAddToSlack={startManagedPublish}
           />
         )}
 
@@ -377,6 +408,7 @@ function PickStep(props: {
   setPersonaAvatar: (v: string) => void;
   working: boolean;
   onContinue: () => void;
+  onAddToSlack: () => void;
 }) {
   return (
     <div className="space-y-5">
@@ -449,16 +481,28 @@ function PickStep(props: {
         joins DMs. Setup ~3 min, requires Slack admin.
       </div>
 
-      <div className="pt-1">
+      <div className="pt-1 flex flex-wrap items-center gap-3">
         <button
-          onClick={props.onContinue}
+          onClick={props.onAddToSlack}
           disabled={props.working}
           className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] bg-brand text-brand-fg rounded-md font-medium hover:bg-brand-hover disabled:opacity-50 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
         >
-          {props.working ? "Working…" : "Continue"}
+          {props.working ? "Working…" : "Add to Slack"}
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
         </button>
+        <button
+          onClick={props.onContinue}
+          disabled={props.working}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] text-fg-muted rounded-md font-medium border border-border hover:bg-bg-surface disabled:opacity-50 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
+        >
+          Use my own Slack App
+        </button>
       </div>
+      <p className="text-[12px] text-fg-subtle">
+        <strong>Add to Slack</strong> installs OMA's managed Slack App in one click (not available
+        on every deployment). Prefer full control over App scopes/branding? Use your own Slack App
+        instead — a short manifest wizard walks you through it.
+      </p>
     </div>
   );
 }
