@@ -41,7 +41,15 @@ PG database (no separate `auth.db` file); in SQLite mode they live in
 ```bash
 # 1. Get an Anthropic API key. Any Anthropic-compatible endpoint works.
 cp .env.example .env
-$EDITOR .env  # set ANTHROPIC_API_KEY
+
+# Two secrets are required before first boot — both generated locally:
+#   BETTER_AUTH_SECRET   — signs Console sessions
+#   PLATFORM_ROOT_SECRET — encrypts credentials, model-card API keys, integration tokens
+#                          (lose it and every encrypted row is unreadable — back it up)
+$EDITOR .env
+# BETTER_AUTH_SECRET=$(openssl rand -hex 32)
+# PLATFORM_ROOT_SECRET=$(openssl rand -base64 32)
+# ANTHROPIC_API_KEY is optional — in production, prefer a per-tenant Model Card.
 
 # 2. Start (first time builds the image; subsequent runs skip --build)
 docker compose -f docker-compose.yml up -d --build

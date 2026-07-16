@@ -77,7 +77,7 @@ optional sidecar (`oma-vault`) for outbound credential injection.
 ```bash
 # 1. Configure
 cp .env.example .env
-$EDITOR .env  # ANTHROPIC_API_KEY + BETTER_AUTH_SECRET
+$EDITOR .env  # ANTHROPIC_API_KEY + BETTER_AUTH_SECRET + PLATFORM_ROOT_SECRET
 
 # 2. Run (Docker compose: oma-server + oma-vault)
 docker compose -f docker-compose.yml up --build
