@@ -64,6 +64,9 @@ jobs:
           workingDirectory: apps/main
           command: deploy --env production
 
+      - name: Post-deploy health check
+        run: curl -fsS --retry 5 --retry-delay 10 --max-time 15 https://app.oma.duyet.net/health
+
       - name: Healthchecks — success
         if: success() && vars.HEALTHCHECKS_IO_URL != ''
         run: |

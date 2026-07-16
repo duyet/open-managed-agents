@@ -1,10 +1,10 @@
 name: CI
 
-# PR + main gate. typecheck is the blocking signal (fast, reliable).
-# The full test suite runs as a non-blocking diagnostic while the
-# workers-pool SessionDO test deadlock is being fixed (see fix/test-deadlock*
-# PR) — kept visible for the real Linux-runner signal, not required for merge
-# yet. Flip `continue-on-error` off once the suite is green.
+# PR + main gate. typecheck and the full test suite both block merge.
+# The test suite's workers-pool D1 schema drift (test/test-worker.ts
+# replayed a stale hand-maintained migration list, silently skipping every
+# migration added after it) was fixed in #214/PR #241 — the suite has been
+# green on main since, so `continue-on-error` was dropped (#164).
 
 on:
   pull_request:
@@ -31,7 +31,6 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    continue-on-error: true   # non-blocking until the DO test deadlock is fixed
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
