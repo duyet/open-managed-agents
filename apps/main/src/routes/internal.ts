@@ -222,40 +222,56 @@ interface RotateBody {
  * Body: CreateSessionBody. Creates a new session and (optionally) seeds it
  * with an initial user message. Returns { sessionId }.
  */
-app.post("/sessions", async (c) => {
-  const body = await c.req.json<CreateSessionBody>();
+/**
+ * Core of the internal session create-and-run path, extracted so callers
+ * other than the HTTP route can reuse it verbatim (the scheduled-agent-runs
+ * cron launcher — issue #77 — creates sessions with no interactive user by
+ * calling this directly). The HTTP handler below is a thin wrapper.
+ *
+ * Returns a discriminated result instead of a Response so non-Hono callers
+ * don't need a Context. `services` MUST be scoped to the resolved tenant's
+ * shard (the route passes `c.var.services`; the cron passes
+ * `getCfServicesForTenant(env, tenantId)`).
+ */
+export async function createInternalSession(
+  env: Env,
+  services: Services,
+  body: CreateSessionBody,
+): Promise<
+  { ok: true; sessionId: string } | { ok: false; status: 400 | 404 | 500; error: string }
+> {
   if (body.action !== "create") {
-    return c.json({ error: "unknown action" }, 400);
+    return { ok: false, status: 400, error: "unknown action" };
   }
   if (!body.userId || !body.agentId || !body.environmentId) {
-    return c.json({ error: "userId, agentId, environmentId required" }, 400);
+    return { ok: false, status: 400, error: "userId, agentId, environmentId required" };
   }
 
-  const tenantId = await resolveTenantId(c.env, body.userId);
-  if (!tenantId) return c.json({ error: "user has no tenant" }, 404);
+  const tenantId = await resolveTenantId(env, body.userId);
+  if (!tenantId) return { ok: false, status: 404, error: "user has no tenant" };
 
-  const agentRow = await c.var.services.agents.get({ tenantId, agentId: body.agentId });
-  if (!agentRow) return c.json({ error: "agent not found in tenant" }, 404);
+  const agentRow = await services.agents.get({ tenantId, agentId: body.agentId });
+  if (!agentRow) return { ok: false, status: 404, error: "agent not found in tenant" };
 
-  const envRow = await c.var.services.environments.get({
+  const envRow = await services.environments.get({
     tenantId,
     environmentId: body.environmentId,
   });
-  if (!envRow) return c.json({ error: "environment not found in tenant" }, 404);
+  if (!envRow) return { ok: false, status: 404, error: "environment not found in tenant" };
 
   // Resolve the sandbox binding for this environment. Same naming convention
   // as the public sessions route: SANDBOX_<sanitized worker name>.
   // Read directly from the row — sandbox_worker_name is a server-internal
   // detail, not surfaced on the wire.
   if (!envRow.sandbox_worker_name) {
-    return c.json({ error: "environment has no sandbox worker" }, 500);
+    return { ok: false, status: 500, error: "environment has no sandbox worker" };
   }
   const bindingName = `SANDBOX_${envRow.sandbox_worker_name.replace(/-/g, "_")}`;
-  const binding = (c.env as unknown as Record<string, unknown>)[bindingName] as
+  const binding = (env as unknown as Record<string, unknown>)[bindingName] as
     | Fetcher
     | undefined;
   if (!binding) {
-    return c.json({ error: `sandbox binding ${bindingName} not bound` }, 500);
+    return { ok: false, status: 500, error: `sandbox binding ${bindingName} not bound` };
   }
 
   // Build the agent snapshot up-front so we can ship it to SessionDO at /init
@@ -275,7 +291,7 @@ app.post("/sessions", async (c) => {
   // id generation. Linear MCP wiring below augments the snapshot + metadata
   // and we re-persist via service.update to keep the row consistent.
   const initialMetadata: Record<string, unknown> = { ...(body.metadata ?? {}) };
-  const { session: createdSession } = await c.var.services.sessions.create({
+  const { session: createdSession } = await services.sessions.create({
     tenantId,
     agentId: body.agentId,
     environmentId: body.environmentId,
@@ -290,7 +306,7 @@ app.post("/sessions", async (c) => {
   // Pre-fetch vault credentials so SessionDO can serve them from state
   // instead of reading CONFIG_KV (which may be a different namespace if
   // sandbox-default is shared across envs).
-  const vaultCredentials = await fetchVaultCredentials(c.var.services, tenantId, vaultIds);
+  const vaultCredentials = await fetchVaultCredentials(services, tenantId, vaultIds);
 
   // Linear-triggered session: wire a hosted Linear MCP server into the
   // sandbox. Mint a per-session UUID, store in metadata.linear.mcp_token,
@@ -302,7 +318,7 @@ app.post("/sessions", async (c) => {
   let metadataDirty = false;
   if (linearMeta) {
     const mcpToken = crypto.randomUUID();
-    const mcpUrl = `${integrationsOrigin(c.env)}/linear/mcp/${sessionId}`;
+    const mcpUrl = `${integrationsOrigin(env)}/linear/mcp/${sessionId}`;
     // Per-turn context (which AgentSession to reply into, which comment to
     // thread under, who triggered) lives on the initialEvent's metadata.linear.
     // Merge it onto the session-static metadata so the MCP server can read it
@@ -362,7 +378,7 @@ app.post("/sessions", async (c) => {
   // Re-persist the augmented snapshot + metadata when the linear branch
   // mutated either. Skipped for the common (non-Linear) case.
   if (metadataDirty) {
-    await c.var.services.sessions.update({
+    await services.sessions.update({
       tenantId,
       sessionId,
       agentSnapshot,
@@ -412,7 +428,14 @@ app.post("/sessions", async (c) => {
     });
   }
 
-  return c.json({ sessionId });
+  return { ok: true, sessionId };
+}
+
+app.post("/sessions", async (c) => {
+  const body = await c.req.json<CreateSessionBody>();
+  const result = await createInternalSession(c.env, c.var.services, body);
+  if (!result.ok) return c.json({ error: result.error }, result.status);
+  return c.json({ sessionId: result.sessionId });
 });
 
 /**

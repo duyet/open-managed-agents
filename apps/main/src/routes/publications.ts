@@ -53,6 +53,16 @@ export interface PublicPublicationRoutesDeps {
     sessionId: string,
     env: Env,
   ) => Promise<boolean>;
+  /** Paywall gate for a public message (issue #74). Returns a 402 Response to
+   *  block (insufficient credits / no subscription), or null to allow. When
+   *  omitted, or when the publication is free / payments disabled, the surface
+   *  is ungated. `endUserId` identifies the wallet (consumer token or IP). */
+  enforcePaywall?: (opts: {
+    publication: PublicationRow;
+    endUserId: string;
+    sessionId: string;
+    env: Env;
+  }) => Promise<Response | null>;
 }
 
 const DEFAULT_PUBLIC_SESSION_CAP_PER_SLUG = 50;
@@ -160,6 +170,18 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
     const scoped = await scopedSession(c, deps);
     if (scoped instanceof Response) return scoped;
     const { pub } = scoped;
+    // Paywall gate (issue #74) — runs before the message reaches the agent.
+    // free / payments-disabled publications pass straight through.
+    if (deps.enforcePaywall) {
+      const endUserId = endUserIdFor(c.req.raw);
+      const gate = await deps.enforcePaywall({
+        publication: pub,
+        endUserId,
+        sessionId: c.req.param("id") ?? "",
+        env: c.env,
+      });
+      if (gate) return gate;
+    }
     return forwardToSessions(c, pub.tenant_id, () => deps.buildSessionsApp(pub.tenant_id, c.env));
   });
 
@@ -246,6 +268,15 @@ async function forwardToSessions(
     c.env,
     executionCtx,
   );
+}
+
+/** Wallet identity for the paywall: the consumer bearer token when present
+ *  (a signed-in end-user), else a stable per-IP anonymous id. Charging an
+ *  anonymous IP wallet is fine — the ledger is keyed by this opaque id. */
+function endUserIdFor(req: Request): string {
+  const auth = req.headers.get("authorization");
+  if (auth?.startsWith("Bearer ")) return `tok:${auth.slice(7)}`;
+  return `ip:${clientIp(req)}`;
 }
 
 /**

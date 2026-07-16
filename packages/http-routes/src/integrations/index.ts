@@ -251,6 +251,26 @@ export function buildIntegrationsRoutes(deps: IntegrationsRoutesDeps) {
       });
     });
 
+    // Slack-only "Add to Slack" one-click install: skips the BYOA
+    // credentials_form step by staging this deployment's managed App
+    // credentials server-side. 503s (proxied through unchanged) when no
+    // managed App is configured.
+    if (provider === "slack") {
+      sub.post("/start-managed", async (c) => {
+        const proxy = typeof deps.installProxy === "function" ? deps.installProxy(c) : deps.installProxy;
+        if (!proxy) {
+          return c.json({ error: "install proxy not configured" }, 503);
+        }
+        const userId = c.get("user_id")!;
+        const body = (await c.req.json()) as Record<string, unknown>;
+        return proxy.forward({
+          subpath: "slack/publications/start-managed",
+          body: { ...body, userId },
+          needsInternalSecret: true,
+        });
+      });
+    }
+
     sub.post("/credentials", async (c) => {
       const proxy = typeof deps.installProxy === "function" ? deps.installProxy(c) : deps.installProxy; if (!proxy) {
         return c.json({ error: "install proxy not configured" }, 503);
