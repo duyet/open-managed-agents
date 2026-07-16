@@ -33,7 +33,10 @@ function publicUrl(slug: string): string {
  * published more than once under different slugs — with status,
  * visibility, and pause/resume/unpublish/copy-link/open-chat row actions.
  * "My Bots →" links out to the tenant-wide dashboard for the QR code +
- * embed snippet (ShareModal) rather than duplicating that here.
+ * embed snippet (ShareModal) rather than duplicating that here. "Open test
+ * chat →" opens `/publish/:agent_id` (issue #227) — a lightweight,
+ * unpublished-safe chat page for smoke-testing the agent directly, distinct
+ * from a row's "Open chat" (which opens that publication's live public URL).
  */
 export function AgentPublishingTab() {
   const { agent } = useAgentHub();
@@ -186,9 +189,19 @@ export function AgentPublishingTab() {
         createLabel="+ Publish as bot"
         onCreate={() => setShowPublish(true)}
         headerActions={
-          <Link to="/my-bots" className="text-sm text-brand hover:underline whitespace-nowrap">
-            My Bots →
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              to={`/publish/${agent.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm text-brand hover:underline whitespace-nowrap"
+            >
+              Open test chat →
+            </Link>
+            <Link to="/my-bots" className="text-sm text-brand hover:underline whitespace-nowrap">
+              My Bots →
+            </Link>
+          </div>
         }
         data={pubs}
         loading={isLoading}

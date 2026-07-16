@@ -205,6 +205,7 @@ export default defineConfig({
       "**/.pnpm-store/**",
       "test/e2e/**",
       "apps/console/**",
+      "apps/k8s-bridge/test/**",
       "apps/main-node/**",
       "packages/browser-harness/test/**",
       "packages/cap/test/**",
