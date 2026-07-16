@@ -70,6 +70,20 @@ export type {
   PublicationRoutesDeps,
 } from "./publications";
 
+// Public consumer surface (issue #226) — /p/:slug hosted chat page + widget +
+// session/message pass-throughs, shared by both runtimes.
+export {
+  buildPublicPublicationRoutes,
+  publicSessionCaps,
+  renderChatPage,
+  renderWidgetScript,
+} from "./public";
+export type {
+  PublicPublicationRoutesDeps,
+  PublicPublicationServices,
+  PublicEnv,
+} from "./public";
+
 export { buildIntegrationsRoutes } from "./integrations";
 export type {
   IntegrationsRoutesDeps,
