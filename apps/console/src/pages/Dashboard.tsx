@@ -86,12 +86,11 @@ export function Dashboard() {
           </p>
         </header>
 
-        {/* How it fits together — stacked assembly: a hero Agent card that
-            "uses" a grid of building blocks (model, MCP, skills, runtime,
-            keys, chat). Each block's status dot doubles as the to-do list —
-            replaces the old three-stage arrow diagram and the separate
-            "Before your first session" checklist (issue: they duplicated
-            the same setup state). */}
+        {/* How it fits together — numbered setup-steps grid: three step
+            columns ordered by setup dependency (① Foundation → ② Agent →
+            ③ Reach). Each card is a component type with its real instances
+            as badges; step headers check off as required cards go green —
+            the conceptual map and the setup checklist in one panel. */}
         <StackedAssembly />
 
         {/* Stats — number-forward, no decorative icons */}
