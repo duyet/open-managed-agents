@@ -52,6 +52,7 @@ import type { Services } from "@duyet/oma-services";
 import type { KvStore } from "@duyet/oma-kv-store";
 import { builtinSpecs, createSpecRegistry } from "@duyet/oma-cap";
 import { resolveRegisteredMcpServer } from "@duyet/oma-http-routes";
+import { rateLimitMcpProxy } from "../rate-limit";
 
 // Module-level: the cap spec registry is pure data + immutable. Building
 // once amortises validation across every outbound request.
@@ -445,8 +446,18 @@ export async function forwardToUpstream(
  * snapshot. The KV snapshot is gone (see previous commit); refresh
  * persistence is now D1-direct so the canonical credential row is the
  * single source of truth and stays consistent across sessions.
+ *
+ * Also enforces the per-tenant `RL_MCP_PROXY_TENANT` budget (issue #200)
+ * before ever touching the upstream — this is the single chokepoint all
+ * three callers (HTTP endpoint, RPC mcpForward/fetch, RPC outboundForward)
+ * share, so the check lives here rather than being duplicated at each
+ * call site. Exceeding it returns a 429 without any upstream traffic;
+ * the attempt is still recorded through the same `mcp_proxy.forward` log
+ * line (status 429, rate_limited: true) so it's visible alongside every
+ * other call for observability.
  */
 export async function forwardWithRefresh(
+  env: Env,
   services: Services,
   tenantId: string,
   target: ProxyTarget,
@@ -470,6 +481,32 @@ export async function forwardWithRefresh(
     upstreamHost = new URL(target.upstreamUrl).hostname;
   } catch {
     /* never */
+  }
+
+  if (await rateLimitMcpProxy(env.RL_MCP_PROXY_TENANT, tenantId)) {
+    log(
+      {
+        op: "mcp_proxy.forward",
+        caller: audit?.callerKind ?? "unknown",
+        tenant_id: tenantId,
+        session_id: audit?.sessionId,
+        server: audit?.serverName,
+        host: upstreamHost,
+        method,
+        status: 429,
+        refreshed: false,
+        rate_limited: true,
+        ms: Date.now() - started,
+      },
+      "mcp_proxy forward blocked — tenant rate limit exceeded",
+    );
+    return new Response(
+      JSON.stringify({
+        error:
+          "Rate limit exceeded — too many MCP proxy requests for this tenant, try again shortly",
+      }),
+      { status: 429, headers: { "content-type": "application/json" } },
+    );
   }
 
   const first = await forwardToUpstream(target, method, inboundHeaders, body);
@@ -719,18 +756,77 @@ async function tryRefreshOauth(
   return tokens.access_token;
 }
 
-// Health check — resolves each MCP server declared on a session's agent
-// snapshot WITHOUT forwarding a real MCP call, so the Console sandbox
-// status page (and any provider) can show whether each server's credential
-// resolves. Works identically for cloud and local-runtime sessions because
-// it only touches the credential-resolution layer, not the sandbox.
+// Real upstream connectivity probe (?probe=1, issue #201) — a cheap
+// JSON-RPC `tools/list` POST, matching the existing probe precedent
+// elsewhere in this codebase (routes/oauth.ts's probeMcpServer,
+// packages/slack/src/provider.ts's probeMcpEnabled): same method, same
+// 5s AbortController timeout, same "2xx is the only success" rule. We
+// don't distinguish "unauthorized" from "server unreachable" — from the
+// caller's perspective both mean "the credential that resolves doesn't
+// actually work right now", which is exactly the false-confidence gap
+// this issue reports. Never throws — timeout/network/non-2xx all map to
+// { status: "unreachable" }.
+const HEALTH_PROBE_TIMEOUT_MS = 5000;
+
+async function probeUpstream(
+  target: ProxyTarget,
+): Promise<{ status: "ok" | "unreachable"; latency_ms: number }> {
+  const started = Date.now();
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), HEALTH_PROBE_TIMEOUT_MS);
+  try {
+    const res = await fetch(target.upstreamUrl, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        authorization: `Bearer ${target.upstreamToken}`,
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+      signal: ac.signal,
+    });
+    await res.body?.cancel().catch(() => {
+      /* already consumed / closed */
+    });
+    return {
+      status: res.status >= 200 && res.status < 300 ? "ok" : "unreachable",
+      latency_ms: Date.now() - started,
+    };
+  } catch {
+    return { status: "unreachable", latency_ms: Date.now() - started };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Health check — by default resolves each MCP server declared on a
+// session's agent snapshot WITHOUT forwarding a real MCP call, so the
+// Console sandbox status page (and any provider) can show whether each
+// server's credential resolves. Works identically for cloud and
+// local-runtime sessions because it only touches the credential-resolution
+// layer, not the sandbox.
 //
 // Registered before the `/:sid/:server` catch-all so `_health` isn't
 // mistaken for a server name.
 //
-//   GET /v1/mcp-proxy/_health/:sid  (Bearer omak_*)
+//   GET /v1/mcp-proxy/_health/:sid          (Bearer omak_*)
 //   → { session_id, servers: [{ name, status }] }
 //     status ∈ "ok" | "unresolved" (declared but no credential/url resolves)
+//
+//   GET /v1/mcp-proxy/_health/:sid?probe=1  — additionally performs a real
+//   upstream JSON-RPC round-trip per server (see probeUpstream above),
+//   in parallel, each server independently timing out at
+//   HEALTH_PROBE_TIMEOUT_MS so one hung upstream can't stall the others.
+//   → status can then also be "unreachable"; a completed probe also adds
+//     `latency_ms`. Opt-in because it costs a real upstream call per
+//     server — each probe consumes one unit of the same per-tenant
+//     RL_MCP_PROXY_TENANT budget forwardWithRefresh uses (issue #200), so
+//     a health-page poller can't bypass that budget by hammering probes
+//     instead of the forward path. When the budget is spent for a given
+//     server, that server silently degrades to the cheap presence-only
+//     "ok" check rather than failing the whole response — an
+//     observability endpoint going briefly stale is better than it
+//     erroring out.
 app.get("/_health/:sid", async (c) => {
   const sid = c.req.param("sid");
   const auth = c.req.header("authorization") ?? "";
@@ -745,8 +841,9 @@ app.get("/_health/:sid", async (c) => {
   if (!session) return c.json({ error: "forbidden" }, 403);
   const agent = (session as { agent_snapshot?: AgentConfig }).agent_snapshot;
   const servers = agent?.mcp_servers ?? [];
+  const wantsProbe = c.req.query("probe") === "1";
 
-  const results = await Promise.all(
+  const settled = await Promise.allSettled(
     servers.map(async (s) => {
       const target = await resolveProxyTargetByTenant(
         c.env,
@@ -755,8 +852,20 @@ app.get("/_health/:sid", async (c) => {
         sid,
         s.name,
       ).catch(() => null);
-      return { name: s.name, status: target ? "ok" : "unresolved" };
+      if (!target) return { name: s.name, status: "unresolved" as const };
+      if (!wantsProbe) return { name: s.name, status: "ok" as const };
+      if (await rateLimitMcpProxy(c.env.RL_MCP_PROXY_TENANT, tenantId)) {
+        // Tenant's shared MCP budget is spent — degrade this server to
+        // the presence-only check instead of failing the response.
+        return { name: s.name, status: "ok" as const };
+      }
+      const probe = await probeUpstream(target);
+      return { name: s.name, status: probe.status, latency_ms: probe.latency_ms };
     }),
+  );
+
+  const results = settled.map((r, i) =>
+    r.status === "fulfilled" ? r.value : { name: servers[i].name, status: "unreachable" as const },
   );
 
   return c.json({ session_id: sid, servers: results });
@@ -792,6 +901,7 @@ app.all("/:sid/:server", async (c) => {
   const body = ["GET", "HEAD"].includes(method) ? null : await c.req.text();
 
   return forwardWithRefresh(
+    c.env,
     services,
     tenantId,
     target,

@@ -979,6 +979,7 @@ export class McpProxyRpc extends WorkerEntrypoint<Env> {
     }
     const inboundHeaders = new Headers(opts.headers);
     const res = await forwardWithRefresh(
+      this.env,
       services,
       opts.tenantId,
       target,
@@ -1067,6 +1068,7 @@ export class McpProxyRpc extends WorkerEntrypoint<Env> {
       ? null
       : await request.arrayBuffer();
     return forwardWithRefresh(
+      this.env,
       services,
       tenantId,
       target,
@@ -1239,6 +1241,7 @@ export class McpProxyRpc extends WorkerEntrypoint<Env> {
     // on 401 if the credential is mcp_oauth.
     const target = { ...cred, upstreamUrl: opts.url };
     const res = await forwardWithRefresh(
+      this.env,
       services,
       opts.tenantId,
       target,

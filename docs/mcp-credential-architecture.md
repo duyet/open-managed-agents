@@ -55,7 +55,7 @@ This mirrors [Anthropic Managed Agents' "credential proxy outside the harness"](
 All three converge on `apps/main/src/routes/mcp-proxy.ts`'s shared helpers:
 - `resolveProxyTargetByTenant(env, services, tenantId, sid, serverName)` — for MCP servers, matches by URL
 - `resolveOutboundCredentialByHost(env, services, tenantId, sid, hostname)` — for arbitrary HTTPS, matches by hostname
-- `forwardWithRefresh(services, tenantId, target, method, headers, body, audit?)` — fetch upstream + auto-refresh on 401 + audit log
+- `forwardWithRefresh(env, services, tenantId, target, method, headers, body, audit?)` — enforce the per-tenant rate limit + fetch upstream + auto-refresh on 401 + audit log
 
 ## OAuth refresh on 401
 
@@ -99,6 +99,34 @@ Every call through `forwardWithRefresh` emits a structured log line:
 
 Production incident response can answer "who called what when" without per-call-site instrumentation. Refresh failures emit a separate `op: mcp_proxy.refresh_failed` line at warn level.
 
+## Rate limiting (issue #200)
+
+`forwardWithRefresh` checks a per-tenant CF Rate Limiting binding
+(`RL_MCP_PROXY_TENANT`, `mcp:<tenantId>` key, 300 req/60s, declared in
+`apps/main/wrangler.jsonc` alongside the other `RL_*` buckets) **before**
+the first `forwardToUpstream` call. Because the check lives inside
+`forwardWithRefresh` itself rather than at each call site, it covers all
+three callers uniformly — HTTP endpoint, RPC `mcpForward`/`fetch`, RPC
+`outboundForward` — with one shared budget. Keyed by tenant, not session,
+because the resource being protected (the vault credential) is shared
+tenant-wide: several sessions on the same tenant could each stay under an
+individual cap while collectively exhausting the upstream's own rate
+limit.
+
+Exceeding the budget returns `429` immediately, before any upstream
+traffic — MCP tool calls are synchronous and user-facing, so failing
+loudly here (unlike the webhook path's fail-open choice) surfaces the
+throttling to the model/user rather than hiding it. The attempt is still
+recorded through the same `op: mcp_proxy.forward` log line (`status: 429,
+rate_limited: true`) so throttled calls show up alongside every other
+call in the same observability stream. Same fail-open convention as every
+other binding in `apps/main/src/rate-limit.ts`: absent binding (dev/test)
+→ never blocks.
+
+The `_health` route's optional `?probe=1` real-connectivity check (see
+below) shares this exact bucket, so a health-page poller can't bypass the
+forward path's budget by hammering probes instead.
+
 ## What this DOESN'T cover
 
 - **`command_secret` credentials** (e.g. `GIT_TOKEN` injected as env var on `git` commands) still flow into the sandbox container's per-command process env. The injection is AST-gated — the SDK only injects on single simple commands matching the registered prefix exactly, not on shell composition (`&&`, `;`, `|`). Casual `env | grep` from the model returns nothing. **Targeted prompt injection** that crafts single-command-form leak vectors specific to the binary (e.g. `git fetch -c http.extraHeader="x-leak: $(env)"`) can still exfiltrate. Until command_secret moves to the same out-of-sandbox proxy pattern as MCP/outbound, **don't attach high-blast-radius credentials** (org-wide GitHub PAT, prod database creds) to agents that handle untrusted input.
@@ -107,7 +135,7 @@ Production incident response can answer "who called what when" without per-call-
 
 - **Streaming uploads** through `outboundForward` — the RPC body type is `string | null`, so multi-MB binary uploads from sandbox `curl -F file=@big.pdf` would need the body type widened to `ArrayBuffer | ReadableStream` first. OMA's current use cases don't trip this.
 
-- **Rate limiting** — there's no per-credential / per-session quota in mcp-proxy. A misbehaving agent can spam an upstream MCP server until it rate-limits the entire tenant. Future work; not currently a production blocker because OMA traffic is well below any upstream's free-tier limits.
+- **Per-session granularity within a tenant** — the rate limit (see above) is tenant-wide, not per-session. A single session inside a large multi-session tenant can still consume the whole tenant's 300 req/60s budget; today that's an accepted trade-off (simplicity — one bucket, matching every other per-tenant `RL_*` binding in this repo) rather than a per-`mcp:<tenantId>:<sessionId>` sub-bucket. Revisit if production logs show one noisy session repeatedly starving others on the same tenant.
 
 ## Deploy ordering invariant
 
@@ -122,13 +150,14 @@ Both `.github/workflows/deploy.yml` and `deploy-lane.yml` enforce the forward or
 
 ### Unit — `test/unit/mcp-proxy-refresh.test.ts`
 
-5 vitest cases against `forwardWithRefresh` with mocked global fetch + in-memory `CredentialService`:
+6 vitest cases against `forwardWithRefresh` with mocked global fetch + in-memory `CredentialService`:
 
 1. Happy path 200 → no refresh, no D1 write
 2. 401 → refresh succeeds → retry 200 + D1 update
 3. Concurrent dedup: D1 already-rotated → skip token_endpoint
 4. Refresh fails (token_endpoint 400) → original 401 surfaced
 5. `static_bearer` (no `.refresh` metadata) → 401 returned immediately
+6. Tenant rate limit exceeded (issue #200) → 429 immediately, zero upstream fetch calls
 
 Runs in `<500ms`, no CF infra required.
 

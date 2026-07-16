@@ -69,6 +69,17 @@ export interface Env {
    *  scoped to the separate /v1/public/auth/* consumer realm. Soft-passes
    *  when absent. */
   RL_MAGICLINK_EMAIL?: RateLimit;
+  /** Per-tenant cap on the MCP proxy forward path (issue #200) — the
+   *  credential proxy (apps/main/src/routes/mcp-proxy.ts) is the only
+   *  layer holding the plaintext upstream MCP bearer token, and every
+   *  session on a tenant shares the same vault credential, so this bucket
+   *  is keyed by tenant rather than session. Checked inside
+   *  forwardWithRefresh so it covers all three callers (HTTP endpoint,
+   *  RPC mcpForward/fetch, RPC outboundForward) from one chokepoint; also
+   *  reused by the `_health` route's optional `?probe=1` connectivity
+   *  check (issue #201) so probing can't bypass the same budget. Soft-passes
+   *  when absent. */
+  RL_MCP_PROXY_TENANT?: RateLimit;
   /** Daily session-creation budget per tenant. KV-backed counter — see
    *  apps/main/src/quotas.ts. The number is the cap; absent or "0" =
    *  feature off (OSS-friendly). Counter key auto-expires next day. */

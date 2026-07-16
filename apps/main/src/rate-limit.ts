@@ -210,6 +210,34 @@ export async function rateLimitDeploymentHook(
   return null;
 }
 
+// ─── Per-tenant cap on the MCP proxy forward path (issue #200) ──────────
+//
+// apps/main/src/routes/mcp-proxy.ts is the only layer that ever holds a
+// plaintext upstream MCP bearer token, which also makes it the natural
+// place to bound abuse — one session (or several sessions sharing a
+// tenant's vault credential) could otherwise hammer an upstream MCP server
+// unbounded. Keyed by tenant (not session) because the vault credential —
+// the resource actually being protected — is shared tenant-wide. MCP tool
+// calls happen many times per turn at model-decided cadence, so this
+// budget is deliberately more generous than RL_SESSIONS_TENANT /
+// RL_UPLOAD_TENANT: the goal is to stop a runaway/looping session, not
+// throttle ordinary multi-tool-call usage.
+//
+// Called directly from forwardWithRefresh (not mounted as Hono middleware)
+// so it covers all three callers uniformly — the HTTP
+// /v1/mcp-proxy/:sid/:server endpoint and both McpProxyRpc RPC paths
+// (mcpForward/fetch, outboundForward) — from one chokepoint. Also reused
+// by the _health route's optional ?probe=1 real-connectivity check
+// (issue #201) so a health-page poller can't bypass the same budget by
+// hammering probes instead of the forward path.
+
+export async function rateLimitMcpProxy(
+  binding: RateLimit | undefined,
+  tenantId: string,
+): Promise<boolean> {
+  return exceeded(binding, `mcp:${tenantId}`);
+}
+
 export const windows = new Map<string, number[]>();
 
 export function isRateLimited(
