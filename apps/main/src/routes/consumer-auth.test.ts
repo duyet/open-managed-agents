@@ -269,3 +269,137 @@ describe("creator visibility: GET /v1/publications/:id/users (issue #73)", () =>
     expect(other.status).toBe(404);
   });
 });
+
+// Magic-link token delivery (issue #162): the raw token used to be echoed
+// straight back in the HTTP response, so anyone could submit a victim's
+// email, read the token off the response, and immediately verify into a
+// session for that identity — full account takeover with no email-ownership
+// check at all. These tests lock down the fix: no token/consumer_id in the
+// default response, a real out-of-band email attempt, a narrow dev-only
+// escape hatch, and a per-email rate limit.
+describe("magic-link token is delivered out-of-band, never echoed (issue #162)", () => {
+  it("returns only message + expires_at by default — no token, no consumer_id", async () => {
+    const app = publicApp();
+    const res = await call(app, "/v1/public/auth/magic-link", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "victim@example.com" }),
+    });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body.message).toBe("Magic link sent");
+    expect(typeof body.expires_at).toBe("string");
+    expect(body.token).toBeUndefined();
+    expect(body.consumer_id).toBeUndefined();
+
+    // The token IS generated and persisted server-side (for out-of-band
+    // email delivery) — just never handed back over HTTP. Prove it's a
+    // real, usable token by verifying with it straight from the DB.
+    const row = await db()
+      .prepare(
+        "SELECT token FROM magic_links WHERE consumer_id = (SELECT id FROM consumers WHERE email = ?)",
+      )
+      .bind("victim@example.com")
+      .first<{ token: string }>();
+    expect(row?.token).toBeTruthy();
+
+    const verify = await call(app, "/v1/public/auth/verify", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token: row!.token }),
+    });
+    expect(verify.status).toBe(200);
+  });
+
+  it("attempts real email dispatch via SEND_EMAIL when the binding is configured", async () => {
+    const app = publicApp();
+    const sent: Array<{ to: string; subject: string }> = [];
+    const emailEnv = {
+      ...(env as unknown as Record<string, unknown>),
+      SEND_EMAIL: {
+        send: async (msg: { to: string; subject: string }) => {
+          sent.push({ to: msg.to, subject: msg.subject });
+        },
+      },
+    };
+    const res = await app.request(
+      "/v1/public/auth/magic-link",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "emailed@example.com" }),
+      },
+      emailEnv as unknown as Record<string, unknown>,
+    );
+    expect(res.status).toBe(201);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].to).toBe("emailed@example.com");
+  });
+
+  it("echoes the token ONLY when CONSUMER_AUTH_DEV_ECHO_TOKEN is exactly '1' or 'true'", async () => {
+    const app = publicApp();
+
+    const devEnv = {
+      ...(env as unknown as Record<string, unknown>),
+      CONSUMER_AUTH_DEV_ECHO_TOKEN: "1",
+    };
+    const res = await app.request(
+      "/v1/public/auth/magic-link",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "dev-echo@example.com" }),
+      },
+      devEnv as unknown as Record<string, unknown>,
+    );
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { token?: string; consumer_id?: string };
+    expect(body.token).toBeTruthy();
+    // Even in dev-echo mode, consumer_id stays withheld — only the token
+    // (needed to drive local /verify testing) is restored.
+    expect(body.consumer_id).toBeUndefined();
+
+    // Any other value does NOT enable the escape hatch — this isn't a
+    // generic truthy check, it's an exact allow-list of "1" / "true".
+    const notEnabledEnv = {
+      ...(env as unknown as Record<string, unknown>),
+      CONSUMER_AUTH_DEV_ECHO_TOKEN: "yes",
+    };
+    const res2 = await app.request(
+      "/v1/public/auth/magic-link",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "dev-echo-2@example.com" }),
+      },
+      notEnabledEnv as unknown as Record<string, unknown>,
+    );
+    const body2 = (await res2.json()) as { token?: string };
+    expect(body2.token).toBeUndefined();
+  });
+
+  it("rate-limits repeated magic-link requests for the same email", async () => {
+    const app = publicApp();
+    const limitedEnv = {
+      ...(env as unknown as Record<string, unknown>),
+      RL_MAGICLINK_EMAIL: { limit: async () => ({ success: false }) },
+    };
+    const res = await app.request(
+      "/v1/public/auth/magic-link",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "flooded@example.com" }),
+      },
+      limitedEnv as unknown as Record<string, unknown>,
+    );
+    expect(res.status).toBe(429);
+
+    // Rejected BEFORE any DB write — no consumer/magic_link row created.
+    const row = await db()
+      .prepare("SELECT id FROM consumers WHERE email = ?")
+      .bind("flooded@example.com")
+      .first<{ id: string }>();
+    expect(row).toBeNull();
+  });
+});

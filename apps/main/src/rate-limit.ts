@@ -174,6 +174,20 @@ export async function rateLimitSessionCreate(
   return null;
 }
 
+// ─── Per-email cap on consumer magic-link requests (issue #162) ─────────
+//
+// Same anti-spam-the-victim threat model as RL_AUTH_SEND_EMAIL (layer 3
+// above), scoped to the separate /v1/public/auth/* consumer realm — an
+// attacker who doesn't own an email can otherwise flood it with magic-link
+// requests. Wired in routes/consumer-auth.ts.
+
+export async function rateLimitMagicLinkEmail(
+  binding: RateLimit | undefined,
+  email: string,
+): Promise<boolean> {
+  return exceeded(binding, `magiclink:${email}`);
+}
+
 export const windows = new Map<string, number[]>();
 
 export function isRateLimited(
