@@ -22,6 +22,13 @@
       "when": 1784332800000,
       "tag": "0002_session_token_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784419200000,
+      "tag": "0003_consumer_public_surface",
+      "breakpoints": true
     }
   ]
 }

@@ -18,3 +18,6 @@
 
 export * from "../cf-auth";
 export * from "../cf-integrations";
+// Consumer realm + publication pricing — Node-only (CF ships these as
+// hand-written SQL migrations 0020-0022; see ./consumers). Issue #226.
+export * from "./consumers";
