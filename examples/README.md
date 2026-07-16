@@ -2,7 +2,7 @@
 
 Two kinds of examples live here:
 
-## Harness demos (`examples/claude-agent-sdk/`, `examples/coding-agent/`, `examples/flue/`)
+## Harness demos (`examples/claude-agent-sdk/`, `examples/coding-agent/`, `examples/flue/`, `examples/self-improvement-agent/`)
 
 Each is a small, self-contained Docker image (`agent.json` + `README.md` +
 `run.sh`) that registers an agent, creates a session, and sends one message
@@ -24,7 +24,24 @@ matrix job per example:
 ghcr.io/duyet/oma-example-claude-agent-sdk
 ghcr.io/duyet/oma-example-coding-agent
 ghcr.io/duyet/oma-example-flue
+ghcr.io/duyet/oma-example-self-improvement-agent
 ```
+
+`examples/self-improvement-agent/` scans this repo's own health (typecheck,
+tests, CI run history) and files a GitHub issue for each new failure class —
+a read-only, issue-filing-only agent using the default harness and a
+narrowly-scoped `gh` credential (`cap_cli`).
+
+### Build-it-yourself (not in the GHCR matrix)
+
+`examples/grok-coding-agent/` is a full Dockerfile/README/run.sh example —
+same shape as the demos above — but isn't part of the CI build matrix, so
+no `ghcr.io/duyet/oma-example-grok-coding-agent` image is published. It
+demonstrates routing the same generic coding agent as `examples/coding-agent`
+to xAI's Grok through an OpenAI-compatible Model Card (`provider:
+"oai-compatible"`) instead of Anthropic — provider swap via config, no
+harness or sandbox-image change. Build it locally the same way:
+`docker build -t oma-example-grok-coding-agent examples/grok-coding-agent`.
 
 ## Config templates (`examples/agents/`, `examples/environments/`)
 
