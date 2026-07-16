@@ -45,6 +45,16 @@ export function formatCompact(n: number | null | undefined): string {
 }
 
 /**
+ * Format a USD amount for a stat tile: `$1.23`, `<$0.01` for tiny nonzero
+ * amounts (avoids a misleading "$0.00" for real-but-small spend). Shared by
+ * the per-agent Observability tab and the tenant-wide Usage page.
+ */
+export function formatUsd(n: number): string {
+  if (n > 0 && n < 0.01) return "<$0.01";
+  return `$${n.toFixed(2)}`;
+}
+
+/**
  * "12s ago" / "5m ago" / "3d ago" / "8mo ago" — coarse relative time
  * suitable for header chips. Prefer absolute timestamps in tooltips
  * when an exact value matters.
