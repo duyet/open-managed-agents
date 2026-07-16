@@ -22,6 +22,7 @@ export interface AgentRecord {
     type: "coordinator";
     agents: Array<{ type: "agent"; id: string; version: number }>;
   } | null;
+  metadata?: Record<string, unknown>;
   created_at: string;
   updated_at?: string;
   archived_at?: string;

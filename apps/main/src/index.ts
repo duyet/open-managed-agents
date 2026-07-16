@@ -54,6 +54,7 @@ import internalRoutes from "./routes/internal";
 import integrationsRoutes from "./routes/integrations";
 import { runtimesRoutes, runtimeDaemonRoutes, authenticateRuntimeToken } from "./routes/runtimes";
 import statsRoutes from "./routes/stats";
+import agentStatsRoutes from "./routes/agent-stats";
 import usageRoutes from "./routes/usage";
 import providersRoutes from "./routes/providers";
 import sandboxProvidersRoutes from "./routes/sandbox-providers";
@@ -529,6 +530,10 @@ function invokePackage(
     c.executionCtx,
   );
 }
+// Per-agent usage analytics — registered BEFORE the catch-all agentsRoutes
+// mount so GET /v1/agents/:id/stats matches here deterministically instead
+// of falling into buildAgentRoutes' GET /:id.
+app.route("/v1/agents", agentStatsRoutes);
 app.route("/v1/agents", agentsRoutes);
 
 // Published-agent management API (issue #72) — tenant-authed. Mounted

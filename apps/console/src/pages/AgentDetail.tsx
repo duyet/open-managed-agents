@@ -7,7 +7,30 @@ import { Page } from "../components/Page";
 import { PageHeader } from "../components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { AgentWebhooks } from "./agents/AgentWebhooks";
+import { AgentEditDialog } from "./agents/AgentEditDialog";
 import type { AgentRecord as Agent } from "../types/agent";
+
+/** GET /v1/agents/:id/stats response — see apps/main/src/routes/agent-stats.ts. */
+interface AgentStats {
+  sessions: number;
+  input_tokens: number;
+  output_tokens: number;
+  sandbox_seconds: number;
+  est_model_cost_usd: number;
+  est_sandbox_cost_usd: number;
+}
+
+/** GET /v1/agents/:id/runs item — session summary for this agent. */
+interface AgentRun {
+  id: string;
+  title: string;
+  status: string;
+  stop_reason: string | null;
+  tool_call_count: number | null;
+  message_count: number | null;
+  duration_ms: number;
+  created_at: string;
+}
 
 /** Shared publication shape across Linear / GitHub / Slack — they all
  *  expose the same id / status / mode / persona / workspace_name fields. */
@@ -30,12 +53,21 @@ export function AgentDetail() {
   // (404 / not-installed) don't block the agent detail render, same as
   // the previous behavior where each had its own .catch.
   const enabled = !!id;
-  const { data: agent, error: agentError } = useApiQuery<Agent>(
+  const { data: agent, error: agentError, refetch: refetchAgent } = useApiQuery<Agent>(
     id ? `/v1/agents/${id}` : null,
     undefined,
     { enabled },
   );
-  const { data: versionsRes } = useApiQuery<{ data: Agent[] }>(
+  const { data: stats, refetch: refetchStats } = useApiQuery<AgentStats>(
+    id ? `/v1/agents/${id}/stats` : null,
+    undefined,
+    { enabled },
+  );
+  const { data: runsRes, refetch: refetchRuns } = useApiQuery<{
+    data: AgentRun[];
+    has_more: boolean;
+  }>(id ? `/v1/agents/${id}/runs?limit=20` : null, undefined, { enabled });
+  const { data: versionsRes, refetch: refetchVersions } = useApiQuery<{ data: Agent[] }>(
     id ? `/v1/agents/${id}/versions` : null,
     undefined,
     { enabled },
@@ -79,6 +111,7 @@ export function AgentDetail() {
   const modelStr = (m: Agent["model"]) => typeof m === "string" ? m : `${m?.id} (${m?.speed || "standard"})`;
 
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const createSession = async () => {
     setCreating(true);
@@ -118,6 +151,9 @@ export function AgentDetail() {
               <Button variant="default" size="sm" onClick={createSession} disabled={creating}>
                 {creating ? "Creating…" : "+ New Session"}
               </Button>
+              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                Edit
+              </Button>
               <Button variant="outline" size="sm" onClick={archive}>
                 Archive
               </Button>
@@ -130,10 +166,29 @@ export function AgentDetail() {
       }
     >
       <div className="space-y-6">
+        {/* Usage analytics — sessions / tokens / cost estimates from
+            GET /v1/agents/:id/stats. Plain bordered cards. */}
+        {stats && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 max-w-5xl">
+            <StatCard label="Sessions" value={fmtNum(stats.sessions)} />
+            <StatCard label="Tokens in" value={fmtNum(stats.input_tokens)} />
+            <StatCard label="Tokens out" value={fmtNum(stats.output_tokens)} />
+            <StatCard label="Est. model cost" value={fmtUsd(stats.est_model_cost_usd)} />
+            <StatCard label="Sandbox time" value={fmtDuration(stats.sandbox_seconds * 1000)} />
+            <StatCard label="Est. sandbox cost" value={fmtUsd(stats.est_sandbox_cost_usd)} />
+          </div>
+        )}
+
         {/* Properties grid */}
         <div className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-2 max-w-2xl text-sm">
           <span className="text-fg-muted">ID</span><span className="font-mono text-xs">{agent.id}</span>
+          {agent.description && (
+            <><span className="text-fg-muted">Description</span><span>{agent.description}</span></>
+          )}
           <span className="text-fg-muted">Model</span><span>{modelStr(agent.model)}</span>
+          {agent._oma?.aux_model && (
+            <><span className="text-fg-muted">Aux Model</span><span>{modelStr(agent._oma.aux_model)}</span></>
+          )}
           <span className="text-fg-muted">Harness</span><span>{agent._oma?.harness || "default"}</span>
           {agent._oma?.runtime_binding && (
             <>
@@ -148,6 +203,34 @@ export function AgentDetail() {
           <span className="text-fg-muted">Version</span><span>v{agent.version}</span>
           <span className="text-fg-muted">Tools</span>
           <span>{(agent.tools || []).map((t: any) => t.type === "custom" ? `Custom: ${t.name}` : t.type).join(", ") || "None"}</span>
+          {(agent.skills?.length ?? 0) > 0 && (
+            <>
+              <span className="text-fg-muted">Skills</span>
+              <span>{(agent.skills as Array<{ skill_id: string }>).map((s) => s.skill_id).join(", ")}</span>
+            </>
+          )}
+          {(agent.mcp_servers?.length ?? 0) > 0 && (
+            <>
+              <span className="text-fg-muted">MCP Servers</span>
+              <span>{(agent.mcp_servers as Array<{ name: string }>).map((m) => m.name).join(", ")}</span>
+            </>
+          )}
+          {(agent.multiagent?.agents?.length ?? 0) > 0 && (
+            <>
+              <span className="text-fg-muted">Callable Agents</span>
+              <span className="font-mono text-xs">
+                {agent.multiagent!.agents.map((a) => a.id).join(", ")}
+              </span>
+            </>
+          )}
+          {agent.metadata && Object.keys(agent.metadata).length > 0 && (
+            <>
+              <span className="text-fg-muted">Metadata</span>
+              <span className="font-mono text-xs whitespace-pre-wrap">
+                {JSON.stringify(agent.metadata)}
+              </span>
+            </>
+          )}
           <span className="text-fg-muted">Created</span><span>{new Date(agent.created_at).toLocaleString()}</span>
           <span className="text-fg-muted">Updated</span><span>{new Date(agent.updated_at || agent.created_at).toLocaleString()}</span>
           {agent.archived_at && <><span className="text-fg-muted">Archived</span><span className="text-warning">{new Date(agent.archived_at).toLocaleString()}</span></>}
@@ -231,9 +314,98 @@ export function AgentDetail() {
       )}
       </div>
       </div>
+
+      {/* Sessions belonging to this agent — GET /v1/agents/:id/runs. */}
+      <div className="mt-2">
+        <h2 className="font-display text-base font-semibold mb-2">Sessions</h2>
+        {(runsRes?.data?.length ?? 0) === 0 ? (
+          <p className="text-sm text-fg-subtle">No sessions yet.</p>
+        ) : (
+          <div className="border border-border rounded-lg overflow-x-auto max-w-5xl">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-bg-surface/60 text-fg-muted text-xs uppercase tracking-wider">
+                  <th className="text-left px-4 py-2">Session</th>
+                  <th className="text-left px-4 py-2">Status</th>
+                  <th className="text-left px-4 py-2">Stop Reason</th>
+                  <th className="text-right px-4 py-2">Tools</th>
+                  <th className="text-right px-4 py-2">Messages</th>
+                  <th className="text-right px-4 py-2">Duration</th>
+                  <th className="text-left px-4 py-2">Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {runsRes!.data.map((r) => (
+                  <tr key={r.id} className="border-t border-border hover:bg-bg-surface/40">
+                    <td className="px-4 py-2">
+                      <Link to={`/sessions/${r.id}`} className="text-brand hover:underline">
+                        {r.title || r.id.slice(0, 16)}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2 text-fg-muted">{r.status}</td>
+                    <td className="px-4 py-2 text-fg-muted">{r.stop_reason ?? "—"}</td>
+                    <td className="px-4 py-2 text-right text-fg-muted">{r.tool_call_count ?? "—"}</td>
+                    <td className="px-4 py-2 text-right text-fg-muted">{r.message_count ?? "—"}</td>
+                    <td className="px-4 py-2 text-right text-fg-muted">{fmtDuration(r.duration_ms)}</td>
+                    <td className="px-4 py-2 text-fg-muted">{new Date(r.created_at).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {runsRes?.has_more && (
+          <p className="text-xs text-fg-subtle mt-2">
+            Showing the 20 most recent sessions.{" "}
+            <Link to="/sessions" className="text-brand hover:underline">
+              See all sessions →
+            </Link>
+          </p>
+        )}
       </div>
+      </div>
+
+      <AgentEditDialog
+        open={editing}
+        onClose={() => setEditing(false)}
+        agent={agent}
+        onSaved={() => {
+          refetchAgent();
+          refetchVersions();
+          refetchStats();
+          refetchRuns();
+        }}
+      />
     </Page>
   );
+}
+
+/** Compact bordered stat card for the usage analytics row. */
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-border rounded-lg bg-bg-surface/30 px-4 py-3">
+      <div className="text-xs text-fg-muted uppercase tracking-wider">{label}</div>
+      <div className="text-lg font-semibold text-fg mt-0.5 tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+function fmtNum(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 10_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toLocaleString();
+}
+
+function fmtUsd(n: number): string {
+  if (n > 0 && n < 0.01) return "<$0.01";
+  return `$${n.toFixed(2)}`;
+}
+
+function fmtDuration(ms: number): string {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
+  return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 }
 
 /**

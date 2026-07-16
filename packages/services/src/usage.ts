@@ -27,17 +27,25 @@ import { CfD1SqlClient } from "@duyet/oma-sql-client/adapters/cf-d1";
 export type UsageKind =
   | "session_alive_seconds"
   | "sandbox_active_seconds"
-  | "browser_active_seconds";
+  | "browser_active_seconds"
+  | "model_input_tokens"
+  | "model_output_tokens";
 
 /** Hard ceiling on a single emit. 24h × 3600 = 86400. */
 export const MAX_VALUE_PER_EMIT_SEC = 24 * 3600;
+
+/** Token-kind ceiling per emit. A single turn can legitimately consume a
+ *  multi-hundred-K-token context, so the seconds cap doesn't apply; 10M
+ *  still bounds runaway-bug rows to something survivable. */
+export const MAX_TOKENS_PER_EMIT = 10_000_000;
 
 export interface UsageEventInput {
   tenantId: string;
   sessionId: string;
   agentId?: string | null;
   kind: UsageKind;
-  /** Seconds; non-finite, negative, or >MAX_VALUE_PER_EMIT_SEC are clamped. */
+  /** Seconds (or tokens for the model_*_tokens kinds); non-finite,
+   *  negative, or values above the per-kind ceiling are clamped. */
   value: number;
   /** Sandbox instance type (e.g. "lite", "basic", "standard-1"). Null for
    *  non-sandbox kinds or providers that don't report it (K8s). */
@@ -76,12 +84,20 @@ export interface UsageStore {
   ack(ids: number[]): Promise<void>;
 }
 
-/** Sanitize an emit value into a non-negative integer ≤ MAX_VALUE_PER_EMIT_SEC. */
-export function clampUsageValue(raw: number): number {
+/** Sanitize an emit value into a non-negative integer ≤ `max`
+ *  (MAX_VALUE_PER_EMIT_SEC for the seconds kinds by default). */
+export function clampUsageValue(raw: number, max = MAX_VALUE_PER_EMIT_SEC): number {
   if (!Number.isFinite(raw)) return 0;
   if (raw <= 0) return 0;
   const v = Math.floor(raw);
-  return v > MAX_VALUE_PER_EMIT_SEC ? MAX_VALUE_PER_EMIT_SEC : v;
+  return v > max ? max : v;
+}
+
+/** Per-kind emit ceiling — token kinds get the larger token cap. */
+export function maxValueForKind(kind: UsageKind): number {
+  return kind === "model_input_tokens" || kind === "model_output_tokens"
+    ? MAX_TOKENS_PER_EMIT
+    : MAX_VALUE_PER_EMIT_SEC;
 }
 
 /**
@@ -93,7 +109,7 @@ export class SqlUsageStore implements UsageStore {
   constructor(private readonly client: SqlClient) {}
 
   async recordUsage(e: UsageEventInput): Promise<void> {
-    const value = clampUsageValue(e.value);
+    const value = clampUsageValue(e.value, maxValueForKind(e.kind));
     if (value <= 0) return;
     await this.client
       .prepare(
