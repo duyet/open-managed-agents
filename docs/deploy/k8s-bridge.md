@@ -1,5 +1,8 @@
 # K8s Bridge — Deployment & Install Guide
 
+> **In a hurry?** See the [10-minute quickstart](./k8s-bridge-quickstart.md)
+> for the condensed install → register → verify path.
+
 ## Overview
 
 The **k8s-bridge** is an HTTP bridge that lets Cloudflare Workers manage
