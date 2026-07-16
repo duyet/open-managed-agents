@@ -58,6 +58,7 @@ interface Row {
   prompt: string;
   enabled: boolean;
   nextRunAt: number | null;
+  maxSessions: number;
   lastRun?: RecordRunInput;
 }
 
@@ -96,6 +97,7 @@ class FakeStore implements ScheduledRunsStore {
         cron: row.cron,
         timezone: row.timezone,
         prompt: row.prompt,
+        maxSessions: row.maxSessions,
       });
     }
     return claimed;
@@ -119,6 +121,7 @@ function row(over: Partial<Row> = {}): Row {
     prompt: "daily digest",
     enabled: true,
     nextRunAt: Date.UTC(2026, 0, 1, 0, 0, 0),
+    maxSessions: 1, // matches the DB column default (schedules.ts createSchema)
     ...over,
   };
 }
@@ -163,7 +166,16 @@ describe("claimDue — idempotent claim under concurrent ticks", () => {
 
 class FakeLauncher implements ScheduledRunLauncher {
   launched: string[] = [];
-  constructor(private readonly failIds: Set<string> = new Set()) {}
+  constructor(
+    private readonly failIds: Set<string> = new Set(),
+    /** schedule id → in-flight session count `countActive` reports. Absent
+     *  id defaults to 0 (nothing in-flight — matches a schedule whose prior
+     *  run already went idle/terminated). */
+    private readonly activeCounts: Map<string, number> = new Map(),
+  ) {}
+  async countActive(schedule: ClaimedSchedule): Promise<number> {
+    return this.activeCounts.get(schedule.id) ?? 0;
+  }
   async launch(schedule: ClaimedSchedule): Promise<{ sessionId: string }> {
     this.launched.push(schedule.id);
     if (this.failIds.has(schedule.id)) throw new Error("boom");
@@ -213,5 +225,98 @@ describe("scheduledAgentRunsTick", () => {
       resolveLauncher: async () => null,
     });
     await expect(tick()).resolves.toBeUndefined();
+  });
+});
+
+// ─── max_sessions concurrency cap (issue #165) ───────────────────────────────
+
+describe("scheduledAgentRunsTick — max_sessions concurrency cap", () => {
+  it("fires when the in-flight count is under max_sessions", async () => {
+    const store = new FakeStore([
+      row({ id: "a", nextRunAt: Date.UTC(2026, 0, 1, 0, 0, 0), maxSessions: 2 }),
+    ]);
+    // 1 already in-flight, cap is 2 — still room for one more.
+    const launcher = new FakeLauncher(new Set(), new Map([["a", 1]]));
+    const tick = scheduledAgentRunsTick({
+      resolveStore: async () => store,
+      resolveLauncher: async () => launcher,
+      now: () => NOW,
+    });
+    await tick();
+    expect(launcher.launched).toEqual(["a"]);
+    expect(store.rows.find((r) => r.id === "a")!.lastRun).toMatchObject({
+      status: "ok",
+      sessionId: "sess_a",
+    });
+  });
+
+  it("skips firing when the in-flight count is at max_sessions, but still advances next_run_at", async () => {
+    const dueAt = Date.UTC(2026, 0, 1, 0, 0, 0);
+    const store = new FakeStore([row({ id: "a", nextRunAt: dueAt, maxSessions: 1 })]);
+    // 1 already in-flight, cap is 1 — at cap.
+    const launcher = new FakeLauncher(new Set(), new Map([["a", 1]]));
+    const tick = scheduledAgentRunsTick({
+      resolveStore: async () => store,
+      resolveLauncher: async () => launcher,
+      now: () => NOW,
+    });
+    await tick();
+
+    // Never launched — a skipped occurrence must not create a session.
+    expect(launcher.launched).toEqual([]);
+
+    const updated = store.rows.find((r) => r.id === "a")!;
+    // Skipped is a distinct, explicit outcome, not lumped in with "error".
+    expect(updated.lastRun).toMatchObject({ status: "skipped_concurrency" });
+    // A skipped occurrence is skipped, not queued: claimDue's CAS already
+    // advanced next_run_at to the next cron occurrence, same as a normal
+    // fire — it must NOT be left pointing at the same due instant (which
+    // would just re-select and re-skip every tick forever).
+    expect(updated.nextRunAt).not.toBeNull();
+    expect(updated.nextRunAt).toBeGreaterThan(dueAt);
+  });
+
+  it("skips firing when the in-flight count exceeds max_sessions", async () => {
+    const store = new FakeStore([
+      row({ id: "a", nextRunAt: Date.UTC(2026, 0, 1, 0, 0, 0), maxSessions: 2 }),
+    ]);
+    const launcher = new FakeLauncher(new Set(), new Map([["a", 3]]));
+    const tick = scheduledAgentRunsTick({
+      resolveStore: async () => store,
+      resolveLauncher: async () => launcher,
+      now: () => NOW,
+    });
+    await tick();
+    expect(launcher.launched).toEqual([]);
+    expect(store.rows.find((r) => r.id === "a")!.lastRun).toMatchObject({
+      status: "skipped_concurrency",
+    });
+  });
+
+  it("enforces the cap independently per schedule in the same tick", async () => {
+    const store = new FakeStore([
+      row({ id: "at-cap", nextRunAt: Date.UTC(2026, 0, 1, 0, 0, 0), maxSessions: 1 }),
+      row({ id: "under-cap", nextRunAt: Date.UTC(2026, 0, 1, 0, 0, 0), maxSessions: 1 }),
+    ]);
+    const launcher = new FakeLauncher(
+      new Set(),
+      new Map([
+        ["at-cap", 1],
+        ["under-cap", 0],
+      ]),
+    );
+    const tick = scheduledAgentRunsTick({
+      resolveStore: async () => store,
+      resolveLauncher: async () => launcher,
+      now: () => NOW,
+    });
+    await tick();
+    expect(launcher.launched).toEqual(["under-cap"]);
+    expect(store.rows.find((r) => r.id === "at-cap")!.lastRun).toMatchObject({
+      status: "skipped_concurrency",
+    });
+    expect(store.rows.find((r) => r.id === "under-cap")!.lastRun).toMatchObject({
+      status: "ok",
+    });
   });
 });

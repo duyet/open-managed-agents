@@ -34,10 +34,18 @@ export interface ClaimedSchedule {
   cron: string;
   timezone: string;
   prompt: string;
+  /** Concurrency cap (1-100, default 1) — see AGENTS.md "Agent Schedules".
+   *  Enforced by the tick against {@link ScheduledRunLauncher.countActive}
+   *  before calling {@link ScheduledRunLauncher.launch} (issue #165). */
+  maxSessions: number;
 }
 
 export interface RecordRunInput {
-  status: "ok" | "error";
+  /** "skipped_concurrency" — claimed, next_run_at advanced, but NOT launched
+   *  because `maxSessions` in-flight sessions already exist for this
+   *  schedule (issue #165). A skipped occurrence is skipped, not queued —
+   *  it does not retry; the next cron occurrence gets its own chance. */
+  status: "ok" | "error" | "skipped_concurrency";
   error?: string | null;
   sessionId?: string | null;
   ranAtMs: number;
@@ -67,6 +75,18 @@ export interface ScheduledRunLauncher {
   /** Create a session for the schedule and inject `prompt` as a user.message.
    *  Returns the created session id. Throws on failure (caught per-row). */
   launch(schedule: ClaimedSchedule): Promise<{ sessionId: string }>;
+
+  /**
+   * Count sessions this schedule previously launched that are still
+   * in-flight — `status IN ('running', 'rescheduling')`. `idle` is
+   * deliberately excluded: a scheduled run that finished its turn and went
+   * idle is done, not occupying a concurrency slot, so future occurrences
+   * must still be able to fire (otherwise a `max_sessions: 1` schedule
+   * would only ever fire once). `terminated` sessions are likewise done.
+   * The tick calls this before {@link launch} and skips firing when the
+   * count is already `>= maxSessions` (issue #165).
+   */
+  countActive(schedule: ClaimedSchedule): Promise<number>;
 }
 
 export interface ScheduledAgentRunsTickDeps {
@@ -158,9 +178,31 @@ export function scheduledAgentRunsTick(deps: ScheduledAgentRunsTickDeps): () => 
 
     let ok = 0;
     let failed = 0;
+    let skipped = 0;
     for (const schedule of claimed) {
       const ranAtMs = now();
       try {
+        // Concurrency gate (issue #165): next_run_at was already advanced by
+        // claimDue's CAS above regardless of what happens next, so a skip
+        // here correctly means "this occurrence is skipped, not queued" —
+        // the schedule's next cron occurrence gets its own fresh check.
+        const activeCount = await launcher.countActive(schedule);
+        if (activeCount >= schedule.maxSessions) {
+          skipped += 1;
+          log.info(
+            {
+              schedule_id: schedule.id,
+              agent_id: schedule.agentId,
+              active_count: activeCount,
+              max_sessions: schedule.maxSessions,
+              op: "scheduled-runs.skipped_concurrency",
+            },
+            "schedule fire skipped: concurrency cap reached",
+          );
+          await store.recordRun(schedule.id, { status: "skipped_concurrency", ranAtMs });
+          continue;
+        }
+
         const { sessionId } = await launcher.launch(schedule);
         await store.recordRun(schedule.id, { status: "ok", sessionId, ranAtMs });
         ok += 1;
@@ -185,7 +227,7 @@ export function scheduledAgentRunsTick(deps: ScheduledAgentRunsTickDeps): () => 
 
     if (claimed.length > 0) {
       log.info(
-        { op: "scheduled-runs.tick", claimed: claimed.length, ok, failed, dur_ms: now() - startedAt },
+        { op: "scheduled-runs.tick", claimed: claimed.length, ok, skipped, failed, dur_ms: now() - startedAt },
         "scheduled-agent-runs tick complete",
       );
     }
