@@ -53,30 +53,41 @@ export function createD1PaymentsStore(db: D1Database): PaymentsStore {
 
     async applyEntry(entry: LedgerEntry) {
       const now = new Date().toISOString();
+
+      // Ledger insert first, standalone (not batched): `stripe_event_id` is
+      // protected by a partial UNIQUE index (migration 0024), so a duplicate
+      // event is silently ignored here — 0 rows changed — instead of
+      // throwing. D1 batch statements can't branch on an earlier statement's
+      // result, so the balance/processed-events writes below only run when
+      // THIS call's insert actually landed a row. That is what makes a
+      // duplicate webhook a genuine no-op even under a concurrent race,
+      // rather than relying on the check-then-act hasProcessedEvent() guard
+      // in creditFromEvent (which two simultaneous deliveries can both pass).
+      const ledgerInsert = await db
+        .prepare(
+          "INSERT OR IGNORE INTO end_user_credit_ledger (id, tenant_id, end_user_id, delta, reason, session_id, publication_id, stripe_event_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(
+          entry.id,
+          entry.tenant_id,
+          entry.end_user_id,
+          entry.delta,
+          entry.reason,
+          entry.session_id,
+          entry.publication_id,
+          entry.stripe_event_id,
+          entry.created_at,
+        )
+        .run();
+      if (ledgerInsert.meta.changes === 0) return;
+
       const statements = [
-        db
-          .prepare(
-            "INSERT INTO end_user_credit_ledger (id, tenant_id, end_user_id, delta, reason, session_id, publication_id, stripe_event_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          )
-          .bind(
-            entry.id,
-            entry.tenant_id,
-            entry.end_user_id,
-            entry.delta,
-            entry.reason,
-            entry.session_id,
-            entry.publication_id,
-            entry.stripe_event_id,
-            entry.created_at,
-          ),
         db
           .prepare(
             "INSERT INTO end_user_balance (tenant_id, end_user_id, balance, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(tenant_id, end_user_id) DO UPDATE SET balance = balance + excluded.balance, updated_at = excluded.updated_at",
           )
           .bind(entry.tenant_id, entry.end_user_id, entry.delta, now),
       ];
-      // Mark the Stripe event processed in the SAME batch so a duplicate
-      // webhook can never double-credit, even under a race.
       if (entry.stripe_event_id) {
         statements.push(
           db
