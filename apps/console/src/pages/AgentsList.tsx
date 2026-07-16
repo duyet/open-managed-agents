@@ -5,11 +5,9 @@ import { ArchiveIcon, TrashIcon } from "lucide-react";
 import { useApi } from "../lib/api";
 import { useInfiniteApiQuery } from "../lib/useApiQuery";
 import { DataTable, type ColumnDef } from "../components/DataTable";
-import { FacetedFilter } from "../components/FacetedFilter";
-import { FilterChip, CreatedFilterChip } from "../components/FilterChip";
+import { FilterBar } from "../components/FilterBar";
 import { RowActionsMenu } from "../components/RowActionsMenu";
 import { Button } from "@/components/ui/button";
-import { PopoverContent } from "@/components/ui/popover";
 import type { ModelCard } from "@duyet/oma-api-types";
 import type { AgentRecord as Agent } from "../types/agent";
 import { AgentFormDialog } from "./agents/AgentFormDialog";
@@ -243,41 +241,15 @@ export function AgentsList() {
     [api, refreshAgents],
   );
 
-  // Active-filter chip displays — kept null when matching the default so
-  // the chip reads "Status ▾" rather than "Status: All ▾". The clear-X
-  // only renders when the chip is in non-default state.
-  const statusDisplay =
-    status === "any" ? undefined : STATUS_OPTIONS.find((o) => o.value === status)?.label;
-
   const filters = (
-    <>
-      <FilterChip
-        label="Status"
-        active={status !== "any"}
-        display={statusDisplay}
-        onClear={() => setStatus("any")}
-      >
-        {/* Status uses the shadcn faceted-filter pattern (Command
-            inside Popover). The Command primitive gives type-ahead
-            search even for 3 options — pays off the moment a page
-            picks an enum with 10+ values. */}
-        <PopoverContent
-          align="start"
-          sideOffset={4}
-          collisionPadding={8}
-          className="w-48 p-0"
-        >
-          <FacetedFilter
-            options={STATUS_OPTIONS}
-            value={status}
-            onValueChange={(v) => setStatus(v as StatusValue)}
-            searchPlaceholder="Status..."
-          />
-        </PopoverContent>
-      </FilterChip>
-
-      <CreatedFilterChip value={created} onChange={setCreated} />
-    </>
+    <FilterBar
+      status={{
+        value: status,
+        onChange: (v) => setStatus(v as StatusValue),
+        options: STATUS_OPTIONS,
+      }}
+      created={{ value: created, onChange: setCreated }}
+    />
   );
 
   return (
