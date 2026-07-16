@@ -62,9 +62,12 @@ const navGroups: NavGroup[] = [
     label: "Agents",
     items: [
       { to: "/agents/new", label: "New Agent", icon: AgentIcon },
-      { to: "/my-bots", label: "My Bots", icon: MegaphoneIcon },
       { to: "/kanban", label: "Kanban Board", icon: SessionsIcon },
     ],
+  },
+  {
+    label: "Publishing",
+    items: [{ to: "/my-bots", label: "My Bots", icon: MegaphoneIcon }],
   },
   {
     label: "Infrastructure",
