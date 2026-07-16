@@ -144,6 +144,7 @@ app.get("/v1/hosting_types", async (c) => {
     latency_ms: number;
     last_checked: string;
     reason?: string;
+    capacity?: import("@duyet/oma-sandbox").SandboxCapacity;
   }>();
 
   for (const p of providers) {
@@ -168,6 +169,7 @@ app.get("/v1/hosting_types", async (c) => {
           latency_ms: h.latencyMs,
           last_checked: h.lastChecked,
           reason: h.status === "ok" ? undefined : (h.details ?? "Health check failed."),
+          capacity: h.capacity,
         });
       }
     } catch {}
