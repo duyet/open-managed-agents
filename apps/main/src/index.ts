@@ -83,6 +83,7 @@ import { SandboxProviderRegistry, seedSystemProviders, SYSTEM_PROVIDERS } from "
 import { logError, recordEvent, errFields } from "@duyet/oma-shared";
 import { globalErrorHandler, requestMetricsMiddleware } from "./lib/observability";
 import { errorEnvelopeMiddleware } from "./lib/error-envelope";
+import { createBootSecretGate } from "./lib/boot-secrets";
 import type { R2EventMessage } from "@duyet/oma-shared";
 
 // Main worker: CRUD + routing layer.
@@ -103,6 +104,13 @@ app.use("*", requestMetricsMiddleware);
 // === 'authentication_error') ... }`. Runs second so it sees the response
 // body produced by every downstream middleware/handler. See lib/error-envelope.ts.
 app.use("*", errorEnvelopeMiddleware);
+
+// Fail closed on missing/leaked boot secrets (oma#220) — runs before any
+// route, including /health, so a bad deploy can't serve anything. Computed
+// once per isolate on the first request (Workers have no boot phase to
+// hook) and memoized inside the gate; safe because secrets are static for
+// an isolate's lifetime. See lib/boot-secrets.ts.
+app.use("*", createBootSecretGate());
 
 // Catch-all for anything that escapes per-route try/catch. Logs +
 // records to AE before returning a clean 500 (no internal leak in body).

@@ -364,6 +364,14 @@ export function buildServices(env: Env, db: D1Database): Services {
  * Backwards-compat alias — old call sites still use `buildCfServices`. New
  * code should prefer `buildServices` since the function is no longer
  * Cloudflare-specific (a `pg` adapter, when wired, gets selected by env).
+ *
+ * Not dead code (see oma#220): this is a reference to the same function,
+ * not a re-implementation, so every `buildCfServices(...)` call site —
+ * apps/main's `servicesMiddleware` and apps/agent's `session-do.ts` — runs
+ * `buildServices`'s `PLATFORM_ROOT_SECRET` presence guard above. It's a
+ * narrower check than oma#220's new boot-secret gate (presence-only, no
+ * leaked-value check, and only trips once a route actually constructs the
+ * Services container) but it's genuinely live, not orphaned.
  */
 export const buildCfServices = buildServices;
 
