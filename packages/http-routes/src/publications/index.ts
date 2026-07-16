@@ -12,7 +12,7 @@
 // owner's management API.
 
 import { Hono } from "hono";
-import type { RouteServicesArg } from "../types";
+import type { RouteServices, RouteServicesArg } from "../types";
 import { resolveServices } from "../types";
 import {
   PublicationNotFoundError,
@@ -38,6 +38,7 @@ function toApi(p: {
   suggested_prompts: string[];
   pricing_ref: string | null;
   rate_limit_ref: string | null;
+  environment_id: string | null;
   created_at: string;
 }) {
   const { tenant_id: _t, ...rest } = p;
@@ -52,6 +53,33 @@ function mapError(c: import("hono").Context, err: unknown): Response {
     return c.json({ error: "Slug already in use" }, 409);
   }
   throw err;
+}
+
+/**
+ * Validate an optional environment_id belongs to the tenant — mirrors
+ * validateDeploymentRefs' environment check in apps/main/src/routes/deployments.ts.
+ * Returns an error Response to surface, or null when environmentId is
+ * unset/null (nothing to validate) or resolves. `services.environments` is
+ * optional on RouteServices (legacy fixtures / hosts that don't wire it); if
+ * a caller actually supplies an environment_id we can't verify, fail loud
+ * (500) rather than silently persisting an unchecked reference — same
+ * precedent as buildEnvironmentRoutes below.
+ */
+async function validateEnvironmentRef(
+  c: import("hono").Context<Vars>,
+  services: RouteServices,
+  environmentId: string | null | undefined,
+): Promise<Response | null> {
+  if (!environmentId) return null;
+  if (!services.environments) {
+    return c.json({ error: "environments service not configured" }, 500);
+  }
+  const environment = await services.environments.get({
+    tenantId: c.var.tenant_id,
+    environmentId,
+  });
+  if (!environment) return c.json({ error: "Environment not found" }, 404);
+  return null;
 }
 
 export interface PublicationRoutesDeps {
@@ -78,10 +106,14 @@ export function buildPublicationRoutes(deps: PublicationRoutesDeps) {
       suggested_prompts?: string[];
       pricing_ref?: string | null;
       rate_limit_ref?: string | null;
+      environment_id?: string | null;
     }>();
     if (!body.agent_id) return c.json({ error: "agent_id is required" }, 400);
     if (!body.slug) return c.json({ error: "slug is required" }, 400);
     if (!body.title) return c.json({ error: "title is required" }, 400);
+
+    const envErr = await validateEnvironmentRef(c, services, body.environment_id);
+    if (envErr) return envErr;
 
     // Pin the published version: default to the agent's current version.
     let version = body.agent_version;
@@ -110,6 +142,7 @@ export function buildPublicationRoutes(deps: PublicationRoutesDeps) {
           suggestedPrompts: body.suggested_prompts ?? [],
           pricingRef: body.pricing_ref ?? null,
           rateLimitRef: body.rate_limit_ref ?? null,
+          environmentId: body.environment_id ?? null,
         },
       });
       return c.json(toApi(row), 201);
@@ -179,9 +212,14 @@ export function buildAgentPublicationRoutes(
       suggested_prompts?: string[];
       pricing_ref?: string | null;
       rate_limit_ref?: string | null;
+      environment_id?: string | null;
     }>();
     if (!body.slug) return c.json({ error: "slug is required" }, 400);
     if (!body.title) return c.json({ error: "title is required" }, 400);
+
+    const envErr = await validateEnvironmentRef(c, services, body.environment_id);
+    if (envErr) return envErr;
+
     try {
       const row = await services.publications.create({
         tenantId: c.var.tenant_id,
@@ -198,6 +236,7 @@ export function buildAgentPublicationRoutes(
           suggestedPrompts: body.suggested_prompts ?? [],
           pricingRef: body.pricing_ref ?? null,
           rateLimitRef: body.rate_limit_ref ?? null,
+          environmentId: body.environment_id ?? null,
         },
       });
       return c.json(toApi(row), 201);
@@ -229,8 +268,13 @@ export function buildAgentPublicationRoutes(
       suggested_prompts?: string[];
       pricing_ref?: string | null;
       rate_limit_ref?: string | null;
+      environment_id?: string | null;
       slug?: string;
     }>();
+
+    const envErr = await validateEnvironmentRef(c, services, body.environment_id);
+    if (envErr) return envErr;
+
     try {
       const row = await services.publications.update({
         tenantId: c.var.tenant_id,
@@ -245,6 +289,7 @@ export function buildAgentPublicationRoutes(
           suggestedPrompts: body.suggested_prompts,
           pricingRef: body.pricing_ref,
           rateLimitRef: body.rate_limit_ref,
+          environmentId: body.environment_id,
           slug: body.slug,
         },
       });

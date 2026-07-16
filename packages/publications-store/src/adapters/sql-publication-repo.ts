@@ -45,6 +45,7 @@ export class SqlPublicationRepo implements PublicationRepo {
         suggested_prompts: JSON.stringify(input.suggestedPrompts ?? []),
         pricing_ref: input.pricingRef,
         rate_limit_ref: input.rateLimitRef,
+        environment_id: input.environmentId,
         created_at: input.createdAt,
       }),
     );
@@ -133,6 +134,7 @@ export class SqlPublicationRepo implements PublicationRepo {
     }
     if (fields.pricingRef !== undefined) set.pricing_ref = fields.pricingRef;
     if (fields.rateLimitRef !== undefined) set.rate_limit_ref = fields.rateLimitRef;
+    if (fields.environmentId !== undefined) set.environment_id = fields.environmentId;
     if (fields.slug !== undefined) set.slug = fields.slug;
     await runOnce(
       this.db
@@ -179,6 +181,7 @@ function toRow(r: typeof agent_publication.$inferSelect): PublicationRow {
     suggested_prompts: prompts,
     pricing_ref: r.pricing_ref ?? null,
     rate_limit_ref: r.rate_limit_ref ?? null,
+    environment_id: r.environment_id ?? null,
     created_at: msToIso(r.created_at),
   };
 }

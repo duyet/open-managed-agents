@@ -31,6 +31,10 @@ export const agent_publication = sqliteTable(
     suggested_prompts: text("suggested_prompts"),
     pricing_ref: text("pricing_ref"),
     rate_limit_ref: text("rate_limit_ref"),
+    // Optional environment binding (issue #225) — set at publish time so
+    // POST /p/:slug/sessions can forward it for cloud agents. NULL for
+    // local-runtime agents (never need one) and publications predating #225.
+    environment_id: text("environment_id"),
     created_at: integer("created_at").notNull(),
   },
   (t) => [

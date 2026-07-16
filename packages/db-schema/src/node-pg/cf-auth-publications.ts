@@ -24,6 +24,8 @@ export const agent_publication = pgTable(
     suggested_prompts: text("suggested_prompts"),
     pricing_ref: text("pricing_ref"),
     rate_limit_ref: text("rate_limit_ref"),
+    // Optional environment binding (issue #225) — see cf-auth/publications.ts.
+    environment_id: text("environment_id"),
     created_at: bigint("created_at", { mode: "number" }).notNull(),
   },
   (t) => [

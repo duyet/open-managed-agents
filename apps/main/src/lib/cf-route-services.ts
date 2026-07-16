@@ -41,6 +41,10 @@ function buildRouteServices(services: Services, sql: CfD1SqlClient): RouteServic
     memory: services.memory,
     sessions: services.sessions,
     modelCards: services.modelCards,
+    // Wired for the publications routes' environment_id validation (issue
+    // #225) — apps/main's own /v1/environments route file still builds its
+    // own wiring directly and doesn't read this field.
+    environments: services.environments,
     kv: services.kv,
     newEventLog: () => ({
       appendAsync: async () => {},

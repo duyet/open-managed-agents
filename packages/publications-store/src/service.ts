@@ -21,6 +21,7 @@ export interface UpdatePublicationInput {
   suggestedPrompts?: string[];
   pricingRef?: string | null;
   rateLimitRef?: string | null;
+  environmentId?: string | null;
   slug?: string;
 }
 
@@ -38,6 +39,7 @@ export interface NewPublicationInput {
   suggestedPrompts?: string[];
   pricingRef?: string | null;
   rateLimitRef?: string | null;
+  environmentId?: string | null;
 }
 
 /** URL-safe slug alphabet — lowercased, no ambiguous chars. */
@@ -86,6 +88,7 @@ export class PublicationService {
       suggestedPrompts: opts.input.suggestedPrompts ?? [],
       pricingRef: opts.input.pricingRef ?? null,
       rateLimitRef: opts.input.rateLimitRef ?? null,
+      environmentId: opts.input.environmentId ?? null,
       createdAt: nowMs,
     });
   }
@@ -106,6 +109,7 @@ export class PublicationService {
     if (opts.input.suggestedPrompts !== undefined) fields.suggestedPrompts = opts.input.suggestedPrompts;
     if (opts.input.pricingRef !== undefined) fields.pricingRef = opts.input.pricingRef;
     if (opts.input.rateLimitRef !== undefined) fields.rateLimitRef = opts.input.rateLimitRef;
+    if (opts.input.environmentId !== undefined) fields.environmentId = opts.input.environmentId;
     if (opts.input.slug !== undefined) {
       const slug = urlSafeSlug(opts.input.slug);
       if (!slug) throw new Error("slug is required");

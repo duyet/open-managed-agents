@@ -24,6 +24,7 @@ interface InMemPublication {
   suggested_prompts: string[];
   pricing_ref: string | null;
   rate_limit_ref: string | null;
+  environment_id: string | null;
   created_at: number;
 }
 
@@ -56,6 +57,7 @@ export class InMemoryPublicationRepo implements PublicationRepo {
       suggested_prompts: input.suggestedPrompts ?? [],
       pricing_ref: input.pricingRef,
       rate_limit_ref: input.rateLimitRef,
+      environment_id: input.environmentId,
       created_at: input.createdAt,
     };
     this.byId.set(input.id, row);
@@ -132,6 +134,7 @@ export class InMemoryPublicationRepo implements PublicationRepo {
     if (fields.suggestedPrompts !== undefined) row.suggested_prompts = fields.suggestedPrompts;
     if (fields.pricingRef !== undefined) row.pricing_ref = fields.pricingRef;
     if (fields.rateLimitRef !== undefined) row.rate_limit_ref = fields.rateLimitRef;
+    if (fields.environmentId !== undefined) row.environment_id = fields.environmentId;
     return toRow(row);
   }
 
@@ -190,6 +193,7 @@ function toRow(a: InMemPublication): PublicationRow {
     suggested_prompts: a.suggested_prompts,
     pricing_ref: a.pricing_ref,
     rate_limit_ref: a.rate_limit_ref,
+    environment_id: a.environment_id,
     created_at: msToIso(a.created_at),
   };
 }
