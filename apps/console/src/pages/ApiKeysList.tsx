@@ -4,6 +4,7 @@ import { useApi } from "../lib/api";
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { Modal } from "../components/Modal";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/hooks/useConfirm";
 import { DataTable, type ColumnDef } from "../components/DataTable";
 import { RowActionsMenu } from "../components/RowActionsMenu";
 
@@ -23,6 +24,7 @@ export function ApiKeysList() {
   const [name, setName] = useState("");
   const [createdKey, setCreatedKey] = useState("");
   const [error, setError] = useState("");
+  const confirm = useConfirm();
 
   const load = async () => {
     setLoading(true);
@@ -58,7 +60,15 @@ export function ApiKeysList() {
   });
 
   const remove = async (id: string) => {
-    if (!confirm("Revoke this API key? This cannot be undone.")) return;
+    if (
+      !(await confirm({
+        title: "Revoke this API key?",
+        description: "This cannot be undone.",
+        confirmLabel: "Revoke",
+        destructive: true,
+      }))
+    )
+      return;
     try {
       await api(`/v1/api_keys/${id}`, { method: "DELETE" });
       load();

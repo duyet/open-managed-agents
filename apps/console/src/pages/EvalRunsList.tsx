@@ -9,6 +9,7 @@ import { FacetedFilter } from "../components/FacetedFilter";
 import { FilterChip } from "../components/FilterChip";
 import { RowActionsMenu } from "../components/RowActionsMenu";
 import { PopoverContent } from "@/components/ui/popover";
+import { useConfirm } from "@/hooks/useConfirm";
 
 interface EvalRunSummary {
   id: string;
@@ -81,6 +82,7 @@ function passRateStr(r: EvalRunSummary): string {
 export function EvalRunsList() {
   const nav = useNavigate();
   const { api } = useApi();
+  const confirm = useConfirm();
 
   // Server-driven status filter. "any" → omit the param entirely so the
   // server returns all runs; anything else is whitelisted by the route's
@@ -219,7 +221,15 @@ export function EvalRunsList() {
                   // give the user the right verb for the row's state.
                   disabled: !isActive,
                   onSelect: async () => {
-                    if (!confirm(`Cancel eval run ${r.id}? In-flight tasks will be marked failed.`)) return;
+                    if (
+                      !(await confirm({
+                        title: `Cancel eval run ${r.id}?`,
+                        description: "In-flight tasks will be marked failed.",
+                        confirmLabel: "Cancel run",
+                        destructive: true,
+                      }))
+                    )
+                      return;
                     try {
                       await api(`/v1/evals/runs/${r.id}`, { method: "DELETE" });
                       void refetch();
@@ -231,7 +241,15 @@ export function EvalRunsList() {
                   icon: <TrashIcon className="size-4" />,
                   destructive: true,
                   onSelect: async () => {
-                    if (!confirm(`Delete eval run ${r.id}? This can't be undone.`)) return;
+                    if (
+                      !(await confirm({
+                        title: `Delete eval run ${r.id}?`,
+                        description: "This can't be undone.",
+                        confirmLabel: "Delete",
+                        destructive: true,
+                      }))
+                    )
+                      return;
                     try {
                       await api(`/v1/evals/runs/${r.id}`, { method: "DELETE" });
                       void refetch();
@@ -246,7 +264,7 @@ export function EvalRunsList() {
         size: 56,
       },
     ],
-    [api, refetch],
+    [api, refetch, confirm],
   );
 
   // Active-filter chip display — kept null when matching the default so

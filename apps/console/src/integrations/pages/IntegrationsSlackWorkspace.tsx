@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { IntegrationsApi } from "../api/client";
 import { Field } from "../../components/Field";
+import { useConfirm } from "@/hooks/useConfirm";
 import type { SlackInstallation, SlackPublication } from "../api/types";
 
 const api = new IntegrationsApi();
@@ -124,6 +125,7 @@ function PublicationCard({
   const [caps, setCaps] = useState<Set<string>>(new Set(pub.capabilities));
   const [personaName, setPersonaName] = useState(pub.persona.name);
   const [personaAvatar, setPersonaAvatar] = useState(pub.persona.avatarUrl ?? "");
+  const confirm = useConfirm();
 
   async function save() {
     setError(null);
@@ -143,7 +145,15 @@ function PublicationCard({
   }
 
   async function unpublish() {
-    if (!confirm(`Unpublish ${pub.persona.name}? It will stop responding in Slack.`)) return;
+    if (
+      !(await confirm({
+        title: `Unpublish ${pub.persona.name}?`,
+        description: "It will stop responding in Slack.",
+        confirmLabel: "Unpublish",
+        destructive: true,
+      }))
+    )
+      return;
     setWorking(true);
     try {
       await api.slack.unpublish(pub.id);

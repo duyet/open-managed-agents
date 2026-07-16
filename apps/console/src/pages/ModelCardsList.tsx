@@ -4,6 +4,7 @@ import { useInfiniteApiQuery } from "../lib/useApiQuery";
 import { Modal } from "../components/Modal";
 import { Button } from "@/components/ui/button";
 import { PopoverContent } from "@/components/ui/popover";
+import { useConfirm } from "@/hooks/useConfirm";
 import {
   Select,
   SelectContent,
@@ -229,6 +230,7 @@ export function ModelCardsList() {
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string }>>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [showModelSuggestions, setShowModelSuggestions] = useState(false);
+  const confirm = useConfirm();
 
   // Server-driven filter state. Each piece flows into cardsParams below
   // → useInfiniteApiQuery resets to page 1 on params change → the list
@@ -546,7 +548,15 @@ export function ModelCardsList() {
               <Button
                 variant="ghost"
                 onClick={async () => {
-                  if (!confirm(`Delete model card ${form.model_id}? This can't be undone.`)) return;
+                  if (
+                    !(await confirm({
+                      title: `Delete model card ${form.model_id}?`,
+                      description: "This can't be undone.",
+                      confirmLabel: "Delete",
+                      destructive: true,
+                    }))
+                  )
+                    return;
                   await remove(editingId);
                   closeDialog();
                 }}

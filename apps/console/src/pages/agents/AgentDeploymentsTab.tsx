@@ -8,6 +8,7 @@ import { useInfiniteApiQuery } from "../../lib/useApiQuery";
 import { DataTable, type ColumnDef } from "../../components/DataTable";
 import { RowActionsMenu } from "../../components/RowActionsMenu";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/hooks/useConfirm";
 import { formatRelative } from "../../lib/format";
 import { cn } from "@/lib/utils";
 import { useAgentHub } from "../AgentDetail";
@@ -46,6 +47,7 @@ export function AgentDeploymentsTab() {
   const { agent, versions } = useAgentHub();
   const { api } = useApi();
   const [showCreate, setShowCreate] = useState(false);
+  const confirm = useConfirm();
 
   const params = useMemo(() => ({ agent_id: agent.id }), [agent.id]);
   const { items, isLoading, hasMore, isLoadingMore, loadMore, refresh } =
@@ -84,7 +86,15 @@ export function AgentDeploymentsTab() {
   };
 
   const del = async (d: Deployment) => {
-    if (!confirm(`Delete deployment "${d.name}"? This can't be undone.`)) return;
+    if (
+      !(await confirm({
+        title: `Delete deployment "${d.name}"?`,
+        description: "This can't be undone.",
+        confirmLabel: "Delete",
+        destructive: true,
+      }))
+    )
+      return;
     try {
       await api(`/v1/deployments/${d.id}`, { method: "DELETE" });
       refresh();

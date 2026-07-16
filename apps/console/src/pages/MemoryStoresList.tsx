@@ -11,6 +11,7 @@ import { RowActionsMenu } from "../components/RowActionsMenu";
 import { Modal } from "../components/Modal";
 import { Button } from "@/components/ui/button";
 import { PopoverContent } from "@/components/ui/popover";
+import { useConfirm } from "@/hooks/useConfirm";
 
 interface MemoryStore {
   id: string;
@@ -31,6 +32,7 @@ const STATUS_OPTIONS: { value: StatusValue; label: string }[] = [
 export function MemoryStoresList() {
   const { api } = useApi();
   const nav = useNavigate();
+  const confirm = useConfirm();
 
   // Server-driven filter state. Each piece flows into storesParams below
   // → useApiQuery refetches on params change → the list reflects exactly
@@ -168,7 +170,15 @@ export function MemoryStoresList() {
                   icon: <TrashIcon className="size-4" />,
                   destructive: true,
                   onSelect: async () => {
-                    if (!confirm(`Delete memory store ${s.name}? This can't be undone.`)) return;
+                    if (
+                      !(await confirm({
+                        title: `Delete memory store ${s.name}?`,
+                        description: "This can't be undone.",
+                        confirmLabel: "Delete",
+                        destructive: true,
+                      }))
+                    )
+                      return;
                     try {
                       await api(`/v1/memory_stores/${s.id}`, { method: "DELETE" });
                       void refetch();
@@ -183,7 +193,7 @@ export function MemoryStoresList() {
         size: 56,
       },
     ],
-    [api, refetch],
+    [api, refetch, confirm],
   );
 
   // Active-filter chip display — kept undefined when matching the default
