@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { getLogger } from "@duyet/oma-observability";
+import { sendEmail } from "../auth-config";
+import { rateLimitMagicLinkEmail } from "../rate-limit";
 
 const log = getLogger("consumer-auth");
 
@@ -9,6 +11,13 @@ interface Env {
   Bindings: {
     MAIN_DB: D1Database;
     BETTER_AUTH_SECRET?: string;
+    SEND_EMAIL?: SendEmail;
+    RL_MAGICLINK_EMAIL?: RateLimit;
+    /** Dev/test escape hatch (issue #162) — ONLY when exactly "1" or "true"
+     *  does /auth/magic-link echo the raw token back in the response body.
+     *  Default (unset/anything else): token is never returned, only
+     *  delivered via email. Never enable in production. */
+    CONSUMER_AUTH_DEV_ECHO_TOKEN?: string;
   };
   Variables: {
     consumer_id?: string;
@@ -80,6 +89,20 @@ async function tenantForPublication(
   return row?.tenant_id ?? null;
 }
 
+/** Transactional email body for a consumer magic-link (issue #162). No
+ *  clickable callback page exists yet for the public chat surface, so the
+ *  token is presented as a copyable sign-in code — the recipient (or the
+ *  publication's UI, once built) submits it to POST /v1/public/auth/verify. */
+function magicLinkEmailHtml(token: string): string {
+  return [
+    '<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:32px">',
+    '<h2 style="margin:0 0 16px">Your sign-in code</h2>',
+    `<p style="font-size:16px;letter-spacing:1px;font-weight:bold;margin:24px 0;word-break:break-all">${token}</p>`,
+    '<p style="color:#666;font-size:14px">This code expires in 15 minutes. If you did not request this, ignore this email.</p>',
+    "</div>",
+  ].join("");
+}
+
 /** Upsert a consumer <-> publication association (first-seen / last-seen). */
 async function recordConsumerPublication(
   db: D1Database,
@@ -108,6 +131,17 @@ wrapper.post("/auth/magic-link", async (c) => {
   }
 
   const { email, name } = parsed.data;
+
+  // Anti-spam-the-victim: an attacker who doesn't own `email` can otherwise
+  // hammer this endpoint to flood the real owner's inbox. Reject BEFORE any
+  // DB write. Soft-passes when RL_MAGICLINK_EMAIL isn't bound (dev/test).
+  if (await rateLimitMagicLinkEmail(c.env.RL_MAGICLINK_EMAIL, email)) {
+    return c.json(
+      { error: "Too many magic link requests — please wait a bit and try again" },
+      429,
+    );
+  }
+
   const db = c.env.MAIN_DB;
   const now = new Date().toISOString();
   const token = nanoid(48);
@@ -138,14 +172,33 @@ wrapper.post("/auth/magic-link", async (c) => {
     .bind(token, consumerId, expiresAt, false, now)
     .run();
 
+  // Deliver the token out-of-band via email (issue #162) — it must never be
+  // echoed back in the HTTP response, since that lets anyone impersonate any
+  // email address. A transient send failure is logged, not fatal: the token
+  // is already persisted and the caller can retry (rate-limited above).
+  try {
+    await sendEmail(
+      c.env,
+      email,
+      "Your sign-in code — oma",
+      magicLinkEmailHtml(token),
+      `Your sign-in code: ${token} (expires in 15 minutes)`,
+    );
+  } catch (err) {
+    log.warn({ consumer_id: consumerId, email, err }, "magic link email dispatch failed");
+  }
+
   log.info({ consumer_id: consumerId, email }, "magic link created");
+
+  // Dev/test escape hatch ONLY — see the field doc on CONSUMER_AUTH_DEV_ECHO_TOKEN.
+  const devEcho =
+    c.env.CONSUMER_AUTH_DEV_ECHO_TOKEN === "1" || c.env.CONSUMER_AUTH_DEV_ECHO_TOKEN === "true";
 
   return c.json(
     {
       message: "Magic link sent",
-      token,
-      consumer_id: consumerId,
       expires_at: expiresAt,
+      ...(devEcho ? { token } : {}),
     },
     201,
   );

@@ -64,6 +64,11 @@ export interface Env {
   /** Per-tenant cap on R2-writing endpoints (POST /v1/files,
    *  POST /v1/skills/:id/versions). Soft-passes when absent. */
   RL_UPLOAD_TENANT?: RateLimit;
+  /** Per-email throttle on consumer magic-link requests (issue #162) —
+   *  anti-spam-the-victim, mirrors RL_AUTH_SEND_EMAIL's threat model but
+   *  scoped to the separate /v1/public/auth/* consumer realm. Soft-passes
+   *  when absent. */
+  RL_MAGICLINK_EMAIL?: RateLimit;
   /** Daily session-creation budget per tenant. KV-backed counter — see
    *  apps/main/src/quotas.ts. The number is the cap; absent or "0" =
    *  feature off (OSS-friendly). Counter key auto-expires next day. */

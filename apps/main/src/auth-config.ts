@@ -9,8 +9,10 @@ import {
 } from "@duyet/oma-tenant-dbs-store";
 import * as schema from "./db/schema";
 
-function sendEmail(
-  env: Env,
+/** Narrower than the full Env so callers (e.g. routes/consumer-auth.ts) that
+ *  only carry a subset of bindings can reuse this without a type cast. */
+export function sendEmail(
+  env: { SEND_EMAIL?: Env["SEND_EMAIL"] },
   to: string,
   subject: string,
   html: string,
