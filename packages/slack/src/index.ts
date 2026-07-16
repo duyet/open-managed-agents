@@ -52,7 +52,31 @@ export {
   SlackApiError,
   type AuthTestResult,
   type PostMessageResult,
+  type PostMessageInput,
+  type UploadFileInput,
+  type UploadFileResult,
+  type SlackBlock,
 } from "./api/client";
+export {
+  renderProgressBlocks,
+  renderProgressText,
+  renderFinalResponseBlocks,
+  renderFinalResponseText,
+  renderErrorBlocks,
+  truncate,
+  SECTION_TEXT_LIMIT,
+  type ProgressStep,
+  type ProgressSnapshot,
+  type FinalResponseInput,
+} from "./blocks";
+export {
+  SlackThreadReporter,
+  driveSlackThread,
+  type SlackSessionEvent,
+  type SlackThreadTarget,
+  type SlackThreadReporterOptions,
+  type DriveSlackThreadOptions,
+} from "./thread-reporter";
 export type {
   SlackInstallationRepo,
   SlackPublicationRepo,
