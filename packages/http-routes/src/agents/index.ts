@@ -25,6 +25,7 @@ import {
 import type { SessionRow } from "@duyet/oma-sessions-store";
 import type { RouteServicesArg } from "../types";
 import { resolveServices } from "../types";
+import { parseAnalyticsRange } from "../analytics";
 
 interface Vars {
   Variables: { tenant_id: string; user_id?: string };
@@ -576,6 +577,33 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
       ...(page.nextCursor ? { next_cursor: page.nextCursor } : {}),
       has_more: !!page.nextCursor,
     });
+  });
+
+  // GET /v1/agents/:id/analytics — per-agent session analytics for the
+  // Observability tab. Same {@link SessionAnalytics} shape as
+  // GET /v1/analytics/overview, scoped to this agent's sessions. `range`
+  // query param: 7d | 30d | 90d (default 30d). See the analytics module for
+  // the error-rate definition + tool_usage availability notes.
+  app.get("/:id/analytics", async (c) => {
+    const services = resolveServices(deps.services, c);
+    const id = c.req.param("id");
+    const tenantId = c.var.tenant_id;
+    const exists = await services.agents.get({ tenantId, agentId: id });
+    if (!exists) return c.json({ error: "Agent not found" }, 404);
+
+    const parsed = parseAnalyticsRange(c.req.query("range"));
+    if ("error" in parsed) {
+      return c.json(
+        { error: { type: "invalid_request_error", ...parsed.error } },
+        400,
+      );
+    }
+    const analytics = await services.sessions.analytics({
+      tenantId,
+      agentId: id,
+      range: parsed.range,
+    });
+    return c.json(analytics);
   });
 
   // POST /v1/agents/:id/archive

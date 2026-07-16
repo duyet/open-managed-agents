@@ -78,6 +78,7 @@ import {
   buildAgentRoutes,
   buildVaultRoutes,
   buildMcpServerRoutes,
+  buildAnalyticsRoutes,
   buildEnvironmentRoutes,
   buildSessionRoutes,
   buildMemoryRoutes,
@@ -1144,6 +1145,7 @@ v1.route("/sessions", buildSessionRoutes({
 }));
 v1.route("/vaults", buildVaultRoutes({ services }));
 v1.route("/mcp_servers", buildMcpServerRoutes({ services }));
+v1.route("/analytics", buildAnalyticsRoutes({ services }));
 v1.route("/memory_stores", buildMemoryRoutes({ services }));
 v1.route("/dreams", buildDreamRoutes({
   services,

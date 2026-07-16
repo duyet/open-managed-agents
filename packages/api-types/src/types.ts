@@ -337,6 +337,12 @@ export interface SessionMeta {
   archived_at?: string;
   updated_at?: string;
   created_at: string;
+  /** Cumulative model token usage over the whole session. Refreshed on each
+   *  turn end from the DO event log (span.model_request_end) and synced to the
+   *  control-plane sessions row. 0 before the first turn completes. Surfaced in
+   *  session GET + list so the Console can render a "tokens in / out" column. */
+  input_tokens?: number;
+  output_tokens?: number;
   /** Sandbox resource usage for this session. Populated when the session uses
    *  a sandbox provider that reports instance_type (CF Containers, E2B, etc.
    *  — K8s not tracked yet). Used to calculate pricing = rate(instance_type) × active_seconds. */

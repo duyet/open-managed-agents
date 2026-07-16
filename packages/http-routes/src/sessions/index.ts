@@ -247,6 +247,8 @@ function toApiSession(row: {
   updated_at?: string | null;
   archived_at?: string | null;
   terminated_at?: string | null;
+  input_tokens?: number;
+  output_tokens?: number;
 }): Record<string, unknown> {
   const {
     tenant_id: _t,
@@ -256,6 +258,8 @@ function toApiSession(row: {
     title,
     vault_ids,
     metadata,
+    input_tokens,
+    output_tokens,
     ...rest
   } = row;
   const createdMs = Date.parse(row.created_at);
@@ -272,6 +276,8 @@ function toApiSession(row: {
     agent: snapshotToSessionAgent(agent_id, agent_snapshot ?? null),
     vault_ids: vault_ids ?? [],
     metadata: metadata ?? {},
+    input_tokens: input_tokens ?? 0,
+    output_tokens: output_tokens ?? 0,
     resources: [] as unknown[],
     outcome_evaluations: [] as unknown[],
     usage: {} as Record<string, unknown>,
@@ -546,6 +552,38 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
       }
     }
 
+    // created_after / created_before: ISO timestamps → epoch ms. The console
+    // SessionsList date-range filter sends these; reject unparseable values so
+    // the client knows it's a malformed request, not just "no results".
+    // Mirrors the agents list route (packages/http-routes/src/agents/index.ts).
+    const parseMs = (
+      raw: string | undefined,
+      field: string,
+    ): { value: number | undefined; err?: Response } => {
+      if (raw === undefined) return { value: undefined };
+      const ms = Date.parse(raw);
+      if (Number.isNaN(ms)) {
+        return {
+          value: undefined,
+          err: c.json(
+            {
+              error: {
+                type: "invalid_request_error",
+                code: "invalid_timestamp",
+                message: `Invalid ${field} '${raw}'; expected ISO-8601 timestamp.`,
+              },
+            },
+            400,
+          ),
+        };
+      }
+      return { value: ms };
+    };
+    const createdAfterRes = parseMs(c.req.query("created_after"), "created_after");
+    if (createdAfterRes.err) return createdAfterRes.err;
+    const createdBeforeRes = parseMs(c.req.query("created_before"), "created_before");
+    if (createdBeforeRes.err) return createdBeforeRes.err;
+
     const page = await services.sessions.listPage({
       tenantId: c.var.tenant_id,
       agentId: agentIdFilter,
@@ -554,6 +592,12 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
       includeArchived,
       ...(status ? { status } : {}),
       ...(q ? { q } : {}),
+      ...(createdAfterRes.value !== undefined
+        ? { createdAfter: createdAfterRes.value }
+        : {}),
+      ...(createdBeforeRes.value !== undefined
+        ? { createdBefore: createdBeforeRes.value }
+        : {}),
     });
     return c.json({
       data: page.items.map((row) => toApiSession(row as never)),
