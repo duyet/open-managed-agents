@@ -61,6 +61,7 @@ import {
   IntegrationsSlackWorkspace,
   IntegrationsSlackPublishPage,
 } from "./pages/IntegrationsSlack";
+import { IntegrationsHub } from "./integrations";
 import { consolePlugins } from "./plugins/registry";
 
 /**
@@ -181,6 +182,7 @@ const protectedRoutes: RouteObject[] = [
     path: "integrations",
     handle: { crumb: "Integrations" },
     children: [
+      { index: true, element: <IntegrationsHub /> },
       {
         path: "linear",
         handle: { crumb: "Linear" },

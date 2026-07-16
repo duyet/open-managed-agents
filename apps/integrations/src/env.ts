@@ -57,4 +57,17 @@ export interface Env {
   // Telegram bot token for incoming webhook processing. When set, the
   // Telegram webhook route at /telegram/webhook is operational.
   TELEGRAM_BOT_TOKEN?: string;
+
+  // ─── Unified OAuth "Connect" flow (OMA-hosted OAuth apps) ──────────────
+  // Per-provider OAuth app credentials backing the unified /oauth/:provider/*
+  // install surface (apps/integrations/src/oauth-unified.ts). A provider whose
+  // id/secret pair is unset is simply absent from the flow (routes 501). These
+  // are the OMA developer-account OAuth apps described in issue #92 — set them
+  // via `wrangler secret put` to enable one-click Connect for that provider.
+  LINEAR_OAUTH_CLIENT_ID?: string;
+  LINEAR_OAUTH_CLIENT_SECRET?: string;
+  GITHUB_OAUTH_CLIENT_ID?: string;
+  GITHUB_OAUTH_CLIENT_SECRET?: string;
+  SLACK_OAUTH_CLIENT_ID?: string;
+  SLACK_OAUTH_CLIENT_SECRET?: string;
 }
