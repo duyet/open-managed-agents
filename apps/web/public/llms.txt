@@ -1,0 +1,43 @@
+# Open Managed Agents (OMA)
+
+> Open-source, self-hostable reimplementation of the Claude Managed Agents API — a meta-harness platform for running Claude-powered agents with sessions, sandboxes, tools, memory, vaults, and Slack/GitHub/Linear integrations, on Cloudflare Workers or via `docker compose`.
+
+OMA separates the platform (a durable session that prepares *what* an agent
+has — tools, skills, history, sandbox, credentials) from the harness (code
+that decides *how* to drive the model loop). It's drop-in compatible with the
+Claude Managed Agents API and runs the same business logic two ways:
+Cloudflare (Workers + Durable Objects + Containers) or self-hosted Node
+(`docker compose`).
+
+## Docs
+
+- [Documentation home](https://docs.oma.duyet.net/): concepts, architecture, API reference, self-host and deploy guides
+- [Quickstart](https://docs.oma.duyet.net/quickstart/): get a session running in minutes
+- [Concepts](https://docs.oma.duyet.net/concepts/): agent, session, environment, vault
+- [Architecture](https://docs.oma.duyet.net/architecture/): the meta-harness model
+- [REST API reference](https://docs.oma.duyet.net/reference/api/): full endpoint list
+- [CLI & SDK](https://docs.oma.duyet.net/build/cli-sdk/): the `oma` CLI and `@duyet/oma-sdk`
+- [Skills & Tools](https://docs.oma.duyet.net/build/skills-and-tools/)
+- [Vault & MCP](https://docs.oma.duyet.net/build/vault-and-mcp/)
+
+## Self-host
+
+- [Self-host overview](https://docs.oma.duyet.net/self-host/overview/)
+- [Node + Docker (no Cloudflare)](https://docs.oma.duyet.net/self-host/node-docker/)
+- [Deploy on Cloudflare](https://docs.oma.duyet.net/self-host/deploy/)
+
+## Source
+
+- [GitHub repository](https://github.com/duyet/oma): source, issues, the AGENTS.md agent-config reference
+- [README](https://github.com/duyet/oma/blob/main/README.md): quickstarts, tool catalog, API examples
+- [Examples](https://github.com/duyet/oma/tree/main/examples): copy-paste agent + environment configs, pre-built Docker images
+
+## Compare
+
+- [OMA vs. Open Tag](https://oma.duyet.net/open-tag/)
+- [Open-source Claude Tag alternative](https://oma.duyet.net/claude-tag-open-source/)
+- [Self-hosted Claude Tag-style workflow](https://oma.duyet.net/self-hosted-claude-tag/)
+
+## Optional
+
+- [Blog](https://oma.duyet.net/blog/): release notes, architecture write-ups, self-hosting guides

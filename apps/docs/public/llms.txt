@@ -1,0 +1,63 @@
+# oma docs
+
+> Open-source alternative to Claude Managed Agents — self-host Claude agents on Cloudflare or Docker. Docs for the OMA platform: concepts, architecture, REST API, CLI/SDK, and deploy guides.
+
+OMA is a meta-harness: the platform prepares *what* an agent has (tools,
+skills, history, sandbox, credentials); a harness decides *how* to drive the
+model loop. The same business logic runs on Cloudflare Workers + Durable
+Objects or self-hosted via `docker compose`. Drop-in compatible with the
+Claude Managed Agents API.
+
+## Get Started
+
+- [Welcome](https://docs.oma.duyet.net/)
+- [Quickstart](https://docs.oma.duyet.net/quickstart/)
+- [Concepts](https://docs.oma.duyet.net/concepts/): agent, session, environment, vault
+- [Architecture](https://docs.oma.duyet.net/architecture/): the meta-harness model
+- [How it works & the hard parts](https://docs.oma.duyet.net/how-it-works/)
+
+## Use the Console
+
+- [Getting Started](https://docs.oma.duyet.net/console/getting-started/)
+- [Connect Integrations](https://docs.oma.duyet.net/console/integrations/)
+
+## Build with the API
+
+- [REST API](https://docs.oma.duyet.net/build/api/)
+- [CLI & SDK](https://docs.oma.duyet.net/build/cli-sdk/)
+- [Skills & Tools](https://docs.oma.duyet.net/build/skills-and-tools/)
+- [Vault & MCP](https://docs.oma.duyet.net/build/vault-and-mcp/)
+- [Custom Integrations](https://docs.oma.duyet.net/build/integrations/)
+
+## Self-host
+
+- [Overview](https://docs.oma.duyet.net/self-host/overview/)
+- [Node + Docker (no Cloudflare)](https://docs.oma.duyet.net/self-host/node-docker/)
+- [Deploy on Cloudflare](https://docs.oma.duyet.net/self-host/deploy/)
+- [OAuth Apps](https://docs.oma.duyet.net/self-host/oauth-apps/)
+- [Operations](https://docs.oma.duyet.net/self-host/operations/)
+
+## Deploy Guides
+
+- [Overview](https://docs.oma.duyet.net/deploy/)
+- [Docker](https://docs.oma.duyet.net/deploy/docker/)
+- [Cloudflare](https://docs.oma.duyet.net/deploy/cloudflare/)
+- [Kubernetes](https://docs.oma.duyet.net/deploy/kubernetes/)
+- [K8s Bridge Reference](https://docs.oma.duyet.net/deploy/k8s-bridge/)
+
+## Reference
+
+- [Configuration](https://docs.oma.duyet.net/reference/configuration/)
+- [API Endpoints](https://docs.oma.duyet.net/reference/api/)
+- [Glossary](https://docs.oma.duyet.net/reference/glossary/)
+
+## Contribute
+
+- [Contributing](https://docs.oma.duyet.net/contribute/)
+- [State Machines](https://docs.oma.duyet.net/contribute/state-machines/)
+- [Recovery & Idempotency](https://docs.oma.duyet.net/contribute/recovery-and-idempotency/)
+
+## Optional
+
+- [Marketing site](https://oma.duyet.net/): product overview, comparisons, blog
+- [GitHub repository](https://github.com/duyet/oma): source code, issues, AGENTS.md reference
