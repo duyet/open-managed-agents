@@ -111,6 +111,7 @@ export interface StartInstallationArgs {
    */
   mode:
     | "start-a1"
+    | "start-managed"
     | "credentials"
     | "handoff-link"
     | "personal-token"
