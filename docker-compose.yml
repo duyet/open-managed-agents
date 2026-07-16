@@ -52,6 +52,10 @@ services:
       # `openssl rand -hex 32` and put in .env.
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
       AUTH_DISABLED: ${AUTH_DISABLED:-}
+      # Optional bootstrap key for the REST API — set it in .env, then pass
+      # -H "x-api-key: $API_KEY" so the smoke-test curls in the README don't
+      # 401. Unset means x-api-key auth falls through to minted keys only.
+      API_KEY: ${API_KEY:-}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
     volumes:
       - ./data:/app/data

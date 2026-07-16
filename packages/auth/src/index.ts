@@ -84,6 +84,14 @@ export interface AuthMiddlewareDeps {
   /** Opt-in trusted reverse-proxy header auth. Omit for no behavior
    *  change (default) — see TrustedProxyAuthDeps + ./trusted-proxy.ts. */
   trustedProxy?: TrustedProxyAuthDeps;
+  /** Static bootstrap API key (env var, e.g. API_KEY) checked against the
+   *  x-api-key header BEFORE resolveApiKey's DB lookup — a match resolves
+   *  to tenant_id="default" with no user_id. Mirrors the legacy env.API_KEY
+   *  compat check in apps/main/src/auth.ts so first-run / CLI bootstrap
+   *  works identically on self-host Node (see oma#168). Omit or leave
+   *  empty for no behavior change — never treated as a match against an
+   *  empty x-api-key header. */
+  bootstrapApiKey?: string;
 }
 
 const DEFAULT_BYPASS = (path: string) =>
@@ -104,6 +112,13 @@ export function createAuthMiddleware(deps: AuthMiddlewareDeps) {
     // 1. API key
     const apiKey = c.req.header("x-api-key");
     if (apiKey) {
+      // Static bootstrap key (e.g. API_KEY env var) — checked before the DB
+      // lookup so a fresh install with no api_keys rows yet can still call
+      // the REST API. See bootstrapApiKey doc comment above.
+      if (deps.bootstrapApiKey && apiKey === deps.bootstrapApiKey) {
+        c.set("tenant_id", "default");
+        return next();
+      }
       const r = await deps.resolveApiKey(apiKey);
       if (!r) return c.json({ error: "Invalid API key" }, 401);
       c.set("tenant_id", r.tenantId);

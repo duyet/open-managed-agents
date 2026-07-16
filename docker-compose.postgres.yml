@@ -45,6 +45,8 @@ services:
       OMA_VAULT_CA_CERT: /app/data/oma-vault-ca/ca.crt
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
       AUTH_DISABLED: ${AUTH_DISABLED:-}
+      # Optional bootstrap key for the REST API — see docker-compose.yml.
+      API_KEY: ${API_KEY:-}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
     volumes:
       - ./data:/app/data

@@ -43,13 +43,16 @@ git clone https://github.com/duyet/oma.git
 cd oma
 cp .env.example .env
 
-# 首次启动前必须设置两个密钥（都在本地生成）：
+# 首次启动前必须设置两个密钥（服务器没有它们会拒绝启动，都在本地生成）：
 #   BETTER_AUTH_SECRET   — 用于签发 Console 会话
 #   PLATFORM_ROOT_SECRET — 用于加密静态存储的凭证、Model Card API key、集成 token
 #                          （丢失后所有加密行将无法解密 —— 务必备份）
+# 第三个 API_KEY 是可选的，但下面的冒烟测试需要它（否则每个 curl 都会 401 ——
+# 全新安装还没有 Console 会话 cookie）：
 $EDITOR .env
 # BETTER_AUTH_SECRET=$(openssl rand -hex 32)
 # PLATFORM_ROOT_SECRET=$(openssl rand -base64 32)
+# API_KEY=$(openssl rand -hex 24)
 #
 # 可选：ANTHROPIC_API_KEY 让第一个 agent 在还没添加 Model Card 时也能跑起来。
 # 生产环境请改为在 Console 里按 tenant 添加 Model Card。
@@ -66,18 +69,25 @@ curl localhost:8787/health
 open http://localhost:8787   # Console UI 跑在同一个端口
 ```
 
-端到端冒烟测试：
+端到端冒烟测试（使用你在上面 `.env` 中设置的 `API_KEY`）：
 
 ```bash
-AID=$(curl -s -X POST localhost:8787/v1/agents -H 'content-type: application/json' \
+KEY=$(grep '^API_KEY=' .env | cut -d= -f2)
+
+AID=$(curl -s -X POST localhost:8787/v1/agents -H "x-api-key: $KEY" -H 'content-type: application/json' \
   -d '{"name":"hello","model":"claude-sonnet-4-6","tools":[{"type":"agent_toolset_20260401"}]}' | jq -r .id)
 
-SID=$(curl -s -X POST localhost:8787/v1/sessions -H 'content-type: application/json' \
+SID=$(curl -s -X POST localhost:8787/v1/sessions -H "x-api-key: $KEY" -H 'content-type: application/json' \
   -d "{\"agent\":\"$AID\"}" | jq -r .id)
 
-curl -s -X POST localhost:8787/v1/sessions/$SID/events -H 'content-type: application/json' \
+curl -s -X POST localhost:8787/v1/sessions/$SID/events -H "x-api-key: $KEY" -H 'content-type: application/json' \
   -d '{"events":[{"type":"user.message","content":[{"type":"text","text":"Run: uname -a"}]}]}'
 ```
+
+没设置 `API_KEY`、只想在单用户本地试用时彻底跳过认证？`echo "AUTH_DISABLED=1" >> .env`，
+重启，然后把上面每个 curl 里的 `-H "x-api-key: ..."` 去掉即可 —— 所有请求都会变成
+`tenant_id="default"`。完整的认证模式（邮箱密码注册、OTP、Google OAuth）：
+**[docs.oma.duyet.net/self-host/node-docker#login](https://docs.oma.duyet.net/self-host/node-docker/#login)**。
 
 完整的自部署指南（沙箱模式、Postgres、BoxRun、vault sidecar、Console UI、运维注意事项）：**[docs.oma.duyet.net/self-host/overview](https://docs.oma.duyet.net/self-host/overview/)**
 
@@ -94,43 +104,53 @@ pnpm install
 
 # 本地开发（不需要 CF 账户）—— wrangler dev + 模拟器
 cp .dev.vars.example .dev.vars && $EDITOR .dev.vars
-# 同上：PLATFORM_ROOT_SECRET 是启动所必需的
+# PLATFORM_ROOT_SECRET 是启动所必需的；API_KEY 已预填一个仅供本地开发的占位值
+# （dev-test-key-change-me），下面的冒烟测试可以直接用 —— 一旦不再局限于
+# localhost 就务必修改它。
 pnpm dev
 # API     → http://localhost:8787
 # Console → http://localhost:5173
 
-# 部署
+# 部署 —— 一个向导脚本搞定：创建 D1 数据库、KV 命名空间、R2 存储桶；
+# 把生成的 id 写入 apps/main + apps/agent + apps/integrations 的
+# wrangler.jsonc；生成并设置 PLATFORM_ROOT_SECRET、
+# INTEGRATIONS_INTERNAL_SECRET、BETTER_AUTH_SECRET、API_KEY 这几个 Worker
+# secrets；执行 D1 migrations；按依赖顺序（integrations → agent → main）
+# 部署三个 worker。
 npx wrangler login
-npx wrangler kv namespace create CONFIG_KV   # 把 id 粘贴进 wrangler.jsonc
+./scripts/setup-cf.sh
+# → 打印每个 worker 的 URL；主 worker 同时提供 API 和内置的 Console UI。
+#   可以随时重新运行 —— 是幂等的（复用已有资源，跳过已设置的密钥）。
+#   参数：--no-deploy（只创建资源不部署）、--skip-secrets（密钥已设置过）、
+#   --reset-secrets（全部重新生成）。
 
-# 必填密钥（提示时逐个粘贴）
-npx wrangler secret put BETTER_AUTH_SECRET    # openssl rand -hex 32
-npx wrangler secret put PLATFORM_ROOT_SECRET  # openssl rand -base64 32 —— 务必备份
-npx wrangler secret put API_KEY               # REST API 初始引导密钥
-
-# 可选 —— 仅当你想要一个 tenant 无关的默认 LLM（否则请在 Console 里添加 Model Card）
-# npx wrangler secret put ANTHROPIC_API_KEY
-
-npm run deploy
-# → https://oma.duyet.net（或个人部署：https://managed-agents.<your-subdomain>.workers.dev）
+# 可选 —— 仅当你想要一个 tenant 无关的默认 LLM（否则请在 Console 里添加
+# Model Card）：运行向导前 export ANTHROPIC_API_KEY，或在交互提示时输入。
 ```
 
 部署内容：
 
 | 组件 | 功能 |
 |---|---|
-| **主 Worker** | API 路由 —— 智能体、会话、环境、保险库、记忆、文件 |
-| **智能体 Worker** | SessionDO + harness + 每个环境的沙箱 |
-| **KV 命名空间** | 智能体、环境、凭证的配置存储 |
-| **R2 存储桶** | 容器重启之间持久化工作区文件 |
+| **主 Worker**（`oma-managed-agents`） | API 路由 —— 智能体、会话、环境、保险库、记忆、文件，外加内置 Console UI |
+| **智能体 Worker**（`oma-sandbox-default`） | SessionDO + harness + 每个环境的沙箱 |
+| **集成 Worker**（`oma-managed-agents-integrations`） | Linear / GitHub / Slack OAuth + webhook 网关 |
+| **D1**（`oma-auth`、`oma-integrations`） | 控制面 + 租户数据；集成 provider 相关表 |
+| **KV**（`CONFIG_KV`） | 智能体、环境、凭证的配置存储 |
+| **R2**（files、workspace、memory、backups） | 上传文件、沙箱工作区持久化、记忆存储字节内容、快照备份 |
 
 ### 创建你的第一个智能体
 
-上面的冒烟测试对任意部署都适用。完整的 Console 流程（Model Card、保险库、集成）见 **[docs.oma.duyet.net/quickstart](https://docs.oma.duyet.net/quickstart)**。API 等价的最小版本：
+本地开发（上面的 `pnpm dev`）可以直接用 `.dev.vars` 里的占位密钥访问 API。
+若是 Cloudflare 部署，打开 `setup-cf.sh` 打印出的主 worker URL 注册（第一个
+账号会成为该 tenant 的 owner），然后在 **Console → API Keys** 里生成一个
+密钥 —— `setup-cf.sh` 会直接在 worker 上生成自己的 `API_KEY` secret，这个值
+不会展示给你。不管走哪条路，等价于点击 Console 的最小 API 版本：
 
 ```bash
-BASE=http://localhost:8787   # 或者你的部署 URL
-KEY=dev-test-key             # 即你设置的 API_KEY
+BASE=http://localhost:8787          # 本地 pnpm dev —— 换成你的部署 URL
+KEY=dev-test-key-change-me          # .dev.vars.example 的默认值（仅限本地 ——
+                                     # 若是部署，用上面生成的密钥）
 
 AGENT=$(curl -s $BASE/v1/agents \
   -H "x-api-key: $KEY" -H "content-type: application/json" \
@@ -151,7 +171,7 @@ curl -N -X POST $BASE/v1/sessions/$SESSION/messages \
   -d '{"content":"写一个抓 HN 热门文章的 Python 脚本"}'
 ```
 
-长会话用 `GET /v1/sessions/$SESSION/events/stream` —— 连接时回放历史，永不主动关闭。
+长会话用 `GET /v1/sessions/$SESSION/events/stream` —— 连接时回放历史，永不主动关闭。完整的 Console 流程（Model Card、保险库、集成）见 **[docs.oma.duyet.net/quickstart](https://docs.oma.duyet.net/quickstart)**。
 
 ---
 
