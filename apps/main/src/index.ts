@@ -59,6 +59,7 @@ import sandboxProvidersRoutes from "./routes/sandbox-providers";
 import webhookRoutes from "./routes/webhooks";
 import consumerAuthRoutes from "./routes/consumer-auth";
 import consumerMeteringRoutes from "./routes/consumer-metering";
+import consumerAdminRoutes from "./routes/consumer-admin";
 import schedulesRoutes from "./routes/schedules";
 import mcpProxyRoutes, {
   resolveProxyTargetByTenant,
@@ -533,6 +534,9 @@ const publicationsRoutes = new Hono<{
   const app = buildPublicationRoutes({ services: () => cfRouteServicesFromCtx(ctx) });
   return invokePackage(c, app);
 });
+// Creator visibility into a publication's end-users (issue #73). Mounted
+// before the catch-all publicationsRoutes so GET /:id/users matches first.
+app.route("/v1/publications", consumerAdminRoutes);
 app.route("/v1/publications", publicationsRoutes);
 app.route("/v1/environments", environmentsRoutes);
 app.route("/v1/sessions", sessionsRoutes);

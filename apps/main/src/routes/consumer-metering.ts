@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { getLogger } from "@duyet/oma-observability";
+import { resolveConsumerSession } from "./consumer-auth";
 
 const log = getLogger("consumer-metering");
 
@@ -28,11 +29,7 @@ function requireConsumer() {
     }
 
     const sessionToken = auth.slice(7);
-    const db = c.env.MAIN_DB;
-    const session = await db
-      .prepare("SELECT * FROM consumer_sessions WHERE token = ? AND expires_at > ?")
-      .bind(sessionToken, new Date().toISOString())
-      .first<{ token: string; consumer_id: string; expires_at: string; created_at: string }>();
+    const session = await resolveConsumerSession(c.env.MAIN_DB, sessionToken);
 
     if (!session) {
       return c.json({ error: "Invalid or expired session" }, 401);
@@ -43,7 +40,7 @@ function requireConsumer() {
   };
 }
 
-wrapper.get("/v1/public/credits", requireConsumer(), async (c) => {
+wrapper.get("/credits", requireConsumer(), async (c) => {
   const consumerId = c.var.consumer_id;
   const agentId = c.req.query("agent_id");
   const db = c.env.MAIN_DB;
@@ -59,7 +56,7 @@ wrapper.get("/v1/public/credits", requireConsumer(), async (c) => {
   return c.json({ data: rows.results }, 200);
 });
 
-wrapper.post("/v1/public/credits/deduct", requireConsumer(), async (c) => {
+wrapper.post("/credits/deduct", requireConsumer(), async (c) => {
   const consumerId = c.var.consumer_id;
   const body = await c.req.json().catch(() => ({}));
   const { agent_id, amount = CREDIT_COST_PER_MESSAGE } = z
@@ -102,7 +99,7 @@ wrapper.post("/v1/public/credits/deduct", requireConsumer(), async (c) => {
   }, 200);
 });
 
-wrapper.post("/v1/public/credits/topup", requireConsumer(), async (c) => {
+wrapper.post("/credits/topup", requireConsumer(), async (c) => {
   const consumerId = c.var.consumer_id;
   const body = await c.req.json().catch(() => ({}));
   const { agent_id, amount } = z
@@ -136,7 +133,7 @@ wrapper.post("/v1/public/credits/topup", requireConsumer(), async (c) => {
   return c.json({ credits_added: amount }, 200);
 });
 
-wrapper.post("/v1/public/buy-credits", requireConsumer(), async (c) => {
+wrapper.post("/buy-credits", requireConsumer(), async (c) => {
   const consumerId = c.var.consumer_id;
   const body = await c.req.json().catch(() => ({}));
   const { agent_id, credits } = z
