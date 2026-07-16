@@ -83,6 +83,8 @@ export default defineConfig({
       { find: "@duyet/oma-scheduler/jobs/memory-retention", replacement: "./packages/scheduler/src/jobs/memory-retention.ts" },
       { find: "@duyet/oma-scheduler/jobs/webhook-events-retention", replacement: "./packages/scheduler/src/jobs/webhook-events-retention.ts" },
       { find: "@duyet/oma-scheduler/jobs/linear-dispatch", replacement: "./packages/scheduler/src/jobs/linear-dispatch.ts" },
+      { find: "@duyet/oma-scheduler/jobs/scheduled-agent-runs-store", replacement: "./packages/scheduler/src/jobs/scheduled-agent-runs-store.ts" },
+      { find: "@duyet/oma-scheduler/jobs/scheduled-agent-runs", replacement: "./packages/scheduler/src/jobs/scheduled-agent-runs.ts" },
       { find: "@duyet/oma-scheduler", replacement: "./packages/scheduler/src/index.ts" },
 
       // ─── queue ────────────────────────────────────────────────────────

@@ -9,13 +9,16 @@
     "./node": "./src/adapters/node.ts",
     "./jobs/memory-retention": "./src/jobs/memory-retention.ts",
     "./jobs/webhook-events-retention": "./src/jobs/webhook-events-retention.ts",
-    "./jobs/linear-dispatch": "./src/jobs/linear-dispatch.ts"
+    "./jobs/linear-dispatch": "./src/jobs/linear-dispatch.ts",
+    "./jobs/scheduled-agent-runs": "./src/jobs/scheduled-agent-runs.ts",
+    "./jobs/scheduled-agent-runs-store": "./src/jobs/scheduled-agent-runs-store.ts"
   },
   "dependencies": {
     "@duyet/oma-shared": "workspace:*",
     "@duyet/oma-sql-client": "workspace:*",
     "@duyet/oma-memory-store": "workspace:*",
     "@duyet/oma-observability": "workspace:*",
+    "croner": "^9.0.0",
     "nanoid": "^5.1.0",
     "@duyet/oma-services": "workspace:*"
   },
