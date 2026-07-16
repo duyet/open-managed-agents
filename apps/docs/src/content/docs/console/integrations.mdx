@@ -76,7 +76,7 @@ You need your own GitHub App first. See [Self-host → OAuth Apps → GitHub](/s
 
 Two trigger paths, in priority order:
 
-**Label-based engagement (primary).** On install, OMA auto-creates a label
+**Label-based engagement (primary).** On install, oma auto-creates a label
 named after your bot's persona (lowercased + slugified — e.g. persona "Coder"
 → label `coder`) in every selected repo. To engage the bot on any issue or PR,
 **add this label**. Once labeled, the bot wakes for every whitelisted activity
@@ -98,7 +98,7 @@ on that issue/PR — no need to re-mention for follow-ups:
 | `pull_request_review.submitted` | yes |
 | `pull_request_review_comment.created` (incl. inline replies) | yes |
 
-If you delete the label from a repo, OMA will not recreate it; the bot will
+If you delete the label from a repo, oma will not recreate it; the bot will
 stop responding in that repo until the label is re-added.
 
 **`@`-mention fallback.** Type `@<bot-slug>[bot]` (or `@<bot-slug>`) anywhere

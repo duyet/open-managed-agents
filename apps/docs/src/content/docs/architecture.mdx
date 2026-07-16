@@ -172,7 +172,7 @@ The event log is the source of truth. Every model message, tool call, tool resul
 
 The agent loop itself. The **DefaultHarness** (built on the Vercel AI SDK's `generateText`) works out of the box:
 
-```typescript
+```ts
 // Simplified — the harness:
 1. Reads events from the log
 2. Builds messages array for the model

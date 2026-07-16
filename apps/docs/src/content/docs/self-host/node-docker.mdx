@@ -110,7 +110,7 @@ email + password — sign-up creates a session immediately, no OTP screen.
 ## Sandbox modes
 
 The agent's `bash` / `read` / `write` / etc. tools execute in a sandbox.
-OMA now supports **multiple sandbox providers simultaneously** — not one
+oma now supports **multiple sandbox providers simultaneously** — not one
 global `SANDBOX_PROVIDER`. Providers can be seeded from env vars at startup
 (system providers) or added via the API at runtime (BYOK — bring your own key).
 
@@ -123,7 +123,7 @@ provider available:
 |---|---|---|
 | `subprocess` (default) | Local dev, trusted agent code | None — host child_process under `./data/sandboxes/<sid>/`. Zero isolation; the agent has the host's filesystem. |
 | `litebox` | Local hardware isolation, no daemon | Host needs `/dev/kvm` (Linux) or Apple Silicon (macOS). Per-VM Firecracker-equivalent via libkrun. |
-| `boxrun` | Multi-host with KVM, OMA pods on managed k8s | `BOXRUN_URL=http://host:8100/v1/default` (+ optional `BOXRUN_TOKEN`). Run `boxlite serve` on a separate KVM host; OMA pods reach it over HTTP. |
+| `boxrun` | Multi-host with KVM, oma pods on managed k8s | `BOXRUN_URL=http://host:8100/v1/default` (+ optional `BOXRUN_TOKEN`). Run `boxlite serve` on a separate KVM host; oma pods reach it over HTTP. |
 | `daytona` | Production / untrusted code | `DAYTONA_API_KEY=...` (+ optional `DAYTONA_API_URL`). Daytona-managed Linux VMs, one per session. |
 | `e2b` | E2B SaaS / E2B Infra self-host / Aliyun Agent Sandbox (e2b-compatible) | `E2B_API_KEY=...` (+ optional `E2B_API_URL` for non-default endpoint). Firecracker microVMs. |
 
