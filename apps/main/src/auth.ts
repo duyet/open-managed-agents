@@ -35,6 +35,11 @@ export const authMiddleware = createMiddleware<{
   if (c.req.path.startsWith("/v1/public/")) {
     return next();
   }
+  // Stripe webhook (issue #74): authenticated by the Stripe signature, not an
+  // x-api-key. Verified inside routes/payments.ts against STRIPE_WEBHOOK_SECRET.
+  if (c.req.path.startsWith("/webhooks/")) {
+    return next();
+  }
   // Device Authorization Grant (RFC 8628) — /code (issue) + /token (poll)
   // are unauthenticated; /approve keeps the cookie-session guard below.
   if (
