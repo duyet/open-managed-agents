@@ -131,6 +131,35 @@ export interface PodMetrics {
   }>;
 }
 
+export interface SandboxDetail extends SandboxPodInfo {
+  metrics: PodMetrics | null;
+}
+
+interface RawPod {
+  metadata?: {
+    name?: string;
+    namespace?: string;
+    labels?: Record<string, string>;
+    creationTimestamp?: string;
+  };
+  spec?: {
+    nodeName?: string;
+    containers?: Array<{
+      name?: string;
+      resources?: { requests?: { cpu?: string; memory?: string } };
+    }>;
+  };
+  status?: {
+    phase?: string;
+    containerStatuses?: Array<{
+      name?: string;
+      ready?: boolean;
+      restartCount?: number;
+      state?: Record<string, unknown>;
+    }>;
+  };
+}
+
 // ─── K8s API client types ───────────────────────────────────────────
 
 interface K8sClientModule {
@@ -439,72 +468,7 @@ export class K8sManager {
       const body = unwrapBody<{ items?: unknown[] }>(res);
       const pods = body?.items ?? [];
 
-      return pods.map((raw) => {
-        const pod = raw as {
-          metadata?: {
-            name?: string;
-            namespace?: string;
-            labels?: Record<string, string>;
-            creationTimestamp?: string;
-          };
-          spec?: {
-            nodeName?: string;
-            containers?: Array<{
-              name?: string;
-              resources?: { requests?: { cpu?: string; memory?: string } };
-            }>;
-          };
-          status?: {
-            phase?: string;
-            containerStatuses?: Array<{
-              name?: string;
-              ready?: boolean;
-              restartCount?: number;
-              state?: Record<string, unknown>;
-            }>;
-          };
-        };
-
-        const podName = pod.metadata?.name ?? "unknown";
-        // Box managed by this bridge has ID in label; fall back to discovering from name
-        const isManaged = pod.metadata?.labels?.["oma.dev/managed"] === "true" ||
-                          pod.metadata?.labels?.["app.kubernetes.io/managed-by"] === "oma-k8s-bridge" ||
-                          podName.startsWith("box-");
-        const boxId = isManaged ? this.findBoxIdByPodName(podName) : null;
-
-        const containerResources = pod.spec?.containers?.[0]?.resources?.requests;
-        const createdAt = pod.metadata?.creationTimestamp ?? new Date().toISOString();
-        const durationSeconds = createdAt
-          ? Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000)
-          : 0;
-
-        const containerStatuses = (pod.status?.containerStatuses ?? []).map((cs) => {
-          const stateKeys = cs.state ? Object.keys(cs.state) : ["unknown"];
-          return {
-            name: cs.name ?? "",
-            ready: cs.ready ?? false,
-            restartCount: cs.restartCount ?? 0,
-            state: stateKeys[0] ?? "unknown",
-          };
-        });
-
-        return {
-          id: podName,
-          boxId,
-          sessionId: isManaged ? pod.metadata?.labels?.["oma.dev/session-id"] ?? boxId : null,
-          namespace: pod.metadata?.namespace ?? this.namespace,
-          podName,
-          nodeName: pod.spec?.nodeName ?? "unknown",
-          status: pod.status?.phase as SandboxPodInfo["status"] ?? "Unknown",
-          phase: pod.status?.phase ?? "Unknown",
-          containerStatuses,
-          cpuRequest: containerResources?.cpu ?? "0",
-          memoryRequest: containerResources?.memory ?? "0",
-          createdAt: pod.metadata?.creationTimestamp ?? new Date().toISOString(),
-          durationSeconds,
-          labels: pod.metadata?.labels ?? {},
-        };
-      });
+      return pods.map((raw) => this.toSandboxPodInfo(raw as RawPod));
     } catch {
       return [];
     }
@@ -572,6 +536,70 @@ export class K8sManager {
     } catch {
       return [];
     }
+  }
+
+  /**
+   * Full-detail view of a single sandbox pod: pod status, container
+   * statuses, restart counts, plus its per-pod metrics (if metrics-server
+   * is available). Returns null if the pod doesn't exist.
+   */
+  async getSandboxDetail(id: string): Promise<SandboxDetail | null> {
+    try {
+      const coreApi = await this.getCoreApi();
+      const res = await coreApi.readNamespacedPod(id, this.namespace);
+      const body = unwrapBody<unknown>(res);
+      if (!body) return null;
+
+      const info = this.toSandboxPodInfo(body as RawPod);
+      const allMetrics = await this.getPodMetrics();
+      const metrics = allMetrics.find((m) => m.podName === info.podName) ?? null;
+
+      return { ...info, metrics };
+    } catch {
+      return null;
+    }
+  }
+
+  private toSandboxPodInfo(pod: RawPod): SandboxPodInfo {
+    const podName = pod.metadata?.name ?? "unknown";
+    // Box managed by this bridge has ID in label; fall back to discovering from name
+    const isManaged = pod.metadata?.labels?.["oma.dev/managed"] === "true" ||
+                      pod.metadata?.labels?.["app.kubernetes.io/managed-by"] === "oma-k8s-bridge" ||
+                      podName.startsWith("box-");
+    const boxId = isManaged ? this.findBoxIdByPodName(podName) : null;
+
+    const containerResources = pod.spec?.containers?.[0]?.resources?.requests;
+    const createdAt = pod.metadata?.creationTimestamp ?? new Date().toISOString();
+    const durationSeconds = createdAt
+      ? Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000)
+      : 0;
+
+    const containerStatuses = (pod.status?.containerStatuses ?? []).map((cs) => {
+      const stateKeys = cs.state ? Object.keys(cs.state) : ["unknown"];
+      return {
+        name: cs.name ?? "",
+        ready: cs.ready ?? false,
+        restartCount: cs.restartCount ?? 0,
+        state: stateKeys[0] ?? "unknown",
+      };
+    });
+
+    return {
+      id: podName,
+      boxId,
+      sessionId: isManaged ? pod.metadata?.labels?.["oma.dev/session-id"] ?? boxId : null,
+      namespace: pod.metadata?.namespace ?? this.namespace,
+      podName,
+      nodeName: pod.spec?.nodeName ?? "unknown",
+      status: pod.status?.phase as SandboxPodInfo["status"] ?? "Unknown",
+      phase: pod.status?.phase ?? "Unknown",
+      containerStatuses,
+      cpuRequest: containerResources?.cpu ?? "0",
+      memoryRequest: containerResources?.memory ?? "0",
+      createdAt: pod.metadata?.creationTimestamp ?? new Date().toISOString(),
+      durationSeconds,
+      labels: pod.metadata?.labels ?? {},
+    };
   }
 
   async getSandboxLogs(podName: string, tailLines?: number): Promise<string> {
