@@ -99,6 +99,69 @@ mirrors but isn't built FROM (that image is pinned to
 `cloudflare/sandbox`'s HTTP exec surface, which the daytona/e2b/k8s
 adapters don't use).
 
+## Coding-agent-ready image (`sandbox-coding`)
+
+We control the Cloudflare/k8s sandbox image (unlike E2B/Daytona, which bring
+their **own** templates — see the note below), so we can pre-bake popular
+coding-agent CLIs into a variant instead of cold-installing them per session.
+
+`apps/agent/Dockerfile.coding` is `FROM ghcr.io/duyet/sandbox-base:latest` and
+adds, at pinned versions:
+
+| CLI | npm package | Auth env var(s) inside the sandbox |
+|---|---|---|
+| `claude` | `@anthropic-ai/claude-code` | `ANTHROPIC_API_KEY`, or `CLAUDE_CODE_OAUTH_TOKEN` (minted via `claude setup-token`) |
+| `opencode` | `opencode-ai` | provider key in env — e.g. `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` — per opencode's model config |
+| `git`, `gh` | (already in `sandbox-base`) | `gh`: a GitHub token (or a `cap_cli` vault credential injected by the outbound proxy) |
+
+Auth reaches the CLI as an ordinary process env var inside the sandbox. Prefer
+vault credentials (outbound-proxy injection) over baking secrets into the image
+or environment config — the sandbox never needs the raw key on disk.
+
+The same GHCR pipeline (`.github/workflows/build-sandbox-image.yml`) builds and
+pushes it as `ghcr.io/duyet/sandbox-coding:latest` (plus `:<claude-code-version>`
+and `:sha-*` tags), in a `coding` job that `needs` the `base` job so it always
+layers on the freshly-built base.
+
+### Selecting it
+
+Image selection is deployment-wide via the `SANDBOX_IMAGE` env var, which every
+remote adapter reads (`boxrun`, `k8s-remote`, `k8s-bridge`, `daytona`, `e2b`,
+`k8s`, `subprocess`, `docker-compose`). Point it at the coding image:
+
+```bash
+# Cloudflare (remote providers)
+wrangler secret put SANDBOX_IMAGE   # → ghcr.io/duyet/sandbox-coding:latest
+
+# self-host Node / docker-compose (.env)
+SANDBOX_IMAGE=ghcr.io/duyet/sandbox-coding:latest
+```
+
+The plain Cloudflare Containers path (`cloud` provider) is **fixed** to
+`sandbox-base` — it doesn't read `SANDBOX_IMAGE` (it uses the container image
+declared in `wrangler.toml`), so to run coding CLIs on Cloudflare you route the
+environment through a remote provider (`boxrun` / `k8s-remote` / `k8s-bridge`)
+pointed at `sandbox-coding`.
+
+**Gap (per-environment image):** today `SANDBOX_IMAGE` is a single
+deployment-wide value — `environment.config.image` is **not** plumbed into the
+adapters (`createRemoteSandbox` in `apps/agent/src/runtime/sandbox.ts` and each
+adapter's `sandboxFactory` read `env.SANDBOX_IMAGE`, not the environment
+record). So you can't yet pick `sandbox-coding` for one environment and
+`sandbox-base` for another within the same deployment. Per-environment image
+override is a small follow-up (thread `config.image` into the adapter `opts`),
+intentionally out of scope here.
+
+### E2B / Daytona: bring-your-own-template
+
+E2B and Daytona don't run our image — they provision from their own
+platform-side template/snapshot (E2B template id, Daytona image). To get the
+coding CLIs there, bake them into **your** E2B/Daytona template (mirroring
+`Dockerfile.coding`'s `npm install -g`) and set `SANDBOX_IMAGE` to that
+template id. `sandbox-coding` is only directly usable on the providers we
+control (Cloudflare Containers via a remote provider, k8s, boxrun, subprocess,
+docker-compose).
+
 ## Choosing a sandbox provider per environment
 
 An environment's `config.sandbox_provider` selects which adapter creates
