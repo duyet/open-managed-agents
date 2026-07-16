@@ -58,8 +58,9 @@ import usageRoutes from "./routes/usage";
 import providersRoutes from "./routes/providers";
 import sandboxProvidersRoutes from "./routes/sandbox-providers";
 import webhookRoutes from "./routes/webhooks";
-import consumerAuthRoutes from "./routes/consumer-auth";
+import consumerAuthRoutes, { resolveConsumerSession } from "./routes/consumer-auth";
 import consumerMeteringRoutes from "./routes/consumer-metering";
+import consumerAdminRoutes from "./routes/consumer-admin";
 import paymentsWebhookRoutes, {
   buildConsumerPaymentsRoutes,
   enforcePaywall as enforcePaywallImpl,
@@ -546,6 +547,9 @@ const publicationsRoutes = new Hono<{
   const app = buildPublicationRoutes({ services: () => cfRouteServicesFromCtx(ctx) });
   return invokePackage(c, app);
 });
+// Creator visibility into a publication's end-users (issue #73). Mounted
+// before the catch-all publicationsRoutes so GET /:id/users matches first.
+app.route("/v1/publications", consumerAdminRoutes);
 // Creator revenue view (issue #74) — aggregates consumer spend for a
 // publication. Registered before the catch-all /v1/publications mount so it
 // takes precedence. Tenant-scoped via the auth-resolved tenant_id.
@@ -792,6 +796,23 @@ app.use("/p/*", rateLimitMiddleware);
         endUserId: opts.endUserId,
         sessionId: opts.sessionId,
       });
+    }) as never,
+    // Stable wallet identity (issue #73): map a consumer bearer token to
+    // `eu:<consumer_id>` so the paywall wallet survives token refresh and the
+    // guest -> email upgrade. Falls back to the built-in tok:/ip: scheme.
+    resolveEndUserId: (async (req: Request, env: Env) => {
+      const auth = req.headers.get("authorization");
+      const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
+      if (token && env.MAIN_DB) {
+        const session = await resolveConsumerSession(env.MAIN_DB, token);
+        if (session) return `eu:${session.consumer_id}`;
+      }
+      if (token) return `tok:${token}`;
+      const ip =
+        req.headers.get("cf-connecting-ip") ||
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        "anonymous";
+      return `ip:${ip}`;
     }) as never,
   });
   app.route("/p", pubRoutes);
