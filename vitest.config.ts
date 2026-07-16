@@ -158,6 +158,7 @@ export default defineConfig({
       { find: "@duyet/oma-kv-store", replacement: "./packages/kv-store/src/index.ts" },
       { find: "@duyet/oma-quotas", replacement: "./packages/quotas/src/index.ts" },
       { find: "@duyet/oma-rate-limit", replacement: "./packages/rate-limit/src/index.ts" },
+      { find: "@duyet/oma-payments", replacement: "./packages/payments/src/index.ts" },
       { find: "@duyet/oma-vault-forward", replacement: "./packages/vault-forward/src/index.ts" },
       { find: "@duyet/oma-schema", replacement: "./packages/schema/src/index.ts" },
       { find: "@duyet/oma-http-routes", replacement: "./packages/http-routes/src/index.ts" },

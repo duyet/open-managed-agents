@@ -532,6 +532,9 @@ importers:
       '@duyet/oma-outbound-snapshots-store':
         specifier: workspace:*
         version: link:../../packages/outbound-snapshots-store
+      '@duyet/oma-payments':
+        specifier: workspace:*
+        version: link:../../packages/payments
       '@duyet/oma-publications-store':
         specifier: workspace:*
         version: link:../../packages/publications-store
@@ -1413,6 +1416,8 @@ importers:
       '@duyet/oma-shared':
         specifier: workspace:*
         version: link:../shared
+
+  packages/payments: {}
 
   packages/publications-store:
     dependencies:
