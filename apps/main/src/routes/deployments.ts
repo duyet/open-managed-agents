@@ -297,6 +297,12 @@ app.get("/", async (c) => {
 
   let where = "tenant_id = ?";
   const binds: unknown[] = [tenantId];
+  // Optional per-agent scoping — powers the agent hub's Deployments tab.
+  const agentId = c.req.query("agent_id");
+  if (agentId) {
+    where += " AND agent_id = ?";
+    binds.push(agentId);
+  }
   if (after) {
     where += " AND (created_at < ? OR (created_at = ? AND id < ?))";
     const afterIso = new Date(after.createdAt).toISOString();

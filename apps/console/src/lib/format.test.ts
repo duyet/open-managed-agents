@@ -1,11 +1,30 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatCompact,
   formatDuration,
   formatRelative,
   formatSandboxTime,
   pickTickStep,
   shortenId,
 } from "./format";
+
+describe("formatCompact", () => {
+  it("renders values under 1000 verbatim", () => {
+    expect(formatCompact(0)).toBe("0");
+    expect(formatCompact(999)).toBe("999");
+  });
+  it("suffixes thousands with K, dropping a trailing .0", () => {
+    expect(formatCompact(7500)).toBe("7.5K");
+    expect(formatCompact(105000)).toBe("105K");
+  });
+  it("suffixes millions with M", () => {
+    expect(formatCompact(1_200_000)).toBe("1.2M");
+  });
+  it("renders null/undefined as an em-dash", () => {
+    expect(formatCompact(null)).toBe("—");
+    expect(formatCompact(undefined)).toBe("—");
+  });
+});
 
 describe("formatDuration", () => {
   it("returns em-dash for non-finite or negative input", () => {
