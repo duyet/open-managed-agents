@@ -348,6 +348,26 @@ export class SessionService {
   }
 
   /**
+   * Add a per-turn token delta to a session's cumulative counters. Called
+   * from SessionDO's reportUsage hook (the same site that records
+   * `usage_events`), so the session row's `input_tokens`/`output_tokens`
+   * stay consistent with the durable usage ledger without a second
+   * token-recording path. Fire-and-forget; a missing session is a no-op.
+   */
+  async addTokenUsage(opts: {
+    tenantId: string;
+    sessionId: string;
+    inputTokens: number;
+    outputTokens: number;
+  }): Promise<void> {
+    await this.repo.addTokenUsage(opts.tenantId, opts.sessionId, {
+      inputTokens: opts.inputTokens,
+      outputTokens: opts.outputTokens,
+      updatedAt: this.clock.nowMs(),
+    });
+  }
+
+  /**
    * Aggregated session analytics for the Observability tab. Scoped to a
    * tenant, optionally to one agent, over a rolling time range. Fetches the
    * projected session rows in range and computes every aggregate in JS (see

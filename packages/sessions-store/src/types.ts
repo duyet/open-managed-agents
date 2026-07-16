@@ -55,10 +55,10 @@ export interface SessionRow {
   stop_reason: string | null;
   tool_call_count: number;
   message_count: number;
-  /** Cumulative model token usage for the whole session — summed from
-   *  span.model_request_end events by RuntimeAdapterImpl.endTurn/terminate on
-   *  every idle/destroyed/terminated transition (same path as the counters
-   *  above). 0 before the session's first turn completes. Backs the
+  /** Cumulative model token usage for the whole session — incremented
+   *  per-turn from SessionDO's reportUsage hook (addTokenUsage), the same
+   *  site that records the durable `usage_events` rows, so the two stay
+   *  consistent. 0 before the session's first turn reports usage. Backs the
    *  Observability analytics endpoints and the sessions list "tokens in/out"
    *  column. */
   input_tokens: number;

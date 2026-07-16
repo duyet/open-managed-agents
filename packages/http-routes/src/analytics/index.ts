@@ -7,6 +7,17 @@
 // rolling range (`range` query param: 7d | 30d | 90d, default 30d), computed
 // in JS from the control-plane sessions table (see SessionService.analytics).
 //
+// Relationship to GET /v1/agents/:id/stats (apps/main/src/routes/agent-stats.ts):
+// that endpoint returns ALL-TIME per-agent totals + rough cost estimates from
+// `usage_events`. This layer is complementary and range-scoped: activity
+// time-series, error rate, per-session token/turn percentiles, and stop-reason
+// breakdown. The per-session token numbers live on the sessions row, fed by
+// the SAME reportUsage hook that writes `usage_events` (see
+// SessionRepo.addTokenUsage), so the two surfaces stay consistent — reading
+// the sessions table keeps analytics a single indexed range scan (percentiles
+// + daily buckets + stop reasons in one pass) instead of a per-session
+// usage_events GROUP BY joined back to sessions.
+//
 // Error-rate definition + tool_usage/stop_reasons availability are documented
 // on the SessionAnalytics type (@duyet/oma-sessions-store). In short: the
 // control plane persists a per-session `stop_reason` and cumulative token /

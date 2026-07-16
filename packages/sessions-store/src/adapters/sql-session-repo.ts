@@ -203,6 +203,26 @@ export class SqlSessionRepo implements SessionRepo {
     }));
   }
 
+  async addTokenUsage(
+    tenantId: string,
+    sessionId: string,
+    delta: { inputTokens: number; outputTokens: number; updatedAt: number },
+  ): Promise<void> {
+    const input = delta.inputTokens > 0 ? Math.floor(delta.inputTokens) : 0;
+    const output = delta.outputTokens > 0 ? Math.floor(delta.outputTokens) : 0;
+    if (input === 0 && output === 0) return;
+    await runOnce(
+      this.db
+        .update(sessions)
+        .set({
+          input_tokens: sql`${sessions.input_tokens} + ${input}`,
+          output_tokens: sql`${sessions.output_tokens} + ${output}`,
+          updated_at: delta.updatedAt,
+        })
+        .where(and(eq(sessions.id, sessionId), eq(sessions.tenant_id, tenantId))),
+    );
+  }
+
   async hasActiveByAgent(tenantId: string, agentId: string): Promise<boolean> {
     const row = await getOne<{ one: number }>(
       this.db
