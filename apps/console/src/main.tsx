@@ -25,6 +25,10 @@ import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { AgentsList } from "./pages/AgentsList";
 import { AgentDetail } from "./pages/AgentDetail";
+import { AgentOverviewTab } from "./pages/agents/AgentOverviewTab";
+import { AgentSessionsTab } from "./pages/agents/AgentSessionsTab";
+import { AgentDeploymentsTab } from "./pages/agents/AgentDeploymentsTab";
+import { AgentObservabilityTab } from "./pages/agents/AgentObservabilityTab";
 import { SessionsList } from "./pages/SessionsList";
 import { KanbanBoard } from "./pages/KanbanBoard";
 import { FilesList } from "./pages/FilesList";
@@ -153,6 +157,24 @@ const protectedRoutes: RouteObject[] = [
         path: ":id",
         element: <AgentDetail />,
         handle: { crumb: (m: UIMatch) => (m.params.id as string | undefined) ?? "Agent" },
+        children: [
+          { index: true, element: <AgentOverviewTab /> },
+          {
+            path: "sessions",
+            element: <AgentSessionsTab />,
+            handle: { crumb: "Sessions" },
+          },
+          {
+            path: "deployments",
+            element: <AgentDeploymentsTab />,
+            handle: { crumb: "Deployments" },
+          },
+          {
+            path: "observability",
+            element: <AgentObservabilityTab />,
+            handle: { crumb: "Observability" },
+          },
+        ],
       },
     ],
   },
