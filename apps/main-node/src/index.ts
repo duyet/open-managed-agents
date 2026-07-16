@@ -70,6 +70,7 @@ import {
   SandboxProviderRegistry,
   InMemoryQuotaStore,
   SYSTEM_PROVIDERS,
+  resolveDefaultLocalSandboxProvider,
   type SandboxProviderConfig,
   type SandboxUsageRecord,
 } from "@duyet/oma-sandbox";
@@ -604,13 +605,43 @@ async function resolveEnvProvider(sessionId: string): Promise<string | null> {
   }
 }
 
+// Auto-detect a reachable OpenShell gateway for the *implicit* default
+// sandbox provider — i.e. only when neither the session's environment nor
+// SANDBOX_PROVIDER pin a provider explicitly. Historically that implicit
+// default was hardcoded to "subprocess"; now it prefers OpenShell when
+// OPENSHELL_GATEWAY_ENDPOINT is configured and currently reachable.
+// Overridable via OPENSHELL_MODE=auto|openshell|subprocess (see
+// resolveDefaultLocalSandboxProvider). The reachability probe is real
+// network I/O, so the decision is computed once (lazily, on first use)
+// and cached for the process lifetime rather than re-probed per session.
+let defaultLocalSandboxProviderPromise: Promise<string> | null = null;
+function getDefaultLocalSandboxProvider(): Promise<string> {
+  if (!defaultLocalSandboxProviderPromise) {
+    defaultLocalSandboxProviderPromise = (async () => {
+      const { probeOpenShellGateway, resolveOpenShellTlsFromEnv } = await import(
+        "@duyet/oma-sandbox/adapters/openshell"
+      );
+      const tls = resolveOpenShellTlsFromEnv(process.env);
+      const decision = await resolveDefaultLocalSandboxProvider(process.env, (endpoint) =>
+        probeOpenShellGateway(endpoint, tls),
+      );
+      logger.info(
+        { op: "main-node.sandbox.default_provider", provider_id: decision.providerId, reason: decision.reason },
+        `default sandbox provider: ${decision.providerId} (${decision.reason})`,
+      );
+      return decision.providerId;
+    })();
+  }
+  return defaultLocalSandboxProviderPromise;
+}
+
 async function buildSandbox(
   sessionId: string,
   workdir: string,
 ): Promise<import("@duyet/oma-sandbox").SandboxExecutor> {
   const envProvider = await resolveEnvProvider(sessionId);
   const providerId = (
-    envProvider ?? process.env.SANDBOX_PROVIDER ?? "subprocess"
+    envProvider ?? process.env.SANDBOX_PROVIDER ?? (await getDefaultLocalSandboxProvider())
   ).toLowerCase();
 
   const sandbox = await sandboxRegistry.createExecutor(

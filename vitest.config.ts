@@ -207,6 +207,11 @@ export default defineConfig({
       "packages/cap/test/**",
       "packages/integrations-adapters-node/**",
       "packages/session-runtime/test/**",
+      // @grpc/grpc-js can't load under the Cloudflare workers pool (unlike
+      // @kubernetes/client-node, which the pool tolerates) — this test only
+      // runs via the sandbox package's own node-pool vitest.config.ts
+      // (pnpm --filter @duyet/oma-sandbox test).
+      "packages/sandbox/test/openshell-probe.test.ts",
     ],
     pool: cloudflarePool(cfWorkerOptions),
   },

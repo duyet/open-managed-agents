@@ -28,6 +28,8 @@ export type {
   ResolvedSandboxProvider,
   SystemProviderDescriptor,
   CfSandboxResolution,
+  LocalSandboxMode,
+  DefaultProviderSelection,
 } from "./provider-config";
 
 export {
@@ -35,6 +37,8 @@ export {
   providerConfigToEnv,
   checkProviderRequirements,
   classifyCfSandboxProvider,
+  parseOpenShellMode,
+  resolveDefaultLocalSandboxProvider,
   SYSTEM_PROVIDERS,
 } from "./provider-config";
 
