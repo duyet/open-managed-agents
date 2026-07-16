@@ -120,6 +120,44 @@ const lifecycle = [
   },
 ];
 
+// Hero template gallery — real agent templates, shown as a quiet list.
+// Chips name the integrations each template wires up (via MCP / vault
+// credentials); "recurring" marks templates that run on an agent schedule.
+const heroTemplates: { name: string; desc: string; chips: string[]; recurring?: boolean }[] = [
+  {
+    name: "Support agent",
+    desc: "Answers customer questions from your docs and knowledge base, escalates when needed.",
+    chips: ["notion", "slack"],
+  },
+  {
+    name: "Incident commander",
+    desc: "Triages a Sentry alert, opens a Linear incident ticket, and runs the Slack war room.",
+    chips: ["sentry", "linear", "slack", "github"],
+  },
+  {
+    name: "Topic brief writer",
+    desc: "Follows a topic and writes a weekly what-changed brief.",
+    chips: ["notion"],
+    recurring: true,
+  },
+  {
+    name: "Sprint retro facilitator",
+    desc: "Pulls a closed sprint from Linear, synthesizes themes, and writes the retro doc before the meeting.",
+    chips: ["linear", "slack", "docx"],
+    recurring: true,
+  },
+  {
+    name: "Support-to-eng escalator",
+    desc: "Reads an Intercom conversation, reproduces the bug, and files a linked Jira issue with repro steps.",
+    chips: ["intercom", "atlassian", "slack"],
+  },
+  {
+    name: "Data analyst",
+    desc: "Loads, explores, and visualizes data; builds reports and answers questions from datasets.",
+    chips: ["python"],
+  },
+];
+
 // Sandbox-provider marks for the fleet band. Rendered monochrome via
 // currentColor so they sit quietly in the zinc palette and pick up the iris
 // brand on hover.
@@ -242,51 +280,46 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
           </ul>
         </div>
 
-        <!-- Right: what people actually build with it — four concrete
-             use-case blocks, each linking into the workflows section.
-             Plain cards, no accents, no animation. -->
+        <!-- Hallmark · component: template-gallery · genre: modern-minimal · theme: site tokens (preserved)
+             Right: start from a template. Real agent templates as a quiet
+             hairline-separated list — name, one-line job, lowercase mono
+             integration chips. No cards-in-cards, no accents, no animation. -->
         <div class="hero-visual">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <a
-              href="#use-cases"
-              class="group rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-4 no-underline hover:no-underline hover:border-[var(--color-border-strong)] transition-colors"
-            >
-              <Icon name="terminal" size={18} class="text-[var(--color-brand)]" />
-              <h3 class="font-display text-[15px] font-semibold mt-2.5 mb-1 tracking-tight">Coding agent</h3>
-              <p class="text-[13px] text-[var(--color-fg-muted)] leading-relaxed m-0">
-                Reviews, fixes, and refactors on your repos — in a sandbox you control.
-              </p>
-            </a>
-            <a
-              href="#use-cases"
-              class="group rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-4 no-underline hover:no-underline hover:border-[var(--color-border-strong)] transition-colors"
-            >
-              <Icon name="globe" size={18} class="text-[var(--color-brand)]" />
-              <h3 class="font-display text-[15px] font-semibold mt-2.5 mb-1 tracking-tight">Public chatbot</h3>
-              <p class="text-[13px] text-[var(--color-fg-muted)] leading-relaxed m-0">
-                Publish any agent as a hosted chat page or a one-line website widget, with billing.
-              </p>
-            </a>
-            <a
-              href="#use-cases"
-              class="group rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-4 no-underline hover:no-underline hover:border-[var(--color-border-strong)] transition-colors"
-            >
-              <Icon name="message" size={18} class="text-[var(--color-brand)]" />
-              <h3 class="font-display text-[15px] font-semibold mt-2.5 mb-1 tracking-tight">Chat-ops</h3>
-              <p class="text-[13px] text-[var(--color-fg-muted)] leading-relaxed m-0">
-                Agents answering in Slack, Telegram, and GitHub threads — with vault-backed credentials.
-              </p>
-            </a>
-            <a
-              href="#use-cases"
-              class="group rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-4 no-underline hover:no-underline hover:border-[var(--color-border-strong)] transition-colors"
-            >
-              <Icon name="calendar" size={18} class="text-[var(--color-brand)]" />
-              <h3 class="font-display text-[15px] font-semibold mt-2.5 mb-1 tracking-tight">Scheduled runs</h3>
-              <p class="text-[13px] text-[var(--color-fg-muted)] leading-relaxed m-0">
-                Cron-fired sessions with no human turn — digests, polling, nightly maintenance.
-              </p>
-            </a>
+          <div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)]">
+            <p class="flex items-center justify-between gap-2 px-4 pt-3.5 pb-0 m-0 font-mono text-[11px] uppercase tracking-widest text-[var(--color-fg-subtle)]">
+              Start from a template
+            </p>
+            <ul class="list-none m-0 p-0 divide-y divide-[var(--color-border)]">
+              {heroTemplates.map((t) => (
+                <li class="m-0">
+                  <a
+                    href="https://github.com/duyet/oma/tree/main/examples"
+                    class="group block px-4 py-3 no-underline hover:no-underline hover:bg-[var(--color-bg-surface)] transition-colors"
+                  >
+                    <span class="flex items-baseline justify-between gap-3">
+                      <span class="font-display text-[14px] font-semibold tracking-tight text-[var(--color-fg)]">
+                        {t.name}
+                      </span>
+                      {t.recurring && (
+                        <span class="font-mono text-[10px] uppercase tracking-widest text-[var(--color-fg-subtle)] shrink-0">
+                          recurring
+                        </span>
+                      )}
+                    </span>
+                    <span class="mt-0.5 block text-[12.5px] leading-snug text-[var(--color-fg-muted)]">
+                      {t.desc}
+                    </span>
+                    <span class="mt-1.5 flex flex-wrap gap-1.5">
+                      {t.chips.map((c) => (
+                        <span class="font-mono text-[10.5px] lowercase rounded border border-[var(--color-border)] px-1.5 py-px text-[var(--color-fg-subtle)]">
+                          {c}
+                        </span>
+                      ))}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>
