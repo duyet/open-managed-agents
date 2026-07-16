@@ -7,6 +7,7 @@ import type { AgentConfig, ToolsetConfig, CustomToolConfig, SessionEvent } from 
 import type { ToMarkdownProvider } from "@duyet/oma-markdown";
 import type { SandboxExecutor, ProcessHandle } from "./interface";
 import { nanoid } from "nanoid";
+import { assertPublicUrl, SsrfBlockedError } from "./ssrf";
 // Browser tools depend on the runtime-agnostic BrowserHarness interface.
 // Concrete adapters (CF / Node / CDP / Disabled) live in the package and
 // dynamic-import their workerd / Node peers only at first launch().
@@ -244,6 +245,42 @@ function shellQuote(s: string): string {
   return `'${s.replace(/'/g, "'\\''")}'`;
 }
 
+/**
+ * web_fetch's harness-side fetch, following redirects manually (capped at 5
+ * hops) instead of `redirect: "follow"` — every hop's Location is
+ * re-validated by assertPublicUrl before being followed, so an initially
+ * allowed host can't 30x its way into a private/loopback/metadata address
+ * (see ./ssrf.ts and issue #161). `signal` is shared across every hop so
+ * the whole redirect chain stays within one timeout budget, not one per hop.
+ */
+async function fetchFollowingRedirects(
+  startUrl: string,
+  allowPrivate: boolean,
+  signal: AbortSignal,
+): Promise<Response> {
+  const MAX_REDIRECT_HOPS = 5;
+  let hopUrl = startUrl;
+  for (let hop = 0; ; hop++) {
+    const r = await fetch(hopUrl, {
+      headers: {
+        "User-Agent": "OMA-Agent/1.0 (+web_fetch)",
+        Accept: "text/html, application/xhtml+xml, application/xml;q=0.9, */*;q=0.8",
+      },
+      redirect: "manual",
+      signal,
+    });
+    const location = r.headers.get("location");
+    const isRedirect = r.status >= 300 && r.status < 400 && !!location;
+    if (!isRedirect) return r;
+    if (hop >= MAX_REDIRECT_HOPS) {
+      throw new SsrfBlockedError(`web_fetch: exceeded ${MAX_REDIRECT_HOPS} redirect hops fetching ${startUrl}`);
+    }
+    const nextUrl = new URL(location, hopUrl).toString();
+    assertPublicUrl(nextUrl, { allowPrivate });
+    hopUrl = nextUrl;
+  }
+}
+
 /** File extensions that Read returns as IMAGE content blocks (Claude/GPT-4o/Grok native). */
 const IMAGE_EXTENSIONS: Record<string, string> = {
   png: "image/png",
@@ -380,6 +417,11 @@ export async function buildTools(
     ANTHROPIC_API_KEY?: string;
     ANTHROPIC_BASE_URL?: string;
     TAVILY_API_KEY?: string;
+    /** Escape hatch for the web_fetch SSRF guard (see ./ssrf.ts). "1" or
+     *  "true" bypasses the private/loopback/link-local/localhost range
+     *  checks — NOT the http(s)-only scheme check — for operators who
+     *  intentionally need web_fetch to reach internal services. */
+    WEB_FETCH_ALLOW_PRIVATE?: string;
     /** Markdown converter for web_fetch (HTML/PDF/DOCX → markdown). On
      *  Cloudflare it wraps env.AI.toMarkdown(); on Node it's
      *  turndown/pdf-parse/mammoth. Optional — when absent the tool falls
@@ -790,7 +832,19 @@ export async function buildTools(
           .describe("Truncate returned markdown to this many chars (default 50000)"),
       }),
       execute: safe(async ({ url, max_length }) => {
-        // Networking restriction enforcement (limited mode)
+        // SSRF guard — runs for ALL networking modes, not just "limited"
+        // below (see ./ssrf.ts for the full blocked-range list + the
+        // DNS-rebinding limitation). Must run before any fetch is
+        // attempted, whether the harness-side fetch in Step 1 or the
+        // sandbox curl fallback, so a blocked target never reaches
+        // either path. WEB_FETCH_ALLOW_PRIVATE opts an operator out of
+        // the private-range checks (never the scheme check) for
+        // deployments that intentionally want internal reachability.
+        const allowPrivate = env?.WEB_FETCH_ALLOW_PRIVATE === "1" || env?.WEB_FETCH_ALLOW_PRIVATE === "true";
+        assertPublicUrl(url, { allowPrivate });
+
+        // Networking restriction enforcement (limited mode) — an
+        // additional allow-list filter layered on top of the SSRF guard.
         if (env?.environmentConfig?.networking?.type === "limited") {
           const allowedHosts = env.environmentConfig.networking.allowed_hosts || [];
           try {
@@ -818,14 +872,7 @@ export async function buildTools(
         let isRaw = false;
         if (env?.toMarkdown) {
           try {
-            const r = await fetch(url, {
-              headers: {
-                "User-Agent": "OMA-Agent/1.0 (+web_fetch)",
-                Accept: "text/html, application/xhtml+xml, application/xml;q=0.9, */*;q=0.8",
-              },
-              redirect: "follow",
-              signal: AbortSignal.timeout(20_000),
-            });
+            const r = await fetchFollowingRedirects(url, allowPrivate, AbortSignal.timeout(20_000));
             if (r.ok) {
               const buf = await r.arrayBuffer();
               const ct = r.headers.get("content-type") || "text/html";
@@ -848,6 +895,12 @@ export async function buildTools(
               console.warn(`[web_fetch] origin returned HTTP ${r.status} for ${url}`);
             }
           } catch (err) {
+            // A redirect hop into a blocked target (or too many hops) is a
+            // deliberate guard rejection, not a transient fetch failure —
+            // surface it as an error instead of silently falling back to
+            // the sandbox curl fallback below, which could reach the same
+            // blocked target by a different route.
+            if (err instanceof SsrfBlockedError) throw err;
             const e = err as Error & { cause?: unknown };
             console.warn(
               `[web_fetch] toMarkdown threw for ${url}: ${e.message}` +
