@@ -193,6 +193,16 @@ export function createRouter(manager: K8sManager, notifier?: SlackNotifier): Hon
     }
   });
 
+  // Get cluster capacity (allocatable vs requested, sandbox headroom)
+  router.get("/api/v1/cluster/capacity", async (c) => {
+    try {
+      const capacity = await manager.getClusterCapacity();
+      return c.json(capacity);
+    } catch (err) {
+      return c.json({ error: "cluster_capacity_failed", message: (err as Error).message }, 500);
+    }
+  });
+
   // ── Sandbox discovery & metrics ──────────────────────────────────
 
   // Discover all sandbox pods in the namespace
