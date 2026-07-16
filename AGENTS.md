@@ -137,6 +137,9 @@ A **vault** is a secure credential store. Credentials in vaults are **never expo
 | `aux_model_card_id` | string | No | Companion to `aux_model` — explicit model card binding when needed |
 | `harness` | string | No | Harness implementation to use (default: `"default"`) |
 | `metadata` | object | No | Arbitrary key-value metadata |
+| `appendable_prompts` | string[] | No | Opt-in registry of prompt IDs to inject as additional system prompt segments at session/turn start. Empty/missing = no extra segments |
+| `enable_general_subagent` | boolean | No | Opt-in built-in delegation tool. When true, the harness exposes a `general_subagent(task)` tool that spawns a generic sub-agent thread inheriting this agent's model + sandbox — bypasses the `callable_agents` roster |
+| `notify` | array | No | Notification targets to post session-status updates to (issue/PR comments, chat messages) — see [Notify Targets](#notify-targets) |
 
 See [`examples/`](examples/) for copy-paste-ready agent and environment
 configs (coding assistant, data analyst, research agent, plus full harness
