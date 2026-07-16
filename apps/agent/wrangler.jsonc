@@ -65,6 +65,12 @@
   //   proxy outside the harness" design. See apps/main/src/index.ts:McpProxyRpc
   //   for the entrypoint, packages/binding-mcp-transport for the AI-SDK
   //   transport adapter.
+  //
+  // Empty here because this is the self-host baseline — self-host uses the
+  // oma-vault sidecar for credential injection instead of these service
+  // bindings. The bindings themselves are wired below, in the hosted
+  // overlay configs (env.production / env.staging), where the
+  // INTEGRATIONS and oma-managed-agents (MAIN_MCP) workers actually exist.
   "services": [],
 
   // Workers AI for generating embeddings

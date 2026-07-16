@@ -416,7 +416,16 @@ describe("Networking limited mode", () => {
       { url: "not-a-valid-url" },
       TOOL_EXEC_OPTS
     );
-    expect(result).toContain("Invalid URL");
+    // The SSRF guard (assertPublicUrl, ./ssrf.ts — #161/#212) now runs
+    // before this describe block's "limited" allowed_hosts check, for
+    // every networking mode, and rejects an unparseable URL itself. That
+    // preempts the old "Error: Invalid URL" string this test used to see
+    // from the allowed_hosts try/catch below it, which is unreachable for
+    // this input now. Same assertion convention as the guard's own
+    // integration tests (test/unit/tools-execution.test.ts): "Error" +
+    // the specific offending input, not a fixed phrase.
+    expect(result).toContain("Error");
+    expect(result).toContain("not-a-valid-url");
   });
 
   it("web_fetch works normally when no environmentConfig provided", async () => {
