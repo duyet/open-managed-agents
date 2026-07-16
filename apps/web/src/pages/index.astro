@@ -3,7 +3,6 @@ import Base from "../layouts/Base.astro";
 import { softwareApplicationSchema } from "../lib/seo";
 import FeatureCard from "../components/FeatureCard.astro";
 import Logo from "../components/Logo.astro";
-import AssemblyDemo from "../components/AssemblyDemo.tsx";
 import ManagedAgentsSection from "../components/ManagedAgentsSection.astro";
 import FeaturesSection from "../components/FeaturesSection.astro";
 import UseCasesSection from "../components/UseCasesSection.astro";
@@ -121,37 +120,43 @@ const lifecycle = [
   },
 ];
 
-// ASCII hero — a dotted halftone halo (oil-painting ASCII vibe) framing the
-// oma bracket+dot mark. Two stacked <pre> layers: a faint halo behind, the
-// bright brand structure on top. Poppins headline carries it; the ASCII is the
-// texture, not the whole message.
-const heroHalo = `
-                       .    .  .  . .  .    .  .
-               .  .  .  . .  .  . .  .  . .  .
-                .  .  . .  .  . .. .  . .  .  .    .
-              .  .  . .. .  . :: :  .  . .  .    .  .
-            .  .  . .. .  :  : :: :  : .. .  . .  .    .
-          .  .  . .. .  :  : :: :: : :: :  . .  .  .    .
-        .  .  .  . .. :  : :: :: : :: :: : .. .  .    .
-         .  .  . .. :  : :: :: :::: :: :  : .  .    .  .
-       .  .  . .  .  : :: :: :: : :: :: : :: .  . .  .
-     .  .          : :: :: :: :::: :: : :: :       .
-           .  .  .  : :: :: ::::::: :::: :: :  . .  .    .
-               .  : :: :: ::::::: :::: :: :  : .  .    .
-          .  .  . :: :: :::::::    :::: :: : :.    . .  .
-        .  .  . .. :: :: : :: :   ::: :: : :: .  . .  .
-      .  .    .. .  :  : :: ::    : :: : :: :  .    .
-       .  .    .  .  : :: :: :::: :: :::: :: .    .  .
-             .  .  . :: :: :::: :: :: : :: :  .    .    .
-           .     . .. :: :  : :: :: : :: :       .    .
-         .  .  . .. .  :  : :: :: : :: :  . .. .  .    .
-          .  .    .  .  . :: :  : :: :  . .. .  .    .
-                .  .  . .. .  : :: .  .  . .  .    .
-              .  .  . .  .  .  . .  .  . .  .    .
-           :   .    .             .  . .  .    .  .
-             .       .  .  . .  .  . .  .  .    .
-
-`;
+// Hero template gallery — real agent templates, shown as a quiet list.
+// Chips name the integrations each template wires up (via MCP / vault
+// credentials); "recurring" marks templates that run on an agent schedule.
+const heroTemplates: { name: string; desc: string; chips: string[]; recurring?: boolean }[] = [
+  {
+    name: "Support agent",
+    desc: "Answers customer questions from your docs and knowledge base, escalates when needed.",
+    chips: ["notion", "slack"],
+  },
+  {
+    name: "Incident commander",
+    desc: "Triages a Sentry alert, opens a Linear incident ticket, and runs the Slack war room.",
+    chips: ["sentry", "linear", "slack", "github"],
+  },
+  {
+    name: "Topic brief writer",
+    desc: "Follows a topic and writes a weekly what-changed brief.",
+    chips: ["notion"],
+    recurring: true,
+  },
+  {
+    name: "Sprint retro facilitator",
+    desc: "Pulls a closed sprint from Linear, synthesizes themes, and writes the retro doc before the meeting.",
+    chips: ["linear", "slack", "docx"],
+    recurring: true,
+  },
+  {
+    name: "Support-to-eng escalator",
+    desc: "Reads an Intercom conversation, reproduces the bug, and files a linked Jira issue with repro steps.",
+    chips: ["intercom", "atlassian", "slack"],
+  },
+  {
+    name: "Data analyst",
+    desc: "Loads, explores, and visualizes data; builds reports and answers questions from datasets.",
+    chips: ["python"],
+  },
+];
 
 // Sandbox-provider marks for the fleet band. Rendered monochrome via
 // currentColor so they sit quietly in the zinc palette and pick up the iris
@@ -275,29 +280,47 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
           </ul>
         </div>
 
-        <!-- Right: framed terminal housing the live stacked-assembly demo —
-             an Agent card + the building blocks it uses, assembling and then
-             running a simulated turn. Echoes the Console's "How it fits
-             together". The dotted halo frames it from behind; CRT on top. -->
+        <!-- Hallmark · component: template-gallery · genre: modern-minimal · theme: site tokens (preserved)
+             Right: start from a template. Real agent templates as a quiet
+             hairline-separated list — name, one-line job, lowercase mono
+             integration chips. No cards-in-cards, no accents, no animation. -->
         <div class="hero-visual">
-          <figure class="terminal-frame">
-            <figcaption class="terminal-bar">
-              <span class="terminal-dot" aria-hidden="true"></span>
-              <span class="terminal-dot" aria-hidden="true"></span>
-              <span class="terminal-dot" aria-hidden="true"></span>
-              <span class="terminal-title">oma://assemble — how it fits together</span>
-            </figcaption>
-            <div class="terminal-prompt select-none" aria-hidden="true">
-              <span class="typewriter-line" data-rotate='["oma agents create -f coder.json","oma sessions chat sess_9f2","oma sessions tail sess_9f2","oma envs create -f k8s.json","oma memory stores create notes","oma vaults list"]'>
-                <span class="prompt">oma@fleet:~$</span>
-                <span class="tw-static"></span><span class="tw-rot">oma agents create -f coder.json</span><span class="typewriter-caret"></span>
-              </span>
-            </div>
-            <div class="crt terminal-body select-none">
-              <pre class="ascii-art ascii-halo" aria-hidden="true">{heroHalo}</pre>
-              <AssemblyDemo client:visible />
-            </div>
-          </figure>
+          <div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)]">
+            <p class="flex items-center justify-between gap-2 px-4 pt-3.5 pb-0 m-0 font-mono text-[11px] uppercase tracking-widest text-[var(--color-fg-subtle)]">
+              Start from a template
+            </p>
+            <ul class="list-none m-0 p-0 divide-y divide-[var(--color-border)]">
+              {heroTemplates.map((t) => (
+                <li class="m-0">
+                  <a
+                    href="https://github.com/duyet/oma/tree/main/examples"
+                    class="group block px-4 py-3 no-underline hover:no-underline hover:bg-[var(--color-bg-surface)] transition-colors"
+                  >
+                    <span class="flex items-baseline justify-between gap-3">
+                      <span class="font-display text-[14px] font-semibold tracking-tight text-[var(--color-fg)]">
+                        {t.name}
+                      </span>
+                      {t.recurring && (
+                        <span class="font-mono text-[10px] uppercase tracking-widest text-[var(--color-fg-subtle)] shrink-0">
+                          recurring
+                        </span>
+                      )}
+                    </span>
+                    <span class="mt-0.5 block text-[12.5px] leading-snug text-[var(--color-fg-muted)]">
+                      {t.desc}
+                    </span>
+                    <span class="mt-1.5 flex flex-wrap gap-1.5">
+                      {t.chips.map((c) => (
+                        <span class="font-mono text-[10.5px] lowercase rounded border border-[var(--color-border)] px-1.5 py-px text-[var(--color-fg-subtle)]">
+                          {c}
+                        </span>
+                      ))}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
     </div>
