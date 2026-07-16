@@ -58,6 +58,14 @@ export const sessions = sqliteTable(
     stop_reason: text("stop_reason"),
     tool_call_count: integer("tool_call_count").notNull().default(0),
     message_count: integer("message_count").notNull().default(0),
+    // Added for session analytics (Observability tab): cumulative model
+    // token usage over the whole session, summed from span.model_request_end
+    // events by RuntimeAdapterImpl.endTurn/terminate on every
+    // idle/destroyed/terminated transition (same write path as the counters
+    // above). Enables cross-session token aggregation from the control plane
+    // without replaying each session DO's event log.
+    input_tokens: integer("input_tokens").notNull().default(0),
+    output_tokens: integer("output_tokens").notNull().default(0),
   },
   (t) => [
     index("idx_sessions_tenant_created").on(t.tenant_id, t.created_at),

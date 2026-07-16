@@ -31,6 +31,11 @@ import {
   SessionResourceRow,
   SessionRow,
 } from "./types";
+import type {
+  AnalyticsSessionRow,
+  Percentiles,
+  SessionAnalytics,
+} from "./types";
 
 export interface SessionServiceDeps {
   repo: SessionRepo;
@@ -289,6 +294,10 @@ export class SessionService {
     cursor?: string;
     status?: SessionStatus;
     q?: string;
+    /** Inclusive lower bound on created_at (epoch ms). */
+    createdAfter?: number;
+    /** Exclusive upper bound on created_at (epoch ms). */
+    createdBefore?: number;
   }): Promise<{ items: SessionRow[]; nextCursor?: string }> {
     return paginateVia({
       cursor: opts.cursor,
@@ -301,6 +310,8 @@ export class SessionService {
           after,
           status: opts.status,
           q: opts.q,
+          createdAfter: opts.createdAfter,
+          createdBefore: opts.createdBefore,
         }),
       extractCursor: (r) => ({
         createdAt: new Date(r.created_at).getTime(),
@@ -334,6 +345,31 @@ export class SessionService {
     return this.repo.count(opts.tenantId, {
       includeArchived: opts.includeArchived ?? false,
     });
+  }
+
+  /**
+   * Aggregated session analytics for the Observability tab. Scoped to a
+   * tenant, optionally to one agent, over a rolling time range. Fetches the
+   * projected session rows in range and computes every aggregate in JS (see
+   * {@link computeSessionAnalytics}) — no dialect-specific SQL, so it behaves
+   * identically on D1 and Postgres. `now` is injectable for deterministic tests.
+   */
+  async analytics(opts: {
+    tenantId: string;
+    agentId?: string;
+    range?: string;
+    now?: number;
+  }): Promise<SessionAnalytics> {
+    const now = opts.now ?? this.clock.nowMs();
+    const { range, days } = normalizeRange(opts.range);
+    const endMs = now;
+    const startMs = endMs - days * DAY_MS;
+    const rows = await this.repo.listForAnalytics(opts.tenantId, {
+      agentId: opts.agentId,
+      startMs,
+      endMs,
+    });
+    return computeSessionAnalytics(rows, { range, startMs, endMs });
   }
 
   // ============================================================
@@ -500,3 +536,131 @@ const defaultIds: IdGenerator = {
 };
 
 const consoleLogger: Logger = { warn: (msg, ctx) => console.warn(msg, ctx) };
+
+// ============================================================
+// Analytics
+// ============================================================
+
+const DAY_MS = 86_400_000;
+
+/** Allowed analytics ranges → window length in days. Default 30d. */
+const RANGE_DAYS: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90 };
+
+/** Normalize a range param to a canonical `{ range, days }`. Unknown/blank
+ *  falls back to 30d — routes zod-validate first, this is the belt-and-braces. */
+export function normalizeRange(range?: string): { range: string; days: number } {
+  const key = range && range in RANGE_DAYS ? range : "30d";
+  return { range: key, days: RANGE_DAYS[key] };
+}
+
+/** Nearest-rank percentile (p in 0..100) over an unsorted numeric array.
+ *  Empty array → 0. */
+function percentile(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0;
+  const rank = Math.ceil((p / 100) * sorted.length);
+  const idx = Math.min(Math.max(rank, 1), sorted.length) - 1;
+  return sorted[idx];
+}
+
+function percentiles(values: number[]): Percentiles {
+  const sorted = [...values].sort((a, b) => a - b);
+  return {
+    p50: percentile(sorted, 50),
+    p90: percentile(sorted, 90),
+    p95: percentile(sorted, 95),
+  };
+}
+
+function utcDate(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+/**
+ * Pure aggregation over projected session rows. Kept side-effect-free and
+ * exported so it can be unit-tested without a repo. See {@link SessionAnalytics}
+ * for the error-rate definition and the tool_usage/stop_reasons availability
+ * notes.
+ */
+export function computeSessionAnalytics(
+  rows: AnalyticsSessionRow[],
+  opts: { range: string; startMs: number; endMs: number },
+): SessionAnalytics {
+  const inputPer: number[] = [];
+  const outputPer: number[] = [];
+  const totalPer: number[] = [];
+  const turnsPer: number[] = [];
+  const dayCounts = new Map<string, number>();
+  const stopCounts = new Map<string, number>();
+
+  let inputTotal = 0;
+  let outputTotal = 0;
+  let toolCalls = 0;
+  let turnsTotal = 0;
+  let completed = 0;
+  let errors = 0;
+
+  for (const r of rows) {
+    inputTotal += r.input_tokens;
+    outputTotal += r.output_tokens;
+    toolCalls += r.tool_call_count;
+    turnsTotal += r.message_count;
+    inputPer.push(r.input_tokens);
+    outputPer.push(r.output_tokens);
+    totalPer.push(r.input_tokens + r.output_tokens);
+    turnsPer.push(r.message_count);
+
+    const day = utcDate(r.created_at);
+    dayCounts.set(day, (dayCounts.get(day) ?? 0) + 1);
+
+    if (r.stop_reason !== null) {
+      completed++;
+      stopCounts.set(r.stop_reason, (stopCounts.get(r.stop_reason) ?? 0) + 1);
+      // "destroyed" is the only abnormal-termination signal persisted in the
+      // control plane (see SessionAnalytics doc). "end_turn"/"terminated" are
+      // normal. True harness errors live in the DO event log, not queryable
+      // cross-session, so they are not counted here.
+      if (r.stop_reason === "destroyed") errors++;
+    }
+  }
+
+  // Dense daily buckets across the whole range (incl. zero-count days).
+  const seriesStart = Date.UTC(
+    new Date(opts.startMs).getUTCFullYear(),
+    new Date(opts.startMs).getUTCMonth(),
+    new Date(opts.startMs).getUTCDate(),
+  );
+  const sessions_over_time: Array<{ date: string; count: number }> = [];
+  for (let d = seriesStart; d <= opts.endMs; d += DAY_MS) {
+    const date = utcDate(d);
+    sessions_over_time.push({ date, count: dayCounts.get(date) ?? 0 });
+  }
+
+  const stop_reasons = Array.from(stopCounts.entries())
+    .map(([stop_reason, count]) => ({ stop_reason, count }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    range: opts.range,
+    start: new Date(opts.startMs).toISOString(),
+    end: new Date(opts.endMs).toISOString(),
+    total_sessions: rows.length,
+    completed_sessions: completed,
+    error_count: errors,
+    error_rate: completed > 0 ? errors / completed : 0,
+    tokens: {
+      input: inputTotal,
+      output: outputTotal,
+      total: inputTotal + outputTotal,
+      per_session: {
+        input: percentiles(inputPer),
+        output: percentiles(outputPer),
+        total: percentiles(totalPer),
+      },
+    },
+    total_turns: turnsTotal,
+    turns_per_session: percentiles(turnsPer),
+    total_tool_calls: toolCalls,
+    sessions_over_time,
+    stop_reasons,
+  };
+}

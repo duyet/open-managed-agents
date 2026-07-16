@@ -13,6 +13,7 @@ import {
   buildAgentPublicationRoutes,
   buildDeviceRoutes,
   buildMcpServerRoutes,
+  buildAnalyticsRoutes,
   mintApiKeyOnStorage,
   type RouteServices,
 } from "@duyet/oma-http-routes";
@@ -332,6 +333,12 @@ const mcpServersRoutes = new Hono<{ Bindings: Env; Variables: { tenant_id: strin
   return invokePackage(c, app);
 });
 
+const analyticsRoutes = new Hono<{ Bindings: Env; Variables: { tenant_id: string } }>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  const app = buildAnalyticsRoutes({ services: () => cfRouteServicesFromCtx(ctx) });
+  return invokePackage(c, app);
+});
+
 const apiKeysRoutes = new Hono<{
   Bindings: Env;
   Variables: { tenant_id: string; user_id?: string };
@@ -591,6 +598,7 @@ app.route("/v1/files", filesRoutes);
 app.route("/v1/skills", skillsRoutes);
 app.route("/v1/model_cards", modelCardsRoutes);
 app.route("/v1/mcp_servers", mcpServersRoutes);
+app.route("/v1/analytics", analyticsRoutes);
 app.route("/v1/models", modelsRoutes);
 app.route("/v1/clawhub", clawhubRoutes);
 app.route("/v1/api_keys", apiKeysRoutes);

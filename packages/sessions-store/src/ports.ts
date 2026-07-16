@@ -15,7 +15,7 @@ import type {
   SessionResource,
   SessionStatus,
 } from "@duyet/oma-shared";
-import type { SessionResourceRow, SessionRow } from "./types";
+import type { AnalyticsSessionRow, SessionResourceRow, SessionRow } from "./types";
 
 export interface NewSessionInput {
   id: string;
@@ -61,6 +61,14 @@ export interface SessionUpdateFields {
   stopReason?: string | null;
   toolCallCount?: number;
   messageCount?: number;
+  /**
+   * Cumulative session token usage. Production writes go through raw SQL in
+   * RuntimeAdapterImpl (packages/session-runtime), not this port — exposed
+   * here for the same reasons as the counters above (SessionRow round-trip +
+   * test seeding).
+   */
+  inputTokens?: number;
+  outputTokens?: number;
   updatedAt: number;
 }
 
@@ -119,8 +127,25 @@ export interface SessionRepo {
       /** Case-insensitive substring filter against session title. Trimmed
        *  blank → unfiltered. Used by the SessionsList search box. */
       q?: string;
+      /** Inclusive lower bound on created_at (epoch ms). Added for the
+       *  SessionsList date-range filter — mirrors the agents list route. */
+      createdAfter?: number;
+      /** Exclusive upper bound on created_at (epoch ms). */
+      createdBefore?: number;
     },
   ): Promise<{ items: SessionRow[]; hasMore: boolean }>;
+
+  /**
+   * Project the analytics-relevant columns for every session in a tenant
+   * (optionally one agent) whose created_at falls in [startMs, endMs).
+   * Includes archived sessions — they still happened and belong in historical
+   * counts. Bucketing / percentiles are computed in JS by the service, so this
+   * stays a plain indexed range scan with no dialect-specific SQL.
+   */
+  listForAnalytics(
+    tenantId: string,
+    opts: { agentId?: string; startMs: number; endMs: number },
+  ): Promise<AnalyticsSessionRow[]>;
 
   /** Returns true if any non-archived session in the tenant references this agent. */
   hasActiveByAgent(tenantId: string, agentId: string): Promise<boolean>;
