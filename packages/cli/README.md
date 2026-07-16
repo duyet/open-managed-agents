@@ -2,7 +2,7 @@
 
 Command-line client for [oma](https://oma.duyet.net) managed agents.
 
-> **Beta.** API surface and command names may change before 0.1.0 final.
+> **Pre-1.0.** API surface and command names may still change in a minor release.
 
 ## Install
 
