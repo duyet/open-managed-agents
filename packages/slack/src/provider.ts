@@ -325,6 +325,85 @@ export class SlackProvider implements IntegrationProvider {
     return buildManifestLaunchUrl(manifest);
   }
 
+  /**
+   * "Add to Slack" one-click install — the managed-App counterpart to
+   * startInstall + submitCredentials. Uses the deployment-wide App
+   * credentials from `config.managedApp` instead of asking the user to
+   * paste their own, so the flow collapses to a single redirect to Slack's
+   * OAuth consent screen.
+   *
+   * Throws if this deployment has no managed App configured — callers
+   * (the route handler) surface that as a 503 with remediation, so the
+   * Console button can fall back to (or simply hide in favor of) the BYOA
+   * wizard.
+   *
+   * Reuses the exact same publication-first shell + credential-staging
+   * machinery as the BYOA flow, so the OAuth callback
+   * (`/slack/oauth/pub/:pubId/callback` → completeInstall) needs no changes
+   * at all — it can't tell a managed install apart from a BYOA one once
+   * credentials are on the row.
+   */
+  async startManagedInstall(input: StartInstallInput): Promise<InstallStep> {
+    const managedApp = this.config.managedApp;
+    if (!managedApp) {
+      throw new Error(
+        "Slack managed install: no managed App configured on this deployment " +
+          "(SLACK_MANAGED_CLIENT_ID/SECRET/SIGNING_SECRET unset) — use the manifest/BYOA wizard instead",
+      );
+    }
+
+    const tenantId = await this.container.tenants.resolveByUserId(input.userId);
+    const publication = await this.container.publications.insertShell({
+      tenantId,
+      userId: input.userId,
+      agentId: input.agentId,
+      environmentId: input.environmentId,
+      persona: input.persona,
+      capabilities: new Set(
+        this.config.defaultCapabilities ?? ALL_SLACK_CAPABILITIES,
+      ),
+      sessionGranularity: this.config.defaultSessionGranularity ?? "per_channel",
+    });
+
+    const clientSecretCipher = await this.container.crypto.encrypt(managedApp.clientSecret);
+    const signingSecretCipher = await this.container.crypto.encrypt(managedApp.signingSecret);
+    await this.container.publications.setCredentials(publication.id, {
+      clientId: managedApp.clientId,
+      clientSecretCipher,
+      signingSecretCipher,
+    });
+    await this.container.publications.updateStatus(publication.id, "awaiting_install");
+
+    const state = await this.container.jwt.sign(
+      {
+        kind: "slack.oauth.pub",
+        publicationId: publication.id,
+        userId: input.userId,
+        returnUrl: input.returnUrl,
+        nonce: this.container.ids.generate(),
+      },
+      OAUTH_STATE_TTL_SECONDS,
+    );
+    const url = buildAuthorizeUrl({
+      clientId: managedApp.clientId,
+      redirectUri: this.callbackUriForPublication(publication.id),
+      botScopes: this.config.botScopes ?? DEFAULT_SLACK_BOT_SCOPES,
+      userScopes: this.config.userScopes ?? DEFAULT_SLACK_USER_SCOPES,
+      state,
+    });
+
+    return {
+      kind: "step",
+      step: "install_link",
+      data: {
+        url,
+        publicationId: publication.id,
+        callbackUrl: this.callbackUriForPublication(publication.id),
+        webhookUrl: this.webhookForPublication(publication.id),
+      },
+    };
+  }
+
   async continueInstall(
     input: ContinueInstallInput,
   ): Promise<InstallStep | InstallComplete> {

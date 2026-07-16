@@ -35,6 +35,39 @@ export interface PostMessageResult {
   ts: string;
 }
 
+/** A Block Kit block. Kept as an opaque record — see blocks.ts for builders. */
+export type SlackBlock = Record<string, unknown>;
+
+export interface PostMessageInput {
+  channel: string;
+  /** Fallback/notification text. Always send something so mobile pushes read. */
+  text: string;
+  /** Optional Block Kit blocks for rich rendering. */
+  blocks?: SlackBlock[];
+  /** Thread parent ts — replies stay threaded, never top-level. */
+  threadTs?: string;
+}
+
+export interface UploadFileInput {
+  channel: string;
+  threadTs?: string;
+  filename: string;
+  /**
+   * File content as text (CSV, diff, JSON, markdown, …). The injected
+   * `HttpClient` port only carries string bodies, so binary uploads aren't
+   * supported through this path — the agent's text artifacts are.
+   */
+  content: string;
+  /** Optional human title (defaults to filename). */
+  title?: string;
+  /** Optional initial comment posted alongside the file. */
+  initialComment?: string;
+}
+
+export interface UploadFileResult {
+  fileId: string;
+}
+
 export class SlackApiClient {
   constructor(private readonly http: HttpClient) {}
 
@@ -94,5 +127,138 @@ export class SlackApiClient {
       channel: typeof parsed.channel === "string" ? parsed.channel : channel,
       ts: typeof parsed.ts === "string" ? parsed.ts : "",
     };
+  }
+
+  /**
+   * `chat.postMessage` with Block Kit support and threading. Superset of
+   * {@link postMessage} used by the thread reporter — always threads replies
+   * under `threadTs` when provided so agent output never lands top-level.
+   */
+  async postMessageBlocks(token: string, input: PostMessageInput): Promise<PostMessageResult> {
+    const body: Record<string, unknown> = { channel: input.channel, text: input.text };
+    if (input.blocks) body.blocks = input.blocks;
+    if (input.threadTs) body.thread_ts = input.threadTs;
+    const res = await this.http.fetch({
+      method: "POST",
+      url: `${SLACK_API_BASE}/chat.postMessage`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify(body),
+    });
+    const parsed = JSON.parse(res.body) as Record<string, unknown>;
+    if (parsed.ok !== true) {
+      const err = typeof parsed.error === "string" ? parsed.error : "unknown_error";
+      throw new SlackApiError("chat.postMessage", err, res.status);
+    }
+    return {
+      channel: typeof parsed.channel === "string" ? parsed.channel : input.channel,
+      ts: typeof parsed.ts === "string" ? parsed.ts : "",
+    };
+  }
+
+  /**
+   * `chat.update` — edit a previously posted message in place. Used to turn a
+   * single "thinking…" status message into a live progress indicator without
+   * spamming the thread with new messages.
+   */
+  async updateMessage(
+    token: string,
+    channel: string,
+    ts: string,
+    input: { text: string; blocks?: SlackBlock[] },
+  ): Promise<PostMessageResult> {
+    const body: Record<string, unknown> = { channel, ts, text: input.text };
+    if (input.blocks) body.blocks = input.blocks;
+    const res = await this.http.fetch({
+      method: "POST",
+      url: `${SLACK_API_BASE}/chat.update`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify(body),
+    });
+    const parsed = JSON.parse(res.body) as Record<string, unknown>;
+    if (parsed.ok !== true) {
+      const err = typeof parsed.error === "string" ? parsed.error : "unknown_error";
+      throw new SlackApiError("chat.update", err, res.status);
+    }
+    return {
+      channel: typeof parsed.channel === "string" ? parsed.channel : channel,
+      ts: typeof parsed.ts === "string" ? parsed.ts : ts,
+    };
+  }
+
+  /**
+   * Upload a file to a thread using Slack's external-upload flow (the modern
+   * replacement for the removed `files.upload`):
+   *
+   *   1. `files.getUploadURLExternal` → { upload_url, file_id }
+   *   2. PUT the raw bytes to `upload_url`
+   *   3. `files.completeUploadExternal` → shares the file into channel/thread
+   *
+   * Used to attach agent-generated artifacts (CSV, PNG, PDF, diffs) to the
+   * conversation.
+   */
+  async uploadFile(token: string, input: UploadFileInput): Promise<UploadFileResult> {
+    // Step 1: reserve an upload URL + file id.
+    const byteLength = new TextEncoder().encode(input.content).byteLength;
+    const params = new URLSearchParams({
+      filename: input.filename,
+      length: String(byteLength),
+    });
+    const reserveRes = await this.http.fetch({
+      method: "POST",
+      url: `${SLACK_API_BASE}/files.getUploadURLExternal`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    });
+    const reserve = JSON.parse(reserveRes.body) as Record<string, unknown>;
+    if (reserve.ok !== true) {
+      const err = typeof reserve.error === "string" ? reserve.error : "unknown_error";
+      throw new SlackApiError("files.getUploadURLExternal", err, reserveRes.status);
+    }
+    const uploadUrl = typeof reserve.upload_url === "string" ? reserve.upload_url : "";
+    const fileId = typeof reserve.file_id === "string" ? reserve.file_id : "";
+    if (!uploadUrl || !fileId) {
+      throw new SlackApiError("files.getUploadURLExternal", "missing_upload_url", reserveRes.status);
+    }
+
+    // Step 2: PUT the bytes to the reserved URL.
+    await this.http.fetch({
+      method: "POST",
+      url: uploadUrl,
+      headers: { "content-type": "application/octet-stream" },
+      body: input.content,
+      // NOTE: string body per the HttpClient port contract.
+    });
+
+    // Step 3: complete the upload, sharing into the channel/thread.
+    const completeBody: Record<string, unknown> = {
+      files: [{ id: fileId, title: input.title ?? input.filename }],
+      channel_id: input.channel,
+    };
+    if (input.threadTs) completeBody.thread_ts = input.threadTs;
+    if (input.initialComment) completeBody.initial_comment = input.initialComment;
+    const completeRes = await this.http.fetch({
+      method: "POST",
+      url: `${SLACK_API_BASE}/files.completeUploadExternal`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify(completeBody),
+    });
+    const complete = JSON.parse(completeRes.body) as Record<string, unknown>;
+    if (complete.ok !== true) {
+      const err = typeof complete.error === "string" ? complete.error : "unknown_error";
+      throw new SlackApiError("files.completeUploadExternal", err, completeRes.status);
+    }
+    return { fileId };
   }
 }

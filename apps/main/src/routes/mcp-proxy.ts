@@ -51,6 +51,7 @@ import { log, logWarn } from "@duyet/oma-shared";
 import type { Services } from "@duyet/oma-services";
 import type { KvStore } from "@duyet/oma-kv-store";
 import { builtinSpecs, createSpecRegistry } from "@duyet/oma-cap";
+import { resolveRegisteredMcpServer } from "./mcp-servers";
 
 // Module-level: the cap spec registry is pure data + immutable. Building
 // once amortises validation across every outbound request.
@@ -132,13 +133,29 @@ export async function resolveProxyTargetByTenant(
   const agent = sessionAny.agent_snapshot;
   if (!agent) return null;
   const server = (agent.mcp_servers ?? []).find((s) => s.name === serverName);
-  if (!server || !server.url) return null;
+  if (!server) return null;
+
+  // Resolve the upstream URL. An entry may either carry an inline `url` or
+  // reference a tenant-level registry row via `registry_id` (Issue #91,
+  // Phase 3). When both are present, inline `url` wins. A registry entry
+  // may also pin a specific vault credential id to inject.
+  let upstreamUrl = server.url;
+  let pinnedCredentialId: string | undefined;
+  const registryId = (server as { registry_id?: string }).registry_id;
+  if (!upstreamUrl && registryId) {
+    const registered = await resolveRegisteredMcpServer(services.kv, tenantId, registryId);
+    if (registered) {
+      upstreamUrl = registered.url;
+      pinnedCredentialId = registered.credential_id;
+    }
+  }
+  if (!upstreamUrl) return null;
 
   // 3. Resolve credential. agent.mcp_servers[].authorization_token, if set,
   //    is the literal token we should inject. Otherwise look up an active
   //    credential matching the server URL across the session's vault_ids.
   if (server.authorization_token) {
-    return { upstreamUrl: server.url, upstreamToken: server.authorization_token };
+    return { upstreamUrl, upstreamToken: server.authorization_token };
   }
 
   const vaultIds = sessionAny.vault_ids ?? [];
@@ -161,10 +178,17 @@ export async function resolveProxyTargetByTenant(
             client_secret?: string;
           }
         | undefined;
-      if (auth?.mcp_server_url !== server.url) continue;
-      const token = auth?.bearer_token ?? auth?.token ?? auth?.access_token;
+      if (!auth) continue;
+      // A registry-pinned credential matches by id; otherwise match by the
+      // credential's declared `mcp_server_url` (the inline-entry rule).
+      if (pinnedCredentialId) {
+        if ((c as { id: string }).id !== pinnedCredentialId) continue;
+      } else if (auth.mcp_server_url !== upstreamUrl) {
+        continue;
+      }
+      const token = auth.bearer_token ?? auth.token ?? auth.access_token;
       if (!token) continue;
-      const target: ProxyTarget = { upstreamUrl: server.url, upstreamToken: token };
+      const target: ProxyTarget = { upstreamUrl, upstreamToken: token };
       // Surface refresh metadata for mcp_oauth so 401 can trigger an
       // automatic token refresh + retry. static_bearer creds skip this.
       if (auth.type === "mcp_oauth" && auth.refresh_token && auth.token_endpoint) {
@@ -694,6 +718,49 @@ async function tryRefreshOauth(
 
   return tokens.access_token;
 }
+
+// Health check — resolves each MCP server declared on a session's agent
+// snapshot WITHOUT forwarding a real MCP call, so the Console sandbox
+// status page (and any provider) can show whether each server's credential
+// resolves. Works identically for cloud and local-runtime sessions because
+// it only touches the credential-resolution layer, not the sandbox.
+//
+// Registered before the `/:sid/:server` catch-all so `_health` isn't
+// mistaken for a server name.
+//
+//   GET /v1/mcp-proxy/_health/:sid  (Bearer omak_*)
+//   → { session_id, servers: [{ name, status }] }
+//     status ∈ "ok" | "unresolved" (declared but no credential/url resolves)
+app.get("/_health/:sid", async (c) => {
+  const sid = c.req.param("sid");
+  const auth = c.req.header("authorization") ?? "";
+  const apiKey = auth.startsWith("Bearer ") ? auth.slice(7) : auth;
+  if (!apiKey) return c.json({ error: "missing bearer" }, 401);
+
+  const tenantId = await apiKeyToTenantId(c.var.services.kv, apiKey);
+  if (!tenantId) return c.json({ error: "forbidden" }, 403);
+
+  const services = c.get("services");
+  const session = await services.sessions.get({ tenantId, sessionId: sid }).catch(() => null);
+  if (!session) return c.json({ error: "forbidden" }, 403);
+  const agent = (session as { agent_snapshot?: AgentConfig }).agent_snapshot;
+  const servers = agent?.mcp_servers ?? [];
+
+  const results = await Promise.all(
+    servers.map(async (s) => {
+      const target = await resolveProxyTargetByTenant(
+        c.env,
+        services,
+        tenantId,
+        sid,
+        s.name,
+      ).catch(() => null);
+      return { name: s.name, status: target ? "ok" : "unresolved" };
+    }),
+  );
+
+  return c.json({ session_id: sid, servers: results });
+});
 
 // HTTP endpoint — used by the local-runtime ACP child via apiKey auth.
 // Cloud agent path uses the WorkerEntrypoint RPC instead (see McpProxyRpc

@@ -38,6 +38,7 @@ import {
 import { validateAgentLimits } from "./lib/limits";
 import { listMemberships, hasMembership } from "./auth-config";
 import environmentsRoutes from "./routes/environments";
+import mcpServersRoutes from "./routes/mcp-servers";
 import oauthRoutes from "./routes/oauth";
 import capCliOauthRoutes from "./routes/cap-cli-oauth";
 import memoryRoutes from "./routes/memory";
@@ -59,6 +60,11 @@ import sandboxProvidersRoutes from "./routes/sandbox-providers";
 import webhookRoutes from "./routes/webhooks";
 import consumerAuthRoutes from "./routes/consumer-auth";
 import consumerMeteringRoutes from "./routes/consumer-metering";
+import paymentsWebhookRoutes, {
+  buildConsumerPaymentsRoutes,
+  enforcePaywall as enforcePaywallImpl,
+  createD1PaymentsStore,
+} from "./routes/payments";
 import schedulesRoutes from "./routes/schedules";
 import mcpProxyRoutes, {
   resolveProxyTargetByTenant,
@@ -194,6 +200,11 @@ app.get("/v1/hosting_types", async (c) => {
 // token auth. Mounted before /v1/* auth so they bypass the standard gate.
 app.route("/v1/public", consumerAuthRoutes);
 app.route("/v1/public", consumerMeteringRoutes);
+app.route("/v1/public", buildConsumerPaymentsRoutes());
+
+// Stripe webhook (issue #74) — bypasses tenant auth (see auth.ts); trust is
+// the Stripe signature verified inside the route.
+app.route("/webhooks", paymentsWebhookRoutes);
 
 // Auth routes (public — no authMiddleware, but rate-limited per-IP and
 // per-email so a stranger can't spam OTP sends and burn the mail budget).
@@ -535,6 +546,23 @@ const publicationsRoutes = new Hono<{
   const app = buildPublicationRoutes({ services: () => cfRouteServicesFromCtx(ctx) });
   return invokePackage(c, app);
 });
+// Creator revenue view (issue #74) — aggregates consumer spend for a
+// publication. Registered before the catch-all /v1/publications mount so it
+// takes precedence. Tenant-scoped via the auth-resolved tenant_id.
+app.get("/v1/publications/:id/revenue", async (c) => {
+  if (!c.env.MAIN_DB) return c.json({ error: "Payments not configured" }, 503);
+  const tenantId = (c as unknown as AppCtx).var.tenant_id;
+  const publicationId = c.req.param("id");
+  const store = createD1PaymentsStore(c.env.MAIN_DB);
+  const totalSpend = await store.totalSpendForPublication(tenantId, publicationId);
+  return c.json({
+    publication_id: publicationId,
+    total_spend_credits: totalSpend,
+    // TODO(#74): platform take-rate + creator payout (Stripe Connect) — see
+    // packages/payments/src/index.ts. Until Connect onboarding ships, this is
+    // an informational revenue view only.
+  });
+});
 app.route("/v1/publications", publicationsRoutes);
 app.route("/v1/environments", environmentsRoutes);
 app.route("/v1/sessions", sessionsRoutes);
@@ -546,6 +574,7 @@ app.route("/v1/dreams", dreamsRoutes);
 app.route("/v1/files", filesRoutes);
 app.route("/v1/skills", skillsRoutes);
 app.route("/v1/model_cards", modelCardsRoutes);
+app.route("/v1/mcp_servers", mcpServersRoutes);
 app.route("/v1/models", modelsRoutes);
 app.route("/v1/clawhub", clawhubRoutes);
 app.route("/v1/api_keys", apiKeysRoutes);
@@ -630,6 +659,7 @@ app.route("/v1/oma/integrations", integrationsRoutes);
 app.route("/v1/oma/runtimes", runtimesRoutes);
 app.route("/v1/oma/oauth", oauthRoutes);
 app.route("/v1/oma/model_cards", modelCardsRoutes);
+app.route("/v1/oma/mcp_servers", mcpServersRoutes);
 app.route("/v1/oma/sandbox_providers", sandboxProvidersRoutes);
 app.route("/v1/oma/webhooks", webhookRoutes);
 // /v1/mcp-proxy is intentionally NOT aliased: auth.ts path-prefix skip is
@@ -747,6 +777,22 @@ app.use("/p/*", rateLimitMiddleware);
     resolvePublication: resolvePublication as never,
     guardSessionCreate: guardSessionCreate as never,
     assertSessionOwnedByPublication: assertSessionOwnedByPublication as never,
+    enforcePaywall: (async (opts: {
+      publication: import("@duyet/oma-publications-store").PublicationRow;
+      endUserId: string;
+      sessionId: string;
+      env: Env;
+    }) => {
+      if (!opts.env.MAIN_DB) return null;
+      return enforcePaywallImpl({
+        env: opts.env as never,
+        db: opts.env.MAIN_DB,
+        tenantId: opts.publication.tenant_id,
+        publicationId: opts.publication.id,
+        endUserId: opts.endUserId,
+        sessionId: opts.sessionId,
+      });
+    }) as never,
   });
   app.route("/p", pubRoutes);
 }
