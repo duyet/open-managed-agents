@@ -94,6 +94,30 @@ export interface SandboxPodInfo {
   labels: Record<string, string>;
 }
 
+export interface ContainerHealth {
+  name: string;
+  restartCount: number;
+  waitingReason?: string;
+  terminatedReason?: string;
+  lastTerminatedReason?: string;
+  memoryLimit?: string;
+}
+
+export interface SandboxHealthSnapshot {
+  podName: string;
+  sessionId: string | null;
+  nodeName: string;
+  phase: string;
+  createdAt: string;
+  pendingSeconds: number;
+  containers: ContainerHealth[];
+}
+
+export interface CapacityUsage {
+  cpuUsedPct: number;
+  memUsedPct: number;
+}
+
 export interface PodMetrics {
   podName: string;
   namespace: string;
@@ -231,8 +255,13 @@ export class K8sManager {
     }
   }
 
-  async getClusterInfo(): Promise<ClusterInfo> {
-    const nodes = await this.listNodesRaw();
+  private aggregateNodeCapacity(nodes: unknown[]): {
+    totalCpuMcpu: number;
+    totalMemMi: number;
+    allocCpuMcpu: number;
+    allocMemMi: number;
+    maxPods: number;
+  } {
     let totalCpuMcpu = 0;
     let totalMemMi = 0;
     let allocCpuMcpu = 0;
@@ -256,6 +285,13 @@ export class K8sManager {
       );
     }
 
+    return { totalCpuMcpu, totalMemMi, allocCpuMcpu, allocMemMi, maxPods };
+  }
+
+  async getClusterInfo(): Promise<ClusterInfo> {
+    const nodes = await this.listNodesRaw();
+    const { totalCpuMcpu, totalMemMi, allocCpuMcpu, allocMemMi, maxPods } = this.aggregateNodeCapacity(nodes);
+
     const version = await this.getK8sVersion();
 
     return {
@@ -267,6 +303,17 @@ export class K8sManager {
       allocatableCpu: this.formatMillicores(allocCpuMcpu),
       allocatableMemory: this.formatMemoryMi(allocMemMi),
       maxPods,
+    };
+  }
+
+  /** Percentage of cluster CPU/memory capacity currently in use (0 when a node has no capacity reported). */
+  async getCapacityUsage(): Promise<CapacityUsage> {
+    const nodes = await this.listNodesRaw();
+    const { totalCpuMcpu, totalMemMi, allocCpuMcpu, allocMemMi } = this.aggregateNodeCapacity(nodes);
+
+    return {
+      cpuUsedPct: totalCpuMcpu > 0 ? Math.round(((totalCpuMcpu - allocCpuMcpu) / totalCpuMcpu) * 100) : 0,
+      memUsedPct: totalMemMi > 0 ? Math.round(((totalMemMi - allocMemMi) / totalMemMi) * 100) : 0,
     };
   }
 
@@ -456,6 +503,70 @@ export class K8sManager {
           createdAt: pod.metadata?.creationTimestamp ?? new Date().toISOString(),
           durationSeconds,
           labels: pod.metadata?.labels ?? {},
+        };
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  /** Health snapshot for sandbox pods — container waiting/terminated reasons for crash-loop / OOM detection. */
+  async getSandboxHealth(): Promise<SandboxHealthSnapshot[]> {
+    try {
+      const coreApi = await this.getCoreApi();
+      const res = await coreApi.listNamespacedPod(this.namespace);
+      const body = unwrapBody<{ items?: unknown[] }>(res);
+      const pods = body?.items ?? [];
+
+      return pods.map((raw) => {
+        const pod = raw as {
+          metadata?: { name?: string; labels?: Record<string, string>; creationTimestamp?: string };
+          spec?: {
+            nodeName?: string;
+            containers?: Array<{ name?: string; resources?: { limits?: { memory?: string } } }>;
+          };
+          status?: {
+            phase?: string;
+            containerStatuses?: Array<{
+              name?: string;
+              restartCount?: number;
+              state?: { waiting?: { reason?: string }; terminated?: { reason?: string } };
+              lastState?: { terminated?: { reason?: string } };
+            }>;
+          };
+        };
+
+        const podName = pod.metadata?.name ?? "unknown";
+        const isManaged = pod.metadata?.labels?.["oma.dev/managed"] === "true" ||
+                          pod.metadata?.labels?.["app.kubernetes.io/managed-by"] === "oma-k8s-bridge" ||
+                          podName.startsWith("box-");
+        const boxId = isManaged ? this.findBoxIdByPodName(podName) : null;
+        const sessionId = isManaged ? pod.metadata?.labels?.["oma.dev/session-id"] ?? boxId : null;
+
+        const createdAt = pod.metadata?.creationTimestamp ?? new Date().toISOString();
+        const pendingSeconds = Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000);
+
+        const memoryLimits = new Map(
+          (pod.spec?.containers ?? []).map((c) => [c.name ?? "", c.resources?.limits?.memory]),
+        );
+
+        const containers: ContainerHealth[] = (pod.status?.containerStatuses ?? []).map((cs) => ({
+          name: cs.name ?? "",
+          restartCount: cs.restartCount ?? 0,
+          waitingReason: cs.state?.waiting?.reason,
+          terminatedReason: cs.state?.terminated?.reason,
+          lastTerminatedReason: cs.lastState?.terminated?.reason,
+          memoryLimit: memoryLimits.get(cs.name ?? ""),
+        }));
+
+        return {
+          podName,
+          sessionId,
+          nodeName: pod.spec?.nodeName ?? "unknown",
+          phase: pod.status?.phase ?? "Unknown",
+          createdAt,
+          pendingSeconds,
+          containers,
         };
       });
     } catch {
