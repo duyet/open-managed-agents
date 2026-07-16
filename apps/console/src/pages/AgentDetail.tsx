@@ -6,6 +6,7 @@ import { GitHubIcon, LinearIcon, SlackIcon } from "../components/icons";
 import { Page } from "../components/Page";
 import { PageHeader } from "../components/PageHeader";
 import { Button } from "@/components/ui/button";
+import { AgentWebhooks } from "./agents/AgentWebhooks";
 import type { AgentRecord as Agent } from "../types/agent";
 
 /** Shared publication shape across Linear / GitHub / Slack — they all
@@ -182,6 +183,8 @@ export function AgentDetail() {
           />
         </div>
       </div>
+
+      <AgentWebhooks agent={agent} />
 
       {/* System prompt */}
       {agent.system && (
