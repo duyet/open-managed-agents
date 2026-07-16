@@ -95,7 +95,8 @@ export function MyBots() {
           <div className="border border-border rounded-lg p-10 text-center">
             <p className="text-sm text-fg-muted">No published bots yet.</p>
             <p className="text-xs text-fg-subtle mt-1">
-              Open an agent and publish it to share a public chat page, embed widget, or QR code.
+              Open an agent, then use its Publishing tab to share a public chat page, embed
+              widget, or QR code.
             </p>
             <Button className="mt-4" onClick={() => nav("/agents")}>
               Go to Agents
