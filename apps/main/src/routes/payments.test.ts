@@ -7,8 +7,8 @@
 // deployment → 501.
 
 import { describe, it, expect, beforeEach } from "vitest";
-import paymentsWebhookRoutes from "./payments";
-import { signPayload } from "@duyet/oma-payments";
+import paymentsWebhookRoutes, { createD1PaymentsStore } from "./payments";
+import { PaymentsService, signPayload, type StripeEvent } from "@duyet/oma-payments";
 
 // ── Minimal in-memory D1 fake ────────────────────────────────────────────
 // Interprets just the statements createD1PaymentsStore issues.
@@ -51,20 +51,31 @@ class FakeStmt {
     }
     return null;
   }
-  async run() {
-    if (this.sql.includes("INSERT INTO end_user_credit_ledger")) {
+  async run(): Promise<{ meta: { changes: number } }> {
+    if (this.sql.includes("INSERT OR IGNORE INTO end_user_credit_ledger")) {
+      // Mirrors migration 0024's partial unique index on stripe_event_id: a
+      // duplicate event is silently ignored — 0 rows changed — rather than
+      // pushed as a second row.
+      const stripeEventId = this.args[7] as string | null;
+      if (stripeEventId && this.db.ledger.some((r) => r.stripe_event_id === stripeEventId)) {
+        return { meta: { changes: 0 } };
+      }
       this.db.ledger.push({
         tenant_id: this.args[1] as string,
         end_user_id: this.args[2] as string,
         delta: this.args[3] as number,
-        stripe_event_id: this.args[7] as string | null,
+        stripe_event_id: stripeEventId,
       });
+      return { meta: { changes: 1 } };
     } else if (this.sql.includes("INSERT INTO end_user_balance")) {
       const key = `${this.args[0]}:${this.args[1]}`;
       this.db.balances.set(key, (this.db.balances.get(key) ?? 0) + (this.args[2] as number));
+      return { meta: { changes: 1 } };
     } else if (this.sql.includes("INSERT OR IGNORE INTO stripe_processed_events")) {
       this.db.processed.add(this.args[0] as string);
+      return { meta: { changes: 1 } };
     }
+    return { meta: { changes: 0 } };
   }
 }
 
@@ -112,6 +123,29 @@ describe("POST /webhooks/stripe", () => {
     expect(res2.status).toBe(200);
     expect(db.ledger).toHaveLength(1);
     expect(db.balances.get("t1:u1")).toBe(50);
+  });
+
+  // A genuine race needs both `creditFromEvent` calls in flight against the
+  // SAME store before either resolves. Driving this through the full HTTP
+  // handler (real signature verification + crypto.subtle round-trips per
+  // call) lets one request consistently finish before the other starts —
+  // Promise.all there never actually overlaps the two. Calling
+  // createD1PaymentsStore (the exact store applyEntry runs through in
+  // production) directly reproduces the race the webhook route would see
+  // under concurrent Stripe redelivery.
+  it("is idempotent under concurrent redelivery (issue #160)", async () => {
+    const store = createD1PaymentsStore(db as unknown as D1Database);
+    const svc = new PaymentsService(store);
+    const event: StripeEvent = {
+      id: "evt_race",
+      type: "checkout.session.completed",
+      data: { object: { metadata: { tenant_id: "t1", end_user_id: "u1", credits: "75" } } },
+    };
+
+    await Promise.all([svc.creditFromEvent(event), svc.creditFromEvent(event)]);
+
+    expect(db.ledger).toHaveLength(1);
+    expect(db.balances.get("t1:u1")).toBe(75);
   });
 
   it("rejects a bad signature with 400", async () => {
