@@ -3793,6 +3793,50 @@ export class SessionDO extends DurableObject<Env> {
   }
 
   /**
+   * Durably record token spend into the per-tenant `usage_events` table
+   * (kinds model_input_tokens / model_output_tokens) so per-agent
+   * aggregation (GET /v1/agents/:id/stats) doesn't have to replay every
+   * session's DO event log. Fire-and-forget from the reportUsage
+   * closures — a D1 hiccup must never fail the turn, same policy as
+   * _recordSessionAliveOnTerminate.
+   */
+  private _emitTokenUsageEvents(inputTokens: number, outputTokens: number): void {
+    const tenantId = this.state.tenant_id;
+    const sessionId = this.state.session_id;
+    if (!tenantId || !sessionId) return;
+    if ((inputTokens || 0) <= 0 && (outputTokens || 0) <= 0) return;
+    const agentId = this.state.agent_id || null;
+    void (async () => {
+      try {
+        const { getCfServicesForTenant } = await import("@duyet/oma-services");
+        const services = await getCfServicesForTenant(this.env, tenantId);
+        if (inputTokens > 0) {
+          await services.usage.recordUsage({
+            tenantId,
+            sessionId,
+            agentId,
+            kind: "model_input_tokens",
+            value: inputTokens,
+          });
+        }
+        if (outputTokens > 0) {
+          await services.usage.recordUsage({
+            tenantId,
+            sessionId,
+            agentId,
+            kind: "model_output_tokens",
+            value: outputTokens,
+          });
+        }
+      } catch (err) {
+        console.error(
+          `[session_do] token usage emit failed: ${(err as Error).message ?? err}`,
+        );
+      }
+    })();
+  }
+
+  /**
    * Persist a SessionEvent to the events table AND broadcast to WS subscribers.
    * Used by tools (e.g. web_fetch's aux summarize step) that need to emit
    * trajectory events from outside the harness loop. Inside the harness loop,
@@ -4623,6 +4667,7 @@ export class SessionDO extends DurableObject<Env> {
         ...this.buildStreamRuntimeMethods(threadId),
         reportUsage: async (input_tokens: number, output_tokens: number) => {
           this.creditUsageToThread(threadId, { input_tokens, output_tokens });
+          this._emitTokenUsageEvents(input_tokens, output_tokens);
         },
         // See reportStatus doc comment on HarnessRuntime — same write path
         // as `broadcast`, this just builds the agent.status event shape.
@@ -5125,6 +5170,7 @@ export class SessionDO extends DurableObject<Env> {
         ...this.buildStreamRuntimeMethods(),
         reportUsage: async (input_tokens: number, output_tokens: number) => {
           this.creditUsageToThread(turnThreadId, { input_tokens, output_tokens });
+          this._emitTokenUsageEvents(input_tokens, output_tokens);
         },
         reportStatus: (status) => primaryBroadcast({ type: "agent.status", ...status }),
         pendingConfirmations: [],

@@ -114,7 +114,9 @@ export {
   SqlUsageStore,
   createCfUsageStore,
   clampUsageValue,
+  maxValueForKind,
   MAX_VALUE_PER_EMIT_SEC,
+  MAX_TOKENS_PER_EMIT,
 } from "./usage";
 export type { UsageStore, UsageKind, UsageEventInput, UsageEventRow } from "./usage";
 
