@@ -138,6 +138,17 @@ const EDGES: Edge[] = [
 // Ordered data-flow path for the animation.
 const FLOW: string[] = ["client", "session", "harness", "sandbox", "vault", "ext"];
 
+// Real protocol trace for each flow step — actual API surface, event names,
+// and CLI, not invented flags. Shown as the terminal's live request trace.
+const TRACE: Record<string, string> = {
+  client: '$ oma sessions message sess_9f2 "run the tests"  →  POST /v1/sessions/sess_9f2/events',
+  session: "event: session.status_running   (persisted to DO-SQLite, then broadcast)",
+  harness: "span.model_request_start · claude-sonnet-4-6 · byte-stable prompt prefix",
+  sandbox: 'agent.tool_use · bash · {"command":"pnpm test"}',
+  vault: "outbound https://api.github.com → proxy injects Authorization (never in sandbox)",
+  ext: "agent.message → session.status_idle · stop_reason: end_turn",
+};
+
 function nodeById(id: string): Node {
   const n = NODES.find((x) => x.id === id);
   if (!n) throw new Error(`unknown node ${id}`);
@@ -265,6 +276,15 @@ export default function ArchDiagram() {
           );
         })}
       </svg>
+
+      {/* Live request trace — the real protocol line for the active step
+          (actual endpoints, event names, CLI). Hover swaps to the node's role. */}
+      <p className="arch-diagram-trace font-mono" aria-live="polite">
+        <span className="ad-trace-step">
+          {activeNode ? `${FLOW.indexOf(activeNode) + 1}/${FLOW.length}` : "—"}
+        </span>
+        {activeNode ? TRACE[activeNode] : TRACE.client}
+      </p>
 
       {/* HTML caption — wraps freely, unlike SVG text. Updates on hover or
           with the active flow node when nothing is hovered. */}
