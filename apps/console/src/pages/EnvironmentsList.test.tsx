@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Route, Routes } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
 import { server } from "../mocks/server";
@@ -15,6 +15,25 @@ function renderPage() {
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
         <EnvironmentsList />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+/** Same as renderPage but with a real target route mounted at
+ *  /environments/:id so a row-click/keyboard-activation navigation can be
+ *  observed by asserting the sentinel destination renders. */
+function renderPageWithDetailRoute() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/environments"]}>
+        <Routes>
+          <Route path="/environments" element={<EnvironmentsList />} />
+          <Route path="/environments/:id" element={<div>ENV DETAIL env_123</div>} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -74,5 +93,38 @@ describe("<EnvironmentsList />", () => {
 
     await waitFor(() => expect(screen.getByText("No environments yet")).toBeInTheDocument());
     expect(screen.queryByText("Couldn't load environments")).not.toBeInTheDocument();
+  });
+
+  // Issue #181 — a row that navigates on click must also be reachable and
+  // activatable from the keyboard (Enter), not just the mouse.
+  it("navigates to the environment detail page when Enter is pressed on a focused row", async () => {
+    server.use(
+      http.get("/v1/environments", () =>
+        HttpResponse.json({
+          data: [
+            {
+              id: "env_123",
+              name: "env-alpha",
+              config: { type: "cloud" },
+              created_at: "2026-01-01T00:00:00.000Z",
+            },
+          ],
+        }),
+      ),
+      http.get("/v1/hosting_types", () => HttpResponse.json({ data: [] })),
+    );
+    renderPageWithDetailRoute();
+
+    await waitFor(() => expect(screen.getByText("env-alpha")).toBeInTheDocument());
+
+    const row = screen.getByText("env-alpha").closest("tr");
+    expect(row).not.toBeNull();
+    expect(row).toHaveAttribute("tabindex", "0");
+    expect(row).toHaveAttribute("role", "button");
+
+    row!.focus();
+    fireEvent.keyDown(row!, { key: "Enter" });
+
+    await waitFor(() => expect(screen.getByText("ENV DETAIL env_123")).toBeInTheDocument());
   });
 });
