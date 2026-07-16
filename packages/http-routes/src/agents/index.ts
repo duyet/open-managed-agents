@@ -26,6 +26,7 @@ import type { SessionRow } from "@duyet/oma-sessions-store";
 import type { RouteServicesArg } from "../types";
 import { resolveServices } from "../types";
 import { parseAnalyticsRange } from "../analytics";
+import { redactMcpServers, reconcileMcpServerTokens } from "../mcp-server-redaction";
 
 interface Vars {
   Variables: { tenant_id: string; user_id?: string };
@@ -85,7 +86,7 @@ function formatAgent(agent: AgentConfig) {
     system: agent.system || null,
     description: agent.description || null,
     skills: agent.skills || [],
-    mcp_servers: agent.mcp_servers || [],
+    mcp_servers: redactMcpServers(agent.mcp_servers) || [],
     multiagent,
     callable_agents: callable,
     metadata: agent.metadata || {},
@@ -230,6 +231,12 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
 
     const body = {
       ...raw,
+      mcp_servers: Array.isArray(raw.mcp_servers)
+        ? (reconcileMcpServerTokens(
+            raw.mcp_servers as Array<Record<string, unknown>>,
+            undefined,
+          ) as AgentConfig["mcp_servers"])
+        : raw.mcp_servers,
       callable_agents: ma.list ?? raw.callable_agents,
       aux_model: raw._oma?.aux_model,
       harness: raw._oma?.harness ?? raw.harness,
@@ -456,6 +463,12 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
 
     const body = {
       ...raw,
+      mcp_servers: Array.isArray(raw.mcp_servers)
+        ? (reconcileMcpServerTokens(
+            raw.mcp_servers as Array<Record<string, unknown>>,
+            existing.mcp_servers,
+          ) as AgentConfig["mcp_servers"])
+        : raw.mcp_servers,
       callable_agents: callableAgents,
       aux_model: raw._oma?.aux_model,
       harness: raw._oma?.harness ?? raw.harness,
