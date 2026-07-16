@@ -162,6 +162,15 @@ interface CreateSessionBody {
   agentId: string;
   environmentId: string;
   vaultIds?: string[];
+  /** Memory stores to mount as session resources (deployment runs — issue
+   *  deployments). Each becomes a `{type:"memory_store", memory_store_id}`
+   *  resource, same wiring as the public POST /v1/sessions path. */
+  memoryStoreIds?: string[];
+  /** Pin the agent to a specific historical version. When set and a matching
+   *  `agent_versions` snapshot exists, that snapshot is used as the agent
+   *  config instead of the current one. A null/unset value — or a version
+   *  equal to the current one (no historical row) — runs the latest config. */
+  agentVersion?: number | null;
   mcpServers?: Array<{ name: string; url: string; type?: string }>;
   metadata?: Record<string, unknown>;
   initialEvent?: { type: string; content: unknown[]; metadata?: Record<string, unknown> };
@@ -280,6 +289,23 @@ export async function createInternalSession(
   const vaultIds = body.vaultIds ?? [];
   const { tenant_id: _atid, ...agentBase } = agentRow;
   let agentSnapshot: AgentConfig = agentBase;
+  // Version pinning (deployment runs): swap in a historical snapshot when the
+  // caller pinned a version that isn't the current one. getVersion returns
+  // null for the current version (only prior versions are archived), so a
+  // pin equal to the live version transparently falls through to agentBase.
+  if (typeof body.agentVersion === "number" && body.agentVersion !== agentBase.version) {
+    const pinned = await services.agents.getVersion({
+      tenantId,
+      agentId: body.agentId,
+      version: body.agentVersion,
+    });
+    if (pinned) {
+      const { tenant_id: _vtid, ...pinnedBase } = pinned.snapshot as AgentConfig & {
+        tenant_id?: string;
+      };
+      agentSnapshot = pinnedBase;
+    }
+  }
   if (body.mcpServers && body.mcpServers.length > 0) {
     agentSnapshot = injectMcpServersIntoSnapshot(agentSnapshot, body.mcpServers);
   }
@@ -291,6 +317,13 @@ export async function createInternalSession(
   // id generation. Linear MCP wiring below augments the snapshot + metadata
   // and we re-persist via service.update to keep the row consistent.
   const initialMetadata: Record<string, unknown> = { ...(body.metadata ?? {}) };
+  // Mount attached memory stores as read/write session resources (deployment
+  // runs), same shape the public POST /v1/sessions path builds.
+  const memoryResources = (body.memoryStoreIds ?? []).map((id) => ({
+    type: "memory_store" as const,
+    memory_store_id: id,
+    access: "read_write" as const,
+  }));
   const { session: createdSession } = await services.sessions.create({
     tenantId,
     agentId: body.agentId,
@@ -299,6 +332,7 @@ export async function createInternalSession(
     vaultIds,
     agentSnapshot,
     environmentSnapshot: toEnvironmentConfig(envRow),
+    ...(memoryResources.length > 0 ? { resources: memoryResources as never } : {}),
     metadata: Object.keys(initialMetadata).length === 0 ? undefined : initialMetadata,
   });
   const sessionId = createdSession.id;

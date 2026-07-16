@@ -18,9 +18,15 @@ import {
   type ScheduledRunLauncher,
 } from "@duyet/oma-scheduler/jobs/scheduled-agent-runs";
 import { SqlClientScheduledRunsStore } from "@duyet/oma-scheduler/jobs/scheduled-agent-runs-store";
+import {
+  scheduledDeploymentRunsTick,
+  type ScheduledDeploymentRunLauncher,
+} from "@duyet/oma-scheduler/jobs/scheduled-deployment-runs";
+import { SqlClientScheduledDeploymentRunsStore } from "@duyet/oma-scheduler/jobs/scheduled-deployment-runs-store";
 import { withHealthchecks } from "@duyet/oma-shared";
 import { tickEvalRuns } from "../eval-runner";
 import { createInternalSession } from "../routes/internal";
+import { launchDeploymentSession } from "./deployment-runs";
 import { dreamRecoveryTick } from "../cron/dream-recovery";
 
 // Cron expressions are env-overridable so ops can shift sweeps without a
@@ -131,6 +137,30 @@ export function buildCfScheduler(env: Env): CfScheduler {
           resolveStore: async () =>
             new SqlClientScheduledRunsStore(new CfD1SqlClient(env.MAIN_DB)),
           resolveLauncher: async () => launcher,
+        }),
+      ),
+    });
+
+    // Scheduled deployment runs — fires deployments whose trigger is
+    // {"type":"schedule"}. Same shared MAIN_DB + tenant-shard launcher pattern
+    // as scheduled-agent-runs, but carries the deployment's vaults / memory
+    // stores / pinned agent version into each fired session.
+    const deploymentRunsCron = envCron(env, "SCHEDULED_DEPLOYMENT_RUNS_CRON", "* * * * *");
+    const deploymentLauncher: ScheduledDeploymentRunLauncher = {
+      async launch(deployment) {
+        return launchDeploymentSession(env, deployment);
+      },
+    };
+    scheduler.register({
+      name: "scheduled-deployment-runs",
+      cron: deploymentRunsCron,
+      handler: withHealthchecks(
+        env,
+        "scheduled-deployment-runs",
+        scheduledDeploymentRunsTick({
+          resolveStore: async () =>
+            new SqlClientScheduledDeploymentRunsStore(new CfD1SqlClient(env.MAIN_DB)),
+          resolveLauncher: async () => deploymentLauncher,
         }),
       ),
     });
