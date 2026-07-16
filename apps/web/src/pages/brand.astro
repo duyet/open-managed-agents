@@ -1,0 +1,294 @@
+---
+import Base from "../layouts/Base.astro";
+import Logo from "../components/Logo.astro";
+import Icon from "../components/Icon.astro";
+import PixelAgent from "../components/PixelAgent.astro";
+
+// Brand / identity reference page. Documents the 2026 redesign: the frame +
+// edge + node logo mark, the mascot, the neutral-zinc + iris token system, the
+// Geist type voice, and usage rules. Theme-aware and built from the same
+// shadcn-clean primitives as the rest of the site.
+
+interface Swatch {
+  name: string;
+  varName: string;
+  light: string;
+  dark: string;
+}
+
+const ground: Swatch[] = [
+  { name: "Background", varName: "--color-bg", light: "#ffffff", dark: "#09090b" },
+  { name: "Surface", varName: "--color-bg-surface", light: "#fafafa", dark: "#131316" },
+  { name: "Elevated", varName: "--color-bg-elevated", light: "#f4f4f5", dark: "#1c1c20" },
+];
+const text: Swatch[] = [
+  { name: "Foreground", varName: "--color-fg", light: "#18181b", dark: "#fafafa" },
+  { name: "Muted", varName: "--color-fg-muted", light: "#52525b", dark: "#a1a1aa" },
+  { name: "Subtle", varName: "--color-fg-subtle", light: "#71717a", dark: "#71717a" },
+];
+const lines: Swatch[] = [
+  { name: "Border", varName: "--color-border", light: "#e4e4e7", dark: "#27272a" },
+  { name: "Border strong", varName: "--color-border-strong", light: "#d4d4d8", dark: "#3f3f46" },
+];
+const primary: Swatch[] = [
+  { name: "Iris (primary)", varName: "--color-brand", light: "#4f46e5", dark: "#818cf8" },
+  { name: "Iris hover", varName: "--color-brand-hover", light: "#4338ca", dark: "#a5b4fc" },
+  { name: "Iris subtle", varName: "--color-brand-subtle", light: "#eef2ff", dark: "#1e1b3a" },
+];
+const dataviz: Swatch[] = [
+  { name: "Orange", varName: "--color-accent", light: "#d97757", dark: "#e08a68" },
+  { name: "Blue", varName: "--color-blue", light: "#6a9bcc", dark: "#6a9bcc" },
+  { name: "Green", varName: "--color-green", light: "#788c5d", dark: "#788c5d" },
+];
+
+const groups: { title: string; note: string; rows: Swatch[] }[] = [
+  { title: "Ground", note: "Neutral zinc greyscale. Pages sit on Background; Surface bands and Elevated chips step up.", rows: ground },
+  { title: "Text", note: "One warm-neutral gray family, three levels of emphasis.", rows: text },
+  { title: "Lines", note: "Crisp 1px hairlines carry structure instead of heavy shadows.", rows: lines },
+  { title: "Primary — iris", note: "The single ownable accent. All chrome: logo, links, focus, primary buttons.", rows: primary },
+  { title: "Data-viz accents", note: "Functional only — inside the architecture diagram, lifecycle, badges and use-case tabs. Never page chrome.", rows: dataviz },
+];
+---
+
+<Base
+  title="Brand — Open Managed Agents"
+  description="The Open Managed Agents brand system: the frame + node logo mark, color tokens for light and dark, the Geist type voice, and usage guidelines."
+  canonical="/brand/"
+  keywords="open managed agents brand, oma logo, brand guidelines, design tokens, oma identity"
+>
+  <!-- Header -->
+  <section class="max-w-5xl mx-auto px-4 pt-16 pb-10 md:pt-20">
+    <p class="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+      <Icon name="layers" size={14} class="text-[var(--color-brand)]" /> Brand
+    </p>
+    <h1 class="font-display text-4xl md:text-5xl font-bold tracking-tight leading-[1.07] mb-4">
+      The oma identity
+    </h1>
+    <p class="text-lg text-[var(--color-fg-muted)] leading-relaxed max-w-2xl">
+      A neutral engineering-tool language: a zinc greyscale ground, one confident
+      iris accent, crisp hairlines, and the Geist type voice. This page is the
+      reference — the mark, the tokens, the type, and how to use them.
+    </p>
+  </section>
+
+  <!-- Logo -->
+  <section class="border-t border-[var(--color-border)]" id="logo">
+    <div class="max-w-5xl mx-auto px-4 py-14">
+      <h2 class="font-display text-2xl font-bold tracking-tight mb-2">Logo</h2>
+      <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed max-w-2xl mb-8">
+        A rounded-square <strong class="text-[var(--color-fg)] font-semibold">frame</strong>
+        (the environment / sandbox), an <strong class="text-[var(--color-fg)] font-semibold">edge</strong>
+        running in from the corner, and a solid <strong class="text-[var(--color-fg)] font-semibold">node</strong>
+        at the center (the managed agent a request lands on). One glyph, drawn
+        with <code class="font-mono text-xs">currentColor</code> so it inherits its color.
+      </p>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Light / iris -->
+        <figure class="rounded-lg border border-[var(--color-border)] overflow-hidden">
+          <div class="flex items-center justify-center py-12" style="background:#ffffff;color:#4f46e5">
+            <Logo size={72} class="block" />
+          </div>
+          <figcaption class="px-4 py-2.5 text-xs font-mono text-[var(--color-fg-subtle)] border-t border-[var(--color-border)]">
+            light · iris
+          </figcaption>
+        </figure>
+        <!-- Light / mono -->
+        <figure class="rounded-lg border border-[var(--color-border)] overflow-hidden">
+          <div class="flex items-center justify-center py-12" style="background:#ffffff;color:#18181b">
+            <Logo size={72} class="block" />
+          </div>
+          <figcaption class="px-4 py-2.5 text-xs font-mono text-[var(--color-fg-subtle)] border-t border-[var(--color-border)]">
+            light · mono
+          </figcaption>
+        </figure>
+        <!-- Dark / iris -->
+        <figure class="rounded-lg border border-[var(--color-border)] overflow-hidden">
+          <div class="flex items-center justify-center py-12" style="background:#09090b;color:#818cf8">
+            <Logo size={72} class="block" />
+          </div>
+          <figcaption class="px-4 py-2.5 text-xs font-mono text-[var(--color-fg-subtle)] border-t border-[var(--color-border)]">
+            dark · iris
+          </figcaption>
+        </figure>
+        <!-- Dark / mono -->
+        <figure class="rounded-lg border border-[var(--color-border)] overflow-hidden">
+          <div class="flex items-center justify-center py-12" style="background:#09090b;color:#fafafa">
+            <Logo size={72} class="block" />
+          </div>
+          <figcaption class="px-4 py-2.5 text-xs font-mono text-[var(--color-fg-subtle)] border-t border-[var(--color-border)]">
+            dark · mono
+          </figcaption>
+        </figure>
+      </div>
+
+      <!-- Small / favicon form + lockup -->
+      <div class="grid sm:grid-cols-2 gap-4 mt-4">
+        <div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-6 flex items-center gap-6">
+          <div class="flex items-end gap-3 text-[var(--color-brand)]">
+            <Logo size={16} class="block" />
+            <Logo size={24} class="block" />
+            <Logo size={32} class="block" />
+          </div>
+          <span class="text-xs font-mono text-[var(--color-fg-subtle)]">favicon sizes · 16 / 24 / 32px</span>
+        </div>
+        <div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-6 flex items-center gap-6">
+          <a href="/" class="flex items-center gap-2" aria-label="oma lockup">
+            <Logo size={26} class="text-[var(--color-brand)]" />
+            <span class="font-mono font-bold tracking-tight text-[var(--color-fg)]">oma</span>
+          </a>
+          <span class="text-xs font-mono text-[var(--color-fg-subtle)]">horizontal lockup</span>
+        </div>
+      </div>
+
+      <!-- Downloads -->
+      <div class="mt-6 flex flex-wrap gap-3">
+        <a
+          href="/logo.svg"
+          download
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-[var(--color-border-strong)] text-sm font-medium no-underline hover:no-underline hover:bg-[var(--color-bg-surface)] transition-colors"
+        >
+          <Icon name="download" size={15} /> logo.svg
+        </a>
+        <a
+          href="/og-default.svg"
+          download
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-[var(--color-border-strong)] text-sm font-medium no-underline hover:no-underline hover:bg-[var(--color-bg-surface)] transition-colors"
+        >
+          <Icon name="download" size={15} /> og-default.svg
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Mascot -->
+  <section class="border-t border-[var(--color-border)] bg-[var(--color-bg-surface)]" id="mascot">
+    <div class="max-w-5xl mx-auto px-4 py-14 flex flex-col sm:flex-row items-center gap-8">
+      <div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-8 shrink-0">
+        <PixelAgent size={96} class="block" />
+      </div>
+      <div>
+        <h2 class="font-display text-2xl font-bold tracking-tight mb-2">Mascot</h2>
+        <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed max-w-xl">
+          A cheerful pixel robot, kept deliberately <strong class="text-[var(--color-fg)] font-semibold">warm</strong>
+          — terracotta, not iris. It's a playful secondary mark for friendly
+          moments (empty states, get-started); the iris chrome stays for the
+          serious tool surface. Use it sparingly, never as the primary logo.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Color -->
+  <section class="border-t border-[var(--color-border)]" id="color">
+    <div class="max-w-5xl mx-auto px-4 py-14">
+      <h2 class="font-display text-2xl font-bold tracking-tight mb-2">Color</h2>
+      <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed max-w-2xl mb-8">
+        Every color is a CSS custom property in
+        <code class="font-mono text-xs">global.css</code> — redefine the token and
+        the whole site shifts. Each row shows the light and dark value.
+      </p>
+
+      <div class="space-y-10">
+        {groups.map((g) => (
+          <div>
+            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-4">
+              <h3 class="font-display text-base font-semibold tracking-tight">{g.title}</h3>
+              <p class="text-xs text-[var(--color-fg-muted)]">{g.note}</p>
+            </div>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {g.rows.map((s) => (
+                <div class="rounded-lg border border-[var(--color-border)] overflow-hidden">
+                  <div class="flex h-16">
+                    <div class="flex-1" style={`background:${s.light}`}></div>
+                    <div class="flex-1" style={`background:${s.dark}`}></div>
+                  </div>
+                  <div class="px-3 py-2.5 border-t border-[var(--color-border)]">
+                    <div class="text-sm font-medium tracking-tight">{s.name}</div>
+                    <div class="font-mono text-[10px] text-[var(--color-fg-subtle)] mt-0.5">{s.varName}</div>
+                    <div class="font-mono text-[10px] text-[var(--color-fg-subtle)] mt-1 flex gap-3">
+                      <span>L {s.light}</span><span>D {s.dark}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Typography -->
+  <section class="border-t border-[var(--color-border)] bg-[var(--color-bg-surface)]" id="type">
+    <div class="max-w-5xl mx-auto px-4 py-14">
+      <h2 class="font-display text-2xl font-bold tracking-tight mb-2">Typography</h2>
+      <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed max-w-2xl mb-8">
+        <strong class="text-[var(--color-fg)] font-semibold">Geist</strong> for
+        everything — display and body share the family, differing by weight and
+        tracking. <strong class="text-[var(--color-fg)] font-semibold">Geist Mono</strong>
+        carries the terminal, code, and label vocabulary.
+      </p>
+
+      <div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] divide-y divide-[var(--color-border)]">
+        <div class="px-6 py-5 flex flex-wrap items-baseline justify-between gap-2">
+          <span class="font-display text-5xl font-bold tracking-tight">Durable agents</span>
+          <span class="font-mono text-[10px] text-[var(--color-fg-subtle)]">Geist · 48 / 700 / -0.02em</span>
+        </div>
+        <div class="px-6 py-5 flex flex-wrap items-baseline justify-between gap-2">
+          <span class="font-display text-3xl font-bold tracking-tight">Section heading</span>
+          <span class="font-mono text-[10px] text-[var(--color-fg-subtle)]">Geist · 30 / 700</span>
+        </div>
+        <div class="px-6 py-5 flex flex-wrap items-baseline justify-between gap-2">
+          <span class="font-display text-xl font-semibold tracking-tight">Card title</span>
+          <span class="font-mono text-[10px] text-[var(--color-fg-subtle)]">Geist · 20 / 600</span>
+        </div>
+        <div class="px-6 py-5 flex flex-wrap items-baseline justify-between gap-3">
+          <span class="text-base text-[var(--color-fg-muted)] leading-relaxed max-w-md">
+            Body copy sits at a relaxed line-height and a muted foreground so
+            headings and accents lead the eye.
+          </span>
+          <span class="font-mono text-[10px] text-[var(--color-fg-subtle)]">Geist · 16 / 400</span>
+        </div>
+        <div class="px-6 py-5 flex flex-wrap items-center justify-between gap-3">
+          <span class="font-mono text-sm text-[var(--color-fg-muted)]">
+            <span class="text-[var(--color-green)]">oma@fleet:~$</span>
+            <span class="text-[var(--color-accent)]">oma</span> sessions tail sess_9f2
+          </span>
+          <span class="font-mono text-[10px] text-[var(--color-fg-subtle)]">Geist Mono · 14</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Usage -->
+  <section class="border-t border-[var(--color-border)]" id="usage">
+    <div class="max-w-5xl mx-auto px-4 py-14">
+      <h2 class="font-display text-2xl font-bold tracking-tight mb-8">Usage</h2>
+      <div class="grid md:grid-cols-2 gap-8">
+        <div>
+          <h3 class="flex items-center gap-2 font-display text-base font-semibold tracking-tight mb-4">
+            <Icon name="check" size={18} class="text-[var(--color-green)]" /> Do
+          </h3>
+          <ul class="space-y-3 text-sm text-[var(--color-fg-muted)] leading-relaxed">
+            <li class="flex gap-2"><Icon name="check" size={16} class="text-[var(--color-green)] mt-0.5 shrink-0" /> Give the mark clearspace of at least its own node's diameter on every side.</li>
+            <li class="flex gap-2"><Icon name="check" size={16} class="text-[var(--color-green)] mt-0.5 shrink-0" /> Use iris on neutral grounds, or a single mono ink/paper tone.</li>
+            <li class="flex gap-2"><Icon name="check" size={16} class="text-[var(--color-green)] mt-0.5 shrink-0" /> Keep it 16px or larger — below that the node fills in.</li>
+            <li class="flex gap-2"><Icon name="check" size={16} class="text-[var(--color-green)] mt-0.5 shrink-0" /> Let it inherit <code class="font-mono text-xs">currentColor</code> so it stays theme-aware.</li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="flex items-center gap-2 font-display text-base font-semibold tracking-tight mb-4">
+            <Icon name="x" size={18} style="color:#dc2626" /> Don't
+          </h3>
+          <ul class="space-y-3 text-sm text-[var(--color-fg-muted)] leading-relaxed">
+            <li class="flex gap-2"><Icon name="x" size={16} style="color:#dc2626" class="mt-0.5 shrink-0" /> Recolor the mark to terracotta, a gradient, or any non-brand hue.</li>
+            <li class="flex gap-2"><Icon name="x" size={16} style="color:#dc2626" class="mt-0.5 shrink-0" /> Stretch, rotate, or restyle the frame corners or node.</li>
+            <li class="flex gap-2"><Icon name="x" size={16} style="color:#dc2626" class="mt-0.5 shrink-0" /> Swap the mascot in as the primary logo, or tint it iris.</li>
+            <li class="flex gap-2"><Icon name="x" size={16} style="color:#dc2626" class="mt-0.5 shrink-0" /> Set the mark on a busy photo without a solid backing tile.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>
