@@ -35,6 +35,13 @@ export const authMiddleware = createMiddleware<{
   if (c.req.path.startsWith("/v1/public/")) {
     return next();
   }
+  // Deployment webhook trigger: the opaque hook_token in the path both
+  // identifies the deployment AND authorizes the run (resolved inside
+  // routes/deployments.ts). Must bypass x-api-key — a tenant key is never
+  // accepted here.
+  if (c.req.path.startsWith("/v1/deployment_hooks/")) {
+    return next();
+  }
   // Stripe webhook (issue #74): authenticated by the Stripe signature, not an
   // x-api-key. Verified inside routes/payments.ts against STRIPE_WEBHOOK_SECRET.
   if (c.req.path.startsWith("/webhooks/")) {

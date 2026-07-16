@@ -11,7 +11,9 @@
     "./jobs/webhook-events-retention": "./src/jobs/webhook-events-retention.ts",
     "./jobs/linear-dispatch": "./src/jobs/linear-dispatch.ts",
     "./jobs/scheduled-agent-runs": "./src/jobs/scheduled-agent-runs.ts",
-    "./jobs/scheduled-agent-runs-store": "./src/jobs/scheduled-agent-runs-store.ts"
+    "./jobs/scheduled-agent-runs-store": "./src/jobs/scheduled-agent-runs-store.ts",
+    "./jobs/scheduled-deployment-runs": "./src/jobs/scheduled-deployment-runs.ts",
+    "./jobs/scheduled-deployment-runs-store": "./src/jobs/scheduled-deployment-runs-store.ts"
   },
   "dependencies": {
     "@duyet/oma-shared": "workspace:*",

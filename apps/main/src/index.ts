@@ -67,6 +67,7 @@ import paymentsWebhookRoutes, {
   createD1PaymentsStore,
 } from "./routes/payments";
 import schedulesRoutes from "./routes/schedules";
+import deploymentsRoutes, { deploymentHooksRoutes } from "./routes/deployments";
 import mcpProxyRoutes, {
   resolveProxyTargetByTenant,
   resolveOutboundCredentialByHost,
@@ -599,6 +600,10 @@ app.route("/v1/webhooks", webhookRoutes);
 app.route("/v1/stats", statsRoutes);
 app.route("/v1/usage", usageRoutes);
 app.route("/v1/agents", schedulesRoutes);
+app.route("/v1/deployments", deploymentsRoutes);
+// Webhook trigger for deployments — bypasses x-api-key auth (see auth.ts);
+// the opaque hook_token authorizes the run.
+app.route("/v1/deployment_hooks", deploymentHooksRoutes);
 app.route("/v1/providers/anyrouter", providersRoutes);
 
 // Billing-API proxy needs the session-resolved tenant_id, so it must

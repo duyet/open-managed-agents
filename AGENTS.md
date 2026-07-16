@@ -931,6 +931,92 @@ session; agent schedules create fresh sessions.)
 
 ---
 
+## Deployments
+
+A **deployment** is a first-class, reusable bundle (matches the official
+Claude Console) that binds an agent — optionally pinned to a specific version
+— to an environment, credential vaults, memory stores, an initial message,
+and a **trigger**, so the same configured run can fire repeatedly. Rows live
+in the shared control-plane D1 (`deployments`, `dep_*` ids), tenant-scoped.
+
+```bash
+curl -s $BASE/v1/deployments \
+  -H "x-api-key: $KEY" -H "content-type: application/json" \
+  -d '{
+    "name": "Nightly digest",
+    "agent_id": "agent_xxx",
+    "agent_version": null,
+    "initial_message": "Post the digest to #general.",
+    "environment_id": "env_xxx",
+    "vault_ids": ["vlt_xxx"],
+    "memory_store_ids": ["ms_xxx"],
+    "trigger": { "type": "schedule", "cron_expression": "0 9 * * 1", "timezone": "America/New_York" }
+  }'
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `name` | Yes | Display name (1–200 chars) |
+| `agent_id` | Yes | Agent to run |
+| `agent_version` | No | `null`/unset = always latest; an integer pins that version's snapshot |
+| `initial_message` | Yes | Sent to the agent as the opening `user.message` on every run (1–10000 chars) |
+| `environment_id` | Yes | Environment the run's session executes in |
+| `vault_ids` | No | Credential vaults attached to each run's session |
+| `memory_store_ids` | No | Memory stores mounted as read/write session resources |
+| `trigger` | No | `manual` \| `schedule` \| `webhook` (default `{"type":"manual"}`) |
+| `enabled` | No | Default true |
+
+### Triggers
+
+- **`{"type":"manual"}`** — run only via `POST /v1/deployments/:id/run`.
+- **`{"type":"schedule","cron_expression":"...","timezone":"UTC"}`** — fires on
+  a cron cadence via the per-minute `scheduled-deployment-runs` cron tick
+  (`packages/scheduler/src/jobs/scheduled-deployment-runs.ts`, wired in
+  `apps/main/src/lib/cf-scheduler-jobs.ts`). Mirrors agent schedules exactly:
+  `next_run_at` is seeded at create from cron + timezone (via `croner`) and
+  advanced to the next occurrence by an atomic compare-and-set during each
+  tick, so overlapping ticks / replicas never double-fire. A failing run is
+  fail-open (logged; `last_run_*` recorded; next occurrence still scheduled).
+- **`{"type":"webhook"}`** — create mints an opaque `hook_token` and returns a
+  `webhook_url` (`/v1/deployment_hooks/<hook_token>`). That endpoint is
+  **unauthenticated but token-secured**: the token both identifies the
+  deployment and authorizes the run — a tenant `x-api-key` is never accepted
+  there. An optional JSON body `{ "message": "..." }` overrides, or
+  `{ "append": "..." }` appends to, the stored `initial_message`.
+
+### Running
+
+`POST /v1/deployments/:id/run` (and the webhook endpoint) create a fresh
+session from the deployment config — environment, vaults, memory stores,
+pinned agent version — inject the initial message, record the run
+(`last_run_at` / `last_run_status` / `last_run_error` / `last_session_id`),
+and return `{ session_id, deployment_id, status }`. The created session's
+`metadata.deployment_run.deployment_id` links it back to the deployment.
+
+Routes (all tenant-scoped except the webhook endpoint):
+
+```http
+POST   /v1/deployments                       # Create (201) — webhook_url in the response for webhook triggers
+GET    /v1/deployments                        # List — cursor-paginated (created_at, id) DESC
+GET    /v1/deployments/:id                    # Get
+PATCH  /v1/deployments/:id                    # Update (switching trigger re-mints/drops hook_token + re-seeds next_run_at)
+DELETE /v1/deployments/:id                    # Delete
+POST   /v1/deployments/:id/run                # Manual run → { session_id, ... }
+POST   /v1/deployment_hooks/:hook_token       # Webhook run (no x-api-key; token-secured)
+```
+
+**How it differs from agent schedules:** an agent schedule (`sch_*`, per-agent,
+`POST /v1/agents/:id/schedules`) only ever fires on a cron cadence and only
+carries an environment + prompt. A deployment (`dep_*`, top-level) is a
+reusable bundle that also carries vaults, memory stores, and a pinned agent
+version, and can be triggered three ways (manual API call, webhook, or cron).
+The schedule cron path is its own job (`scheduled-deployment-runs`) so the two
+never interfere. **Cloudflare only** — like agent schedules, the self-host
+Node runtime does not yet fire deployment schedules (manual/webhook likewise
+follow the CF-only route surface today).
+
+---
+
 ## Publishing, Consumers & Payments
 
 An agent can be **published** as a consumer-facing bot: a hosted chat page, an
