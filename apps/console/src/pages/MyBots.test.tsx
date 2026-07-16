@@ -31,6 +31,11 @@ function pub(overrides: Record<string, unknown> = {}) {
     avatar_url: null,
     visibility: "public",
     status: "live",
+    greeting: null,
+    suggested_prompts: [],
+    pricing_ref: null,
+    rate_limit_ref: null,
+    environment_id: null,
     created_at: new Date().toISOString(),
     ...overrides,
   };
@@ -62,5 +67,49 @@ describe("<MyBots />", () => {
     await waitFor(() => expect(screen.getByText(/Share Duyetbot/)).toBeInTheDocument());
     const snippet = screen.getByDisplayValue(/widget\.js/);
     expect((snippet as HTMLTextAreaElement).value).toContain("/p/duyetbot/widget.js");
+  });
+
+  it("sums per-user conversation counts into the Conversations column (issue #237)", async () => {
+    server.use(
+      http.get("/v1/publications", () => HttpResponse.json({ data: [pub()] })),
+      http.get("/v1/publications/pub_1/users", () =>
+        HttpResponse.json({
+          data: [
+            { consumer_id: "c1", conversation_count: 3 },
+            { consumer_id: "c2", conversation_count: 2 },
+          ],
+        }),
+      ),
+    );
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Duyetbot")).toBeInTheDocument());
+    expect(await screen.findByText("5")).toBeInTheDocument();
+  });
+
+  it("falls back to a dash if the conversation-count fetch fails, without breaking the row", async () => {
+    server.use(
+      http.get("/v1/publications", () => HttpResponse.json({ data: [pub()] })),
+      http.get("/v1/publications/pub_1/users", () =>
+        HttpResponse.json({ error: "Internal error" }, { status: 500 }),
+      ),
+    );
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Duyetbot")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("—")).toBeInTheDocument());
+  });
+
+  it("opens the edit-publication dialog from the pencil icon, prefilled from the row (issue #237)", async () => {
+    server.use(
+      http.get("/v1/publications", () => HttpResponse.json({ data: [pub()] })),
+      http.get("/v1/publications/pub_1/users", () => HttpResponse.json({ data: [] })),
+    );
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Duyetbot")).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit publication" }));
+
+    await waitFor(() => expect(screen.getByText("Edit Duyetbot")).toBeInTheDocument());
+    expect(screen.getByDisplayValue("duyetbot")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Duyetbot")).toBeInTheDocument();
   });
 });
