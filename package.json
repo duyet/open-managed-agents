@@ -49,7 +49,6 @@
     "deploy:docs": "pnpm --filter open-managed-agents-docs deploy",
     "build:web": "pnpm --filter @duyet/oma-web build",
     "deploy:web": "pnpm --filter @duyet/oma-web deploy",
-    "deploy": "./scripts/deploy.sh",
     "publish:npm": "bash scripts/publish-npm.sh",
     "publish:npm:dry": "bash scripts/publish-npm.sh --dry-run",
     "typecheck": "tsc --noEmit && pnpm run typecheck:node",
