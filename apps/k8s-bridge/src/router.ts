@@ -230,5 +230,23 @@ export function createRouter(manager: K8sManager, notifier?: SlackNotifier): Hon
     }
   });
 
+  // Get full detail for a single sandbox pod: pod status, container
+  // statuses, restart counts, and per-pod metrics. Registered after the
+  // more specific /:podName/logs and /metrics routes since Hono resolves
+  // params in registration order, not by specificity.
+  router.get("/api/v1/sandboxes/:id", async (c) => {
+    const { id } = c.req.param();
+
+    try {
+      const detail = await manager.getSandboxDetail(id);
+      if (!detail) {
+        return c.json({ error: "not_found", message: `Sandbox ${id} not found` }, 404);
+      }
+      return c.json(detail);
+    } catch (err) {
+      return c.json({ error: "sandbox_detail_failed", message: (err as Error).message }, 500);
+    }
+  });
+
   return router;
 }
