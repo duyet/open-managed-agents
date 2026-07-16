@@ -4,7 +4,7 @@
 // rather than a real historically-leaked value — known-insecure-secrets.ts
 // stores only SHA-256 digests specifically so that plaintext never
 // re-appears in a fresh commit, and a test fixture would be exactly that.
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import type { Context } from "hono";
 import { checkBootSecrets, createBootSecretGate } from "./boot-secrets";
 
@@ -16,53 +16,55 @@ const GOOD_ENV = {
 const noLeaks = async () => [];
 
 describe("checkBootSecrets", () => {
-  it("returns null when both secrets are set and clean", async () => {
-    expect(await checkBootSecrets(GOOD_ENV, noLeaks)).toBeNull();
+  it("returns a clean verdict when both secrets are set and clean", async () => {
+    expect(await checkBootSecrets(GOOD_ENV, noLeaks)).toEqual({ block: null, warn: null });
   });
 
-  it("flags BETTER_AUTH_SECRET when missing", async () => {
-    const msg = await checkBootSecrets(
+  it("blocks on BETTER_AUTH_SECRET when missing", async () => {
+    const verdict = await checkBootSecrets(
       { PLATFORM_ROOT_SECRET: GOOD_ENV.PLATFORM_ROOT_SECRET },
       noLeaks,
     );
-    expect(msg).toMatch(/BETTER_AUTH_SECRET/);
-    expect(msg).toMatch(/not set/);
+    expect(verdict.block).toMatch(/BETTER_AUTH_SECRET/);
+    expect(verdict.block).toMatch(/not set/);
+    expect(verdict.warn).toBeNull();
   });
 
-  it("flags PLATFORM_ROOT_SECRET when missing", async () => {
-    const msg = await checkBootSecrets(
+  it("blocks on PLATFORM_ROOT_SECRET when missing", async () => {
+    const verdict = await checkBootSecrets(
       { BETTER_AUTH_SECRET: GOOD_ENV.BETTER_AUTH_SECRET },
       noLeaks,
     );
-    expect(msg).toMatch(/PLATFORM_ROOT_SECRET/);
+    expect(verdict.block).toMatch(/PLATFORM_ROOT_SECRET/);
   });
 
-  it("flags both when both are missing", async () => {
-    const msg = await checkBootSecrets({}, noLeaks);
-    expect(msg).toMatch(/BETTER_AUTH_SECRET/);
-    expect(msg).toMatch(/PLATFORM_ROOT_SECRET/);
+  it("blocks on both when both are missing", async () => {
+    const verdict = await checkBootSecrets({}, noLeaks);
+    expect(verdict.block).toMatch(/BETTER_AUTH_SECRET/);
+    expect(verdict.block).toMatch(/PLATFORM_ROOT_SECRET/);
   });
 
   it("treats an empty string the same as unset", async () => {
-    const msg = await checkBootSecrets(
+    const verdict = await checkBootSecrets(
       { BETTER_AUTH_SECRET: "", PLATFORM_ROOT_SECRET: GOOD_ENV.PLATFORM_ROOT_SECRET },
       noLeaks,
     );
-    expect(msg).toMatch(/BETTER_AUTH_SECRET/);
+    expect(verdict.block).toMatch(/BETTER_AUTH_SECRET/);
   });
 
-  it("surfaces the leaked-secret message when findLeaked reports a hit", async () => {
-    const msg = await checkBootSecrets(GOOD_ENV, async () => ["BETTER_AUTH_SECRET"]);
-    expect(msg).toMatch(/BETTER_AUTH_SECRET/);
-    expect(msg).toMatch(/Refusing to start/);
+  it("warns (not blocks) when findLeaked reports a hit", async () => {
+    const verdict = await checkBootSecrets(GOOD_ENV, async () => ["BETTER_AUTH_SECRET"]);
+    expect(verdict.block).toBeNull();
+    expect(verdict.warn).toMatch(/BETTER_AUTH_SECRET/);
   });
 
-  it("checks presence before leaks — missing wins even if findLeaked would also fail", async () => {
-    const msg = await checkBootSecrets(
+  it("checks presence before leaks — missing blocks even if findLeaked would also fail", async () => {
+    const verdict = await checkBootSecrets(
       { PLATFORM_ROOT_SECRET: GOOD_ENV.PLATFORM_ROOT_SECRET },
       async () => ["PLATFORM_ROOT_SECRET"],
     );
-    expect(msg).toMatch(/not set/);
+    expect(verdict.block).toMatch(/not set/);
+    expect(verdict.warn).toBeNull();
   });
 });
 
@@ -82,6 +84,10 @@ function fakeContext(env: Record<string, string | undefined>): Context {
 }
 
 describe("createBootSecretGate", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("returns 503 and does not call next() when a secret is missing", async () => {
     const gate = createBootSecretGate();
     let nextCalled = false;
@@ -105,6 +111,23 @@ describe("createBootSecretGate", () => {
 
     expect(nextCalled).toBe(true);
     expect(res).toBeUndefined(); // gate itself returns nothing on the happy path
+  });
+
+  it("serves traffic on a leaked secret but logs the operator error exactly once", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const gate = createBootSecretGate(async () => ["BETTER_AUTH_SECRET"]);
+
+    let nextCalls = 0;
+    await gate(fakeContext(GOOD_ENV), async () => {
+      nextCalls += 1;
+    });
+    await gate(fakeContext(GOOD_ENV), async () => {
+      nextCalls += 1;
+    });
+
+    expect(nextCalls).toBe(2); // never blocked
+    expect(errorSpy).toHaveBeenCalledTimes(1); // nag once per isolate, not per request
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/BETTER_AUTH_SECRET/);
   });
 
   it("memoizes the first verdict — a later request on the same instance stays gated", async () => {
