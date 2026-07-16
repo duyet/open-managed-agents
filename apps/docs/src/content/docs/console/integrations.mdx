@@ -121,7 +121,7 @@ ad-hoc engagement equivalent to having added the label.
 Slack installs are **per-agent dedicated Slack Apps** — each publication owns its own Slack App entry on `api.slack.com`, with its own OAuth credentials and bot user. This keeps tenants isolated (your bot lives in its own App, not a shared marketplace one) and lets each publication scope independently.
 
 <Aside type="tip" title="One-click managed install">
-  If the deployment has a shared managed Slack App configured (`SLACK_MANAGED_CLIENT_ID` / `SLACK_MANAGED_CLIENT_SECRET` / `SLACK_MANAGED_SIGNING_SECRET`), the publish wizard shows an **Add to Slack** button that skips the manifest / paste-credentials steps entirely — one click straight to the OAuth authorize screen (`POST /v1/integrations/slack/start-managed`). Without those secrets it falls back to the bring-your-own-App manifest wizard described below.
+  If the operator configured a single distributable managed Slack App (`SLACK_MANAGED_CLIENT_ID` / `SLACK_MANAGED_CLIENT_SECRET` / `SLACK_MANAGED_SIGNING_SECRET`), the publish wizard shows an **Add to Slack** button that skips the manifest / paste-credentials steps entirely — one click straight to the OAuth authorize screen (`POST /slack/publications/start-managed`). The same app installs into many workspaces from one shared events URL; inbound events are routed to the right per-workspace installation by `team_id`. Without those secrets it falls back to the bring-your-own-App manifest wizard below. Full guide: [`docs/slack-integration.md`](https://github.com/duyet/oma/blob/main/docs/slack-integration.md).
 </Aside>
 
 <Tabs>

@@ -651,7 +651,7 @@ oma slack update <pub-id> --caps message.write,thread.reply,reaction.add,…
 oma slack unpublish <pub-id>
 ```
 
-**One-click managed install.** When the deployment sets `SLACK_MANAGED_CLIENT_ID` / `SLACK_MANAGED_CLIENT_SECRET` / `SLACK_MANAGED_SIGNING_SECRET`, the publish wizard shows an **Add to Slack** button that skips the manifest + paste-credentials steps and goes straight to OAuth (`POST /v1/integrations/slack/start-managed`). Without them it falls back to the bring-your-own-App manifest flow above.
+**One-click managed install.** When the operator configures a single distributable Slack App (`SLACK_MANAGED_CLIENT_ID` / `SLACK_MANAGED_CLIENT_SECRET` / `SLACK_MANAGED_SIGNING_SECRET`), the publish wizard shows an **Add to Slack** button that skips the manifest + paste-credentials steps and goes straight to OAuth (`POST /slack/publications/start-managed`). One app installs into **many** workspaces from one events URL — inbound events fan in by `team_id` to the right per-workspace installation. Without the three secrets it falls back to the bring-your-own-App manifest flow above. Full operator + end-user guide: [`docs/slack-integration.md`](docs/slack-integration.md).
 
 The full agent-side playbook (manifest-flow caveats, `GATEWAY_ORIGIN` HTTPS requirement, what to paste where, MCP toggle probe) lives at [`skills/oma/integrations-slack.md`](skills/oma/integrations-slack.md).
 
@@ -668,6 +668,22 @@ How it works:
 The Slack integration ships in `packages/slack/` with thin CF wrappers in `apps/integrations/src/routes/slack/`.
 
 **Operator setup:** the integrations gateway needs `GATEWAY_ORIGIN` pointing at a publicly-reachable HTTPS host — Slack verifies both the OAuth redirect URL and the Events Request URL before letting an install complete.
+
+### Telegram
+
+Run a Telegram bot backed by an OMA agent. Unlike the OAuth integrations above,
+this is a single deployment-level bot wired entirely through env vars on the
+integrations gateway — set `TELEGRAM_BOT_TOKEN` (BotFather) plus `TELEGRAM_AGENT_ID`
+(and optionally `TELEGRAM_VAULT_IDS` / `TELEGRAM_ENVIRONMENT_ID`), then point
+BotFather's webhook at `/telegram/webhook`. One session per chat.
+
+- **Attachments** — inbound photos and documents are downloaded and forwarded to
+  the agent as image / document content blocks (caption becomes the text); an
+  oversized or expired file degrades to a text placeholder so the turn still lands.
+- **Auto-idle** — a periodic sweep pauses the sandbox of any chat idle longer than
+  `TELEGRAM_IDLE_TIMEOUT_MS` (default 5 minutes) to stop paying for idle
+  containers. The next message implicitly resumes it (the sandbox warms lazily),
+  so no explicit resume is needed.
 
 ---
 
