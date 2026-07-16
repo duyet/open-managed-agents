@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, formatRelative, pickTickStep, shortenId } from "./format";
+import {
+  formatDuration,
+  formatRelative,
+  formatSandboxTime,
+  pickTickStep,
+  shortenId,
+} from "./format";
 
 describe("formatDuration", () => {
   it("returns em-dash for non-finite or negative input", () => {
@@ -43,6 +49,22 @@ describe("shortenId", () => {
   });
   it("truncates long ids with prefix + ellipsis + suffix", () => {
     expect(shortenId("agt_01ABCDEFGHIJKLMXYZ")).toBe("agt_01AB…XYZ");
+  });
+});
+
+describe("formatSandboxTime", () => {
+  it("renders em-dash for zero or undefined seconds", () => {
+    expect(formatSandboxTime(0)).toBe("—");
+    expect(formatSandboxTime(undefined)).toBe("—");
+  });
+  it("renders seconds only under a minute", () => {
+    expect(formatSandboxTime(45)).toBe("45s");
+  });
+  it("renders minutes under an hour", () => {
+    expect(formatSandboxTime(12 * 60)).toBe("12m");
+  });
+  it("renders hours + minutes", () => {
+    expect(formatSandboxTime(4 * 3600 + 32 * 60)).toBe("4h 32m");
   });
 });
 

@@ -14,6 +14,21 @@ export function formatDuration(ms: number): string {
 }
 
 /**
+ * Format a cumulative sandbox-seconds total as a short human duration for
+ * dashboard metric cards: `4h 32m`, `12m`, `45s`. Zero/undefined seconds
+ * render as "—" so a tenant with no sandbox usage yet reads as an
+ * intentional empty state rather than a broken "0h 0m".
+ */
+export function formatSandboxTime(seconds: number | undefined): string {
+  if (!seconds || seconds <= 0) return "—";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m`;
+  return `${Math.round(seconds)}s`;
+}
+
+/**
  * "12s ago" / "5m ago" / "3d ago" / "8mo ago" — coarse relative time
  * suitable for header chips. Prefer absolute timestamps in tooltips
  * when an exact value matters.

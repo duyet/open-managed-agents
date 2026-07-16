@@ -5,6 +5,8 @@ import { StatusPill } from "../components/Badge";
 import { EmptyState } from "../components/EmptyState";
 import { Skeleton } from "../components/Skeleton";
 import { StackedAssembly } from "../components/StackedAssembly";
+import { Card, CardContent } from "../components/ui/card";
+import { formatSandboxTime } from "../lib/format";
 
 interface Stats {
   agents: number;
@@ -14,6 +16,10 @@ interface Stats {
   skills: number;
   model_cards: number;
   api_keys: number;
+  /** Cumulative sandbox seconds across all usage_events, all time. */
+  total_sandbox_seconds: number;
+  /** Distinct sessions with any recorded usage, all time. */
+  total_usage_sessions: number;
 }
 
 interface RecentSession {
@@ -37,8 +43,47 @@ export function Dashboard() {
     "/v1/sessions",
     { limit: "5" },
   );
+  // "Active sessions" isn't part of /v1/stats — there's no bespoke
+  // analytics endpoint to ask for it, so derive it from a filtered
+  // /v1/sessions?status=running page instead. `next_page` presence means
+  // there are more than `limit` running sessions right now; render that
+  // as "N+" rather than silently under-counting.
+  const runningSessionsQuery = useApiQuery<{
+    data: RecentSession[];
+    next_page?: string;
+  }>("/v1/sessions", { status: "running", limit: "100" });
   const stats = statsQuery.data ?? null;
   const recentSessions = sessionsQuery.data?.data.slice(0, 5) ?? [];
+
+  const runningCount = runningSessionsQuery.data?.data.length;
+  const runningHasMore = Boolean(runningSessionsQuery.data?.next_page);
+
+  const metrics = [
+    {
+      label: "Sandbox time",
+      value: formatSandboxTime(stats?.total_sandbox_seconds),
+      caption: stats?.total_sandbox_seconds ? "all time" : "No usage yet",
+      isLoading: statsQuery.isLoading,
+    },
+    {
+      label: "Sessions run",
+      value: (stats?.total_usage_sessions ?? 0).toLocaleString(),
+      caption: stats?.total_usage_sessions ? "all time" : "No usage yet",
+      isLoading: statsQuery.isLoading,
+    },
+    {
+      label: "Active sessions",
+      value: `${runningCount ?? 0}${runningHasMore ? "+" : ""}`,
+      caption: "right now",
+      isLoading: runningSessionsQuery.isLoading,
+    },
+    {
+      label: "Agents",
+      value: (stats?.agents ?? 0).toLocaleString(),
+      caption: stats?.agents ? "total" : "No agents yet",
+      isLoading: statsQuery.isLoading,
+    },
+  ];
 
   const stat = (label: string, value: number | undefined, to: string) => (
     <button
@@ -85,6 +130,39 @@ export function Dashboard() {
             .
           </p>
         </header>
+
+        {/* Headline metrics — prominent, number-forward cards leading the
+            page (Claude Console home pattern). All values come from the
+            existing /v1/stats + /v1/sessions endpoints; no new backend
+            surface. Purely informational (unlike the resource-count row
+            below), so no click-to-navigate here. */}
+        <section>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {metrics.map((m) => (
+              <Card
+                key={m.label}
+                data-testid={`metric-card-${m.label}`}
+                className="bg-bg-surface/40"
+              >
+                <CardContent className="py-0.5">
+                  {m.isLoading ? (
+                    <Skeleton className="h-8 w-20" rounded="sm" />
+                  ) : (
+                    <div className="font-display text-[32px] leading-none font-semibold text-fg tabular-nums">
+                      {m.value}
+                    </div>
+                  )}
+                  <div className="mt-2.5 text-[11px] uppercase tracking-[0.08em] text-fg-muted font-medium">
+                    {m.label}
+                  </div>
+                  <div className="mt-0.5 text-[12px] text-fg-subtle">
+                    {m.caption}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
 
         {/* How it fits together — numbered setup-steps grid: three step
             columns ordered by setup dependency (① Foundation → ② Agent →
