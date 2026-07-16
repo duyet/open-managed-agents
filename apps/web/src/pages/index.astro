@@ -3,7 +3,6 @@ import Base from "../layouts/Base.astro";
 import { softwareApplicationSchema } from "../lib/seo";
 import FeatureCard from "../components/FeatureCard.astro";
 import Logo from "../components/Logo.astro";
-import AssemblyDemo from "../components/AssemblyDemo.tsx";
 import ManagedAgentsSection from "../components/ManagedAgentsSection.astro";
 import FeaturesSection from "../components/FeaturesSection.astro";
 import UseCasesSection from "../components/UseCasesSection.astro";
@@ -120,38 +119,6 @@ const lifecycle = [
     body: "On crash, a fresh harness reads SQLite, emits session.error if needed, and continues from durable events — no lost turns.",
   },
 ];
-
-// ASCII hero — a dotted halftone halo (oil-painting ASCII vibe) framing the
-// oma bracket+dot mark. Two stacked <pre> layers: a faint halo behind, the
-// bright brand structure on top. Poppins headline carries it; the ASCII is the
-// texture, not the whole message.
-const heroHalo = `
-                       .    .  .  . .  .    .  .
-               .  .  .  . .  .  . .  .  . .  .
-                .  .  . .  .  . .. .  . .  .  .    .
-              .  .  . .. .  . :: :  .  . .  .    .  .
-            .  .  . .. .  :  : :: :  : .. .  . .  .    .
-          .  .  . .. .  :  : :: :: : :: :  . .  .  .    .
-        .  .  .  . .. :  : :: :: : :: :: : .. .  .    .
-         .  .  . .. :  : :: :: :::: :: :  : .  .    .  .
-       .  .  . .  .  : :: :: :: : :: :: : :: .  . .  .
-     .  .          : :: :: :: :::: :: : :: :       .
-           .  .  .  : :: :: ::::::: :::: :: :  . .  .    .
-               .  : :: :: ::::::: :::: :: :  : .  .    .
-          .  .  . :: :: :::::::    :::: :: : :.    . .  .
-        .  .  . .. :: :: : :: :   ::: :: : :: .  . .  .
-      .  .    .. .  :  : :: ::    : :: : :: :  .    .
-       .  .    .  .  : :: :: :::: :: :::: :: .    .  .
-             .  .  . :: :: :::: :: :: : :: :  .    .    .
-           .     . .. :: :  : :: :: : :: :       .    .
-         .  .  . .. .  :  : :: :: : :: :  . .. .  .    .
-          .  .    .  .  . :: :  : :: :  . .. .  .    .
-                .  .  . .. .  : :: .  .  . .  .    .
-              .  .  . .  .  .  . .  .  . .  .    .
-           :   .    .             .  . .  .    .  .
-             .       .  .  . .  .  . .  .  .    .
-
-`;
 
 // Sandbox-provider marks for the fleet band. Rendered monochrome via
 // currentColor so they sit quietly in the zinc palette and pick up the iris
@@ -275,29 +242,52 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
           </ul>
         </div>
 
-        <!-- Right: framed terminal housing the live stacked-assembly demo —
-             an Agent card + the building blocks it uses, assembling and then
-             running a simulated turn. Echoes the Console's "How it fits
-             together". The dotted halo frames it from behind; CRT on top. -->
+        <!-- Right: what people actually build with it — four concrete
+             use-case blocks, each linking into the workflows section.
+             Plain cards, no accents, no animation. -->
         <div class="hero-visual">
-          <figure class="terminal-frame">
-            <figcaption class="terminal-bar">
-              <span class="terminal-dot" aria-hidden="true"></span>
-              <span class="terminal-dot" aria-hidden="true"></span>
-              <span class="terminal-dot" aria-hidden="true"></span>
-              <span class="terminal-title">oma://assemble — how it fits together</span>
-            </figcaption>
-            <div class="terminal-prompt select-none" aria-hidden="true">
-              <span class="typewriter-line" data-rotate='["oma agents create -f coder.json","oma sessions chat sess_9f2","oma sessions tail sess_9f2","oma envs create -f k8s.json","oma memory stores create notes","oma vaults list"]'>
-                <span class="prompt">oma@fleet:~$</span>
-                <span class="tw-static"></span><span class="tw-rot">oma agents create -f coder.json</span><span class="typewriter-caret"></span>
-              </span>
-            </div>
-            <div class="crt terminal-body select-none">
-              <pre class="ascii-art ascii-halo" aria-hidden="true">{heroHalo}</pre>
-              <AssemblyDemo client:visible />
-            </div>
-          </figure>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <a
+              href="#use-cases"
+              class="group rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-4 no-underline hover:no-underline hover:border-[var(--color-border-strong)] transition-colors"
+            >
+              <Icon name="terminal" size={18} class="text-[var(--color-brand)]" />
+              <h3 class="font-display text-[15px] font-semibold mt-2.5 mb-1 tracking-tight">Coding agent</h3>
+              <p class="text-[13px] text-[var(--color-fg-muted)] leading-relaxed m-0">
+                Reviews, fixes, and refactors on your repos — in a sandbox you control.
+              </p>
+            </a>
+            <a
+              href="#use-cases"
+              class="group rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-4 no-underline hover:no-underline hover:border-[var(--color-border-strong)] transition-colors"
+            >
+              <Icon name="globe" size={18} class="text-[var(--color-brand)]" />
+              <h3 class="font-display text-[15px] font-semibold mt-2.5 mb-1 tracking-tight">Public chatbot</h3>
+              <p class="text-[13px] text-[var(--color-fg-muted)] leading-relaxed m-0">
+                Publish any agent as a hosted chat page or a one-line website widget, with billing.
+              </p>
+            </a>
+            <a
+              href="#use-cases"
+              class="group rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-4 no-underline hover:no-underline hover:border-[var(--color-border-strong)] transition-colors"
+            >
+              <Icon name="message" size={18} class="text-[var(--color-brand)]" />
+              <h3 class="font-display text-[15px] font-semibold mt-2.5 mb-1 tracking-tight">Chat-ops</h3>
+              <p class="text-[13px] text-[var(--color-fg-muted)] leading-relaxed m-0">
+                Agents answering in Slack, Telegram, and GitHub threads — with vault-backed credentials.
+              </p>
+            </a>
+            <a
+              href="#use-cases"
+              class="group rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-4 no-underline hover:no-underline hover:border-[var(--color-border-strong)] transition-colors"
+            >
+              <Icon name="calendar" size={18} class="text-[var(--color-brand)]" />
+              <h3 class="font-display text-[15px] font-semibold mt-2.5 mb-1 tracking-tight">Scheduled runs</h3>
+              <p class="text-[13px] text-[var(--color-fg-muted)] leading-relaxed m-0">
+                Cron-fired sessions with no human turn — digests, polling, nightly maintenance.
+              </p>
+            </a>
+          </div>
         </div>
       </div>
     </div>
