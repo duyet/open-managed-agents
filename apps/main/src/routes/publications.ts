@@ -53,6 +53,16 @@ export interface PublicPublicationRoutesDeps {
     sessionId: string,
     env: Env,
   ) => Promise<boolean>;
+  /** Paywall gate for a public message (issue #74). Returns a 402 Response to
+   *  block (insufficient credits / no subscription), or null to allow. When
+   *  omitted, or when the publication is free / payments disabled, the surface
+   *  is ungated. `endUserId` identifies the wallet (consumer token or IP). */
+  enforcePaywall?: (opts: {
+    publication: PublicationRow;
+    endUserId: string;
+    sessionId: string;
+    env: Env;
+  }) => Promise<Response | null>;
 }
 
 const DEFAULT_PUBLIC_SESSION_CAP_PER_SLUG = 50;
@@ -80,6 +90,42 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
       // client should gate on. pricing_ref null today → no auth/credits.
       requires_auth: false,
       requires_credits: false,
+    });
+  });
+
+  // GET /p/:slug/widget.js — self-contained embed script (issue #75).
+  //
+  // A creator drops `<script src="https://host/p/<slug>/widget.js"></script>`
+  // on any third-party page. The script injects a floating launcher bubble
+  // that toggles an iframe of the hosted chat page (/p/:slug). No framework
+  // dependency on the embedder's side. Guardrails mirror the metadata route:
+  // a hidden/paused publication never ships a working widget.
+  app.get("/:slug/widget.js", async (c) => {
+    const resolved = await deps.resolvePublication(c.req.param("slug"), c.env);
+    if (resolved instanceof Response) {
+      // Return the guardrail status but as JS so the <script> tag fails
+      // quietly (a JSON body would throw a SyntaxError in the console).
+      return new Response(
+        `/* Open Managed Agents: publication unavailable (${resolved.status}). */`,
+        {
+          status: resolved.status,
+          headers: {
+            "content-type": "application/javascript; charset=utf-8",
+            "cache-control": "public, max-age=60",
+          },
+        },
+      );
+    }
+    const pub = resolved;
+    const js = renderWidgetScript({
+      slug: pub.slug,
+      title: pub.title,
+    });
+    return new Response(js, {
+      headers: {
+        "content-type": "application/javascript; charset=utf-8",
+        "cache-control": "public, max-age=300",
+      },
     });
   });
 
@@ -124,6 +170,18 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
     const scoped = await scopedSession(c, deps);
     if (scoped instanceof Response) return scoped;
     const { pub } = scoped;
+    // Paywall gate (issue #74) — runs before the message reaches the agent.
+    // free / payments-disabled publications pass straight through.
+    if (deps.enforcePaywall) {
+      const endUserId = endUserIdFor(c.req.raw);
+      const gate = await deps.enforcePaywall({
+        publication: pub,
+        endUserId,
+        sessionId: c.req.param("id") ?? "",
+        env: c.env,
+      });
+      if (gate) return gate;
+    }
     return forwardToSessions(c, pub.tenant_id, () => deps.buildSessionsApp(pub.tenant_id, c.env));
   });
 
@@ -210,6 +268,101 @@ async function forwardToSessions(
     c.env,
     executionCtx,
   );
+}
+
+/** Wallet identity for the paywall: the consumer bearer token when present
+ *  (a signed-in end-user), else a stable per-IP anonymous id. Charging an
+ *  anonymous IP wallet is fine — the ledger is keyed by this opaque id. */
+function endUserIdFor(req: Request): string {
+  const auth = req.headers.get("authorization");
+  if (auth?.startsWith("Bearer ")) return `tok:${auth.slice(7)}`;
+  return `ip:${clientIp(req)}`;
+}
+
+/**
+ * Build the embeddable widget bootstrap script for a publication. The script
+ * is fully self-contained (no external deps) and derives its own origin from
+ * the currently-executing <script> tag, so the same bytes work regardless of
+ * which host serves them. It renders a launcher bubble that toggles an iframe
+ * pointing at the hosted chat page (/p/<slug>).
+ *
+ * `slug` and `title` are injected as JSON literals so quotes/backslashes in a
+ * title can't break out of the string or inject markup.
+ */
+export function renderWidgetScript(opts: { slug: string; title: string }): string {
+  const slug = JSON.stringify(opts.slug);
+  const title = JSON.stringify(opts.title);
+  return `(function () {
+  "use strict";
+  var SLUG = ${slug};
+  var TITLE = ${title};
+  if (window.__omaWidgetLoaded_${sanitizeIdent(opts.slug)}) return;
+  window.__omaWidgetLoaded_${sanitizeIdent(opts.slug)} = true;
+
+  // Derive the serving origin from this script's own URL.
+  var current = document.currentScript;
+  var origin;
+  try {
+    origin = new URL(current.src).origin;
+  } catch (e) {
+    origin = window.location.origin;
+  }
+  var chatUrl = origin + "/p/" + encodeURIComponent(SLUG);
+
+  var Z = 2147483000;
+  var open = false;
+
+  var frame = document.createElement("iframe");
+  frame.title = TITLE;
+  frame.src = chatUrl;
+  frame.setAttribute("allow", "clipboard-write");
+  frame.style.cssText = [
+    "position:fixed", "bottom:88px", "right:20px",
+    "width:min(400px, calc(100vw - 40px))",
+    "height:min(600px, calc(100vh - 120px))",
+    "border:0", "border-radius:16px",
+    "box-shadow:0 12px 48px rgba(0,0,0,0.24)",
+    "z-index:" + Z, "background:#fff",
+    "display:none", "overflow:hidden"
+  ].join(";");
+
+  var button = document.createElement("button");
+  button.type = "button";
+  button.setAttribute("aria-label", "Open " + TITLE + " chat");
+  button.style.cssText = [
+    "position:fixed", "bottom:20px", "right:20px",
+    "width:56px", "height:56px", "border:0", "border-radius:50%",
+    "cursor:pointer", "background:#5b5bd6",
+    "color:#fff", "font-size:26px", "line-height:56px", "text-align:center",
+    "box-shadow:0 6px 20px rgba(0,0,0,0.28)", "z-index:" + (Z + 1),
+    "transition:transform 0.15s ease"
+  ].join(";");
+  button.textContent = "\\uD83D\\uDCAC";
+
+  function setOpen(next) {
+    open = next;
+    frame.style.display = open ? "block" : "none";
+    button.textContent = open ? "\\u2715" : "\\uD83D\\uDCAC";
+    button.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  button.addEventListener("click", function () { setOpen(!open); });
+
+  function mount() {
+    document.body.appendChild(frame);
+    document.body.appendChild(button);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", mount);
+  } else {
+    mount();
+  }
+})();
+`;
+}
+
+/** Turn a slug into a safe JS identifier fragment for the load-once guard. */
+function sanitizeIdent(slug: string): string {
+  return slug.replace(/[^a-zA-Z0-9_]/g, "_");
 }
 
 function clientIp(req: Request): string {

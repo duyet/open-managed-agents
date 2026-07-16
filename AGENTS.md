@@ -477,6 +477,52 @@ curl -s $BASE/v1/vaults/$VAULT_ID/credentials \
 
 ---
 
+## MCP Servers
+
+Agents connect to remote MCP servers via `agent.mcp_servers`. The platform
+proxies every MCP call through the main worker (`/v1/mcp-proxy`), which is
+the only layer that ever holds the upstream credential — the sandbox and
+harness never see it. Because resolution happens in the proxy (not the
+sandbox), MCP servers work identically across **every** sandbox provider
+(Cloudflare, k8s-bridge, boxrun, subprocess, …). Local-runtime ACP agents
+receive proxy-rewritten server URLs in their spawn-cwd bundle and inject the
+per-tenant PAT as the bearer.
+
+### Tenant-level registry
+
+Instead of repeating a server URL on every agent, register it once at the
+tenant level and reference it by id:
+
+```bash
+# Register a server (optionally pinning a vault credential)
+curl -s $BASE/v1/mcp_servers \
+  -H "x-api-key: $KEY" -H "content-type: application/json" \
+  -d '{"name": "linear", "url": "https://linear.app/mcp", "credential_id": "cred_xxx"}'
+# → { "id": "mcps_xxx", "name": "linear", "url": "...", ... }
+```
+
+Reference it from an agent's `mcp_servers` via `registry_id` (in place of an
+inline `url`):
+
+```json
+{ "mcp_servers": [{ "name": "linear", "type": "http", "registry_id": "mcps_xxx" }] }
+```
+
+At request time the proxy expands `registry_id` → the registered URL and, if
+the row pins a `credential_id`, injects that specific vault credential;
+otherwise it falls back to matching a vault credential by the server URL
+(the same rule inline entries use). An inline `url` always wins over
+`registry_id`. Routes: `POST/GET/PATCH/DELETE /v1/mcp_servers`.
+
+### Health check
+
+`GET /v1/mcp-proxy/_health/:sid` (Bearer `omak_*`) reports, per declared MCP
+server on the session's agent, whether its credential currently resolves —
+`{ session_id, servers: [{ name, status }] }` where `status` is `"ok"` or
+`"unresolved"`. Powers the sandbox status page's MCP health indicator.
+
+---
+
 ## Memory Stores
 
 Memory stores provide persistent storage for agents across sessions, aligned

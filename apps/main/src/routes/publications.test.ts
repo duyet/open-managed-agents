@@ -10,7 +10,8 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { Hono } from "hono";
-import { buildPublicPublicationRoutes } from "./publications";
+import { buildPublicPublicationRoutes, renderWidgetScript } from "./publications";
+import type { PublicPublicationRoutesDeps } from "./publications";
 import type { PublicationRow } from "@duyet/oma-publications-store";
 
 function pubRow(overrides: Partial<PublicationRow> = {}): PublicationRow {
@@ -162,5 +163,109 @@ describe("public publication routes — guardrails + scoping", () => {
     const res = await app.request("/p/duyetbot/sessions/sess-y/events/stream");
     expect(res.status).toBe(404);
     expect(forwardedPaths).toEqual([]);
+  });
+});
+
+describe("public publication routes — paywall gate (issue #74)", () => {
+  function makeGatedApp(gate: PublicPublicationRoutesDeps["enforcePaywall"]) {
+    const app = new Hono<{ Bindings: never }>();
+    app.route(
+      "/p",
+      buildPublicPublicationRoutes({
+        env: {} as never,
+        servicesForTenant: (() => {}) as never,
+        buildSessionsApp: () => {
+          const inner = new Hono();
+          inner.all("*", async (c) => {
+            forwardedPaths.push(new URL(c.req.url).pathname);
+            return c.json({ ok: true });
+          });
+          return Promise.resolve(inner) as never;
+        },
+        resolvePublication: () => Promise.resolve(pubRow()) as never,
+        guardSessionCreate: () => Promise.resolve(null) as never,
+        assertSessionOwnedByPublication: () => Promise.resolve(true) as never,
+        enforcePaywall: gate,
+      }),
+    );
+    return app;
+  }
+
+  beforeEach(() => {
+    forwardedPaths = [];
+  });
+
+  it("blocks a message with 402 when the wallet is short", async () => {
+    const app = makeGatedApp(async () =>
+      Response.json({ error: "Payment required", top_up_url: "/p/pay" }, { status: 402 }),
+    );
+    const res = await app.request("/p/duyetbot/sessions/s1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ content: "hi" }),
+    });
+    expect(res.status).toBe(402);
+    expect(forwardedPaths).toEqual([]);
+    const body = (await res.json()) as { top_up_url: string };
+    expect(body.top_up_url).toBe("/p/pay");
+  });
+
+  it("forwards the message when the gate allows (free / paid-up)", async () => {
+    const app = makeGatedApp(async () => null);
+    const res = await app.request("/p/duyetbot/sessions/s1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ content: "hi" }),
+    });
+    expect(res.status).toBe(200);
+    expect(forwardedPaths).toEqual(["/sessions/s1/messages"]);
+  });
+
+  it("passes the end-user identity from the bearer token", async () => {
+    let seen = "";
+    const app = makeGatedApp(async (opts) => {
+      seen = opts.endUserId;
+      return null;
+    });
+    await app.request("/p/duyetbot/sessions/s1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer tok-123" },
+      body: JSON.stringify({ content: "hi" }),
+    });
+    expect(seen).toBe("tok:tok-123");
+  });
+});
+
+describe("embeddable widget.js (issue #75)", () => {
+  it("serves JS for a live publication", async () => {
+    const app = makeApp(() => pubRow());
+    const res = await app.request("/p/duyetbot/widget.js");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("application/javascript");
+    const body = await res.text();
+    // Iframe target is the hosted chat page for this slug.
+    expect(body).toContain('"/p/" + encodeURIComponent(SLUG)');
+    expect(body).toContain('var SLUG = "duyetbot"');
+  });
+
+  it("returns the guardrail status as JS for a hidden publication", async () => {
+    const app = makeApp(() => pubRow({ visibility: "private" }));
+    const res = await app.request("/p/duyetbot/widget.js");
+    expect(res.status).toBe(404);
+    expect(res.headers.get("content-type")).toContain("application/javascript");
+  });
+
+  it("returns 403 JS for a paused publication", async () => {
+    const app = makeApp(() => pubRow({ status: "paused" }));
+    const res = await app.request("/p/duyetbot/widget.js");
+    expect(res.status).toBe(403);
+  });
+
+  it("renderWidgetScript embeds slug/title as safe JSON literals", () => {
+    const js = renderWidgetScript({ slug: "duyet-bot", title: 'He said "hi"' });
+    // Quotes in the title are escaped by JSON.stringify — can't break the string.
+    expect(js).toContain('var TITLE = "He said \\"hi\\""');
+    // Load-once guard uses a sanitized identifier form of the slug.
+    expect(js).toContain("__omaWidgetLoaded_duyet_bot");
   });
 });
