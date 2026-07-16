@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { TrashIcon } from "lucide-react";
 import { useApi } from "../lib/api";
-import { useApiQuery } from "../lib/useApiQuery";
+import { formatQueryError, useApiQuery } from "../lib/useApiQuery";
 import { Modal } from "../components/Modal";
 import { Button } from "@/components/ui/button";
 import { PopoverContent } from "@/components/ui/popover";
@@ -90,9 +90,11 @@ export function SkillsList() {
   const {
     data: skillsRes,
     isLoading: loading,
+    error: skillsQueryError,
     refetch: refetchSkills,
   } = useApiQuery<{ data: Skill[] }>("/v1/skills", skillsParams);
   const skills = skillsRes?.data ?? [];
+  const skillsError = formatQueryError(skillsQueryError);
   const load = () => {
     void refetchSkills();
   };
@@ -426,6 +428,9 @@ export function SkillsList() {
       filters={filters}
       data={skills}
       loading={loading}
+      error={skillsError}
+      onRetry={load}
+      errorTitle="Couldn't load skills"
       getRowId={(s) => s.id}
       onRowClick={handleRowClick}
       columns={columns}

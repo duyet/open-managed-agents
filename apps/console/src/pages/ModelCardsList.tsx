@@ -254,6 +254,7 @@ export function ModelCardsList() {
   const {
     items: cards,
     isLoading: loading,
+    error: fetchError,
     hasMore,
     isLoadingMore,
     loadMore,
@@ -504,6 +505,9 @@ export function ModelCardsList() {
       filters={filters}
       data={cards}
       loading={loading}
+      error={fetchError}
+      onRetry={load}
+      errorTitle="Couldn't load model cards"
       onRowClick={(c) => startEdit(c)}
       getRowId={(c) => c.id}
       hasMore={hasMore}

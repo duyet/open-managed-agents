@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { SearchIcon } from "lucide-react";
+import { SearchIcon, TriangleAlertIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -21,6 +21,7 @@ import { EmptyState, type EmptyStateKind } from "./EmptyState";
 import { Page } from "./Page";
 import { PageHeader } from "./PageHeader";
 import { Skeleton } from "./Skeleton";
+import { rowActivateKeyDown } from "@/lib/utils";
 
 interface Column<T> {
   key: string;
@@ -81,6 +82,20 @@ interface ListPageProps<T> {
    *  `emptyKind` when both are set. */
   emptyIcon?: ReactNode;
 
+  /** Message from a failed fetch (e.g. `useInfiniteApiQuery`'s `error`).
+   *  When set and there are no rows to show, renders a danger-toned error
+   *  state instead of the empty state — never silently shows "Nothing
+   *  here yet" for a failed request. Ignored once rows exist (stale data
+   *  from before the failure keeps rendering; see `onRetry`). */
+  error?: string | null;
+  /** Retry handler wired to the error state's "Retry" button — pass the
+   *  query's `refresh`/`refetch`. */
+  onRetry?: () => void;
+  /** Title for the error state. Defaults to a generic message; pass an
+   *  entity-specific one (e.g. "Couldn't load agents") to match the
+   *  page's empty-state phrasing. */
+  errorTitle?: string;
+
   onRowClick?: (item: T) => void;
   getRowKey: (item: T) => string;
 
@@ -136,6 +151,9 @@ export function ListPage<T>({
   emptyAction,
   emptyKind,
   emptyIcon,
+  error,
+  onRetry,
+  errorTitle = "Couldn't load data",
   onRowClick,
   getRowKey,
   hasMore,
@@ -144,6 +162,13 @@ export function ListPage<T>({
   children,
 }: ListPageProps<T>) {
   const showCreate = !!onCreate && !!createLabel;
+  const hasRows = data.length > 0;
+  // Stale-while-revalidate: a background refetch failure with rows
+  // already on screen falls through to the normal data render below
+  // (hasRows wins) rather than replacing visible data with an error
+  // screen. The error state only appears for the empty+failed case.
+  const hasError = !loading && !hasRows && !!error;
+  const isEmpty = !loading && !hasRows && !error;
 
   // Single-row toolbar: [+ New X] far left → filter chips + archive
   // toggle → spacer → [search] far right. Matches the LangSmith /
@@ -212,7 +237,18 @@ export function ListPage<T>({
             </TableRow>
           ))}
         </TableShell>
-      ) : data.length === 0 ? (
+      ) : hasError ? (
+        <div className="py-4">
+          <EmptyState
+            title={errorTitle}
+            body={error}
+            action={onRetry && <Button onClick={onRetry}>Retry</Button>}
+            icon={<TriangleAlertIcon className="text-danger" />}
+            tone="danger"
+            size="lg"
+          />
+        </div>
+      ) : isEmpty ? (
         <div className="py-4">
           <EmptyState
             title={emptyTitle}
@@ -230,6 +266,9 @@ export function ListPage<T>({
               <TableRow
                 key={getRowKey(item)}
                 onClick={onRowClick ? () => onRowClick(item) : undefined}
+                onKeyDown={onRowClick ? rowActivateKeyDown(() => onRowClick(item)) : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
+                role={onRowClick ? "button" : undefined}
                 className={onRowClick ? "cursor-pointer" : undefined}
               >
                 {columns.map((col) => (

@@ -141,6 +141,7 @@ export function EnvironmentsList() {
   const {
     items: envs,
     isLoading: loading,
+    error,
     hasMore,
     isLoadingMore,
     loadMore,
@@ -315,6 +316,9 @@ export function EnvironmentsList() {
       filters={filters}
       data={envs}
       loading={loading}
+      error={error}
+      onRetry={load}
+      errorTitle="Couldn't load environments"
       getRowId={(e) => e.id}
       onRowClick={(e) => nav(`/environments/${e.id}`)}
       hasMore={hasMore}

@@ -66,10 +66,8 @@ export function AgentSessionsTab() {
     [agent.id, status, search, created.after, created.before],
   );
 
-  const { items, isLoading, hasMore, isLoadingMore, loadMore } = useInfiniteApiQuery<Session>(
-    "/v1/sessions",
-    { limit: 20, params },
-  );
+  const { items, isLoading, error, hasMore, isLoadingMore, loadMore, refresh } =
+    useInfiniteApiQuery<Session>("/v1/sessions", { limit: 20, params });
 
   const columns = useMemo<ColumnDef<Session>[]>(
     () => [
@@ -149,6 +147,9 @@ export function AgentSessionsTab() {
       filters={filters}
       data={items}
       loading={isLoading}
+      error={error}
+      onRetry={refresh}
+      errorTitle="Couldn't load sessions"
       getRowId={(s) => s.id}
       onRowClick={(s) => nav(`/sessions/${s.id}`)}
       hasMore={hasMore}
