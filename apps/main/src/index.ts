@@ -12,6 +12,7 @@ import {
   buildPublicationRoutes,
   buildAgentPublicationRoutes,
   buildDeviceRoutes,
+  buildMcpServerRoutes,
   mintApiKeyOnStorage,
   type RouteServices,
 } from "@duyet/oma-http-routes";
@@ -38,7 +39,6 @@ import {
 import { validateAgentLimits } from "./lib/limits";
 import { listMemberships, hasMembership } from "./auth-config";
 import environmentsRoutes from "./routes/environments";
-import mcpServersRoutes from "./routes/mcp-servers";
 import oauthRoutes from "./routes/oauth";
 import capCliOauthRoutes from "./routes/cap-cli-oauth";
 import memoryRoutes from "./routes/memory";
@@ -321,6 +321,12 @@ const agentsRoutes = new Hono<{
 const vaultsRoutes = new Hono<{ Bindings: Env; Variables: { tenant_id: string } }>().all("*", (c) => {
   const ctx = c as unknown as AppCtx;
   const app = buildVaultRoutes({ services: () => cfRouteServicesFromCtx(ctx) });
+  return invokePackage(c, app);
+});
+
+const mcpServersRoutes = new Hono<{ Bindings: Env; Variables: { tenant_id: string } }>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  const app = buildMcpServerRoutes({ services: () => cfRouteServicesFromCtx(ctx) });
   return invokePackage(c, app);
 });
 

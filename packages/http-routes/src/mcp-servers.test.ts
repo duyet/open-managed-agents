@@ -1,23 +1,26 @@
 // @ts-nocheck
 // Route tests for the tenant-level MCP server registry (Issue #91 Phase 3).
-// Drives the Hono app directly with an in-memory KV, a wrapper middleware
-// standing in for the auth layer that sets tenant_id + services.
+// Drives the Hono app directly with an in-memory KV via the shared
+// `services` RouteServicesArg — same accessor shape every other
+// http-routes factory takes (buildVaultRoutes, buildAgentRoutes, ...), so
+// this exercises exactly what both apps/main and apps/main-node mount.
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { Hono } from "hono";
-import mcpServersRoutes from "./mcp-servers";
+import { buildMcpServerRoutes } from "./mcp-servers";
 import { InMemoryKvStore } from "@duyet/oma-kv-store";
+import type { RouteServices } from "./types";
 
 const TENANT = "tn_test";
 
 function makeApp(kv: InMemoryKvStore, tenantId = TENANT) {
-  const app = new Hono();
+  const app = new Hono<{ Variables: { tenant_id: string } }>();
   app.use("*", async (c, next) => {
-    c.set("tenant_id" as never, tenantId as never);
-    c.set("services" as never, { kv } as never);
+    c.set("tenant_id", tenantId);
     await next();
   });
-  app.route("/", mcpServersRoutes);
+  const routes = buildMcpServerRoutes({ services: { kv } as unknown as RouteServices });
+  app.route("/", routes);
   return app;
 }
 

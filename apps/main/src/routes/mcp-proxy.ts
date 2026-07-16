@@ -51,7 +51,7 @@ import { log, logWarn } from "@duyet/oma-shared";
 import type { Services } from "@duyet/oma-services";
 import type { KvStore } from "@duyet/oma-kv-store";
 import { builtinSpecs, createSpecRegistry } from "@duyet/oma-cap";
-import { resolveRegisteredMcpServer } from "./mcp-servers";
+import { resolveRegisteredMcpServer } from "@duyet/oma-http-routes";
 
 // Module-level: the cap spec registry is pure data + immutable. Building
 // once amortises validation across every outbound request.

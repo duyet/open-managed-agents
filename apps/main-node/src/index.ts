@@ -63,6 +63,7 @@ import { resolveModel } from "@duyet/oma-agent/harness/provider";
 import { composeSystemPrompt } from "@duyet/oma-agent/harness/platform-guidance";
 import type { HarnessContext } from "@duyet/oma-agent/harness/interface";
 import { nodeToMarkdown } from "@duyet/oma-markdown/adapters/node";
+import { buildNodeMcpBinding } from "./mcp-proxy";
 import { applyBetterAuthSchema } from "@duyet/oma-schema";
 import { ensureSchema as ensureEventLogSchema } from "@duyet/oma-event-log/sql";
 import {
@@ -75,6 +76,7 @@ import {
 import {
   buildAgentRoutes,
   buildVaultRoutes,
+  buildMcpServerRoutes,
   buildEnvironmentRoutes,
   buildSessionRoutes,
   buildMemoryRoutes,
@@ -690,6 +692,21 @@ function resolveProviderCreds(
   );
 }
 
+// Built here (rather than down in the services bundle) because
+// sessionRegistry's buildTools callback below needs it — the mcp_servers
+// registry (KV-backed) and the MCP proxy share the same store.
+const kv = new SqlKvStore({ db: drizzleDb, tenantId: "default" });
+
+// Node counterpart to the CF agent worker's `env.MAIN_MCP` service binding
+// — resolves vault credentials + forwards to the upstream MCP server
+// in-process instead of over an RPC. See mcp-proxy.ts for the full
+// resolution rules.
+const nodeMcpBinding = buildNodeMcpBinding({
+  sessions: sessionsService,
+  credentials: credentialService,
+  kv,
+});
+
 const sessionRegistry = new SessionRegistry({
   sql,
   hub,
@@ -725,12 +742,15 @@ const sessionRegistry = new SessionRegistry({
       parseCustomHeaders(process.env.ANTHROPIC_CUSTOM_HEADERS),
     );
   },
-  buildTools: async (agent, sandbox) => {
+  buildTools: async (agent, sandbox, ctx) => {
     const { apiKey, baseUrl } = resolveProviderCreds(agent);
     return buildTools(agent, sandbox, {
       ANTHROPIC_API_KEY: apiKey,
       ANTHROPIC_BASE_URL: baseUrl,
       toMarkdown: toMarkdownProvider,
+      mcpBinding: nodeMcpBinding,
+      tenantId: ctx.tenantId,
+      sessionId: ctx.sessionId,
     });
   },
   buildHarness: () => {
@@ -798,8 +818,6 @@ await sessionRegistry.bootstrap();
 await loadActiveAnyRouterProvider({ sql, vaults: vaultService, credentials: credentialService });
 
 // ─── Services bundle ────────────────────────────────────────────────────
-
-const kv = new SqlKvStore({ db: drizzleDb, tenantId: "default" });
 
 const services: RouteServices = {
   sql,
@@ -1087,6 +1105,7 @@ v1.route("/sessions", buildSessionRoutes({
   },
 }));
 v1.route("/vaults", buildVaultRoutes({ services }));
+v1.route("/mcp_servers", buildMcpServerRoutes({ services }));
 v1.route("/memory_stores", buildMemoryRoutes({ services }));
 v1.route("/dreams", buildDreamRoutes({
   services,
