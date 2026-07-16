@@ -596,6 +596,252 @@ input:focus-visible,
   width: 100%;
 }
 
+/* ── Live stacked-assembly demo (React island, hero) ─────────────────────
+   Echoes the Console's "How it fits together": one Agent card, then the
+   building-block chips it uses, each with a status dot. On the landing page
+   it's a looping *demo* — blocks assemble, then a simulated run lights the
+   blocks the agent touches and lands a result. All colours are CSS vars, so
+   light + dark apply automatically. Reduced-motion → clean static assembled
+   state (see the reduced-motion block at the foot of this file). */
+.asm {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  --asm-accent: var(--color-accent);
+}
+.asm-orange { --asm-accent: var(--color-accent); }
+.asm-blue { --asm-accent: var(--color-blue); }
+.asm-green { --asm-accent: var(--color-green); }
+
+/* Small status dot — matches the Console's ready/empty semantics. */
+.asm-status {
+  flex-shrink: 0;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-strong);
+  background: transparent;
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.asm-status.is-ready {
+  background: var(--color-green);
+  border-color: var(--color-green);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-green) 60%, transparent);
+}
+
+/* Hero agent card */
+.asm-agent {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0.8rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: 0.55rem;
+  background: var(--color-bg);
+  opacity: 0.6;
+  transform: translateY(3px);
+  transition: opacity 0.4s ease, transform 0.4s ease, border-color 0.3s ease,
+    background-color 0.3s ease, box-shadow 0.3s ease;
+}
+.asm-agent.is-on {
+  opacity: 1;
+  transform: none;
+  border-color: color-mix(in srgb, var(--color-brand) 55%, transparent);
+  background: color-mix(in srgb, var(--color-brand) 6%, var(--color-bg));
+}
+.asm-agent.is-thinking {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-brand) 30%, transparent),
+    0 0 18px -4px color-mix(in srgb, var(--color-brand) 55%, transparent);
+}
+.asm-agent-mark {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.05rem;
+  color: var(--color-brand);
+  font-weight: 700;
+}
+.asm-bracket { font-size: 1.05rem; line-height: 1; }
+.asm-dot {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: var(--color-brand);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-brand) 60%, transparent);
+}
+.asm-agent-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.asm-agent-name {
+  font-family: var(--font-display, var(--font-sans));
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--color-fg);
+  letter-spacing: -0.01em;
+}
+.asm-agent-sub {
+  font-size: 0.66rem;
+  color: var(--color-fg-subtle);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Working indicator: three pulsing dots + label */
+.asm-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+  color: var(--color-brand);
+}
+.asm-typing i {
+  width: 0.28rem;
+  height: 0.28rem;
+  border-radius: 999px;
+  background: currentColor;
+  animation: asm-bounce 1s ease-in-out infinite;
+}
+.asm-typing i:nth-child(2) { animation-delay: 0.15s; }
+.asm-typing i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes asm-bounce {
+  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+}
+
+/* "uses" connector */
+.asm-uses {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.05rem 0.2rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-fg-subtle);
+}
+.asm-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+/* Building-block grid */
+.asm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+.asm-block {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 0.45rem;
+  background: transparent;
+  opacity: 0.35;
+  transform: translateY(4px) scale(0.985);
+  transition: opacity 0.4s ease, transform 0.4s ease, border-color 0.3s ease,
+    background-color 0.3s ease, box-shadow 0.3s ease;
+}
+.asm-block.is-revealed {
+  opacity: 1;
+  transform: none;
+  border-style: solid;
+  border-color: var(--color-border);
+  background: var(--color-bg);
+}
+.asm-block.is-active {
+  border-color: var(--asm-accent);
+  background: color-mix(in srgb, var(--asm-accent) 12%, var(--color-bg));
+  box-shadow: 0 0 16px -4px color-mix(in srgb, var(--asm-accent) 65%, transparent);
+}
+.asm-block-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  color: var(--color-fg-subtle);
+  transition: color 0.3s ease;
+}
+.asm-block.is-active .asm-block-icon { color: var(--asm-accent); }
+.asm-block-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.asm-block-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.asm-block-sum {
+  font-size: 0.6rem;
+  color: var(--color-fg-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Run strip: user message → agent result */
+.asm-run {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+  min-height: 3.6rem;
+}
+.asm-msg {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.45rem;
+  background: var(--color-bg-surface);
+  font-size: 0.68rem;
+  color: var(--color-fg-muted);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+.asm-msg.is-in { opacity: 1; transform: none; }
+.asm-msg-agent {
+  border-color: color-mix(in srgb, var(--color-brand) 45%, transparent);
+  background: color-mix(in srgb, var(--color-brand) 6%, var(--color-bg-surface));
+}
+.asm-msg-tag {
+  flex-shrink: 0;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-fg-subtle);
+}
+.asm-msg-tag-agent { color: var(--color-brand); }
+.asm-msg-text {
+  min-width: 0;
+  color: var(--color-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (min-width: 400px) {
+  .asm-agent-name { font-size: 0.95rem; }
+  .asm-block-label { font-size: 0.72rem; }
+  .asm-msg { font-size: 0.7rem; }
+}
+
 /* Pixel art: keep blocks hard-edged at any scale (the whole point of pixel
    art is crisp squares, not anti-aliased blurs). */
 .pixel-art {
@@ -766,6 +1012,15 @@ input:focus-visible,
     animation: none;
   }
   .typewriter-caret { opacity: 1; }
+  /* Assembly demo: the island renders its fully-assembled + result state for
+     reduced motion; kill any residual transition/animation so it's fully
+     static (no bouncing "working" dots, no reveal easing). */
+  .asm-typing i { animation: none; opacity: 1; }
+  .asm-agent,
+  .asm-block,
+  .asm-msg,
+  .asm-status,
+  .asm-block-icon { transition: none; }
 }
 
 /* ── Interactive architecture diagram (React island, hero) ───────────────

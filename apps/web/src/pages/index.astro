@@ -3,7 +3,7 @@ import Base from "../layouts/Base.astro";
 import { softwareApplicationSchema } from "../lib/seo";
 import FeatureCard from "../components/FeatureCard.astro";
 import Logo from "../components/Logo.astro";
-import ArchDiagram from "../components/ArchDiagram.tsx";
+import AssemblyDemo from "../components/AssemblyDemo.tsx";
 import ManagedAgentsSection from "../components/ManagedAgentsSection.astro";
 import FeaturesSection from "../components/FeaturesSection.astro";
 import UseCasesSection from "../components/UseCasesSection.astro";
@@ -275,15 +275,17 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
           </ul>
         </div>
 
-        <!-- Right: framed terminal housing the interactive architecture diagram.
-             The dotted halo frames it from behind; CRT scanlines sit on top. -->
+        <!-- Right: framed terminal housing the live stacked-assembly demo —
+             an Agent card + the building blocks it uses, assembling and then
+             running a simulated turn. Echoes the Console's "How it fits
+             together". The dotted halo frames it from behind; CRT on top. -->
         <div class="hero-visual">
           <figure class="terminal-frame">
             <figcaption class="terminal-bar">
               <span class="terminal-dot" aria-hidden="true"></span>
               <span class="terminal-dot" aria-hidden="true"></span>
               <span class="terminal-dot" aria-hidden="true"></span>
-              <span class="terminal-title">oma://architecture — request trace</span>
+              <span class="terminal-title">oma://assemble — how it fits together</span>
             </figcaption>
             <div class="terminal-prompt select-none" aria-hidden="true">
               <span class="typewriter-line" data-rotate='["oma agents create -f coder.json","oma sessions chat sess_9f2","oma sessions tail sess_9f2","oma envs create -f k8s.json","oma memory stores create notes","oma vaults list"]'>
@@ -291,9 +293,9 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
                 <span class="tw-static"></span><span class="tw-rot">oma agents create -f coder.json</span><span class="typewriter-caret"></span>
               </span>
             </div>
-            <div class="crt terminal-body select-none" aria-hidden="true">
-              <pre class="ascii-art ascii-halo">{heroHalo}</pre>
-              <ArchDiagram client:visible />
+            <div class="crt terminal-body select-none">
+              <pre class="ascii-art ascii-halo" aria-hidden="true">{heroHalo}</pre>
+              <AssemblyDemo client:visible />
             </div>
           </figure>
         </div>
