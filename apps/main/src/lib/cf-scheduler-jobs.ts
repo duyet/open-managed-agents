@@ -102,6 +102,17 @@ export function buildCfScheduler(env: Env): CfScheduler {
   if (env.MAIN_DB) {
     const scheduledRunsCron = envCron(env, "SCHEDULED_AGENT_RUNS_CRON", "* * * * *");
     const launcher: ScheduledRunLauncher = {
+      // max_sessions concurrency cap (issue #165): count this schedule's
+      // still in-flight sessions in ITS tenant shard (sessions live per-shard,
+      // agent_schedules lives in the shared MAIN_DB — see AGENTS.md "Sandbox
+      // Provider" / services layering) before the tick decides to launch.
+      async countActive(schedule) {
+        const services = await getCfServicesForTenant(env, schedule.tenantId);
+        return services.sessions.countActiveByScheduleId({
+          tenantId: schedule.tenantId,
+          scheduleId: schedule.id,
+        });
+      },
       async launch(schedule) {
         if (!schedule.environmentId) {
           throw new Error("schedule has no environment_id");

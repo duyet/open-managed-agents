@@ -260,6 +260,26 @@ export class SqlSessionRepo implements SessionRepo {
     return !!row;
   }
 
+  async countActiveByScheduleId(tenantId: string, scheduleId: string): Promise<number> {
+    // metadata is a plain JSON TEXT column (see toSessionRow) — pull the
+    // schedule link out via json_extract, same idiom as agents-store's
+    // name-search filter.
+    // TODO: PG path needs json_extract → ->> rewrite (json_extract is SQLite-only).
+    const row = await getOne<{ c: number }>(
+      this.db
+        .select({ c: sql<number>`COUNT(*)` })
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.tenant_id, tenantId),
+            inArray(sessions.status, ["running", "rescheduling"]),
+            sql`json_extract(${sessions.metadata}, '$.scheduled_run.schedule_id') = ${scheduleId}`,
+          ),
+        ),
+    );
+    return row?.c ?? 0;
+  }
+
   async count(
     tenantId: string,
     opts: { includeArchived: boolean },
