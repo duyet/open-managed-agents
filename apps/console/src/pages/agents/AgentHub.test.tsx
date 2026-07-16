@@ -10,6 +10,7 @@ import { AgentDetail } from "../AgentDetail";
 import { AgentOverviewTab } from "./AgentOverviewTab";
 import { AgentSessionsTab } from "./AgentSessionsTab";
 import { AgentDeploymentsTab } from "./AgentDeploymentsTab";
+import { AgentPublishingTab } from "./AgentPublishingTab";
 
 const agentV2 = {
   id: "agent_1",
@@ -39,6 +40,7 @@ function mountHubHandlers() {
     ),
     http.get("/v1/sessions", () => HttpResponse.json({ data: [] })),
     http.get("/v1/deployments", () => HttpResponse.json({ data: [] })),
+    http.get("/v1/agents/agent_1/publications", () => HttpResponse.json({ data: [] })),
   );
 }
 
@@ -52,6 +54,7 @@ function renderHub(initial = "/agents/agent_1") {
             <Route index element={<AgentOverviewTab />} />
             <Route path="sessions" element={<AgentSessionsTab />} />
             <Route path="deployments" element={<AgentDeploymentsTab />} />
+            <Route path="publishing" element={<AgentPublishingTab />} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -70,6 +73,7 @@ describe("<AgentDetail /> hub layout", () => {
     expect(screen.getByRole("link", { name: "Sessions" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Deployments" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Observability" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Publishing" })).toBeInTheDocument();
     // Active tab (Agent) shows the config view.
     expect(screen.getByRole("heading", { name: "System Prompt" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Version:/ })).toBeInTheDocument();
@@ -89,6 +93,16 @@ describe("<AgentDetail /> hub layout", () => {
     expect(await screen.findByText("No deployments")).toBeInTheDocument();
     expect(
       screen.getByText("Deploy this agent to run it on a schedule, via webhook, or manually."),
+    ).toBeInTheDocument();
+  });
+
+  it("navigates to the Publishing tab and shows the Not published empty state", async () => {
+    renderHub();
+    await screen.findByRole("heading", { name: "My Agent" });
+    await userEvent.click(screen.getByRole("link", { name: "Publishing" }));
+    expect(await screen.findByText("Not published")).toBeInTheDocument();
+    expect(
+      screen.getByText("Publish this agent to share a public chat page, embed widget, or QR code."),
     ).toBeInTheDocument();
   });
 });
