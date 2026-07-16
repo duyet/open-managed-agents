@@ -12,6 +12,7 @@
 
 import { z } from "zod";
 import { tool } from "ai";
+import { assertPublicUrl } from "@duyet/oma-shared";
 
 /** Subset of Playwright Page methods the harness uses. Typed loosely so
  *  the package doesn't have to depend on @cloudflare/playwright or
@@ -67,6 +68,16 @@ const DEFAULT_TIMEOUT = 30_000;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ToolSet = Record<string, any>;
 
+export interface BuildBrowserToolsOptions {
+  /** Skip browser_navigate's private/loopback/link-local/localhost checks
+   *  (the http(s)-only scheme check still always applies) — mirrors
+   *  web_fetch's WEB_FETCH_ALLOW_PRIVATE escape hatch (see
+   *  @duyet/oma-shared's assertPublicUrl). This package has no direct
+   *  access to platform env bindings, so the caller (apps/agent) reads
+   *  the env var and threads the resulting boolean in here. */
+  allowPrivate?: boolean;
+}
+
 /**
  * Add browser_* tools to the agent's tool set. No-op when harness is null.
  *
@@ -80,6 +91,7 @@ type ToolSet = Record<string, any>;
 export function buildBrowserTools(
   harness: BrowserHarness | null,
   hook?: BrowserBillingHook | null,
+  opts?: BuildBrowserToolsOptions,
 ): ToolSet {
   if (!harness) return {};
   const h = harness;
@@ -105,6 +117,18 @@ export function buildBrowserTools(
     }),
     execute: async ({ url }: { url: string }) => {
       try {
+        // SSRF guard (issue #216) on the initial URL — applies uniformly
+        // to all three backends (cf/cdp/node) since they all route through
+        // this single entry seam. RESIDUAL RISK: once the page has
+        // loaded, in-page redirects or JS-driven navigation (a page's own
+        // window.location change, a client-side redirect, etc.) can still
+        // move the browser to a blocked target — this guard only covers
+        // the URL the tool call itself requests, not everything the
+        // loaded page does afterward. Closing that gap would need
+        // per-backend request interception (e.g. CDP's Fetch domain or
+        // Playwright's page.route()), which is more expensive and out of
+        // scope for this fix.
+        assertPublicUrl(url, { allowPrivate: opts?.allowPrivate });
         const page = await ensurePage();
         const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: DEFAULT_TIMEOUT });
         const finalUrl = page.url();
