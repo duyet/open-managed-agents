@@ -164,6 +164,22 @@ describe("list — cursor pagination + tenant scoping", () => {
     expect(page2.data).toHaveLength(1);
     expect(page2.next_cursor).toBeUndefined();
   });
+
+  it("filters by agent_id when the query param is present", async () => {
+    const app = tenantApp("tenant-a");
+    await call(app, "/v1/deployments", json({ ...base, name: "for-a", agent_id: "agent_a" }));
+    await call(app, "/v1/deployments", json({ ...base, name: "for-b", agent_id: "agent_b" }));
+
+    const scoped = (await (
+      await call(app, "/v1/deployments?agent_id=agent_a")
+    ).json()) as { data: Array<{ name: string; agent_id: string }> };
+    expect(scoped.data).toHaveLength(1);
+    expect(scoped.data[0]).toMatchObject({ name: "for-a", agent_id: "agent_a" });
+
+    // No filter → both rows.
+    const all = (await (await call(app, "/v1/deployments")).json()) as { data: unknown[] };
+    expect(all.data).toHaveLength(2);
+  });
 });
 
 describe("get / patch / delete", () => {
