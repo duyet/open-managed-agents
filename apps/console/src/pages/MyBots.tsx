@@ -94,8 +94,11 @@ export function MyBots() {
         ) : pubs.length === 0 ? (
           <div className="border border-border rounded-lg p-10 text-center">
             <p className="text-sm text-fg-muted">No published bots yet.</p>
-            <Button className="mt-4" onClick={() => nav("/agents/new")}>
-              Create an agent
+            <p className="text-xs text-fg-subtle mt-1">
+              Open an agent and publish it to share a public chat page, embed widget, or QR code.
+            </p>
+            <Button className="mt-4" onClick={() => nav("/agents")}>
+              Go to Agents
             </Button>
           </div>
         ) : (
