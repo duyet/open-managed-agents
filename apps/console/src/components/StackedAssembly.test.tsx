@@ -207,7 +207,10 @@ describe("<StackedAssembly />", () => {
     // config.{} → the "cloud" default → friendly provider label, surfaced as
     // the RUN step's description rather than a bare badge.
     await waitFor(() =>
-      expect(screen.getByText(/^Runs on .+ — set by your environment\.$/)).toBeInTheDocument(),
+      // Provider names moved out of the copy into the avatar-group of
+      // marks; the description stays generic and a coin renders per
+      // provider id (title attribute carries the id).
+      expect(screen.getByTitle("cloud")).toBeInTheDocument(),
     );
   });
 });

@@ -203,10 +203,23 @@ function TypeCardView({ card, nav }: { card: TypeCard; nav: (to: string) => void
             {card.description}
           </div>
           {card.providerMarks && card.providerMarks.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              {card.providerMarks.map((id) => (
-                <ProviderMark key={id} id={id} className="size-3.5 text-fg-subtle" />
+            // Avatar-group treatment: overlapping logo coins + a count,
+            // instead of spelling the provider names out in the copy.
+            <div className="mt-2 flex items-center -space-x-1.5">
+              {card.providerMarks.slice(0, 5).map((id) => (
+                <span
+                  key={id}
+                  title={id}
+                  className="flex size-6 items-center justify-center rounded-full border border-border bg-bg-surface ring-2 ring-bg"
+                >
+                  <ProviderMark id={id} className="size-3.5 text-fg-muted" />
+                </span>
               ))}
+              {card.providerMarks.length > 5 && (
+                <span className="flex size-6 items-center justify-center rounded-full border border-border bg-bg-surface ring-2 ring-bg text-[10px] font-medium text-fg-muted">
+                  +{card.providerMarks.length - 5}
+                </span>
+              )}
             </div>
           )}
         </>
@@ -295,6 +308,10 @@ interface Step {
   /** Chain the cards with ↓ pointers instead of plain gaps. RUN is a
    *  sequence (a session runs *inside* a sandbox), not an unordered set. */
   chain?: boolean;
+  /** Labels for the chain's ↓ pointers (index i annotates the arrow before
+   *  row i+1) — an unlabeled arrow can't say whether it means "composes
+   *  into" or "runs inside", and RUN needs both. */
+  chainLabels?: string[];
   /** Extra width. COMPOSE carries the hero plus a two-up row, so an equal
    *  quarter-share would crush its titles. */
   wide?: boolean;
@@ -336,12 +353,17 @@ function StepHeader({ step, onCollapse }: { step: Step; onCollapse: () => void }
 const rowKey = (row: StepRow) =>
   Array.isArray(row) ? row.map((c) => c.key).join("+") : row.key;
 
-function StepPanel({ step, nav }: { step: Step; nav: (to: string) => void }) {
-  // Every column can collapse to a slim vertical rail (desktop only) —
-  // click to expand. Optional steps with nothing configured start
-  // collapsed; everything else starts open.
-  const [collapsed, setCollapsed] = useState(!!step.optional && !step.done);
-
+function StepPanel({
+  step,
+  nav,
+  collapsed,
+  onToggle,
+}: {
+  step: Step;
+  nav: (to: string) => void;
+  collapsed: boolean;
+  onToggle: (expand: boolean) => void;
+}) {
   if (collapsed) {
     return (
       <>
@@ -349,7 +371,7 @@ function StepPanel({ step, nav }: { step: Step; nav: (to: string) => void }) {
             panel below instead (no width to reclaim there). */}
         <button
           type="button"
-          onClick={() => setCollapsed(false)}
+          onClick={() => onToggle(true)}
           aria-label={`Expand step ${step.number} — ${step.name}`}
           aria-expanded="false"
           className="hidden shrink-0 flex-col items-center gap-2 rounded-lg border border-dashed border-border/70 px-1.5 py-3 text-fg-subtle transition-colors hover:border-border-strong hover:text-fg xl:flex"
@@ -368,13 +390,13 @@ function StepPanel({ step, nav }: { step: Step; nav: (to: string) => void }) {
           )}
         </button>
         <div className="flex min-w-0 flex-1 xl:hidden">
-          <ExpandedStepPanel step={step} nav={nav} onCollapse={() => setCollapsed(true)} />
+          <ExpandedStepPanel step={step} nav={nav} onCollapse={() => onToggle(false)} />
         </div>
       </>
     );
   }
 
-  return <ExpandedStepPanel step={step} nav={nav} onCollapse={() => setCollapsed(true)} />;
+  return <ExpandedStepPanel step={step} nav={nav} onCollapse={() => onToggle(false)} />;
 }
 
 function ExpandedStepPanel({
@@ -405,10 +427,13 @@ function ExpandedStepPanel({
           <Fragment key={rowKey(row)}>
             {step.chain && i > 0 && (
               <div
-                className="flex justify-center py-1 text-fg-subtle"
+                className="flex items-center justify-center gap-1.5 py-1 text-fg-subtle"
                 aria-hidden="true"
               >
                 <ArrowDownIcon className="h-3.5 w-3.5" />
+                {step.chainLabels?.[i - 1] && (
+                  <span className="font-mono text-[10px]">{step.chainLabels[i - 1]}</span>
+                )}
               </div>
             )}
             {Array.isArray(row) ? (
@@ -594,6 +619,9 @@ export function StackedAssembly() {
     name: "Run",
     done: sessions.length > 0,
     chain: true,
+    // Completes the formula in place: env + vaults (+ the agent arriving
+    // from step 2) compose into a session, which runs inside the sandbox.
+    chainLabels: ["+ agent =", "runs inside"],
     cards: [
       // `session = agent + env + vaults` — the agent arrives from step 2's
       // pointer; env + vaults are the session-scoped pieces, so they sit
@@ -638,9 +666,7 @@ export function StackedAssembly() {
         badges: providers,
         emptyCta: "+ Where sandboxes run — set by your environment",
         description:
-          providers.length > 0
-            ? `Runs on ${providers.join(", ")} — set by your environment.`
-            : undefined,
+          providers.length > 0 ? "Where tools execute — set by your environment." : undefined,
         providerMarks: providerIds,
       },
     ],
@@ -676,6 +702,56 @@ export function StackedAssembly() {
   const steps = [configure, compose, run, reach];
   const requiredDone = [configure.done, agentReady].filter(Boolean).length;
 
+  // ── Capacity accordion ────────────────────────────────────────────
+  // Each expanded column needs ~MIN_COL px; when the measured row can't
+  // fit all four, the lowest-priority columns collapse to rails. A user
+  // click is an override — expanding a rail when the row is full evicts
+  // the least-recently-wanted expanded column (accordion behavior).
+  const MIN_COL = 250;
+  const RAIL = 60; // rail width + pointer
+  const [rowWidth, setRowWidth] = useState<number | null>(null);
+  const rowRef = (el: HTMLDivElement | null) => {
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      setRowWidth(entries[0]?.contentRect.width ?? null);
+    });
+    ro.observe(el);
+  };
+  // User intent, most-recently-expanded first; explicit collapses recorded
+  // with a leading "!" so they survive capacity recomputes.
+  const [intent, setIntent] = useState<string[]>([]);
+
+  const capacity = (() => {
+    if (rowWidth == null) return steps.length; // unmeasured (SSR/jsdom): no auto-collapse
+    for (let open = steps.length; open >= 1; open--) {
+      if (open * MIN_COL + (steps.length - open) * RAIL <= rowWidth) return open;
+    }
+    return 1;
+  })();
+
+  const expandedSet = (() => {
+    const userExpanded = intent.filter((n) => !n.startsWith("!"));
+    const userCollapsed = new Set(intent.filter((n) => n.startsWith("!")).map((n) => n.slice(1)));
+    // Base priority when the user hasn't said otherwise: Compose and Run
+    // carry the story, then Configure, then optional steps.
+    const basePriority = steps
+      .filter((s) => !(s.optional && !s.done))
+      .sort((a, b) => Number(a.number === "1" || a.number === "4") - Number(b.number === "1" || b.number === "4"))
+      .map((s) => s.number);
+    const ordered = [
+      ...userExpanded,
+      ...basePriority.filter((n) => !userExpanded.includes(n) && !userCollapsed.has(n)),
+    ];
+    return new Set(ordered.slice(0, capacity));
+  })();
+
+  const toggleStep = (num: string, expand: boolean) => {
+    setIntent((prev) => {
+      const rest = prev.filter((n) => n !== num && n !== `!${num}`);
+      return expand ? [num, ...rest] : [`!${num}`, ...rest];
+    });
+  };
+
   return (
     <section className="border border-border rounded-lg p-5 md:p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -696,11 +772,16 @@ export function StackedAssembly() {
 
       {/* The flow. Pointers sit between panels as their own flex children, so
           the row reflows to a vertical stack (with ↓ pointers) under lg. */}
-      <div className="flex flex-col xl:flex-row xl:items-stretch">
+      <div ref={rowRef} className="flex flex-col xl:flex-row xl:items-stretch">
         {steps.map((s, i) => (
           <Fragment key={s.number}>
             {i > 0 && <FlowPointer />}
-            <StepPanel step={s} nav={nav} />
+            <StepPanel
+              step={s}
+              nav={nav}
+              collapsed={!expandedSet.has(s.number)}
+              onToggle={(expand) => toggleStep(s.number, expand)}
+            />
           </Fragment>
         ))}
       </div>
