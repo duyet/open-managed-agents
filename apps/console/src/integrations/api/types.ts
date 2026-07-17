@@ -272,6 +272,48 @@ export interface GitHubA1InstallLink {
   webhookUrl: string;
 }
 
+// ─── GitHub issues board (Console Kanban → "GitHub Issues" tab) ───────────
+// Read-only shapes served by the backend board proxies. Never carry a token;
+// the raw installation credential stays in the gateway.
+
+export interface GitHubRepo {
+  owner: string;
+  name: string;
+  full_name: string;
+  private: boolean;
+  default_branch: string | null;
+  html_url: string;
+}
+
+export interface GitHubIssueLabel {
+  name: string;
+  color: string | null;
+}
+
+export interface GitHubIssue {
+  number: number;
+  title: string;
+  state: "open" | "closed";
+  html_url: string;
+  body: string;
+  labels: GitHubIssueLabel[];
+  assignee: { login: string; avatar_url: string | null } | null;
+  user: { login: string } | null;
+  comments: number;
+  updated_at: string;
+}
+
+/** Structured filters for the issues board — serialized to query params by
+ *  the client. */
+export interface GitHubIssueFilters {
+  repo: string;
+  state?: "open" | "closed";
+  labels?: string;
+  assignee?: string;
+  q?: string;
+  page?: number;
+}
+
 // ─── Sessions (subset, used by activity timeline) ────────────────────────
 //
 // Mirrors a slice of @duyet/oma-shared SessionMeta. Kept inline

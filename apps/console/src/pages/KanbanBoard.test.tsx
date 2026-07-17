@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen, within, waitFor } from "@testing-library/react";
+import { render, screen, within, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
@@ -93,5 +93,37 @@ describe("<KanbanBoard />", () => {
     expect(within(screen.getByTestId("kanban-column-running")).getByText("1")).toBeInTheDocument();
     expect(within(screen.getByTestId("kanban-column-blocked")).getByText("1")).toBeInTheDocument();
     expect(within(screen.getByTestId("kanban-column-done")).getByText("2")).toBeInTheDocument();
+  });
+
+  it("renders both board tabs with the session board as the default", async () => {
+    server.use(http.get("/v1/sessions", () => HttpResponse.json({ data: [] })));
+    renderBoard();
+
+    expect(
+      await screen.findByRole("tab", { name: "Agent Session Board" }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "GitHub Issues" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+    // Default tab is the session board.
+    expect(await screen.findByText("No sessions yet")).toBeInTheDocument();
+  });
+
+  it("shows a connect CTA on the GitHub Issues tab when no installation exists", async () => {
+    server.use(
+      http.get("/v1/sessions", () => HttpResponse.json({ data: [] })),
+      http.get("/v1/integrations/github/installations", () =>
+        HttpResponse.json({ data: [] }),
+      ),
+    );
+    renderBoard();
+
+    fireEvent.click(await screen.findByRole("tab", { name: "GitHub Issues" }));
+
+    expect(await screen.findByText("Connect GitHub")).toBeInTheDocument();
+    expect(
+      screen.getByText("Connect GitHub to build an issues board"),
+    ).toBeInTheDocument();
   });
 });

@@ -13,7 +13,10 @@ import type {
   GitHubA1FormStep,
   GitHubA1InstallLink,
   GitHubInstallation,
+  GitHubIssue,
+  GitHubIssueFilters,
   GitHubPublication,
+  GitHubRepo,
   HandoffLink,
   LinearInstallation,
   LinearPublication,
@@ -402,6 +405,36 @@ class GitHubClient {
       method: "POST",
       body: JSON.stringify({ formToken }),
     });
+  }
+
+  // ─── Issues board (Console Kanban → "GitHub Issues" tab) ─────────────
+  // Read-only proxies: the backend resolves the installation's vault, mints
+  // a fresh installation token in the gateway, and calls the GitHub API —
+  // the browser never sees a token.
+
+  async listRepos(installationId: string): Promise<GitHubRepo[]> {
+    const r = await request<{ data: GitHubRepo[] }>(
+      this.basePath,
+      `/v1/integrations/github/installations/${encodeURIComponent(installationId)}/repos`,
+    );
+    return r.data;
+  }
+
+  async listIssues(
+    installationId: string,
+    filters: GitHubIssueFilters,
+  ): Promise<{ issues: GitHubIssue[]; totalCount: number }> {
+    const params = new URLSearchParams({ repo: filters.repo });
+    if (filters.state) params.set("state", filters.state);
+    if (filters.labels) params.set("labels", filters.labels);
+    if (filters.assignee) params.set("assignee", filters.assignee);
+    if (filters.q) params.set("q", filters.q);
+    if (filters.page) params.set("page", String(filters.page));
+    const r = await request<{ data: GitHubIssue[]; total_count: number }>(
+      this.basePath,
+      `/v1/integrations/github/installations/${encodeURIComponent(installationId)}/issues?${params.toString()}`,
+    );
+    return { issues: r.data, totalCount: r.total_count };
   }
 }
 

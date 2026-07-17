@@ -294,6 +294,114 @@ export function buildIntegrationsGatewayRoutes(deps: IntegrationsGatewayDeps) {
     }
   });
 
+  // POST /github/internal/list-repos — enumerate the repos an installation
+  // can see, for the Console's GitHub-issues board repo picker. Mints a
+  // fresh installation token via the same App-JWT path as refresh-by-vault
+  // (side effect: rotates the vault creds in place, keeping them warm), then
+  // calls GitHub's `GET /installation/repositories`. Internal-only: the
+  // public-facing route in integrations/index.ts resolves installation →
+  // vaultId + ownership before forwarding here with the internal secret.
+  app.post("/github/internal/list-repos", async (c) => {
+    const gate = requireInternal(c, deps.internalSecret);
+    if (gate) return gate;
+    let body: { userId?: string; vaultId?: string; page?: number };
+    try {
+      body = (await c.req.json()) as typeof body;
+    } catch {
+      return c.json({ error: "invalid json" }, 400);
+    }
+    if (!body.userId || !body.vaultId) {
+      return c.json({ error: "userId, vaultId required" }, 400);
+    }
+    try {
+      const { token } = await deps.installBridge.refreshGithubVault({
+        userId: body.userId,
+        vaultId: body.vaultId,
+      });
+      const page = Number.isFinite(body.page) && body.page! > 0 ? Math.floor(body.page!) : 1;
+      const res = await githubApiGet(
+        token,
+        `/installation/repositories?per_page=100&page=${page}`,
+      );
+      if (!res.ok) return c.json({ error: "github_api_error", details: res.text.slice(0, 200) }, 502);
+      const parsed = JSON.parse(res.text) as {
+        total_count?: number;
+        repositories?: Array<{
+          name: string;
+          full_name: string;
+          private: boolean;
+          default_branch?: string;
+          html_url?: string;
+          owner?: { login?: string };
+        }>;
+      };
+      const repos = (parsed.repositories ?? []).map((r) => ({
+        owner: r.owner?.login ?? r.full_name.split("/")[0] ?? "",
+        name: r.name,
+        full_name: r.full_name,
+        private: !!r.private,
+        default_branch: r.default_branch ?? null,
+        html_url: r.html_url ?? `https://github.com/${r.full_name}`,
+      }));
+      const total = parsed.total_count ?? repos.length;
+      return c.json({ data: repos, has_more: page * 100 < total });
+    } catch (err) {
+      return githubMintError(c, err);
+    }
+  });
+
+  // POST /github/internal/list-issues — search issues in one repo with the
+  // board's filters (state / labels / assignee / free-text keywords). Uses
+  // GitHub's search API so every filter collapses into a single `q`, and
+  // `is:issue` keeps pull requests out. Same token-mint + internal-secret
+  // gate as list-repos.
+  app.post("/github/internal/list-issues", async (c) => {
+    const gate = requireInternal(c, deps.internalSecret);
+    if (gate) return gate;
+    let body: {
+      userId?: string;
+      vaultId?: string;
+      owner?: string;
+      repo?: string;
+      state?: string;
+      labels?: string[];
+      assignee?: string;
+      q?: string;
+      page?: number;
+    };
+    try {
+      body = (await c.req.json()) as typeof body;
+    } catch {
+      return c.json({ error: "invalid json" }, 400);
+    }
+    if (!body.userId || !body.vaultId || !body.owner || !body.repo) {
+      return c.json({ error: "userId, vaultId, owner, repo required" }, 400);
+    }
+    try {
+      const { token } = await deps.installBridge.refreshGithubVault({
+        userId: body.userId,
+        vaultId: body.vaultId,
+      });
+      const search = buildIssueSearchQuery(body);
+      const page = Number.isFinite(body.page) && body.page! > 0 ? Math.floor(body.page!) : 1;
+      const res = await githubApiGet(
+        token,
+        `/search/issues?q=${encodeURIComponent(search)}&sort=updated&order=desc&per_page=30&page=${page}`,
+      );
+      if (!res.ok) return c.json({ error: "github_api_error", details: res.text.slice(0, 200) }, 502);
+      const parsed = JSON.parse(res.text) as {
+        total_count?: number;
+        items?: Array<Record<string, unknown>>;
+      };
+      const issues = (parsed.items ?? [])
+        .filter((it) => !it.pull_request)
+        .map((it) => serializeGithubIssue(it));
+      return c.json({ data: issues, total_count: parsed.total_count ?? issues.length });
+    } catch (err) {
+      return githubMintError(c, err);
+    }
+  });
+
   // ─── Slack ───────────────────────────────────────────────────────────
   // GET /slack/oauth/pub/:pubId/callback?code=&state=
   //
@@ -801,6 +909,103 @@ function jsonRpcError(
   data?: unknown,
 ): Response {
   return Response.json({ jsonrpc: "2.0", id, error: { code, message, data } });
+}
+
+// ─── GitHub board helpers (repo picker + issues board) ────────────────
+
+const GITHUB_API_ORIGIN = "https://api.github.com";
+
+/** Shared internal-secret gate for the /github/internal/* board endpoints —
+ *  mirrors the inline check on refresh-by-vault. Returns a Response to short
+ *  circuit with, or null to proceed. */
+function requireInternal(
+  c: import("hono").Context,
+  expected: string | null,
+): Response | null {
+  if (!expected) return c.json({ error: "internal endpoints not configured" }, 503);
+  const provided = c.req.header("x-internal-secret");
+  if (!provided || provided !== expected) return c.json({ error: "unauthorized" }, 401);
+  return null;
+}
+
+/** Plain authenticated GET against the GitHub REST API using an installation
+ *  token. Kept dependency-free (raw fetch, like linearGraphQLFetch) so
+ *  http-routes stays clear of `@duyet/oma-github`. */
+async function githubApiGet(
+  installationToken: string,
+  path: string,
+): Promise<{ ok: boolean; status: number; text: string }> {
+  const res = await fetch(`${GITHUB_API_ORIGIN}${path}`, {
+    method: "GET",
+    headers: {
+      authorization: `Bearer ${installationToken}`,
+      accept: "application/vnd.github+json",
+      "x-github-api-version": "2022-11-28",
+      "user-agent": "open-managed-agents",
+    },
+  });
+  const text = await res.text();
+  return { ok: res.status >= 200 && res.status < 300, status: res.status, text };
+}
+
+/** Map a token-mint / GitHub failure onto the same 404 / 502 split the
+ *  refresh-by-vault route uses, so callers branch identically. */
+function githubMintError(c: import("hono").Context, err: unknown): Response {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/no github installation|app row missing|private key missing/i.test(msg)) {
+    return c.json({ error: msg }, 404);
+  }
+  return c.json({ error: "github_board_failed", details: msg }, 502);
+}
+
+/** Build a GitHub search query string scoping to one repo's issues plus the
+ *  board's structured filters. `assignee: "none"` maps to `no:assignee`. */
+function buildIssueSearchQuery(body: {
+  owner?: string;
+  repo?: string;
+  state?: string;
+  labels?: string[];
+  assignee?: string;
+  q?: string;
+}): string {
+  const parts: string[] = [`repo:${body.owner}/${body.repo}`, "is:issue"];
+  const state = body.state === "closed" ? "closed" : body.state === "open" ? "open" : null;
+  if (state) parts.push(`state:${state}`);
+  for (const label of body.labels ?? []) {
+    const trimmed = label.trim();
+    if (trimmed) parts.push(`label:"${trimmed.replace(/"/g, "")}"`);
+  }
+  const assignee = body.assignee?.trim();
+  if (assignee) parts.push(assignee.toLowerCase() === "none" ? "no:assignee" : `assignee:${assignee}`);
+  const free = body.q?.trim();
+  if (free) parts.push(free);
+  return parts.join(" ");
+}
+
+/** Narrow a GitHub search-API issue item to the fields the board renders. */
+function serializeGithubIssue(it: Record<string, unknown>) {
+  const labels = Array.isArray(it.labels)
+    ? (it.labels as Array<Record<string, unknown>>).map((l) => ({
+        name: String(l.name ?? ""),
+        color: typeof l.color === "string" ? l.color : null,
+      }))
+    : [];
+  const assignee = it.assignee as { login?: string; avatar_url?: string } | null | undefined;
+  const user = it.user as { login?: string } | null | undefined;
+  return {
+    number: typeof it.number === "number" ? it.number : 0,
+    title: String(it.title ?? ""),
+    state: it.state === "closed" ? "closed" : "open",
+    html_url: String(it.html_url ?? ""),
+    body: typeof it.body === "string" ? it.body : "",
+    labels,
+    assignee: assignee?.login
+      ? { login: assignee.login, avatar_url: assignee.avatar_url ?? null }
+      : null,
+    user: user?.login ? { login: user.login } : null,
+    comments: typeof it.comments === "number" ? it.comments : 0,
+    updated_at: String(it.updated_at ?? ""),
+  };
 }
 
 function safeJsonField(body: string, field: string): string | null {

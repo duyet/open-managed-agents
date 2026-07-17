@@ -526,6 +526,48 @@ export function buildIntegrationsRoutes(deps: IntegrationsRoutesDeps) {
       });
     }
 
+    if (provider === "github") {
+      // ─── GitHub issues board (Console Kanban → "GitHub Issues" tab) ────
+      // Read-only proxies backing the configurable issues board. Both
+      // resolve the installation (ownership-checked) to its vault, then
+      // forward to the gateway's /github/internal/* endpoints which mint a
+      // fresh installation token and call the GitHub REST API — the raw
+      // token never leaves the gateway, mirroring how session-create's
+      // refresh-by-vault works. No writes, no webhooks: config + list only.
+
+      // GET /github/installations/:id/repos — repo picker options.
+      sub.get("/installations/:id/repos", async (c) => {
+        const forwarded = await forwardGithubBoard(c, deps, "list-repos", (page) => ({
+          page,
+        }));
+        return forwarded;
+      });
+
+      // GET /github/installations/:id/issues?repo=&state=&labels=&assignee=&q=&page=
+      sub.get("/installations/:id/issues", async (c) => {
+        const forwarded = await forwardGithubBoard(c, deps, "list-issues", (page) => {
+          const slug = (c.req.query("repo") ?? "").trim();
+          const slash = slug.indexOf("/");
+          const owner = slash > 0 ? slug.slice(0, slash) : "";
+          const repo = slash > 0 ? slug.slice(slash + 1) : "";
+          const labels = (c.req.query("labels") ?? "")
+            .split(",")
+            .map((l) => l.trim())
+            .filter(Boolean);
+          return {
+            owner,
+            repo,
+            state: c.req.query("state") ?? "open",
+            labels,
+            assignee: c.req.query("assignee") ?? "",
+            q: c.req.query("q") ?? "",
+            page,
+          };
+        });
+        return forwarded;
+      });
+    }
+
     return sub;
   }
 
@@ -534,6 +576,49 @@ export function buildIntegrationsRoutes(deps: IntegrationsRoutesDeps) {
   app.route("/slack", buildProviderRoutes("slack"));
 
   return app;
+}
+
+/**
+ * Shared body of the two GitHub issues-board proxies. Resolves the path
+ * installation (ownership-checked) to its vault, then forwards to the
+ * gateway's `github/internal/<endpoint>` route with the internal secret so
+ * the gateway can mint an installation token and call GitHub. `extra`
+ * contributes the endpoint-specific params (page is threaded in for both).
+ */
+async function forwardGithubBoard(
+  c: import("hono").Context<Vars>,
+  deps: IntegrationsRoutesDeps,
+  endpoint: "list-repos" | "list-issues",
+  extra: (page: number) => Record<string, unknown>,
+): Promise<Response> {
+  const userId = c.get("user_id")!;
+  const bag = deps.bags(c).github;
+  if (!bag) {
+    return c.json({ error: "github integration not configured on this deployment" }, 503);
+  }
+  const installationId = c.req.param("id");
+  if (!installationId) return c.json({ error: "not found" }, 404);
+  const installation = await bag.installations.get(installationId);
+  if (!installation || installation.userId !== userId) {
+    return c.json({ error: "not found" }, 404);
+  }
+  if (!installation.vaultId) {
+    return c.json(
+      { error: "installation has no connected credential; finish the GitHub install first" },
+      409,
+    );
+  }
+  const proxy = typeof deps.installProxy === "function" ? deps.installProxy(c) : deps.installProxy;
+  if (!proxy) {
+    return c.json({ error: "install proxy not configured" }, 503);
+  }
+  const pageRaw = Number.parseInt(c.req.query("page") ?? "1", 10);
+  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
+  return proxy.forward({
+    subpath: `github/internal/${endpoint}`,
+    body: { userId, vaultId: installation.vaultId, ...extra(page) },
+    needsInternalSecret: true,
+  });
 }
 
 interface PatchBody {
