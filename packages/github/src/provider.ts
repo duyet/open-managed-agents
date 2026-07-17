@@ -155,6 +155,112 @@ export class GitHubProvider implements IntegrationProvider {
     return this.startPublication(input);
   }
 
+  /**
+   * "Add to GitHub" one-click install — the managed-App counterpart to
+   * startInstall + submitCredentials. Uses this deployment's shared GitHub
+   * App identity (`config.managedApp`) instead of walking the user through
+   * the App Manifest wizard, so the flow collapses to a single redirect to
+   * GitHub's install-consent screen.
+   *
+   * Throws if this deployment has no managed App configured — callers
+   * (the route handler) surface that as a 503 with remediation, so the
+   * Console button can fall back to (or simply hide in favor of) the
+   * manifest/BYOA wizard.
+   *
+   * Reuses the exact same publication-first shell + credential-staging
+   * machinery as the BYOA flow, so the install callback
+   * (`/github/oauth/pub/:pubId/callback` → handleOAuthCallback) needs no
+   * changes at all — it can't tell a managed install apart from a BYOA one
+   * once credentials are on the row. Unlike submitCredentials, this skips
+   * the `GET /app` verification round-trip: appId/appSlug/botLogin are
+   * static deployment config, not user-typed input.
+   */
+  async startManagedInstall(input: StartInstallInput): Promise<InstallStep> {
+    const managedApp = this.config.managedApp;
+    if (!managedApp) {
+      throw new Error(
+        "GitHub managed install: no managed App configured on this deployment " +
+          "(GITHUB_MANAGED_APP_ID/APP_SLUG/BOT_LOGIN/PRIVATE_KEY/WEBHOOK_SECRET unset) " +
+          "— use the App Manifest wizard instead",
+      );
+    }
+
+    const tenantId = await this.container.tenants.resolveByUserId(input.userId);
+    const { publication, appOmaId } = await this.container.publications.insertShell({
+      tenantId,
+      userId: input.userId,
+      agentId: input.agentId,
+      environmentId: input.environmentId,
+      persona: input.persona,
+      capabilities: new Set<CapabilityKey>(
+        this.config.defaultCapabilities ?? DEFAULT_GITHUB_CAPABILITIES,
+      ),
+      sessionGranularity: "per_issue",
+    });
+
+    const clientId = managedApp.clientId ?? null;
+    const clientSecretCipher =
+      managedApp.clientSecret == null
+        ? null
+        : await this.container.crypto.encrypt(managedApp.clientSecret);
+    const webhookSecretCipher = await this.container.crypto.encrypt(managedApp.webhookSecret);
+    const privateKeyCipher = await this.container.crypto.encrypt(managedApp.privateKey);
+
+    await this.container.publications.setCredentials(publication.id, {
+      appId: managedApp.appId,
+      appSlug: managedApp.appSlug,
+      botLogin: managedApp.botLogin,
+      clientId,
+      clientSecretCipher,
+      webhookSecretCipher,
+      privateKeyCipher,
+    });
+
+    // Dual-write the github_apps row keyed on the pre-allocated appOmaId —
+    // same transitional safety submitCredentials relies on.
+    await this.container.githubApps.insert({
+      id: appOmaId,
+      tenantId: publication.tenantId,
+      publicationId: publication.id,
+      appId: managedApp.appId,
+      appSlug: managedApp.appSlug,
+      botLogin: managedApp.botLogin,
+      clientId,
+      clientSecret: managedApp.clientSecret ?? null,
+      webhookSecret: managedApp.webhookSecret,
+      privateKey: managedApp.privateKey,
+    });
+
+    await this.container.publications.updateStatus(publication.id, "awaiting_install");
+
+    const state = await this.container.jwt.sign(
+      {
+        kind: "github.install.pub",
+        publicationId: publication.id,
+        appOmaId,
+        userId: input.userId,
+        returnUrl: input.returnUrl,
+        nonce: this.container.ids.generate(),
+      },
+      OAUTH_STATE_TTL_SECONDS,
+    );
+    const url = buildInstallUrl({ appSlug: managedApp.appSlug, state });
+
+    return {
+      kind: "step",
+      step: "install_link",
+      data: {
+        url,
+        publicationId: publication.id,
+        appOmaId,
+        appSlug: managedApp.appSlug,
+        botLogin: managedApp.botLogin,
+        setupUrl: this.publicationCallbackUri(publication.id),
+        webhookUrl: this.dedicatedWebhookUri(appOmaId),
+      },
+    };
+  }
+
   async continueInstall(
     input: ContinueInstallInput,
   ): Promise<InstallStep | InstallComplete> {

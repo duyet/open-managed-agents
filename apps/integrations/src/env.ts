@@ -97,4 +97,28 @@ export interface Env {
   SLACK_MANAGED_CLIENT_ID?: string;
   SLACK_MANAGED_CLIENT_SECRET?: string;
   SLACK_MANAGED_SIGNING_SECRET?: string;
+
+  // OMA-hosted managed Linear OAuth App credentials — powers the "Add to
+  // Linear" one-click install (POST /linear/publications/start-managed). All
+  // three must be set together; when any is missing the managed flow 503s
+  // and callers fall back to the OAuth/PAT wizard. From Linear's OAuth
+  // Applications settings page (Client ID / Client Secret) plus the
+  // webhook's Signing Secret ("lin_wh_…" value) shown on the same app's
+  // webhook config.
+  LINEAR_MANAGED_CLIENT_ID?: string;
+  LINEAR_MANAGED_CLIENT_SECRET?: string;
+  LINEAR_MANAGED_WEBHOOK_SECRET?: string;
+
+  // OMA-hosted managed GitHub App identity — powers the "Add to GitHub"
+  // one-click install (POST /github/publications/start-managed). All five
+  // must be set together; when any is missing the managed flow 503s and
+  // callers fall back to the App Manifest wizard. From
+  // github.com/settings/apps/<slug> → General (App ID / App slug / bot
+  // login are the app's own identity) and Private keys / Webhook secret
+  // (the PEM and secret you generate there).
+  GITHUB_MANAGED_APP_ID?: string;
+  GITHUB_MANAGED_APP_SLUG?: string;
+  GITHUB_MANAGED_BOT_LOGIN?: string;
+  GITHUB_MANAGED_PRIVATE_KEY?: string;
+  GITHUB_MANAGED_WEBHOOK_SECRET?: string;
 }

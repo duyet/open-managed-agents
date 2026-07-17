@@ -19,8 +19,12 @@ import { buildProviders } from "../../providers";
 //   3. GET /github/oauth/pub/:pubId/callback (gateway routes)
 //      → completes install: mints installation token, vault, binds back
 //         onto the publication, redirects to Console returnUrl.
+//   POST /github/publications/start-managed
+//      → "Add to GitHub" one-click install. Skips steps 1+2's BYOA path by
+//         staging this deployment's managed App identity directly, then
+//         returns the same install_link shape step 2 does.
 //
-// /start-a1 and /handoff-link require x-internal-secret. /credentials is
+// /start-a1, /start-managed, and /handoff-link require x-internal-secret. /credentials is
 // reachable directly from the user's browser (admin handoff) — auth there
 // is the formToken JWT itself.
 
@@ -65,6 +69,58 @@ app.post("/start-a1", async (c) => {
   });
 
   if (result.kind !== "step" || result.step !== "credentials_form") {
+    return c.json({ error: "unexpected install result", result }, 500);
+  }
+  return c.json(result.data);
+});
+
+/**
+ * POST /github/publications/start-managed
+ *
+ * "Add to GitHub" one-click install. Same body shape as /start-a1, but
+ * skips the App Manifest wizard entirely: the publication shell is created
+ * and immediately credentialed with this deployment's managed GitHub App
+ * (GITHUB_MANAGED_APP_ID/APP_SLUG/BOT_LOGIN/PRIVATE_KEY/WEBHOOK_SECRET),
+ * returning the GitHub install URL directly. 503s with a remediation
+ * message when no managed App is configured on this deployment.
+ */
+app.post("/start-managed", async (c) => {
+  if (!requireInternalSecret(c.env, c.req.header("x-internal-secret"))) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const body = await c.req.json<StartA1Body>();
+  if (!body.userId || !body.agentId || !body.environmentId || !body.personaName || !body.returnUrl) {
+    return c.json(
+      { error: "userId, agentId, environmentId, personaName, returnUrl required" },
+      400,
+    );
+  }
+
+  const { github } = buildProviders(c.env);
+
+  let result;
+  try {
+    result = await github.startManagedInstall({
+      userId: body.userId,
+      agentId: body.agentId,
+      environmentId: body.environmentId,
+      mode: "full",
+      persona: { name: body.personaName, avatarUrl: body.personaAvatarUrl ?? null },
+      returnUrl: body.returnUrl,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json(
+      {
+        error: "managed_install_unavailable",
+        details: msg,
+        remediation: "Use /github/publications/start-a1 (App Manifest wizard) instead.",
+      },
+      503,
+    );
+  }
+
+  if (result.kind !== "step" || result.step !== "install_link") {
     return c.json({ error: "unexpected install result", result }, 500);
   }
   return c.json(result.data);

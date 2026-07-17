@@ -45,6 +45,14 @@ export function buildProviders(env: Env, linearContainer?: LinearContainer): Pro
     gatewayOrigin,
     scopes: DEFAULT_LINEAR_SCOPES,
     defaultCapabilities: ALL_CAPABILITIES,
+    managedApp:
+      env.LINEAR_MANAGED_CLIENT_ID && env.LINEAR_MANAGED_CLIENT_SECRET && env.LINEAR_MANAGED_WEBHOOK_SECRET
+        ? {
+            clientId: env.LINEAR_MANAGED_CLIENT_ID,
+            clientSecret: env.LINEAR_MANAGED_CLIENT_SECRET,
+            webhookSecret: env.LINEAR_MANAGED_WEBHOOK_SECRET,
+          }
+        : null,
   });
 
   const github = new GitHubProvider(buildGitHubContainer(env), {
@@ -52,6 +60,20 @@ export function buildProviders(env: Env, linearContainer?: LinearContainer): Pro
     defaultCapabilities: DEFAULT_GITHUB_CAPABILITIES,
     // Override per-deploy via env to point at a self-hosted MCP if needed.
     mcpServerUrl: env.GITHUB_MCP_URL ?? DEFAULT_GITHUB_MCP_URL,
+    managedApp:
+      env.GITHUB_MANAGED_APP_ID &&
+      env.GITHUB_MANAGED_APP_SLUG &&
+      env.GITHUB_MANAGED_BOT_LOGIN &&
+      env.GITHUB_MANAGED_PRIVATE_KEY &&
+      env.GITHUB_MANAGED_WEBHOOK_SECRET
+        ? {
+            appId: env.GITHUB_MANAGED_APP_ID,
+            appSlug: env.GITHUB_MANAGED_APP_SLUG,
+            botLogin: env.GITHUB_MANAGED_BOT_LOGIN,
+            privateKey: env.GITHUB_MANAGED_PRIVATE_KEY,
+            webhookSecret: env.GITHUB_MANAGED_WEBHOOK_SECRET,
+          }
+        : null,
   });
 
   const slack = new SlackProvider(buildSlackContainer(env), {

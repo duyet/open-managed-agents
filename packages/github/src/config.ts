@@ -30,6 +30,26 @@ export interface GitHubConfig {
    * `https://oma.duyet.net` if not overridden.
    */
   homepageUrl?: string;
+
+  /**
+   * OMA-hosted managed GitHub App credentials. When set, `startManagedInstall`
+   * (the "Add to GitHub" one-click flow) is available: a publication shell is
+   * created and immediately credentialed with this shared App's identity
+   * (appId/appSlug/botLogin/privateKey/webhookSecret) — skipping the BYOA
+   * manifest-creation step entirely. `clientId`/`clientSecret` are optional
+   * since the managed flow doesn't require OAuth-as-user-auth for the
+   * installation-token flow. When absent, `startManagedInstall` throws —
+   * deployments without a managed App only get the manifest/BYOA wizard.
+   */
+  managedApp?: {
+    appId: string;
+    appSlug: string;
+    botLogin: string;
+    privateKey: string;
+    webhookSecret: string;
+    clientId?: string | null;
+    clientSecret?: string | null;
+  } | null;
 }
 
 /**
