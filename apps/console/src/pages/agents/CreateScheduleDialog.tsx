@@ -1,0 +1,157 @@
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
+import { useApi } from "../../lib/api";
+import { Modal } from "../../components/Modal";
+import { Button } from "@/components/ui/button";
+import { EnvironmentPicker } from "../../components/ResourcePicker";
+import type { AgentRecord as Agent } from "../../types/agent";
+import type { AgentSchedule } from "./schedule-types";
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  agent: Agent;
+  /** Fired after a successful create so the list can refresh. */
+  onCreated: (schedule: AgentSchedule) => void;
+}
+
+const inputCls =
+  "w-full border border-border rounded-md px-3 py-2 min-h-11 sm:min-h-0 text-sm bg-bg text-fg outline-none focus:border-brand transition-colors placeholder:text-fg-subtle";
+
+/**
+ * Create Schedule modal — mirrors CreateDeploymentDialog's shape but scoped
+ * to the simpler agent-schedule contract (cron + timezone + environment +
+ * input, no vaults/memory/version pinning — see AGENTS.md "Agent Schedules").
+ */
+export function CreateScheduleDialog({ open, onClose, agent, onCreated }: Props) {
+  const { api } = useApi();
+
+  const [cron, setCron] = useState("0 9 * * 1");
+  const [timezone, setTimezone] = useState("UTC");
+  const [environmentId, setEnvironmentId] = useState("");
+  const [input, setInput] = useState("");
+  const [maxSessions, setMaxSessions] = useState("1");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setCron("0 9 * * 1");
+    setTimezone("UTC");
+    setEnvironmentId("");
+    setInput("");
+    setMaxSessions("1");
+    setSubmitting(false);
+  }, [open]);
+
+  const canSubmit =
+    cron.trim().length > 0 && environmentId.length > 0 && input.trim().length > 0;
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    try {
+      const body: Record<string, unknown> = {
+        cron_expression: cron.trim(),
+        timezone: timezone.trim() || "UTC",
+        environment_id: environmentId,
+        input: input.trim(),
+        max_sessions: Number(maxSessions) || 1,
+      };
+      const created = await api<AgentSchedule>(`/v1/agents/${agent.id}/schedules`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      onCreated(created);
+      toast.success("Schedule created");
+      onClose();
+    } catch {
+      // api() already toasts the error.
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Create schedule"
+      subtitle="Fire this agent as a fresh session on a cron cadence — no human turn required."
+      maxWidth="max-w-xl"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={submit} disabled={!canSubmit || submitting} loading={submitting}>
+            Create schedule
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label htmlFor="sch-cron" className="text-sm text-fg-muted block mb-1">
+              Cron expression
+            </label>
+            <input
+              id="sch-cron"
+              value={cron}
+              onChange={(e) => setCron(e.target.value)}
+              className={`${inputCls} font-mono`}
+              placeholder="0 9 * * 1"
+            />
+          </div>
+          <div>
+            <label htmlFor="sch-tz" className="text-sm text-fg-muted block mb-1">
+              Timezone
+            </label>
+            <input
+              id="sch-tz"
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              className={inputCls}
+              placeholder="UTC"
+            />
+          </div>
+        </div>
+
+        <EnvironmentPicker value={environmentId} onChange={setEnvironmentId} />
+
+        <div>
+          <label htmlFor="sch-input" className="text-sm text-fg-muted block mb-1">
+            Input
+          </label>
+          <textarea
+            id="sch-input"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            rows={3}
+            className={inputCls}
+            placeholder="Post the weekly metrics digest to #general."
+          />
+          <p className="text-xs text-fg-subtle mt-1">
+            Injected as the opening user message on every firing.
+          </p>
+        </div>
+
+        <div>
+          <label htmlFor="sch-max" className="text-sm text-fg-muted block mb-1">
+            Max concurrent sessions
+          </label>
+          <input
+            id="sch-max"
+            type="number"
+            min={1}
+            max={100}
+            value={maxSessions}
+            onChange={(e) => setMaxSessions(e.target.value)}
+            className={inputCls}
+          />
+        </div>
+      </div>
+    </Modal>
+  );
+}

@@ -1,0 +1,87 @@
+---
+title: Agent Schedules
+description: Fire an agent as a fresh session on a cron cadence — recurring maintenance, digests, and polling jobs, with no human turn required.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Agent Schedules let an agent run itself on a cron cadence — no human has to
+send a message to kick things off. Each firing creates a brand-new session
+and injects a configured prompt as the opening `user.message`. Use it for
+recurring maintenance, scheduled digests, or polling jobs.
+
+<Aside type="caution" title="Cloudflare only">
+Schedules are evaluated by a per-minute Cloudflare cron tick. On the
+self-host Node runtime (`docker compose`), schedules can be created and
+listed via the API, but nothing fires them yet — see the note at the
+bottom of this page.
+</Aside>
+
+## Creating a schedule
+
+```bash
+curl -s $BASE/v1/agents/$AGENT_ID/schedules \
+  -H "x-api-key: $KEY" -H "content-type: application/json" \
+  -d '{
+    "cron_expression": "0 9 * * 1",
+    "timezone": "America/New_York",
+    "environment_id": "env_xxx",
+    "input": "Post the weekly metrics digest to #general.",
+    "max_sessions": 1,
+    "enabled": true
+  }'
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `cron_expression` | Yes | Standard 5-field cron |
+| `environment_id` | Yes | Environment the scheduled session runs in |
+| `input` | Yes | Injected as the opening `user.message` (1–10000 chars) |
+| `timezone` | No | IANA zone, default `UTC` — DST-correct next-run math |
+| `max_sessions` | No | Concurrency cap 1–100, default 1 |
+| `enabled` | No | Default true |
+
+## Managing schedules
+
+```http
+POST   /v1/agents/:agentId/schedules                    # Create (201)
+GET    /v1/agents/:agentId/schedules                    # List
+DELETE /v1/agents/:agentId/schedules/:scheduleId        # Delete
+POST   /v1/agents/:agentId/schedules/:scheduleId/run    # Run now → {status:"queued", next_run_at}
+```
+
+`next_run_at` is seeded at create from the cron + timezone and advanced to
+the next occurrence via an atomic compare-and-set during each tick — so
+overlapping ticks never double-fire the same occurrence. Each firing records
+`last_run_at` / `last_run_status` / `last_run_error` / `last_session_id`; a
+failing run is fail-open (logged, next occurrence still scheduled). An
+unparseable cron leaves `next_run_at` null and the schedule never fires.
+
+## From the Console
+
+Open an agent's detail page and select the **Schedules** tab to create,
+list, run now, and delete schedules without touching the API directly.
+
+## From the CLI
+
+```bash
+oma schedules create <agent-id> --cron "0 9 * * 1" --env <environment-id> \
+  --input "Post the weekly metrics digest to #general." [--timezone <tz>] [--max-sessions <n>]
+oma schedules list <agent-id>
+oma schedules run <agent-id> <schedule-id>
+oma schedules delete <agent-id> <schedule-id>
+```
+
+## Not the same as in-sandbox scheduling tools
+
+This is distinct from the in-sandbox `schedule` / `cancel_schedule` /
+`list_schedules` tools, which let a *running* agent set its own wakeups —
+those wake the same session. Agent schedules always create a fresh session.
+
+## Node self-host status
+
+The self-host Node runtime does not yet run the per-minute tick that fires
+schedules, even though the schedule CRUD routes and the underlying tick
+logic (`packages/scheduler/src/jobs/scheduled-agent-runs.ts`) are
+runtime-agnostic. Track progress on
+[duyet/oma#172](https://github.com/duyet/oma/issues/172).
