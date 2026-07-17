@@ -4,7 +4,6 @@ import { TriangleAlertIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ApiError } from "../lib/api";
 import { formatQueryError, useApiQuery } from "../lib/useApiQuery";
 import { EmptyState } from "../components/EmptyState";
 import { Skeleton, SkeletonRows } from "../components/Skeleton";
@@ -54,11 +53,22 @@ interface ServiceCost {
   breakdown?: Array<Record<string, unknown>>;
 }
 interface CostReport {
+  available: true;
   period: { start: string; end: string; days: number };
   platform_fee: number;
   services: Record<string, ServiceCost>;
   total_estimated_cost: number;
 }
+// Returned instead of the full report when the deployment has no Cloudflare
+// GraphQL cost credentials configured — the endpoint degrades to 200 with
+// this marker rather than 501, so the rest of the page renders and only the
+// infra-cost card shows a quiet inline note (mirrors apps/main/src/routes/
+// cost-report.ts).
+interface CostUnavailable {
+  available: false;
+  reason: string;
+}
+type CostResponse = CostReport | CostUnavailable;
 
 type Range = "7d" | "30d" | "90d";
 const RANGES: Range[] = ["7d", "30d", "90d"];
@@ -111,9 +121,10 @@ function formatKindTotal(kind: string, value: number): string {
  *     days — the *daily chart's* window is still range-adjustable, sliced
  *     client-side from the full series (see `dailySlice` below).
  *   - GET /v1/cost_report?days=N — genuinely range-scoped Cloudflare infra
- *     cost. Returns 501 when CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID
- *     aren't configured — treated as an explanatory empty state, not an
- *     error.
+ *     cost. Returns 200 with `{ available: false, reason }` when
+ *     CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID aren't configured (never a
+ *     4xx/5xx — a non-2xx would fire a page-level error toast) — rendered as
+ *     a quiet inline note on the infra-cost card, not an error.
  *
  * Charts are hand-rolled inline SVG, matching AgentObservabilityTab — no
  * chart library. Error/retry states follow the Dashboard/#218 pattern
@@ -128,10 +139,14 @@ export function Usage() {
     days: "0",
     group_by: "agent",
   });
-  const costQuery = useApiQuery<CostReport>("/v1/cost_report", { days: String(days) });
+  const costQuery = useApiQuery<CostResponse>("/v1/cost_report", { days: String(days) });
 
   const usage = usageQuery.data;
-  const cost = costQuery.data;
+  const costResponse = costQuery.data;
+  // Narrow the union: `cost` is the priced report (only when available),
+  // `costUnavailable` drives the not-configured inline note.
+  const cost = costResponse?.available ? costResponse : null;
+  const costUnavailable = costResponse?.available === false;
 
   const inputTokens = usage ? kindValue(usage.by_kind, "model_input_tokens") : 0;
   const outputTokens = usage ? kindValue(usage.by_kind, "model_output_tokens") : 0;
@@ -143,9 +158,6 @@ export function Usage() {
     usage.total_sessions === 0 &&
     usage.total_active_seconds === 0 &&
     usage.by_kind.length === 0;
-
-  const costNotConfigured =
-    costQuery.error instanceof ApiError && costQuery.error.status === 501;
 
   return (
     <div className="pb-4 space-y-6">
@@ -221,13 +233,27 @@ export function Usage() {
       )}
 
       <Card title="Cloudflare cost">
-        {costQuery.isLoading && !cost ? (
+        {costQuery.isLoading && !costResponse ? (
           <SkeletonRows count={3} />
-        ) : costNotConfigured ? (
+        ) : costUnavailable ? (
           <EmptyState
             size="sm"
-            title="Cloudflare cost reporting isn't configured"
-            body="Set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID on this deployment to see priced Cloudflare resource consumption here."
+            title="Cloudflare infra cost unavailable"
+            body={
+              <>
+                Set <code className="font-mono text-[11px]">CLOUDFLARE_API_TOKEN</code> and{" "}
+                <code className="font-mono text-[11px]">CLOUDFLARE_ACCOUNT_ID</code> on this
+                deployment to see priced Cloudflare resource consumption here.{" "}
+                <a
+                  href="https://docs.oma.duyet.net/reference/configuration/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:text-fg"
+                >
+                  Configuration docs
+                </a>
+              </>
+            }
           />
         ) : costQuery.error ? (
           <EmptyState

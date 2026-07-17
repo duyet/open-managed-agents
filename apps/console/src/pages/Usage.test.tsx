@@ -66,6 +66,7 @@ const emptyUsage = {
 };
 
 const fullCostReport = {
+  available: true,
   period: { start: "2026-06-17", end: "2026-07-17", days: 30 },
   platform_fee: 5,
   services: {
@@ -162,25 +163,32 @@ describe("<Usage />", () => {
     expect(await screen.findByText("No usage in this period")).toBeInTheDocument();
   });
 
-  // /v1/cost_report returns 501 when CLOUDFLARE_API_TOKEN/ACCOUNT_ID aren't
-  // configured — an expected "not set up" signal, not a failure, so it gets
-  // a calm explanatory empty state rather than the red error+Retry state.
-  it("shows an explanatory empty state (not an error) when Cloudflare cost reporting isn't configured", async () => {
+  // /v1/cost_report degrades to 200 with { available: false, reason } when
+  // CLOUDFLARE_API_TOKEN/ACCOUNT_ID aren't configured — an expected "not set
+  // up" signal, not a failure. It must render a calm inline note (with a docs
+  // link) rather than the red error+Retry state, and — crucially — a 2xx must
+  // NOT fire the app's global error toast the way the old 501 did.
+  it("shows a quiet inline note (not an error) when Cloudflare cost reporting isn't configured", async () => {
     server.use(
       http.get("/v1/usage", () => HttpResponse.json(fullUsage)),
       http.get("/v1/cost_report", () =>
-        HttpResponse.json(
-          { error: "CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are required" },
-          { status: 501 },
-        ),
+        HttpResponse.json({
+          available: false,
+          reason: "cloudflare_credentials_not_configured",
+        }),
       ),
     );
     renderPage();
 
-    expect(
-      await screen.findByText("Cloudflare cost reporting isn't configured"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Cloudflare infra cost unavailable")).toBeInTheDocument();
     expect(screen.queryByText("Couldn't load Cloudflare cost")).not.toBeInTheDocument();
+
+    // The docs link points at the configuration reference.
+    const docsLink = screen.getByRole("link", { name: "Configuration docs" });
+    expect(docsLink).toHaveAttribute(
+      "href",
+      "https://docs.oma.duyet.net/reference/configuration/",
+    );
   });
 
   it("re-fetches the Cloudflare cost report with the selected range's days param", async () => {

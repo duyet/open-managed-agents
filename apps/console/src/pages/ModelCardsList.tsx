@@ -619,13 +619,6 @@ export function ModelCardsList() {
 
   return (
     <div className="py-6 space-y-8">
-      <section>
-        <h2 className="font-display text-lg font-semibold text-fg mb-1">Provider connections</h2>
-        <p className="text-[13px] text-fg-muted mb-3">
-          Managed connections — one click, keys minted for you.
-        </p>
-        <AnyRouterConnectCard onStatus={handleAnyRouterStatus} />
-      </section>
       <DataTable<ModelCard>
       subtitle="A model card binds a model handle to a provider, API key, and base URL, so an agent can name it instead of the default provider."
       createLabel="+ New model card"
@@ -817,6 +810,19 @@ export function ModelCardsList() {
         </form>
       </Modal>
       </DataTable>
+
+      {/* Provider connections — its own bordered block below the table so
+          AnyRouter reads as a distinct managed-connection panel, not a row
+          of the model-cards table. The onStatus callback still feeds
+          `anyrouterCardId`, which filters the managed card out of the table
+          above. */}
+      <section className="border border-border rounded-lg bg-bg-surface/30 p-4 sm:p-5">
+        <h2 className="font-display text-lg font-semibold text-fg mb-1">Provider connections</h2>
+        <p className="text-[13px] text-fg-muted mb-3">
+          Managed connections — one click, keys minted for you.
+        </p>
+        <AnyRouterConnectCard onStatus={handleAnyRouterStatus} />
+      </section>
     </div>
   );
 }

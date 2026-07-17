@@ -14,8 +14,14 @@ const app = new Hono<{ Bindings: Env; Variables: { tenant_id: string; services: 
 app.get("/", async (c) => {
   const token = c.env.CLOUDFLARE_API_TOKEN;
   const accountId = c.env.CLOUDFLARE_ACCOUNT_ID;
+  // Degrade gracefully when the Cloudflare GraphQL cost credentials aren't
+  // configured on this deployment. Returning 200 (not 501) keeps the Usage
+  // page's other sections — sandbox time, model tokens, per-agent breakdown,
+  // none of which need CF creds — rendering normally; the console dispatches
+  // on `available: false` to show a quiet inline note on the infra-cost card
+  // rather than surfacing a page-level (toast) error.
   if (!token || !accountId) {
-    return c.json({ error: "CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are required" }, 501);
+    return c.json({ available: false, reason: "cloudflare_credentials_not_configured" });
   }
 
   const days = Math.min(90, Math.max(1, parseInt(c.req.query("days") ?? "30", 10) || 30));
@@ -24,7 +30,7 @@ app.get("/", async (c) => {
   const pricing: CfPricing = stored ? JSON.parse(stored) : DEFAULT_PRICING;
 
   const report = await generateCostReport(accountId, token, days, pricing);
-  return c.json(report);
+  return c.json({ available: true, ...report });
 });
 
 app.get("/pricing", async (c) => {

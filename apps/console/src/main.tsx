@@ -97,16 +97,16 @@ import { consolePlugins } from "./plugins/registry";
  * absolute paths so each hub's `<HubLayout>` works regardless of the base
  * path its children mount under (the layout routes below are pathless).
  */
-// Sessions hub — the two views of "what my agents are doing right now":
-// the list and the cost of it. Kanban is its own destination (a board, not
-// a view of this list) and Eval Runs moved under Advanced, so neither
-// belongs in this strip any more.
+// Sessions hub — the live list of "what my agents are doing right now".
+// Usage moved out to its own standalone route (it owns a full "Usage & cost"
+// page header of its own, so wrapping it in the hub produced a duplicated
+// header); Kanban is its own board; Eval Runs live under Settings now. So
+// Sessions is the only view left in this strip.
 const SESSIONS_HUB: HubConfig = {
   title: "Sessions",
   description: "Trace, debug, and monitor your agents' sessions.",
   tabs: [
     { label: "Sessions", path: "/sessions" },
-    { label: "Usage", path: "/usage" },
   ],
 };
 
@@ -137,10 +137,11 @@ const PUBLISHING_HUB: HubConfig = {
 
 const SETTINGS_HUB: HubConfig = {
   title: "Settings",
-  description: "Workspace configuration: API keys and sandbox runtimes.",
+  description: "Workspace configuration: API keys, sandbox runtimes, and eval runs.",
   tabs: [
-    { label: "API Keys", path: "/api-keys" },
-    { label: "Sandbox Runtimes", path: "/runtimes" },
+    { label: "API Keys", path: "/api-keys", description: "Authenticate the CLI, the SDK, or your own code against this platform's API." },
+    { label: "Sandbox Runtimes", path: "/runtimes", description: "Everywhere a sandbox can run — system providers, BYOK providers, and connected machines." },
+    { label: "Eval Runs", path: "/evals", description: "Task suites scored against one agent in one environment — pass rates per trial." },
   ],
 };
 
@@ -196,32 +197,21 @@ const protectedRoutes: RouteObject[] = [
     ],
   },
 
-  // ── Sessions hub ── the list and its cost share a tab strip (pathless
-  // HubLayout keeps each tab's own top-level URL). Session detail stays
+  // ── Sessions hub ── the live sessions list. Session detail stays
   // full-page (chat shell) so it lives OUTSIDE the hub.
   {
     element: <HubLayout {...SESSIONS_HUB} />,
     children: [
       { path: "sessions", element: <SessionsList />, handle: { crumb: "Sessions" } },
-      { path: "usage", element: <Usage />, handle: { crumb: "Usage" } },
     ],
   },
+  // Usage — standalone. It renders its own "Usage & cost" page header, so it
+  // isn't wrapped in a tab hub (that produced a duplicated header). Reached
+  // via the sidebar's Workspace group, same as Kanban.
+  { path: "usage", element: <Usage />, handle: { crumb: "Usage" } },
   // Kanban — a standalone board, not a view of the sessions list, so it
   // gets its own destination rather than a seat in the Sessions strip.
   { path: "kanban", element: <KanbanBoard />, handle: { crumb: "Kanban Board" } },
-  // Eval Runs — filed under Advanced in the sidebar; standalone page.
-  {
-    path: "evals",
-    handle: { crumb: "Eval Runs" },
-    children: [
-      { index: true, element: <EvalRunsList /> },
-      {
-        path: ":id",
-        element: <EvalRunDetail />,
-        handle: { crumb: (m: UIMatch) => (m.params.id as string | undefined) ?? "Eval Run" },
-      },
-    ],
-  },
   // Session detail — full-page, no hub tabs. Pathless parent carries the
   // `Sessions` crumb (linking back to the list) so the breadcrumb reads
   // `Sessions › sess-xxx` as before.
@@ -291,13 +281,27 @@ const protectedRoutes: RouteObject[] = [
     ],
   },
 
-  // ── Settings hub ── API Keys / Sandbox Runtimes. (ConnectRuntime lives
-  // at the top-level `/connect-runtime` route, outside AppShell.)
+  // ── Settings hub ── API Keys / Sandbox Runtimes / Eval Runs. (ConnectRuntime
+  // lives at the top-level `/connect-runtime` route, outside AppShell.) The
+  // eval-run detail renders under the hub too (parent tab stays highlighted),
+  // matching the Resources hub's list+detail routes.
   {
     element: <HubLayout {...SETTINGS_HUB} />,
     children: [
       { path: "api-keys", element: <ApiKeysList />, handle: { crumb: "API Keys" } },
       { path: "runtimes", element: <RuntimesList />, handle: { crumb: "Sandbox Runtime" } },
+      {
+        path: "evals",
+        handle: { crumb: "Eval Runs" },
+        children: [
+          { index: true, element: <EvalRunsList /> },
+          {
+            path: ":id",
+            element: <EvalRunDetail />,
+            handle: { crumb: (m: UIMatch) => (m.params.id as string | undefined) ?? "Eval Run" },
+          },
+        ],
+      },
     ],
   },
 

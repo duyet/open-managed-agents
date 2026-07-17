@@ -7,6 +7,11 @@ export interface AgentTemplate {
   mcpServers: Array<{ name: string; type: string; url: string }>;
   skills: Array<{ type: string; skill_id: string }>;
   tags: string[];
+  /** Key into TEMPLATE_ICONS (AgentFormDialog) — the card's glyph. */
+  icon: string;
+  /** Accent hex, chosen to stay legible on both light and dark surfaces.
+   *  Tints the card's icon tile so templates read apart at a glance. */
+  accent: string;
 }
 
 export const AGENT_TEMPLATES: AgentTemplate[] = [
@@ -19,6 +24,8 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
     mcpServers: [],
     skills: [],
     tags: [],
+    icon: "sparkles",
+    accent: "#6366f1",
   },
   {
     id: "deep-research",
@@ -36,6 +43,8 @@ Be skeptical. If sources conflict, say so and explain which you find more credib
     mcpServers: [],
     skills: [],
     tags: [],
+    icon: "search",
+    accent: "#3b82f6",
   },
   {
     id: "structured-extractor",
@@ -53,6 +62,8 @@ When the input is ambiguous, pick the most conservative interpretation and note 
     mcpServers: [],
     skills: [],
     tags: [],
+    icon: "braces",
+    accent: "#8b5cf6",
   },
   {
     id: "field-monitor",
@@ -73,6 +84,8 @@ Be ruthless about signal. A paper that restates a known result with a new benchm
     ],
     skills: [],
     tags: ["notion"],
+    icon: "radar",
+    accent: "#06b6d4",
   },
   {
     id: "support-agent",
@@ -92,6 +105,8 @@ Match the customer's tone. Be warm but don't pad. One emoji max.`,
     ],
     skills: [],
     tags: ["notion", "slack"],
+    icon: "headset",
+    accent: "#10b981",
   },
   {
     id: "incident-commander",
@@ -115,6 +130,8 @@ Be decisive. If you're >70% confident it's a specific deploy, say so and recomme
     ],
     skills: [],
     tags: ["sentry", "linear", "slack", "github"],
+    icon: "siren",
+    accent: "#ef4444",
   },
   {
     id: "feedback-miner",
@@ -136,6 +153,8 @@ Don't file tasks for clusters with fewer than 3 distinct voices — note them in
     ],
     skills: [],
     tags: ["slack", "notion", "asana"],
+    icon: "lightbulb",
+    accent: "#f59e0b",
   },
   {
     id: "sprint-retro-facilitator",
@@ -156,6 +175,8 @@ Be specific. "Communication was bad" is useless; "three tickets were re-assigned
     ],
     skills: [{ type: "anthropic", skill_id: "docx" }],
     tags: ["linear", "slack", "docx"],
+    icon: "clipboard",
+    accent: "#a855f7",
   },
   {
     id: "support-to-eng-escalator",
@@ -178,6 +199,8 @@ If you can't repro, say so explicitly and list what you tried — don't file a v
     ],
     skills: [],
     tags: ["intercom", "atlassian", "slack"],
+    icon: "bug",
+    accent: "#f97316",
   },
   {
     id: "data-analyst",
@@ -198,5 +221,7 @@ Default to simple, readable analysis over clever one-liners. A clear bar chart u
     ],
     skills: [],
     tags: ["amplitude"],
+    icon: "chart",
+    accent: "#14b8a6",
   },
 ];

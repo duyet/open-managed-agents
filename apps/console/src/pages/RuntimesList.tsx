@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { XCircleIcon, TimerIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -13,7 +14,7 @@ import { AddSandboxProviderDialog } from "./AddSandboxProviderDialog";
 import { RowActionsMenu } from "../components/RowActionsMenu";
 import { ProviderMark } from "../components/ProviderMark";
 import { RuntimesIcon } from "../components/icons";
-import { cn } from "@/lib/utils";
+import { cn, rowActivateKeyDown } from "@/lib/utils";
 import { useConfirm } from "@/hooks/useConfirm";
 
 interface LocalSkill {
@@ -141,7 +142,83 @@ function CapacityGauges({ capacity }: { capacity: ProviderCapacity }) {
   );
 }
 
-function ProviderCard({ p, onSetup, onRemove }: { p: HostingType; onSetup?: (p: HostingType) => void; onRemove?: (p: HostingType) => void }) {
+// OS brand marks for connected machines, keyed by the platform prefix of
+// `runtime.os` (e.g. "darwin/arm64" → darwin). Single-path, currentColor —
+// same convention as ProviderMark. Apple + Windows are Simple Icons marks
+// (simple-icons.org, CC0-1.0); Linux uses a terminal glyph (lucide.dev, ISC)
+// since Tux is a dense multi-curve path that doesn't reduce to one clean
+// single-path mark.
+function OsMark({ os, className }: { os: string; className?: string }) {
+  const platform = os.split("/")[0]?.trim().toLowerCase() ?? "";
+  if (platform === "darwin" || platform === "mac" || platform === "macos") {
+    return (
+      <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+        <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" />
+      </svg>
+    );
+  }
+  if (platform === "win32" || platform === "windows" || platform === "win") {
+    return (
+      <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+        <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801" />
+      </svg>
+    );
+  }
+  if (platform === "linux") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="m4 17 6-6-6-6M12 19h8" />
+      </svg>
+    );
+  }
+  return null;
+}
+
+// Shared "how do I actually use this runtime" block for the detail dialogs.
+// Runtimes aren't picked directly — an environment selects a sandbox
+// provider and sessions select an environment — so the actionable next step
+// is always "go configure an environment". Links to /environments (no
+// /environments/new route exists; the list page owns the create dialog).
+function UseInEnvironmentSection({
+  providerId,
+  onGo,
+}: {
+  providerId?: string;
+  onGo: () => void;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-bg-surface/50 p-3 space-y-2">
+      <div className="text-sm font-medium text-fg">Use in an environment</div>
+      <p className="text-xs text-fg-muted leading-relaxed">
+        Runtimes aren't selected directly. An{" "}
+        <span className="text-fg">environment</span> picks a sandbox provider, and a session picks
+        an environment. Create or edit an environment and set its sandbox provider
+        {providerId ? (
+          <>
+            {" "}
+            to{" "}
+            <code className="bg-bg-surface px-1 rounded font-mono text-[11px]">{providerId}</code>
+          </>
+        ) : null}{" "}
+        to route work here.
+      </p>
+      <Button size="sm" variant="secondary" onClick={onGo}>
+        Go to Environments →
+      </Button>
+    </div>
+  );
+}
+
+function ProviderCard({ p, onSetup, onRemove, onOpenDetail }: { p: HostingType; onSetup?: (p: HostingType) => void; onRemove?: (p: HostingType) => void; onOpenDetail?: (p: HostingType) => void }) {
   const health = p.health;
   const status = health?.status ?? "na";
   const healthDot =
@@ -159,15 +236,28 @@ function ProviderCard({ p, onSetup, onRemove }: { p: HostingType; onSetup?: (p: 
           ? "Not configured"
           : "N/A";
 
+  const clickable = !!onOpenDetail;
+
   return (
-    <Card size="sm" className="flex flex-col">
+    <Card
+      size="sm"
+      className={cn(
+        "flex flex-col",
+        clickable &&
+          "cursor-pointer transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+      )}
+      onClick={clickable ? () => onOpenDetail!(p) : undefined}
+      onKeyDown={clickable ? rowActivateKeyDown(() => onOpenDetail!(p)) : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      role={clickable ? "button" : undefined}
+    >
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-start gap-2.5">
             <ProviderMark id={p.id} className="mt-0.5 size-5 shrink-0 text-fg-subtle" />
             <div className="min-w-0">
               <CardTitle className="truncate">{p.label}</CardTitle>
-              <div className="text-xs text-fg-subtle font-mono mt-0.5">{p.id}</div>
+              <div className="text-xs text-fg-subtle font-mono mt-0.5 truncate" title={p.id}>{p.id}</div>
             </div>
           </div>
           <span className={cn("shrink-0 w-2.5 h-2.5 rounded-full mt-1.5", healthDot)} title={healthLabel} />
@@ -250,7 +340,15 @@ function ProviderCard({ p, onSetup, onRemove }: { p: HostingType; onSetup?: (p: 
                 </p>
               )}
               {onSetup && (
-                <Button size="sm" variant="secondary" className="w-full" onClick={() => onSetup(p)}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="w-full"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSetup(p);
+                  }}
+                >
                   Set up
                 </Button>
               )}
@@ -259,7 +357,15 @@ function ProviderCard({ p, onSetup, onRemove }: { p: HostingType; onSetup?: (p: 
 
           {/* BYOK → allow removal */}
           {p.type === "byok" && onRemove && (
-            <Button size="sm" variant="ghost" className="w-full text-destructive hover:text-destructive" onClick={() => onRemove(p)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="w-full text-destructive hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(p);
+              }}
+            >
               Remove
             </Button>
           )}
@@ -272,19 +378,33 @@ function ProviderCard({ p, onSetup, onRemove }: { p: HostingType; onSetup?: (p: 
 // A user-connected machine running `oma bridge daemon`, rendered in the
 // same grid as sandbox providers so the page reads as one unified list of
 // "places an agent can run".
-function MachineCard({ r, onRevoke }: { r: Runtime; onRevoke: (id: string) => void }) {
+function MachineCard({ r, onRevoke, onOpenDetail }: { r: Runtime; onRevoke: (id: string) => void; onOpenDetail?: (r: Runtime) => void }) {
   const online = r.status === "online";
   const totalSkills = Object.values(r.local_skills ?? {}).reduce(
     (n, arr) => n + (arr?.length ?? 0),
     0,
   );
+  const clickable = !!onOpenDetail;
   return (
-    <Card size="sm" className="flex flex-col">
+    <Card
+      size="sm"
+      className={cn(
+        "flex flex-col",
+        clickable &&
+          "cursor-pointer transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+      )}
+      onClick={clickable ? () => onOpenDetail!(r) : undefined}
+      onKeyDown={clickable ? rowActivateKeyDown(() => onOpenDetail!(r)) : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      role={clickable ? "button" : undefined}
+    >
       <CardHeader>
-        <div className="flex items-start justify-between gap-2">
+        {/* min-w-0 on this flex row + the left column lets the UUID id truncate
+            instead of forcing the card wider. */}
+        <div className="flex items-start justify-between gap-2 min-w-0">
           <div className="min-w-0">
             <CardTitle className="truncate">{r.hostname}</CardTitle>
-            <div className="text-xs text-fg-subtle font-mono mt-0.5 truncate">{r.id}</div>
+            <div className="text-xs text-fg-subtle font-mono mt-0.5 truncate" title={r.id}>{r.id}</div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <span
@@ -310,7 +430,10 @@ function MachineCard({ r, onRevoke }: { r: Runtime; onRevoke: (id: string) => vo
           <Badge variant="default" className="text-[10px] uppercase tracking-wider">
             Machine
           </Badge>
-          <Badge variant="outline" className="text-[10px]">{r.os}</Badge>
+          <Badge variant="outline" className="text-[10px] inline-flex items-center gap-1">
+            <OsMark os={r.os} className="size-3 shrink-0" />
+            {r.os}
+          </Badge>
         </div>
 
         <div className="text-xs text-fg-muted space-y-1">
@@ -327,7 +450,7 @@ function MachineCard({ r, onRevoke }: { r: Runtime; onRevoke: (id: string) => vo
         </div>
 
         {totalSkills > 0 && (
-          <details className="text-xs">
+          <details className="text-xs" onClick={(e) => e.stopPropagation()}>
             <summary className="cursor-pointer text-fg-muted hover:text-fg select-none">
               {totalSkills} local skill{totalSkills === 1 ? "" : "s"} detected
             </summary>
@@ -364,6 +487,289 @@ function MachineCard({ r, onRevoke }: { r: Runtime; onRevoke: (id: string) => vo
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// Label/value row for the detail dialogs — value right-aligned, allowed to
+// wrap/break so long UUIDs don't force a horizontal scroll.
+function DetailRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <span className="text-xs text-fg-subtle shrink-0 pt-0.5">{label}</span>
+      <span className="text-sm text-fg text-right min-w-0 break-words">{children}</span>
+    </div>
+  );
+}
+
+// Everything known about a connected machine, plus its Revoke action mirrored
+// from the card's row menu and the "use in an environment" next step.
+function MachineDetailDialog({
+  machine,
+  onClose,
+  onRevoke,
+  onUseInEnvironment,
+}: {
+  machine: Runtime | null;
+  onClose: () => void;
+  onRevoke: (id: string) => void;
+  onUseInEnvironment: () => void;
+}) {
+  if (!machine) return null;
+  const r = machine;
+  const online = r.status === "online";
+  const skillGroups = Object.entries(r.local_skills ?? {}).filter(
+    ([, s]) => s?.length,
+  );
+  return (
+    <Modal
+      open={machine !== null}
+      onClose={onClose}
+      title={r.hostname}
+      subtitle="Connected machine running the bridge daemon"
+      maxWidth="max-w-2xl"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Close
+          </Button>
+          <Button
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
+            onClick={() => {
+              onClose();
+              onRevoke(r.id);
+            }}
+          >
+            Revoke machine
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4 text-sm">
+        <DetailRow label="Runtime ID">
+          <span className="font-mono text-xs text-fg break-all" title={r.id}>
+            {r.id}
+          </span>
+        </DetailRow>
+        <DetailRow label="Kind">Machine (bridge daemon)</DetailRow>
+        <DetailRow label="Platform">
+          <span className="inline-flex items-center gap-1.5">
+            <OsMark os={r.os} className="size-3.5 shrink-0 text-fg-muted" />
+            <span className="font-mono text-xs">{r.os}</span>
+          </span>
+        </DetailRow>
+        <DetailRow label="Status">
+          <span className="inline-flex items-center gap-1.5">
+            <span className={cn("w-2 h-2 rounded-full", online ? "bg-success" : "bg-fg-subtle")} />
+            {r.status}
+          </span>
+        </DetailRow>
+        {r.version && (
+          <DetailRow label="Version">
+            <span className="font-mono text-xs">v{r.version}</span>
+          </DetailRow>
+        )}
+        <DetailRow label="Heartbeat">
+          {r.last_heartbeat ? formatHeartbeat(r.last_heartbeat) : "—"}
+        </DetailRow>
+        <DetailRow label="Connected">
+          {new Date(r.created_at * 1000).toLocaleString()}
+        </DetailRow>
+
+        <div>
+          <div className="text-xs text-fg-subtle mb-1">Agents ({r.agents.length})</div>
+          {r.agents.length === 0 ? (
+            <p className="text-xs text-fg-muted">
+              No ACP agents detected on this machine's $PATH.
+            </p>
+          ) : (
+            <ul className="space-y-1">
+              {r.agents.map((a) => (
+                <li key={a.id} className="font-mono text-xs text-fg">
+                  {a.id}
+                  {a.binary && <span className="text-fg-subtle ml-1">({a.binary})</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {skillGroups.length > 0 && (
+          <div>
+            <div className="text-xs text-fg-subtle mb-1">Local skills</div>
+            <div className="space-y-1.5">
+              {skillGroups.map(([acpId, skills]) => (
+                <div key={acpId}>
+                  <div className="text-fg-subtle text-[10px] uppercase tracking-wider mb-0.5">
+                    for {acpId}
+                  </div>
+                  <ul className="space-y-0.5">
+                    {skills!.map((s) => (
+                      <li
+                        key={`${acpId}/${s.source_label ?? ""}/${s.id}`}
+                        className="font-mono text-xs"
+                      >
+                        <span className="text-fg">{s.id}</span>
+                        <span className="text-fg-subtle ml-1">
+                          ({s.source ?? "global"}
+                          {s.source_label ? `:${s.source_label}` : ""})
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <UseInEnvironmentSection providerId="subprocess" onGo={onUseInEnvironment} />
+      </div>
+    </Modal>
+  );
+}
+
+// Everything known about a sandbox provider, plus its Set up / Remove actions
+// mirrored from the card and the "use in an environment" next step.
+function ProviderDetailDialog({
+  provider,
+  onClose,
+  onSetup,
+  onRemove,
+  onUseInEnvironment,
+}: {
+  provider: HostingType | null;
+  onClose: () => void;
+  onSetup: (p: HostingType) => void;
+  onRemove: (p: HostingType) => void;
+  onUseInEnvironment: () => void;
+}) {
+  if (!provider) return null;
+  const p = provider;
+  const health = p.health;
+  const status = health?.status ?? "na";
+  const healthDot =
+    status === "healthy"
+      ? "bg-success"
+      : status === "unhealthy"
+        ? "bg-destructive"
+        : "bg-fg-subtle";
+  const healthLabel =
+    status === "healthy"
+      ? "Healthy"
+      : status === "unhealthy"
+        ? "Unhealthy"
+        : status === "not_configured"
+          ? "Not configured"
+          : "N/A";
+  return (
+    <Modal
+      open={provider !== null}
+      onClose={onClose}
+      title={p.label}
+      subtitle={p.id}
+      maxWidth="max-w-2xl"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Close
+          </Button>
+          {status === "not_configured" && (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                onClose();
+                onSetup(p);
+              }}
+            >
+              Set up
+            </Button>
+          )}
+          {p.type === "byok" && (
+            <Button
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              onClick={() => {
+                onClose();
+                onRemove(p);
+              }}
+            >
+              Remove provider
+            </Button>
+          )}
+        </>
+      }
+    >
+      <div className="space-y-4 text-sm">
+        <p className="text-fg-muted leading-relaxed">{p.description}</p>
+
+        <DetailRow label="Provider ID">
+          <span className="font-mono text-xs" title={p.id}>
+            {p.id}
+          </span>
+        </DetailRow>
+        <DetailRow label="Kind">
+          {p.type === "system" ? "System provider" : "BYOK (bring your own key)"}
+        </DetailRow>
+        <DetailRow label="Provider">
+          <span className="font-mono text-xs">{p.provider}</span>
+        </DetailRow>
+        <DetailRow label="External">
+          {p.external ? "Yes — off-host service" : "No — runs on this host"}
+        </DetailRow>
+        <DetailRow label="Health">
+          <span className="inline-flex items-center gap-1.5">
+            <span className={cn("w-2 h-2 rounded-full", healthDot)} />
+            {healthLabel}
+            {status === "healthy" && health && (
+              <span className="text-fg-subtle ml-1">· {formatLatency(health.latency_ms)}</span>
+            )}
+          </span>
+        </DetailRow>
+        {status === "healthy" && health?.last_checked && (
+          <DetailRow label="Last checked">
+            <span className="font-mono text-xs">
+              {new Date(health.last_checked).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          </DetailRow>
+        )}
+        {status === "unhealthy" && health?.reason && (
+          <p className="text-[12px] text-destructive leading-relaxed rounded-md bg-destructive/10 px-2 py-1.5">
+            {health.reason}
+          </p>
+        )}
+        {status === "not_configured" && health?.reason && (
+          <p className="text-[12px] text-fg-muted leading-relaxed">{health.reason}</p>
+        )}
+
+        <div>
+          <div className="text-xs text-fg-subtle mb-1">Capabilities</div>
+          {p.capabilities.length === 0 ? (
+            <p className="text-xs text-fg-muted">None reported.</p>
+          ) : (
+            <div className="flex flex-wrap gap-1">
+              {p.capabilities.map((cap) => (
+                <Badge key={cap} variant="secondary" className="text-[10px]">
+                  {CAP_DISPLAY[cap] ?? cap}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {status === "healthy" && health?.capacity && (
+          <div>
+            <div className="text-xs text-fg-subtle mb-1.5">Capacity</div>
+            <CapacityGauges capacity={health.capacity} />
+          </div>
+        )}
+
+        <UseInEnvironmentSection providerId={p.id} onGo={onUseInEnvironment} />
+      </div>
+    </Modal>
   );
 }
 
@@ -545,11 +951,23 @@ function CliQuickstart({ onNavigate }: { onNavigate?: () => void }) {
 
 export function RuntimesList() {
   const { api } = useApi();
+  const navigate = useNavigate();
   const [showInstructions, setShowInstructions] = useState(false);
   const [setupProvider, setSetupProvider] = useState<HostingType | null>(null);
   const [showAddProvider, setShowAddProvider] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  // Click-through detail dialogs — one card at a time (providers and machines
+  // never both open at once, but each has its own state so their content
+  // components stay simple).
+  const [detailProvider, setDetailProvider] = useState<HostingType | null>(null);
+  const [detailMachine, setDetailMachine] = useState<Runtime | null>(null);
   const confirm = useConfirm();
+
+  const goToEnvironments = () => {
+    setDetailProvider(null);
+    setDetailMachine(null);
+    navigate("/environments");
+  };
 
   const copy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -698,10 +1116,21 @@ export function RuntimesList() {
         {!loading && (providers.length > 0 || runtimes.length > 0) && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {providers.map((p) => (
-              <ProviderCard key={p.id} p={p} onSetup={setSetupProvider} onRemove={removeProvider} />
+              <ProviderCard
+                key={p.id}
+                p={p}
+                onSetup={setSetupProvider}
+                onRemove={removeProvider}
+                onOpenDetail={setDetailProvider}
+              />
             ))}
             {runtimes.map((r) => (
-              <MachineCard key={r.id} r={r} onRevoke={(id) => void remove(id)} />
+              <MachineCard
+                key={r.id}
+                r={r}
+                onRevoke={(id) => void remove(id)}
+                onOpenDetail={setDetailMachine}
+              />
             ))}
           </div>
         )}
@@ -1002,6 +1431,23 @@ export function RuntimesList() {
           <CliQuickstart onNavigate={() => setSetupProvider(null)} />
         </div>
       </Modal>
+
+      {/* Click-through detail dialogs for a provider / machine card. Mirror the
+          card's own actions (Set up / Remove / Revoke) plus a "use in an
+          environment" next step. */}
+      <ProviderDetailDialog
+        provider={detailProvider}
+        onClose={() => setDetailProvider(null)}
+        onSetup={setSetupProvider}
+        onRemove={removeProvider}
+        onUseInEnvironment={goToEnvironments}
+      />
+      <MachineDetailDialog
+        machine={detailMachine}
+        onClose={() => setDetailMachine(null)}
+        onRevoke={(id) => void remove(id)}
+        onUseInEnvironment={goToEnvironments}
+      />
     </div>
   );
 }

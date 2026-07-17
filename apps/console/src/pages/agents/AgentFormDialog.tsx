@@ -1,12 +1,26 @@
+import type { ComponentType, CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import yaml from "js-yaml";
+import {
+  Sparkles,
+  Search,
+  Braces,
+  Radar,
+  Headset,
+  Siren,
+  Lightbulb,
+  ClipboardList,
+  Bug,
+  ChartColumn,
+} from "lucide-react";
 
 import { useApi } from "../../lib/api";
 import { Button } from "@/components/ui/button";
 import { Select, SelectGroup, SelectGroupLabel, SelectOption } from "../../components/Select";
 import { Combobox } from "../../components/Combobox";
 import { McpServerPickerModal } from "../../components/McpServerPickerModal";
+import { GitHubIcon, SlackIcon, LinearIcon } from "../../components/icons";
 import { AGENT_TEMPLATES, type AgentTemplate } from "../../data/templates";
 import type { ModelCard } from "@duyet/oma-api-types";
 import {
@@ -14,6 +28,81 @@ import {
   resolveKnownAgent,
 } from "@duyet/oma-acp-runtime/known-agents";
 import type { AgentRecord as Agent } from "../../types/agent";
+
+// ─── Template card presentation ───────────────────────────────────────────
+// Maps a template's `icon` key (data/templates.ts) to its lucide glyph. The
+// accent hex travels on the template itself; here we only resolve the shape.
+type LucideGlyph = ComponentType<{ className?: string; strokeWidth?: number }>;
+
+const TEMPLATE_ICONS: Record<string, LucideGlyph> = {
+  sparkles: Sparkles,
+  search: Search,
+  braces: Braces,
+  radar: Radar,
+  headset: Headset,
+  siren: Siren,
+  lightbulb: Lightbulb,
+  clipboard: ClipboardList,
+  bug: Bug,
+  chart: ChartColumn,
+};
+
+// Brand marks for integration tags. `Icon` renders the actual mark (colored
+// via `color`); a bare `color` renders a colored dot. Colors are picked to
+// stay legible on both light and dark surfaces — GitHub stays monochrome
+// (its brand IS the silhouette) so it inherits the chip's text tone.
+type BrandMark = ComponentType<{ className?: string }>;
+const INTEGRATION_MARKS: Record<string, { Icon?: BrandMark; color?: string }> = {
+  github: { Icon: GitHubIcon },
+  slack: { Icon: SlackIcon, color: "#E01E5A" },
+  linear: { Icon: LinearIcon, color: "#5E6AD2" },
+  sentry: { color: "#7B51F8" },
+  asana: { color: "#F06A6A" },
+  amplitude: { color: "#1E61F0" },
+  intercom: { color: "#1F8DED" },
+  atlassian: { color: "#2684FF" },
+  notion: { color: "#9CA3AF" },
+  docx: { color: "#2B579A" },
+};
+
+function TemplateGlyph({ icon, accent }: { icon: string; accent: string }) {
+  const Glyph = TEMPLATE_ICONS[icon] ?? Sparkles;
+  return (
+    <span
+      className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg"
+      style={{
+        color: accent,
+        backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)`,
+      }}
+      aria-hidden="true"
+    >
+      <Glyph className="size-5" strokeWidth={1.75} />
+    </span>
+  );
+}
+
+function TagChip({ tag }: { tag: string }) {
+  const mark = INTEGRATION_MARKS[tag.toLowerCase()];
+  return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-bg-surface text-fg-muted rounded text-[10px]">
+      {mark?.Icon ? (
+        <span
+          className="inline-flex"
+          style={mark.color ? { color: mark.color } : undefined}
+        >
+          <mark.Icon className="size-3" />
+        </span>
+      ) : mark?.color ? (
+        <span
+          className="size-1.5 shrink-0 rounded-full"
+          style={{ backgroundColor: mark.color }}
+          aria-hidden="true"
+        />
+      ) : null}
+      {tag}
+    </span>
+  );
+}
 
 interface McpEntry {
   name: string;
@@ -579,7 +668,11 @@ export function AgentFormDialog({
           role="dialog"
           aria-modal="true"
           aria-label="New Agent"
-          className="bg-bg rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col"
+          className={`bg-bg rounded-lg shadow-xl w-full max-h-[85vh] flex flex-col ${
+            createStep === "template"
+              ? "max-w-2xl md:max-w-3xl xl:max-w-5xl"
+              : "max-w-2xl"
+          }`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Template selection step */}
@@ -599,26 +692,27 @@ export function AgentFormDialog({
                 />
               </div>
               <div className="flex-1 overflow-y-auto px-6 py-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                   {filteredTemplates.map((tmpl) => (
                     <button
                       key={tmpl.id}
                       onClick={() => selectTemplate(tmpl)}
-                      className="text-left border border-border rounded-lg p-4 hover:border-brand hover:bg-bg-surface transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
+                      style={{ "--accent": tmpl.accent } as CSSProperties}
+                      className="group flex flex-col text-left border border-border rounded-lg p-4 min-h-11 hover:border-[var(--accent)] hover:bg-bg-surface transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
                     >
-                      <div className="font-medium text-sm text-fg">{tmpl.name}</div>
-                      <div className="text-xs text-fg-muted mt-1 line-clamp-2">
-                        {tmpl.description}
+                      <div className="flex items-start gap-3">
+                        <TemplateGlyph icon={tmpl.icon} accent={tmpl.accent} />
+                        <div className="min-w-0">
+                          <div className="font-medium text-sm text-fg">{tmpl.name}</div>
+                          <div className="text-xs text-fg-muted mt-1 line-clamp-2">
+                            {tmpl.description}
+                          </div>
+                        </div>
                       </div>
                       {tmpl.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
+                        <div className="flex flex-wrap gap-1 mt-3">
                           {tmpl.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="px-1.5 py-0.5 bg-bg-surface text-fg-muted rounded text-[10px]"
-                            >
-                              {tag}
-                            </span>
+                            <TagChip key={tag} tag={tag} />
                           ))}
                         </div>
                       )}
