@@ -1,7 +1,14 @@
 import type { ComponentType } from "react";
 import { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
-import { PlusIcon, MegaphoneIcon, ChevronRightIcon, LayersIcon, SettingsIcon } from "lucide-react";
+import {
+  PlusIcon,
+  MegaphoneIcon,
+  ChevronRightIcon,
+  SquareKanbanIcon,
+  CircleCheckBigIcon,
+  ChartColumnIcon,
+} from "lucide-react";
 
 import {
   Sidebar,
@@ -26,8 +33,19 @@ import { Logo } from "./Logo";
 import { UserProfile } from "./UserProfile";
 import {
   AgentIcon,
+  ApiKeysIcon,
   DashboardIcon,
+  EnvIcon,
+  FilesIcon,
+  GitHubIcon,
+  LinearIcon,
+  MemoryIcon,
+  ModelCardsIcon,
+  RuntimesIcon,
   SessionsIcon,
+  SkillsIcon,
+  SlackIcon,
+  VaultIcon,
 } from "./icons";
 import { consolePlugins } from "../plugins/registry";
 
@@ -36,11 +54,6 @@ interface NavItem {
   label: string;
   icon: ComponentType<{ className?: string }>;
   end?: boolean;
-  /** Extra path prefixes that should also light up this item as active.
-   *  A hub's top-level nav item links to its first tab (`to`) but must
-   *  highlight across every route the hub owns — e.g. Resources links to
-   *  `/environments` yet stays active on `/vaults`, `/skills`, … */
-  match?: string[];
   /** Sub-destinations nested under this item, revealed via a chevron toggle
    *  next to the (still directly clickable) parent link. */
   children?: NavItem[];
@@ -52,11 +65,14 @@ interface NavGroup {
 }
 
 /* ── Navigation — single source of truth for sidebar items ──
- * Six flat top-level destinations, one per hub. Each links to its hub's
- * first tab; the hub page itself owns the sub-navigation (tabbed nested
- * routes). `match` keeps a hub item highlighted across all the routes its
- * tabs cover. Agents keeps a chevron sub-item (New Agent) for its
- * fast-path create flow. */
+ * Every page gets its own item, filed under a labeled group, so the whole
+ * surface is legible at rest rather than hidden one tab-click deep behind
+ * a hub. The groups deliberately mirror the hub boundaries defined in
+ * `main.tsx` (SESSIONS_HUB / RESOURCES_HUB / PUBLISHING_HUB /
+ * SETTINGS_HUB) — an item deep-links straight to a tab, and the hub page
+ * still renders its own tab strip, so the two navigations agree instead
+ * of describing different structures. Agents keeps a chevron sub-item
+ * (New Agent) for its fast-path create flow. */
 const navGroups: NavGroup[] = [
   {
     label: "Workspace",
@@ -68,30 +84,37 @@ const navGroups: NavGroup[] = [
         icon: AgentIcon,
         children: [{ to: "/agents/new", label: "New Agent", icon: AgentIcon }],
       },
-      {
-        to: "/sessions",
-        label: "Sessions",
-        icon: SessionsIcon,
-        match: ["/sessions", "/kanban", "/evals", "/usage"],
-      },
-      {
-        to: "/environments",
-        label: "Resources",
-        icon: LayersIcon,
-        match: ["/environments", "/vaults", "/memory", "/skills", "/files", "/model-cards"],
-      },
-      {
-        to: "/my-bots",
-        label: "Publishing",
-        icon: MegaphoneIcon,
-        match: ["/my-bots", "/integrations"],
-      },
-      {
-        to: "/api-keys",
-        label: "Settings",
-        icon: SettingsIcon,
-        match: ["/api-keys", "/runtimes"],
-      },
+      { to: "/sessions", label: "Sessions", icon: SessionsIcon },
+      { to: "/kanban", label: "Kanban Board", icon: SquareKanbanIcon },
+      { to: "/evals", label: "Eval Runs", icon: CircleCheckBigIcon },
+      { to: "/usage", label: "Usage", icon: ChartColumnIcon },
+    ],
+  },
+  {
+    label: "Resources",
+    items: [
+      { to: "/environments", label: "Environments", icon: EnvIcon },
+      { to: "/vaults", label: "Credential Vaults", icon: VaultIcon },
+      { to: "/memory", label: "Memory Stores", icon: MemoryIcon },
+      { to: "/skills", label: "Skills", icon: SkillsIcon },
+      { to: "/files", label: "Files", icon: FilesIcon },
+      { to: "/model-cards", label: "Model Cards", icon: ModelCardsIcon },
+    ],
+  },
+  {
+    label: "Publishing",
+    items: [
+      { to: "/my-bots", label: "My Bots", icon: MegaphoneIcon },
+      { to: "/integrations/linear", label: "Linear", icon: LinearIcon },
+      { to: "/integrations/github", label: "GitHub", icon: GitHubIcon },
+      { to: "/integrations/slack", label: "Slack", icon: SlackIcon },
+    ],
+  },
+  {
+    label: "Settings",
+    items: [
+      { to: "/api-keys", label: "API Keys", icon: ApiKeysIcon },
+      { to: "/runtimes", label: "Sandbox Runtime", icon: RuntimesIcon },
     ],
   },
 ];
@@ -103,10 +126,9 @@ export function AppSidebar() {
   const matchesPrefix = (base: string) =>
     pathname === base || pathname.startsWith(`${base}/`);
 
-  const isItemActive = (to: string, end?: boolean, match?: string[]) => {
+  const isItemActive = (to: string, end?: boolean) => {
     if (end) return pathname === to;
-    if (matchesPrefix(to)) return true;
-    return match?.some(matchesPrefix) ?? false;
+    return matchesPrefix(to);
   };
 
   const itemHasActiveChild = (item: NavItem) =>
@@ -142,7 +164,7 @@ export function AppSidebar() {
   ];
 
   const renderItem = (item: NavItem) => {
-    const active = isItemActive(item.to, item.end, item.match);
+    const active = isItemActive(item.to, item.end);
     const hasChildren = !!item.children?.length;
 
     const button = (
