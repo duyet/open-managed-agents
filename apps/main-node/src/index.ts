@@ -1119,6 +1119,15 @@ const authMw = buildAuthMw({
   bypassPath: (path) =>
     path === "/health" ||
     path.startsWith("/auth/") ||
+    // Consumer (end-user) auth realm — issue #226. A consumer never holds a
+    // tenant API key, so /v1/public/* must not be gated by authMw. It lives
+    // under /v1 (matching CF's URL surface) but is mounted separately, and
+    // `v1.use("*", authMw)` would otherwise 401 every guest/magic-link
+    // request before the public handler ever ran.
+    //
+    // The trailing slash is load-bearing: "/v1/public/" must NOT match the
+    // tenant-authed creator route "/v1/publications".
+    path.startsWith("/v1/public/") ||
     path === "/v1/device/code" ||
     path === "/v1/device/token" ||
     path === "/v1/oma/device/code" ||

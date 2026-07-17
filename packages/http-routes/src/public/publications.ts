@@ -1007,9 +1007,10 @@ function htmlErrorPage(heading: string, body: string, cta?: { href: string; labe
 `;
 }
 
-/** Post-verify bounce page (issue #215): stores the freshly-minted consumer
- *  session token under the exact localStorage key the hosted chat page reads
- *  (`oma_pub_tok_<slug>`), then redirects to /p/<slug> already signed in. */
+/** Pre-verify confirm page (issues #215, #254): the GET landing renders this
+ *  form and nothing else — no token exchange — so an email scanner that
+ *  pre-fetches the link can't burn the single-use token. Submitting POSTs
+ *  `token` + `slug` back to the same path, which is what actually verifies. */
 function renderVerifyConfirmPage(actionPath: string, slug: string, token: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1046,6 +1047,9 @@ function renderVerifyConfirmPage(actionPath: string, slug: string, token: string
 `;
 }
 
+/** Post-verify bounce page (issue #215): stores the freshly-minted consumer
+ *  session token under the exact localStorage key the hosted chat page reads
+ *  (`oma_pub_tok_<slug>`), then redirects to /p/<slug> already signed in. */
 function renderVerifyRedirectPage(slug: string, sessionToken: string): string {
   const target = `/p/${encodeURIComponent(slug)}`;
   // `<` neutralised the same way renderChatPage's `cfg` literal is above, so

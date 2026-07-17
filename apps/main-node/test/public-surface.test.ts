@@ -42,6 +42,37 @@ describe("main-node public consumer surface", () => {
     }
   });
 
+  // The regression guard for the whole feature. `/v1/public/*` sits under /v1
+  // (CF URL parity) but `v1.use("*", authMw)` gates /v1/* with tenant
+  // x-api-key auth — so without an explicit bypass, authMw 401s every
+  // guest/magic-link request before the public handler runs, and since
+  // /p/:slug/sessions needs a consumer token that ONLY these routes can mint,
+  // the entire public chat surface is dead on any real deployment.
+  //
+  // Every other main-node test spawns with AUTH_DISABLED=1, which makes authMw
+  // a no-op and hides this completely. This one must NOT.
+  it("serves /v1/public/auth/* with tenant auth ENABLED, without opening /v1/publications", async () => {
+    h = await startMainNode({ dataDir, authDisabled: false });
+    const base = `http://localhost:${h.port}`;
+
+    // A consumer holds no tenant credential — this must still mint a session.
+    const guest = await fetch(`${base}/v1/public/auth/guest`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    expect(guest.status).toBe(201);
+    const guestBody = (await guest.json()) as { session_token: string };
+    expect(guestBody.session_token).toMatch(/^csess_/);
+
+    // …and the bypass must be scoped to "/v1/public/" exactly. The creator
+    // route /v1/publications shares the "/v1/public" prefix and is tenant-
+    // authed: a bypass written without the trailing slash would hand the
+    // whole publications API to anonymous callers.
+    const creator = await fetch(`${base}/v1/publications`);
+    expect(creator.status).toBe(401);
+  });
+
   it("mints a guest consumer session via POST /v1/public/auth/guest", async () => {
     h = await startMainNode({ dataDir });
     const base = `http://localhost:${h.port}`;
@@ -186,24 +217,41 @@ async function publishAgent(
   }
 }
 
-async function startMainNode(opts: { dataDir: string }): Promise<ProcessHandle> {
+/**
+ * `authDisabled` defaults to true to match every other main-node test, but the
+ * public surface MUST be exercised with it false at least once: `/v1/public/*`
+ * is the one route group whose whole point is being reachable with no tenant
+ * credential, and AUTH_DISABLED=1 turns `authMw` into a no-op that hides
+ * whether the bypass actually works. A mount-order/bypass regression here 401s
+ * the entire consumer-auth surface in production while every AUTH_DISABLED
+ * test stays green.
+ */
+async function startMainNode(opts: {
+  dataDir: string;
+  authDisabled?: boolean;
+}): Promise<ProcessHandle> {
   const port = await pickPort();
+  const env: Record<string, string> = {
+    ...(process.env as Record<string, string>),
+    PORT: String(port),
+    DATABASE_PATH: join(opts.dataDir, "oma.db"),
+    AUTH_DATABASE_PATH: join(opts.dataDir, "auth.db"),
+    SANDBOX_WORKDIR: join(opts.dataDir, "sandboxes"),
+    MEMORY_BLOB_DIR: join(opts.dataDir, "memory-blobs"),
+    FILES_BLOB_DIR: join(opts.dataDir, "files-blobs"),
+    SESSION_OUTPUTS_DIR: join(opts.dataDir, "outputs"),
+    BETTER_AUTH_SECRET: "test-secret-only-for-vitest",
+    PLATFORM_ROOT_SECRET: "test-root-secret-only-for-vitest",
+    NODE_ENV: "test",
+  };
+  if (opts.authDisabled ?? true) {
+    env.AUTH_DISABLED = "1";
+  } else {
+    delete env.AUTH_DISABLED;
+  }
   const child = spawn(TSX_BIN, [MAIN_NODE_ENTRY], {
     cwd: REPO_ROOT,
-    env: {
-      ...process.env,
-      PORT: String(port),
-      DATABASE_PATH: join(opts.dataDir, "oma.db"),
-      AUTH_DATABASE_PATH: join(opts.dataDir, "auth.db"),
-      SANDBOX_WORKDIR: join(opts.dataDir, "sandboxes"),
-      MEMORY_BLOB_DIR: join(opts.dataDir, "memory-blobs"),
-      FILES_BLOB_DIR: join(opts.dataDir, "files-blobs"),
-      SESSION_OUTPUTS_DIR: join(opts.dataDir, "outputs"),
-      AUTH_DISABLED: "1",
-      BETTER_AUTH_SECRET: "test-secret-only-for-vitest",
-      PLATFORM_ROOT_SECRET: "test-root-secret-only-for-vitest",
-      NODE_ENV: "test",
-    },
+    env,
     stdio: ["ignore", "pipe", "pipe"],
   });
   const logBuf: string[] = [];
