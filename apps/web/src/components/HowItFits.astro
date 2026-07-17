@@ -1,0 +1,422 @@
+---
+// Static mirror of the Console's "How it fits together" panel
+// (apps/console/src/components/StackedAssembly.tsx) for the landing hero.
+// Same visual grammar — numbered step columns, dashed type-cards with
+// instance badges, the composition formula, flow pointers — but purely
+// decorative: no links, no live data, example instances hard-coded.
+// Keep the two in sync when the console layout changes.
+
+interface FitCard {
+  title: string;
+  badges?: string[];
+  note?: string;
+  hero?: boolean;
+  dashed?: boolean;
+  /** Shown in the click-to-open dialog: what this piece IS in the system. */
+  desc: string;
+}
+
+type FitRow = FitCard | FitCard[];
+
+interface FitStep {
+  number: string;
+  name: string;
+  optional?: boolean;
+  chain?: boolean;
+  wide?: boolean;
+  cards: FitRow[];
+}
+
+const steps: FitStep[] = [
+  {
+    number: "1",
+    name: "Configure",
+    cards: [
+      {
+        title: "API key",
+        badges: ["cli"],
+        desc: "Authenticates the CLI and your programs against your OMA instance. Every REST call, SDK call, and `oma` CLI command presents one — scoped to your tenant.",
+      },
+      {
+        title: "Model card",
+        badges: ["claude-sonnet-4-6"],
+        desc: "The AI brain, made pluggable. A model card binds a model id to a provider and credentials — Anthropic, any OpenAI-compatible gateway, or your own endpoint. Agents reference it by handle, so swapping providers never touches agent config.",
+      },
+      [
+        {
+          title: "Memory",
+          note: "Notes it keeps",
+          dashed: true,
+          desc: "Persistent memory stores, mounted into the sandbox at /mnt/memory/<name>. The agent reads and writes them with ordinary file tools, so knowledge survives across sessions — versioned, auditable, and rollback-able.",
+        },
+        {
+          title: "Files",
+          note: "Data to mount",
+          dashed: true,
+          desc: "Files you upload once and mount into any session's sandbox at a path you choose — datasets, configs, reference documents. Created here, attached to sessions at runtime.",
+        },
+      ],
+    ],
+  },
+  {
+    number: "2",
+    name: "Compose",
+    wide: true,
+    cards: [
+      {
+        title: "Agent",
+        badges: ["support-bot"],
+        hero: true,
+        desc: "The thing you're building: agent = model + skills + mcp. A versioned configuration — system prompt, tools, skills, MCP servers, callable sub-agents. Stateless by itself; every conversation with it runs as a session.",
+      },
+      {
+        title: "Skills",
+        badges: ["xlsx", "pdf", "pptx"],
+        desc: "Reusable know-how: prompt fragments and files mounted into the sandbox and injected into the system prompt. Write a skill once, attach it to any number of agents.",
+      },
+    ],
+  },
+  {
+    number: "3",
+    name: "Run",
+    chain: true,
+    cards: [
+      [
+        {
+          title: "Environment",
+          badges: ["cloudflare"],
+          desc: "Defines the execution sandbox: which provider runs it (Cloudflare, Kubernetes, OpenShell, E2B, …), what packages are preinstalled, and what networking is allowed. Reusable across agents and sessions.",
+        },
+        {
+          title: "Keys (Vault)",
+          badges: ["prod-secrets"],
+          desc: "Secrets the agent calls out with — API tokens, OAuth credentials. Injected by an outbound proxy at the network layer, so raw credentials never enter the sandbox the agent controls.",
+        },
+      ],
+      {
+        title: "Session",
+        note: "One conversation or task — streamed, resumable event log.",
+        desc: "One conversation or task: session = agent + env + vaults. An append-only, durably-stored event log — streamed over SSE, resumable after crashes, pausable to stop paying for idle compute.",
+      },
+      {
+        title: "Sandbox",
+        note: "Runs on Cloudflare, K8s, OpenShell, … — set by your environment.",
+        desc: "The isolated container or micro-VM where the agent's tools actually execute — bash, files, browsers. Provisioned per session by whichever provider the environment selects.",
+      },
+    ],
+  },
+  {
+    number: "4",
+    name: "Reach",
+    optional: true,
+    cards: [
+      {
+        title: "Channels",
+        note: "Telegram, Slack, GitHub",
+        dashed: true,
+        desc: "Wire the agent into where work already happens: Telegram chats, Slack workspaces, GitHub issues and PRs. Each message in becomes a session turn; replies flow back to the channel.",
+      },
+      {
+        title: "Publications",
+        note: "Public chat page or widget",
+        dashed: true,
+        desc: "Publish the agent as a consumer-facing bot: a hosted chat page, an embeddable widget, guest access, and optional per-message billing — no OMA account needed for end users.",
+      },
+    ],
+  },
+];
+
+const formula = [
+  { lhs: "agent", rhs: "model + skills + mcp" },
+  { lhs: "session", rhs: "agent + env + vaults" },
+];
+
+const rows = (step: FitStep): FitCard[][] =>
+  step.cards.map((r) => (Array.isArray(r) ? r : [r]));
+---
+
+<div class="fits" aria-label="How it fits together">
+  <div class="fits-formula" aria-hidden="true">
+    {formula.map((f) => (
+      <div class="fits-formula-row">
+        <span class="fits-formula-lhs">{f.lhs}</span>
+        <span class="fits-formula-eq">=</span>
+        <span class="fits-formula-rhs">{f.rhs}</span>
+      </div>
+    ))}
+  </div>
+
+  <div class="fits-flow">
+    {steps.map((step, i) => (
+      <>
+        {i > 0 && (
+          <div class="fits-pointer" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </div>
+        )}
+        <div class:list={["fits-step", step.wide && "fits-step-wide"]}>
+          <div class="fits-step-head">
+            <span>{step.number} · {step.name}</span>
+            {step.optional && <span class="fits-optional">optional</span>}
+          </div>
+          <div class:list={["fits-cards", step.chain && "fits-cards-chain"]}>
+            {rows(step).map((row, ri) => (
+              <>
+                {step.chain && ri > 0 && (
+                  <div class="fits-down" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6" /></svg>
+                  </div>
+                )}
+                <div class="fits-row">
+                  {row.map((card) => (
+                    <button
+                      type="button"
+                      class:list={["fits-card", card.hero && "fits-card-hero", card.dashed && "fits-card-dashed"]}
+                      data-fits-title={card.title}
+                      data-fits-desc={card.desc}
+                      aria-haspopup="dialog"
+                      aria-label={`What is ${card.title}?`}
+                    >
+                      <div class="fits-card-top">
+                        <span class="fits-card-title">{card.title}</span>
+                        <span class:list={["fits-dot", card.dashed && "fits-dot-empty"]} />
+                      </div>
+                      {card.badges && (
+                        <div class="fits-badges">
+                          {card.badges.map((b) => <span class="fits-badge">{b}</span>)}
+                        </div>
+                      )}
+                      {card.note && <div class="fits-note">{card.note}</div>}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ))}
+          </div>
+        </div>
+      </>
+    ))}
+  </div>
+
+  <dialog class="fits-dialog" aria-labelledby="fits-dialog-title">
+    <div class="fits-dialog-head">
+      <h3 id="fits-dialog-title"></h3>
+      <button type="button" class="fits-dialog-close" aria-label="Close">✕</button>
+    </div>
+    <p class="fits-dialog-body"></p>
+  </dialog>
+</div>
+
+<script>
+  // Click a card → open the shared <dialog> with that component's system
+  // description. Native dialog: ESC closes for free; a backdrop click and
+  // the ✕ button close it too.
+  for (const root of document.querySelectorAll<HTMLElement>(".fits")) {
+    const dialog = root.querySelector<HTMLDialogElement>(".fits-dialog");
+    if (!dialog) continue;
+    const title = dialog.querySelector<HTMLElement>("#fits-dialog-title");
+    const body = dialog.querySelector<HTMLElement>(".fits-dialog-body");
+    for (const card of root.querySelectorAll<HTMLElement>("[data-fits-title]")) {
+      card.addEventListener("click", () => {
+        if (title) title.textContent = card.dataset.fitsTitle ?? "";
+        if (body) body.textContent = card.dataset.fitsDesc ?? "";
+        dialog.showModal();
+      });
+    }
+    dialog.querySelector(".fits-dialog-close")?.addEventListener("click", () => dialog.close());
+    dialog.addEventListener("click", (e) => {
+      if (e.target === dialog) dialog.close();
+    });
+  }
+</script>
+
+<style>
+  .fits {
+    text-align: left;
+  }
+  .fits-formula {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin-bottom: 1rem;
+    padding: 0.55rem 0.85rem;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--color-bg-surface) 40%, transparent);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+  .fits-formula-row { display: flex; gap: 0.4rem; align-items: baseline; }
+  .fits-formula-lhs { width: 3.6rem; color: var(--color-brand); font-weight: 600; }
+  .fits-formula-eq { color: var(--color-fg-subtle); }
+  .fits-formula-rhs { color: var(--color-fg-muted); }
+
+  .fits-flow {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  @media (min-width: 1024px) {
+    .fits-flow { flex-direction: row; }
+  }
+  .fits-pointer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    padding: 0.2rem 0.15rem;
+    color: var(--color-fg-subtle);
+  }
+  .fits-step {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0.7rem;
+    border: 1px dashed color-mix(in srgb, var(--color-border) 70%, transparent);
+    border-radius: 8px;
+  }
+  @media (min-width: 1024px) {
+    .fits-step-wide { flex: 1.35; }
+  }
+  .fits-step-head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.55rem;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-fg-subtle);
+  }
+  .fits-optional {
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 0 0.4rem;
+    font-size: 8.5px;
+    letter-spacing: 0.08em;
+  }
+  .fits-cards {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.45rem;
+  }
+  .fits-cards-chain { gap: 0; }
+  .fits-down {
+    display: flex;
+    justify-content: center;
+    padding: 0.15rem 0;
+    color: var(--color-fg-subtle);
+  }
+  .fits-row { display: flex; align-items: stretch; gap: 0.45rem; }
+  .fits-row > .fits-card { flex: 1; min-width: 0; }
+  .fits-card {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: var(--color-bg);
+    padding: 0.5rem 0.6rem;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+  .fits-card:hover { border-color: var(--color-border-strong, var(--color-border)); }
+  .fits-card:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-brand) 50%, transparent);
+    outline-offset: 1px;
+  }
+  .fits-dialog {
+    max-width: 26rem;
+    width: calc(100vw - 2.5rem);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    padding: 1.1rem 1.25rem 1.25rem;
+  }
+  .fits-dialog::backdrop {
+    background: color-mix(in srgb, var(--color-bg) 60%, transparent);
+    backdrop-filter: blur(2px);
+  }
+  .fits-dialog-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .fits-dialog-head h3 {
+    font-size: 1rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+  .fits-dialog-close {
+    border: 0;
+    background: transparent;
+    color: var(--color-fg-subtle);
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 0.15rem 0.3rem;
+  }
+  .fits-dialog-close:hover { color: var(--color-fg); }
+  .fits-dialog-body {
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--color-fg-muted);
+  }
+  .fits-card-hero {
+    border-color: color-mix(in srgb, var(--color-brand) 50%, transparent);
+    background: color-mix(in srgb, var(--color-brand) 5%, transparent);
+  }
+  .fits-card-dashed {
+    border-style: dashed;
+    background: transparent;
+    opacity: 0.75;
+  }
+  .fits-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+  }
+  .fits-card-title {
+    font-size: 12px;
+    font-weight: 550;
+    color: var(--color-fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .fits-card-hero .fits-card-title { font-size: 13.5px; font-weight: 650; }
+  .fits-dot {
+    flex-shrink: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--color-success, #22c55e);
+  }
+  .fits-dot-empty { background: transparent; border: 1px solid var(--color-border); }
+  .fits-badges { margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.25rem; }
+  .fits-badge {
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--color-bg-surface) 60%, transparent);
+    padding: 0.05rem 0.35rem;
+    font-size: 10px;
+    color: var(--color-fg-muted);
+    white-space: nowrap;
+  }
+  .fits-note {
+    margin-top: 0.3rem;
+    font-size: 10.5px;
+    line-height: 1.45;
+    color: var(--color-fg-muted);
+  }
+</style>
