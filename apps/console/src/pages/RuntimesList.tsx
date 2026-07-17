@@ -12,6 +12,7 @@ import { Modal } from "../components/Modal";
 import { AddSandboxProviderDialog } from "./AddSandboxProviderDialog";
 import { RowActionsMenu } from "../components/RowActionsMenu";
 import { ProviderMark } from "../components/ProviderMark";
+import { RuntimesIcon } from "../components/icons";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/hooks/useConfirm";
 
@@ -75,16 +76,16 @@ const CAP_DISPLAY: Record<string, string> = {
 };
 
 const SYSTEM_PROVIDER_ENVS = [
-  { env: "LITEBOX_MEMORY_MIB", label: "LiteBox (local micro-VM)" },
-  { env: "BOXRUN_URL", label: "BoxRun (remote micro-VM)" },
-  { env: "DAYTONA_API_KEY", label: "Daytona SaaS" },
-  { env: "E2B_API_KEY", label: "E2B Firecracker microVM" },
-  { env: "OMA_K8S_NAMESPACE", label: "Kubernetes" },
-  { env: "K8S_BRIDGE_URL", label: "K8s Bridge (remote)" },
-  { env: "DOCKER_COMPOSE_PROJECT_DIR", label: "Docker Compose" },
-  { env: "GITHUB_ACTIONS_OWNER", label: "GitHub Actions sandbox" },
-  { env: "REMOTE_AGENT_URL", label: "Remote Agent (BYOK)" },
-  { env: "OPENSHELL_GATEWAY_ENDPOINT", label: "NVIDIA OpenShell gateway" },
+  { env: "LITEBOX_MEMORY_MIB", label: "LiteBox (local micro-VM)", providerId: "litebox" },
+  { env: "BOXRUN_URL", label: "BoxRun (remote micro-VM)", providerId: "boxrun" },
+  { env: "DAYTONA_API_KEY", label: "Daytona SaaS", providerId: "daytona" },
+  { env: "E2B_API_KEY", label: "E2B Firecracker microVM", providerId: "e2b" },
+  { env: "OMA_K8S_NAMESPACE", label: "Kubernetes", providerId: "k8s" },
+  { env: "K8S_BRIDGE_URL", label: "K8s Bridge (remote)", providerId: "k8s-bridge" },
+  { env: "DOCKER_COMPOSE_PROJECT_DIR", label: "Docker Compose", providerId: "docker-compose" },
+  { env: "GITHUB_ACTIONS_OWNER", label: "GitHub Actions sandbox", providerId: "github-actions" },
+  { env: "REMOTE_AGENT_URL", label: "Remote Agent (BYOK)", providerId: "remote-agent" },
+  { env: "OPENSHELL_GATEWAY_ENDPOINT", label: "NVIDIA OpenShell gateway", providerId: "openshell" },
 ];
 
 function formatHeartbeat(unixSeconds: number): string {
@@ -713,7 +714,10 @@ export function RuntimesList() {
           and shell history, and is for local testing only. */}
       <details className="rounded-lg border border-border bg-bg-surface/50">
         <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-fg select-none hover:text-fg">
-          Run sandboxes on Kubernetes (Helm)
+          <span className="inline-flex items-center gap-2">
+            <ProviderMark id="k8s" className="size-4 shrink-0 text-fg-subtle" />
+            Run sandboxes on Kubernetes (Helm)
+          </span>
         </summary>
         <div className="px-4 pb-4 space-y-3 text-sm text-fg-muted">
           <p>
@@ -873,7 +877,10 @@ export function RuntimesList() {
       {/* Provider registration help */}
       <details className="rounded-lg border border-border bg-bg-surface/50">
         <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-fg select-none hover:text-fg">
-          How to enable additional sandbox providers
+          <span className="inline-flex items-center gap-2">
+            <RuntimesIcon className="size-4 shrink-0 text-fg-subtle" />
+            How to enable additional sandbox providers
+          </span>
         </summary>
         <div className="px-4 pb-4 space-y-3 text-sm text-fg-muted">
           <p>
@@ -881,10 +888,11 @@ export function RuntimesList() {
             corresponding env var on the host and restart to enable the provider:
           </p>
           <div className="bg-bg border border-border rounded-lg p-3 font-mono text-xs space-y-1 overflow-x-auto">
-            {SYSTEM_PROVIDER_ENVS.map(({ env, label }) => (
-              <div key={env} className="whitespace-nowrap">
+            {SYSTEM_PROVIDER_ENVS.map(({ env, label, providerId }) => (
+              <div key={env} className="flex items-center gap-2 whitespace-nowrap">
+                <ProviderMark id={providerId} className="size-3.5 shrink-0 text-fg-subtle" />
                 <span className="text-fg">{env}</span>
-                <span className="text-fg-subtle ml-2">— {label}</span>
+                <span className="text-fg-subtle">— {label}</span>
               </div>
             ))}
           </div>
