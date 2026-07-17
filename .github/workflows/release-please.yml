@@ -10,7 +10,7 @@ name: Release Please
 #   - docker → docker + docker/CHANGELOG.md       (container images / charts)
 #
 # Each component gets its own tag (e.g. web-v0.1.0) and its own changelog.
-# npm package publishing for @duyet/oma-cli / @duyet/oma-sdk additionally
+# npm package publishing for @getoma/cli / @getoma/sdk additionally
 # stays on changesets (release.yml).
 #
 # NOTE: requires the repo setting "Allow GitHub Actions to create and approve

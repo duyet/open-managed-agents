@@ -443,8 +443,8 @@ function CliQuickstart({ onNavigate }: { onNavigate?: () => void }) {
     setTimeout(() => setCopied(null), 1600);
   };
 
-  const cmd = "npx -y -p @duyet/oma-cli oma";
-  const cmdGlobal = "npm i -g @duyet/oma-cli";
+  const cmd = "npx -y -p @getoma/cli oma";
+  const cmdGlobal = "npm i -g @getoma/cli";
   const examplePrompt =
     "Use oma to create a research agent that monitors arXiv for new ML papers daily";
 
@@ -690,7 +690,7 @@ export function RuntimesList() {
         {isEmpty && (
           <div className="rounded-lg border border-border bg-bg-surface p-4 text-sm text-fg-muted">
             No runtimes yet. Add a sandbox provider, or run{" "}
-            <code className="text-xs bg-bg px-1 py-0.5 rounded">npx @duyet/oma-cli bridge setup</code>{" "}
+            <code className="text-xs bg-bg px-1 py-0.5 rounded">npx @getoma/cli bridge setup</code>{" "}
             on a machine you want to connect.
           </div>
         )}
@@ -924,7 +924,7 @@ export function RuntimesList() {
             On the machine you want to connect, run:
           </p>
           <div className="bg-bg-surface border border-border rounded-lg p-3 font-mono text-xs space-y-1">
-            <div className="text-fg select-all">npx @duyet/oma-cli bridge setup</div>
+            <div className="text-fg select-all">npx @getoma/cli bridge setup</div>
           </div>
           <p className="text-fg-muted text-xs">
             Setup opens this browser for OAuth, writes credentials to{" "}
@@ -988,7 +988,7 @@ export function RuntimesList() {
               Connect this host's local runtime by starting the bridge daemon:
             </p>
             <div className="bg-bg-surface border border-border rounded-lg p-3 font-mono text-xs space-y-1">
-              <div className="text-fg select-all">npx @duyet/oma-cli bridge setup</div>
+              <div className="text-fg select-all">npx @getoma/cli bridge setup</div>
             </div>
             <p className="text-fg-muted text-xs">
               Setup opens this browser for OAuth, writes credentials to{" "}

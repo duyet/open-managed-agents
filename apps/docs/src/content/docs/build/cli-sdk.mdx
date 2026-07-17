@@ -7,7 +7,7 @@ import { Tabs, TabItem, Aside, LinkCard } from '@astrojs/starlight/components';
 
 oma is callable via two routes:
 
-- **`@duyet/oma-cli`** — a Node CLI for scripting against the API.
+- **`@getoma/cli`** — a Node CLI for scripting against the API.
 - **Anthropic's official SDKs** — TypeScript ([`@anthropic-ai/sdk`](https://www.npmjs.com/package/@anthropic-ai/sdk)), Python ([`anthropic`](https://pypi.org/project/anthropic/)), and Go ([`anthropic-sdk-go`](https://pkg.go.dev/github.com/anthropics/anthropic-sdk-go)) — pointed at oma's `baseURL`. The oma API is wire-compatible with the Claude Managed Agents API, so the same SDKs work against both.
 
 The CLI lives in this repo (`packages/cli`).
@@ -19,17 +19,17 @@ The CLI lives in this repo (`packages/cli`).
 <Tabs syncKey="pkg-mgr">
   <TabItem label="npm">
     ```bash
-    npm i -g @duyet/oma-cli
+    npm i -g @getoma/cli
     ```
   </TabItem>
   <TabItem label="pnpm">
     ```bash
-    pnpm add -g @duyet/oma-cli
+    pnpm add -g @getoma/cli
     ```
   </TabItem>
   <TabItem label="bun">
     ```bash
-    bun add -g @duyet/oma-cli
+    bun add -g @getoma/cli
     ```
   </TabItem>
 </Tabs>
@@ -83,8 +83,8 @@ Run `oma --help` or `oma <command> --help` for the full surface.
 
 The oma API is **wire-compatible with the [Claude Managed Agents API](https://docs.anthropic.com/)**, so the recommended client is one of Anthropic's official SDKs pointed at our `baseURL`. One SDK, two providers — moving between them is a config line.
 
-<Aside type="caution" title="@duyet/oma-sdk is deprecated">
-  The standalone `@duyet/oma-sdk` package is no longer maintained. Existing installs keep working, but new projects should use the official Anthropic SDKs as shown below.
+<Aside type="caution" title="@getoma/sdk is deprecated">
+  The standalone `@getoma/sdk` package is no longer maintained. Existing installs keep working, but new projects should use the official Anthropic SDKs as shown below.
 </Aside>
 
 ### Install
@@ -237,7 +237,7 @@ A small set of oma-specific agent fields (auxiliary model, harness selector, san
 | `harness` | Selects the agent loop harness implementation. Reserved for oma-managed runtimes. |
 | `runtime_binding` | Selects which sandbox runtime services the agent's sessions. Reserved for oma-managed runtimes. |
 
-The Stainless-generated SDKs in every language pass unknown body fields through unchanged — there is no separate `@duyet/oma-sdk` to install. Use the SDK's standard escape hatch:
+The Stainless-generated SDKs in every language pass unknown body fields through unchanged — there is no separate `@getoma/sdk` to install. Use the SDK's standard escape hatch:
 
 <Tabs syncKey="lang">
   <TabItem label="TypeScript">

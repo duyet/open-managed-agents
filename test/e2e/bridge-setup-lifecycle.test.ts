@@ -94,7 +94,7 @@ function profileConfigDir(): string {
 
 before(() => {
   if (SKIP) return;
-  assert.ok(existsSync(CLI), `cli must be built: ${CLI} (run \`pnpm --filter @duyet/oma-cli build\`)`);
+  assert.ok(existsSync(CLI), `cli must be built: ${CLI} (run \`pnpm --filter @getoma/cli build\`)`);
   // Make sure the user has logged in for this profile; we can't OAuth
   // headlessly. Leaving this to the user keeps the test from popping a
   // browser mid-CI.

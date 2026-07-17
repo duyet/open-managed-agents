@@ -100,7 +100,7 @@ harness.run(ctx)  ←  与今天完全一样的 HarnessContext
 
 ## SDK
 
-### 包：`@duyet/oma-sdk`
+### 包：`@getoma/sdk`
 
 SDK 很薄——只 re-export 用户需要实现的接口，再给一些便捷 helper。**它不会包装或抽象掉 `HarnessContext`**——用户拿到的就是平台原语。
 
@@ -132,7 +132,7 @@ import {
   generateText,
   stepCountIs,
   SummarizeCompaction,
-} from "@duyet/oma-sdk";
+} from "@getoma/sdk";
 
 export default defineHarness({
   name: "research-harness",

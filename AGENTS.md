@@ -1227,16 +1227,20 @@ When investigating platform or agent issues, follow this loop. **Do not skip ste
 
 ---
 
-## Releasing `@duyet/oma-cli` and `@duyet/oma-sdk`
+## Releasing `@getoma/cli` and `@getoma/sdk`
 
 We use [changesets](https://github.com/changesets/changesets) for the two
 public npm packages. Internal `@duyet/oma-*` packages never publish.
+
+Both packages were reset to `0.1.0` under the `@getoma` scope. Until further
+notice, **always pick `patch`** in the prompt below — versions stay in the
+`0.1.x` range regardless of change size.
 
 **Per PR (only if you touched `packages/cli` or `packages/sdk`):**
 
 ```bash
 pnpm changeset
-# pick package(s) → patch / minor / major → write a one-line changelog
+# pick package(s) → always patch (see above) → write a one-line changelog
 git add .changeset/ && git commit && git push
 ```
 

@@ -1,4 +1,4 @@
-# @duyet/oma-cli
+# @getoma/cli
 
 Command-line client for [oma](https://oma.duyet.net) managed agents.
 
@@ -7,7 +7,7 @@ Command-line client for [oma](https://oma.duyet.net) managed agents.
 ## Install
 
 ```bash
-npm i -g @duyet/oma-cli
+npm i -g @getoma/cli
 ```
 
 This installs an `oma` binary on your `PATH`. (If a different `oma` is already installed, npm will overwrite or warn — both are safe.)

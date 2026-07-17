@@ -100,7 +100,7 @@ No new infrastructure. No RPC layer. No serialization boundary. The harness just
 
 ## The SDK
 
-### Package: `@duyet/oma-sdk`
+### Package: `@getoma/sdk`
 
 The SDK is thin — it re-exports the interfaces users need and provides convenience helpers. It does NOT wrap or abstract away `HarnessContext`; users get direct access to platform primitives.
 
@@ -132,7 +132,7 @@ import {
   generateText,
   stepCountIs,
   SummarizeCompaction,
-} from "@duyet/oma-sdk";
+} from "@getoma/sdk";
 
 export default defineHarness({
   name: "research-harness",

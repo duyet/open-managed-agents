@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# Manually publish the two public npm packages: @duyet/oma-cli and @duyet/oma-sdk.
+# Manually publish the two public npm packages: @getoma/cli and @getoma/sdk.
 # The normal path is the changesets Release workflow (OIDC trusted publisher).
-# Use this for a first publish under the new @duyet scope, or when CI is unavailable.
+# Use this for a first publish under the new @getoma scope, or when CI is unavailable.
 #
 # Usage:
 #   NPM_TOKEN=npm_xxx ./scripts/publish-npm.sh            # publish
@@ -10,12 +10,12 @@
 #   NPM_TOKEN=npm_xxx TAG=beta ./scripts/publish-npm.sh   # publish under a dist-tag
 #
 # Requires: an npm automation token (NPM_TOKEN) with publish rights on the
-# @duyet scope. Create at npmjs.com → Access Tokens → Granular/Automation.
+# @getoma scope. Create at npmjs.com → Access Tokens → Granular/Automation.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-PKGS=("@duyet/oma-cli" "@duyet/oma-sdk")
+PKGS=("@getoma/cli" "@getoma/sdk")
 DRY_RUN=""
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN="1"
 TAG="${TAG:-latest}"
@@ -30,7 +30,7 @@ NPMRC="$(mktemp)"
 trap 'rm -f "$NPMRC"' EXIT
 cat > "$NPMRC" <<EOF
 //registry.npmjs.org/:_authToken=${NPM_TOKEN}
-@duyet:registry=https://registry.npmjs.org/
+@getoma:registry=https://registry.npmjs.org/
 EOF
 export NPM_CONFIG_USERCONFIG="$NPMRC"
 
@@ -43,7 +43,7 @@ echo "==> Installing deps (frozen)"
 pnpm install --frozen-lockfile
 
 for pkg in "${PKGS[@]}"; do
-  dir="packages/${pkg#@duyet/oma-}"   # @duyet/oma-cli -> packages/cli
+  dir="packages/${pkg#@getoma/}"   # @getoma/cli -> packages/cli
   ver="$(node -p "require('./$dir/package.json').version")"
   echo ""
   echo "==> $pkg@$ver  ($dir)"

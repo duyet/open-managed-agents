@@ -140,7 +140,7 @@ export interface SessionOptions {
    * `mcpServers` array. Pass-through opaque (we don't validate the shape
    * here so the package stays decoupled from @agentclientprotocol/sdk
    * schema details — the caller, typically SessionManager in
-   * @duyet/oma-cli's bridge, builds the array per ACP spec). When omitted
+   * @getoma/cli's bridge, builds the array per ACP spec). When omitted
    * or empty the child sees an empty list and falls back to its own
    * configured MCP servers (e.g. claude-code's user-level config).
    */

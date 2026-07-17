@@ -3,9 +3,9 @@
 OMA uses [changesets](https://github.com/changesets/changesets) to manage
 versioning and publishing for the public npm packages:
 
-- `@duyet/oma-cli` (`packages/cli`)
+- `@getoma/cli` (`packages/cli`)
 
-`@duyet/oma-sdk` is **deprecated**: the oma API is wire-compatible with
+`@getoma/sdk` is **deprecated**: the oma API is wire-compatible with
 Anthropic's Managed Agents API, so the recommended client is now
 `@anthropic-ai/sdk` pointed at `baseURL: 'https://oma.duyet.net'`. The package
 remains in `packages/sdk` for reference; no new versions will be published.
@@ -14,14 +14,22 @@ See `packages/sdk/README.md` for the migration note.
 All `@duyet/oma-*` internal packages are private and never
 published — changesets is configured to skip them entirely.
 
+**Versioning convention:** both packages were reset to `0.1.0` under the new
+`@getoma` scope. Until further notice, **always pick `patch`** when running
+`pnpm changeset` — versions stay in the `0.1.x` range regardless of the size
+of the change. Changesets has no built-in way to hard-forbid minor/major
+bumps, so this is enforced by convention: reviewers should push back on a
+changeset that picks `minor` or `major`.
+
 ## TL;DR
 
 ```bash
 # In the PR that introduces a user-visible change to cli or sdk:
 pnpm changeset
 
-# Pick the package(s), choose patch / minor / major, write a one-line
-# changelog. Commits a .changeset/<random>.md file. Push it with the PR.
+# Pick the package(s), always choose patch (see "Versioning convention"
+# above), write a one-line changelog. Commits a .changeset/<random>.md
+# file. Push it with the PR.
 ```
 
 That's it. Once the PR is merged, the release bot does the rest.
@@ -102,7 +110,7 @@ checks).
 `release.yml` publishes via npm's OIDC trusted publisher. Each public
 package needs the workflow registered on npmjs.com:
 
-1. Go to https://www.npmjs.com/package/@duyet/oma-cli/access
+1. Go to https://www.npmjs.com/package/@getoma/cli/access
 2. Trusted Publishers → Add publisher → GitHub Actions
 3. Owner: `open-ma`, repo: `open-managed-agents`
 4. Workflow filename: `release.yml`
@@ -146,6 +154,6 @@ version was actively harmful.
 **I need to re-point a dist-tag (e.g. roll back `latest` to an older
 version).**
 This isn't supported via OIDC — you'll need to `npm login` locally and
-run `npm dist-tag add @duyet/oma-cli@<version> latest`. Use sparingly; the
+run `npm dist-tag add @getoma/cli@<version> latest`. Use sparingly; the
 right answer for "this version is bad" is usually publish a new version
 that fixes it, not move the tag.

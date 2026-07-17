@@ -16,7 +16,7 @@ Cloudflare (Workers + Durable Objects + Containers) or self-hosted Node
 - [Concepts](https://docs.oma.duyet.net/concepts/): agent, session, environment, vault
 - [Architecture](https://docs.oma.duyet.net/architecture/): the meta-harness model
 - [REST API reference](https://docs.oma.duyet.net/reference/api/): full endpoint list
-- [CLI & SDK](https://docs.oma.duyet.net/build/cli-sdk/): the `oma` CLI and `@duyet/oma-sdk`
+- [CLI & SDK](https://docs.oma.duyet.net/build/cli-sdk/): the `oma` CLI and `@getoma/sdk`
 - [Skills & Tools](https://docs.oma.duyet.net/build/skills-and-tools/)
 - [Vault & MCP](https://docs.oma.duyet.net/build/vault-and-mcp/)
 

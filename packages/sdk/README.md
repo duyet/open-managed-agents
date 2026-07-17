@@ -1,4 +1,4 @@
-# @duyet/oma-sdk
+# @getoma/sdk
 
 > ## ⚠️ Deprecated — use `@anthropic-ai/sdk` instead
 >
@@ -33,7 +33,7 @@
 > endpoints (tenants, OAuth, evals, cost reports, …) live under `/v1/oma/*` and
 > can be invoked via `client._client.post('/v1/oma/...', ...)`.
 >
-> No new versions of `@duyet/oma-sdk` will be published. The source remains in the
+> No new versions of `@getoma/sdk` will be published. The source remains in the
 > repo for reference. Existing users continue to work; please migrate at your
 > convenience.
 
@@ -44,17 +44,17 @@ Official TypeScript SDK for the [oma](https://oma.duyet.net) managed agents plat
 ## Install
 
 ```bash
-npm i @duyet/oma-sdk
+npm i @getoma/sdk
 # or
-pnpm add @duyet/oma-sdk
+pnpm add @getoma/sdk
 # or
-bun add @duyet/oma-sdk
+bun add @getoma/sdk
 ```
 
 ## Quick start
 
 ```ts
-import { Oma } from "@duyet/oma-sdk";
+import { Oma } from "@getoma/sdk";
 
 const oma = new Oma({ apiKey: process.env.OMA_API_KEY! });
 
@@ -143,7 +143,7 @@ More resources land per release — file an issue if something you need is missi
 Every non-2xx throws an `OmaError`:
 
 ```ts
-import { OmaError } from "@duyet/oma-sdk";
+import { OmaError } from "@getoma/sdk";
 
 try {
   await oma.sessions.get("sess-bogus");

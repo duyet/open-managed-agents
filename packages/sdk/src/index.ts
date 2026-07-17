@@ -55,7 +55,7 @@ export type {
  * Official TypeScript SDK for oma — typed REST + SSE streaming.
  *
  * ```ts
- * import { Oma } from "@duyet/oma-sdk";
+ * import { Oma } from "@getoma/sdk";
  *
  * const oma = new Oma({ apiKey: process.env.OMA_API_KEY! });
  *

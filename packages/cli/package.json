@@ -1,6 +1,6 @@
 {
-  "name": "@duyet/oma-cli",
-  "version": "0.8.0",
+  "name": "@getoma/cli",
+  "version": "0.1.0",
   "description": "CLI for the oma managed agents platform",
   "type": "module",
   "bin": {
