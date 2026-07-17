@@ -1,5 +1,11 @@
 # @getoma/cli
 
+## 0.1.6
+
+### Patch Changes
+
+- The bridge daemon can now execute sandbox ops relayed from the cloud deployment — a `subprocess` environment on OMA-on-Cloudflare runs its sandbox on this paired machine (per-session workdirs under ~/.local/share/oma/sandboxes).
+
 ## 0.1.5
 
 ### Patch Changes
