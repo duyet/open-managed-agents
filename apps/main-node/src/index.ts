@@ -1735,8 +1735,19 @@ app.route(
     // free / no-pricing-row publications work end-to-end; a publication
     // configured with a metered pricing mode fails closed with an honest
     // 501 instead of silently being treated as free or half-wiring Stripe.
+    //
+    // In practice this is a guard, not a live path: Node doesn't mount
+    // buildPublicationPricingRoutes, so a metered `publication_pricing` row
+    // can't be created here through the API at all. It stays because the row
+    // CAN arrive another way (a DB migrated over from CF, direct SQL), and
+    // serving a paid bot for free is the one outcome worth failing closed on.
     enforcePaywall: async (opts) => {
-      if (process.env.PAYMENTS_DISABLED === "1") return null;
+      // Kill-switch truthiness must match @duyet/oma-payments isPaymentsEnabled:
+      // ANY value other than "0"/"false" disables payments, not just "1" —
+      // otherwise `PAYMENTS_DISABLED=true` on self-host would 501 a metered
+      // publication instead of making it free, which is what the docs promise.
+      const disabled = process.env.PAYMENTS_DISABLED;
+      if (disabled && disabled !== "0" && disabled !== "false") return null;
       const row = await sql
         .prepare(`SELECT mode FROM publication_pricing WHERE publication_id = ?`)
         .bind(opts.publication.id)
