@@ -60,6 +60,17 @@ describe("OpenShellManager box lifecycle", () => {
     expect(ctorCalls[0]).toMatchObject({ image: "custom:tag" });
   });
 
+  it("forwards the mapped OpenShell policy to the sandbox constructor", async () => {
+    const mgr = new OpenShellManager(ENV);
+    const policy = {
+      version: 1,
+      filesystem: { include_workdir: true },
+      network_policies: { oma: { name: "oma", endpoints: [{ host: "api.github.com" }] } },
+    };
+    await mgr.createBox("sess-p", { policy });
+    expect(ctorCalls[0]).toMatchObject({ policy });
+  });
+
   it("destroys the executor and drops the box", async () => {
     const mgr = new OpenShellManager(ENV);
     const boxId = await mgr.createBox("sess-9");

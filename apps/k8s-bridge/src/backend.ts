@@ -32,6 +32,11 @@ export interface CreateBoxOptions {
   image?: string;
   cpu?: string;
   memory?: string;
+  /** OpenShell egress SandboxPolicy forwarded from the Worker (mapped from the
+   *  OMA environment config). The k8s backend ignores it; the OpenShell backend
+   *  attaches it to CreateSandbox. Opaque JSON here to avoid a build-time dep on
+   *  the raw-.ts sandbox package from this CJS build. */
+  policy?: unknown;
 }
 
 export interface BridgeBackend {

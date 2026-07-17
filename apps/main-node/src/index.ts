@@ -680,6 +680,28 @@ function getDefaultLocalSandboxProvider(): Promise<string> {
   return defaultLocalSandboxProviderPromise;
 }
 
+// Load a session's environment `config` (networking/packages/...) so sandbox
+// adapters that translate it downstream (OpenShell → SandboxPolicy) can. Best
+// effort: any failure returns undefined and the adapter proceeds without it.
+async function getSessionEnvConfig(
+  sessionId: string,
+): Promise<import("@duyet/oma-sandbox").SandboxFactoryContext["environmentConfig"] | undefined> {
+  try {
+    const row = await sql
+      .prepare(`SELECT tenant_id, environment_id FROM sessions WHERE id = ?`)
+      .bind(sessionId)
+      .first<{ tenant_id: string; environment_id: string | null }>();
+    if (!row?.environment_id) return undefined;
+    const env = await environmentsService.get({
+      tenantId: row.tenant_id,
+      environmentId: row.environment_id,
+    });
+    return env?.config as import("@duyet/oma-sandbox").SandboxFactoryContext["environmentConfig"];
+  } catch {
+    return undefined;
+  }
+}
+
 async function buildSandbox(
   sessionId: string,
   workdir: string,
@@ -689,9 +711,11 @@ async function buildSandbox(
     envProvider ?? process.env.SANDBOX_PROVIDER ?? (await getDefaultLocalSandboxProvider())
   ).toLowerCase();
 
+  const environmentConfig = await getSessionEnvConfig(sessionId);
+
   const sandbox = await sandboxRegistry.createExecutor(
     providerId,
-    { sessionId, workdir, memoryRoot: memoryBlobLocalDir ?? "", outputsRoot },
+    { sessionId, workdir, memoryRoot: memoryBlobLocalDir ?? "", outputsRoot, environmentConfig },
     process.env,
   );
 

@@ -144,6 +144,7 @@ export default defineConfig({
       { find: "@duyet/oma-sandbox/adapters/docker-compose", replacement: "./packages/sandbox/src/adapters/docker-compose.ts" },
       { find: "@duyet/oma-sandbox/adapters/github-actions", replacement: "./packages/sandbox/src/adapters/github-actions.ts" },
       { find: "@duyet/oma-sandbox/adapters/remote-agent", replacement: "./packages/sandbox/src/adapters/remote-agent.ts" },
+      { find: "@duyet/oma-sandbox/adapters/openshell-policy", replacement: "./packages/sandbox/src/adapters/openshell-policy.ts" },
       { find: "@duyet/oma-sandbox", replacement: "./packages/sandbox/src/index.ts" },
       { find: "@duyet/oma-blob-store/adapters/local-fs", replacement: "./packages/blob-store/src/adapters/local-fs.ts" },
       { find: "@duyet/oma-blob-store/adapters/s3", replacement: "./packages/blob-store/src/adapters/s3.ts" },

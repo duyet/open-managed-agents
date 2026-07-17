@@ -525,6 +525,29 @@ touches gRPC. A missing `OPENSHELL_BRIDGE_URL` fails loudly with a
 memory-store / session-outputs mounts aren't available over the bridge's HTTP
 API, same as boxrun and k8s-remote.
 
+#### How OMA environment settings map to OpenShell policy
+
+An OMA environment's `config.networking` / `config.packages` are translated
+into a downstream OpenShell `SandboxPolicy` (proto `SandboxSpec.policy`) and
+attached at `CreateSandbox`, so OMA's egress restrictions are enforced by the
+gateway's default-deny proxy. The mapping is a pure module
+(`packages/sandbox/src/adapters/openshell-policy.ts`) used by **both** paths:
+the direct gRPC adapter (self-host) and the bridge's OpenShell backend (CF, the
+policy is mapped on the Worker and forwarded through the bridge).
+
+| OMA environment setting | OpenShell policy result |
+|---|---|
+| `networking.type: "limited"` + `allowed_hosts` | One `NetworkPolicyRule` ("oma") whose `endpoints` are the listed hosts. Egress to anything else is denied. |
+| `networking.type: "unrestricted"` | **No policy attached** — the gateway applies its built-in default policy. OpenShell has **no allow-all wildcard** (bare `*`/`**` is rejected by its validator), so this is *not* true unrestricted access. Logged as a warning. |
+| `networking.allow_package_managers: true` | Registry hosts for each **declared** package manager in `config.packages` are added to the allowlist (pip→pypi.org + files.pythonhosted.org, npm→registry.npmjs.org, apt→deb/security mirrors, cargo→crates.io, gem→rubygems.org, go→proxy/sum.golang.org). If no packages are declared, a warning is logged. |
+| `networking.allow_mcp_servers: true` | The deployment's MCP-proxy host(s) are added when provided (`OPENSHELL_MCP_PROXY_HOST`). OpenShell bypasses OMA's outbound proxy (it runs its own egress proxy), so with no host configured this is logged as a warning rather than silently enforced. |
+| `config.packages` (installation) | **Not installed** on the OpenShell path — the adapter only sets image + env. Packages inform the registry allowlist above; bake the actual tools into a custom `OPENSHELL_IMAGE`. Logged as a warning. |
+
+All unmappable/partial settings are surfaced as loud warnings
+(`op: openshell.policy.map`) rather than silently dropped. Filesystem policy is
+set to `include_workdir: true` (workspace read-write); OpenShell enriches the
+rest of the baseline runtime paths itself.
+
 ### BYOK (bring your own key)
 
 Register additional sandbox providers at runtime via the REST API:

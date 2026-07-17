@@ -31,6 +31,7 @@
 // Box lifecycle: lazy-create on first exec/readFile/writeFile.
 
 import type { SandboxExecutor, SandboxFactory, SandboxCapacity } from "../ports";
+import type { OpenShellSandboxPolicy } from "./openshell-policy";
 import { getLogger } from "@duyet/oma-observability";
 
 const moduleLogger = getLogger("k8s-bridge-sandbox");
@@ -54,6 +55,10 @@ export interface K8sBridgeSandboxOptions {
   runtimeClassName?: string;
   /** Kubernetes service account name — passed to the bridge. */
   serviceAccountName?: string;
+  /** OpenShell egress SandboxPolicy (mapped from the OMA environment config on
+   *  the Worker side). Forwarded verbatim in the create-box body; the k8s
+   *  backend ignores it, the OpenShell backend attaches it to CreateSandbox. */
+  policy?: OpenShellSandboxPolicy;
   /** Logger. */
   logger?: { warn: (msg: string, ctx?: unknown) => void; log: (msg: string) => void };
 }
@@ -294,6 +299,7 @@ export class K8sBridgeSandbox implements SandboxExecutor {
     if (this.opts.memory !== undefined) body.memory = this.opts.memory;
     if (this.opts.runtimeClassName) body.runtimeClassName = this.opts.runtimeClassName;
     if (this.opts.serviceAccountName) body.serviceAccountName = this.opts.serviceAccountName;
+    if (this.opts.policy) body.policy = this.opts.policy;
     const res = await this.fetch(`/boxes`, {
       method: "POST",
       headers: { "content-type": "application/json" },

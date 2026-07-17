@@ -34,6 +34,7 @@ export function createRouter(manager: BridgeBackend, notifier?: SlackNotifier): 
       image?: string;
       cpu?: string;
       memory?: string;
+      policy?: unknown;
     }>();
 
     if (!body.sessionId) {
@@ -45,6 +46,7 @@ export function createRouter(manager: BridgeBackend, notifier?: SlackNotifier): 
         image: body.image,
         cpu: body.cpu,
         memory: body.memory,
+        policy: body.policy,
       });
       notifier?.notifyBoxCreated(id, body.sessionId).catch(() => {});
       return c.json({ id, status: "created" }, 201);

@@ -43,6 +43,10 @@
 import * as grpc from "@grpc/grpc-js";
 import * as protoLoader from "@grpc/proto-loader";
 import type { SandboxExecutor, SandboxFactory } from "../ports";
+import {
+  mapEnvironmentConfigToOpenShellPolicy,
+  type OpenShellSandboxPolicy,
+} from "./openshell-policy";
 import { getLogger } from "@duyet/oma-observability";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -72,7 +76,35 @@ message SandboxTemplate {
 message SandboxSpec {
   map<string, string> environment = 5;
   SandboxTemplate template = 6;
+  SandboxPolicy policy = 7;
   repeated string providers = 8;
+}
+
+// Policy subset mirrored from proto/sandbox.proto
+// (openshell.sandbox.v1). Only the fields the OMA egress mapping populates
+// are declared; field numbers MUST match upstream or the gateway mis-parses.
+// Message/package names are irrelevant to the wire format — only field
+// numbers + types matter — so these live in openshell.v1 for convenience.
+message FilesystemPolicy {
+  bool include_workdir = 1;
+  repeated string read_only = 2;
+  repeated string read_write = 3;
+}
+
+message NetworkEndpoint {
+  string host = 1;
+  uint32 port = 2;
+}
+
+message NetworkPolicyRule {
+  string name = 1;
+  repeated NetworkEndpoint endpoints = 2;
+}
+
+message SandboxPolicy {
+  uint32 version = 1;
+  FilesystemPolicy filesystem = 2;
+  map<string, NetworkPolicyRule> network_policies = 5;
 }
 
 message SandboxStatus {
@@ -191,6 +223,11 @@ export interface OpenShellSandboxOptions {
   };
   /** Used to name the sandbox for operator visibility. */
   sessionId?: string;
+  /** Downstream OpenShell SandboxPolicy (egress allowlist + filesystem),
+   *  mapped from the OMA environment config. Attached to CreateSandbox's
+   *  `spec.policy`. When unset, no policy is sent and the gateway applies its
+   *  built-in default policy. */
+  policy?: OpenShellSandboxPolicy;
   /** Logger. */
   logger?: { warn: (msg: string, ctx?: unknown) => void; log: (msg: string) => void };
 }
@@ -267,6 +304,10 @@ export class OpenShellSandbox implements SandboxExecutor {
       environment: this.envVars,
       template: { image: this.opts.image ?? "ghcr.io/nvidia/openshell-community/sandboxes/base:latest" },
     };
+    // Attach the mapped SandboxPolicy (egress allowlist + filesystem) when the
+    // OMA environment config produced one; otherwise leave it unset so the
+    // gateway applies its built-in default policy.
+    if (this.opts.policy) spec.policy = this.opts.policy;
     const sandboxName = await new Promise<string>((resolve, reject) => {
       client.CreateSandbox({ spec, name, labels: {} }, this.callMetadata(), (err, res) => {
         if (err || !res) {
@@ -535,12 +576,28 @@ export const sandboxFactory: SandboxFactory = async (ctx, env) => {
     );
   }
 
+  // Map the session's environment config (networking/packages) to a downstream
+  // OpenShell egress policy. The MCP-proxy host is deployment-specific; on
+  // self-host it's optional (OPENSHELL_MCP_PROXY_HOST), and a missing one just
+  // warns rather than failing.
+  const mcpProxyHosts = env.OPENSHELL_MCP_PROXY_HOST
+    ? [env.OPENSHELL_MCP_PROXY_HOST]
+    : undefined;
+  const { policy, warnings } = mapEnvironmentConfigToOpenShellPolicy(
+    ctx.environmentConfig,
+    { mcpProxyHosts },
+  );
+  for (const w of warnings) {
+    moduleLogger.warn({ session_id: ctx.sessionId, op: "openshell.policy.map" }, w);
+  }
+
   return new OpenShellSandbox({
     endpoint,
     token: env.OPENSHELL_TOKEN,
     image: env.OPENSHELL_IMAGE,
     tls: resolveOpenShellTlsFromEnv(env),
     sessionId: ctx.sessionId,
+    policy,
   });
 };
 

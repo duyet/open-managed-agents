@@ -65,6 +65,9 @@ export class OpenShellManager implements BridgeBackend {
       image: options?.image ?? this.image,
       tls: mod.resolveOpenShellTlsFromEnv(this.tlsEnv),
       sessionId,
+      // Egress policy mapped on the Worker side from the OMA environment config
+      // and forwarded through the bridge. Attached to CreateSandbox's spec.policy.
+      policy: options?.policy,
     });
 
     this.boxes.set(boxId, { executor, sessionId, createdAt: new Date() });

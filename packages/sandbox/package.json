@@ -17,6 +17,7 @@
     "./adapters/github-actions": "./src/adapters/github-actions.ts",
     "./adapters/remote-agent": "./src/adapters/remote-agent.ts",
     "./adapters/openshell": "./src/adapters/openshell.ts",
+    "./adapters/openshell-policy": "./src/adapters/openshell-policy.ts",
     "./orchestrator": "./src/orchestrator.ts",
     "./registry": "./src/registry.ts"
   },

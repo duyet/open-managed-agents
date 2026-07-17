@@ -21,6 +21,13 @@ import { BoxRunSandbox } from "@duyet/oma-sandbox/adapters/boxrun";
 // lazy `import(factoryPath)` can't bundle here (see the comment above).
 import { KubernetesRemoteSandbox } from "@duyet/oma-sandbox/adapters/kubernetes-remote";
 import { K8sBridgeSandbox } from "@duyet/oma-sandbox/adapters/k8s-bridge";
+// Pure mapping module (no gRPC / Node builtins) — bundles cleanly into the
+// Worker. Turns OMA's environment networking/packages config into an OpenShell
+// egress SandboxPolicy carried through to the bridge's OpenShell backend.
+import {
+  mapEnvironmentConfigToOpenShellPolicy,
+  type OpenShellPolicyInput,
+} from "@duyet/oma-sandbox/adapters/openshell-policy";
 // `bash-parser` is CJS; the bundler handles interop for worker builds.
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
@@ -707,6 +714,11 @@ export class TestSandbox implements SandboxExecutor {
  */
 export class SandboxProviderUnavailableError extends Error {}
 
+/** The environment `config` subset resolveCfSandbox reads: the provider
+ *  selector plus (for OpenShell) the networking/packages mapped into an egress
+ *  policy. `OpenShellPolicyInput` supplies networking/packages. */
+type CfEnvConfig = { sandbox_provider?: string; type?: string } & OpenShellPolicyInput;
+
 function cfProviderEnv(env: Env): Record<string, string | undefined> {
   const e = env as unknown as Record<string, string | undefined>;
   return {
@@ -725,6 +737,7 @@ function cfProviderEnv(env: Env): Record<string, string | undefined> {
     K8S_MEMORY: e.K8S_MEMORY,
     OPENSHELL_BRIDGE_URL: e.OPENSHELL_BRIDGE_URL,
     OPENSHELL_BRIDGE_TOKEN: e.OPENSHELL_BRIDGE_TOKEN,
+    OPENSHELL_MCP_PROXY_HOST: e.OPENSHELL_MCP_PROXY_HOST,
   };
 }
 
@@ -737,7 +750,12 @@ function cfProviderEnv(env: Env): Record<string, string | undefined> {
  * with ~14 call sites; making sandbox creation async would ripple through
  * all of them, well outside this change's scope.
  */
-function createRemoteSandbox(type: string, env: Env, sessionId: string): SandboxExecutor {
+function createRemoteSandbox(
+  type: string,
+  env: Env,
+  sessionId: string,
+  envConfig?: CfEnvConfig | null,
+): SandboxExecutor {
   const e = cfProviderEnv(env);
   switch (type) {
     case "boxrun": {
@@ -803,11 +821,23 @@ function createRemoteSandbox(type: string, env: Env, sessionId: string): Sandbox
             `backend (BRIDGE_BACKEND=openshell). Self-host Node speaks gRPC to the gateway directly.`,
         );
       }
+      // Map OMA's environment networking/packages config to an OpenShell egress
+      // policy here (on the Worker, where the config lives), then carry the
+      // policy JSON through the bridge to the OpenShell backend's CreateSandbox.
+      const mcpProxyHosts = e.OPENSHELL_MCP_PROXY_HOST ? [e.OPENSHELL_MCP_PROXY_HOST] : undefined;
+      const { policy, warnings } = mapEnvironmentConfigToOpenShellPolicy(
+        envConfig as OpenShellPolicyInput | undefined,
+        { mcpProxyHosts },
+      );
+      for (const w of warnings) {
+        console.warn(`[sandbox] openshell policy mapping (sid=${sessionId.slice(0, 12)}): ${w}`);
+      }
       return new K8sBridgeSandbox({
         baseUrl: `${e.OPENSHELL_BRIDGE_URL.replace(/\/$/, "")}/api/v1`,
         bearerToken: e.OPENSHELL_BRIDGE_TOKEN ?? "",
         sessionId,
         image: e.SANDBOX_IMAGE,
+        policy,
       });
     }
     default:
@@ -836,13 +866,13 @@ function createRemoteSandbox(type: string, env: Env, sessionId: string): Sandbox
 export function resolveCfSandbox(
   env: Env,
   sessionId: string,
-  envConfig: { sandbox_provider?: string; type?: string } | null | undefined,
+  envConfig: CfEnvConfig | null | undefined,
 ): SandboxExecutor {
   const providerId = envConfig?.sandbox_provider || envConfig?.type;
   const resolution = classifyCfSandboxProvider(providerId);
 
   if (resolution.kind === "cloudflare") return new CloudflareSandbox(env, sessionId);
-  if (resolution.kind === "remote") return createRemoteSandbox(resolution.type, env, sessionId);
+  if (resolution.kind === "remote") return createRemoteSandbox(resolution.type, env, sessionId, envConfig);
 
   throw new SandboxProviderUnavailableError(
     `provider "${resolution.type}" is not available on the Cloudflare deployment; ` +
@@ -853,7 +883,7 @@ export function resolveCfSandbox(
 export function createSandbox(
   env: Env,
   sessionId: string,
-  envConfig?: { sandbox_provider?: string; type?: string } | null,
+  envConfig?: CfEnvConfig | null,
 ): SandboxExecutor {
   return resolveCfSandbox(env, sessionId, envConfig);
 }

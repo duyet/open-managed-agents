@@ -181,6 +181,27 @@ export interface SandboxFactoryContext {
    *  per-(tenant, session) dirs under here when mountSessionOutputs
    *  is called; remote adapters that don't host-mount can ignore it. */
   outputsRoot?: string;
+  /** The session environment's `config` (networking, packages, ...). Optional
+   *  and adapter-specific — most adapters ignore it. The OpenShell adapter
+   *  maps `networking`/`packages` into a downstream SandboxPolicy so OMA's
+   *  egress restrictions are enforced by the gateway. Structural subset only
+   *  (no coupling to api-types) so the ports stay dependency-light. */
+  environmentConfig?: {
+    networking?: {
+      type: "unrestricted" | "limited";
+      allowed_hosts?: string[];
+      allow_mcp_servers?: boolean;
+      allow_package_managers?: boolean;
+    };
+    packages?: {
+      pip?: string[];
+      npm?: string[];
+      apt?: string[];
+      cargo?: string[];
+      gem?: string[];
+      go?: string[];
+    };
+  };
 }
 
 /** Read-only view of process env handed to the factory. Whole `process.env`
