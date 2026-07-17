@@ -36,12 +36,18 @@ export interface ContinueInstallArgs {
 }
 
 export interface ContinueInstallResult {
-  /** Provider's publication id — what the route's redirect target encodes. */
+  /** Provider's publication id — what the route's redirect target encodes.
+   *  Empty string for flows with no publication (GitHub managed workspace
+   *  install), where the callback records only an installation + vault. */
   publicationId: string;
   /** State JWT payload's returnUrl, so the route can build the final
    *  302 target. The bridge re-verifies state internally; surfacing the
    *  decoded URL keeps each route from re-doing JWT crypto. */
   returnUrl: string | null;
+  /** Optional human-readable label for the completed install (GitHub org /
+   *  account login for the managed workspace flow) so the redirect can add
+   *  `&login=<login>`. Absent for flows that don't surface one. */
+  login?: string | null;
   /** Pass-through of the provider's post-install capability probe, if any.
    *  Used by the redirect to surface "install worked but a vendor-side
    *  toggle is off" warnings to the wizard UI. See InstallComplete.
@@ -112,6 +118,7 @@ export interface StartInstallationArgs {
   mode:
     | "start-a1"
     | "start-managed"
+    | "connect-managed-workspace"
     | "credentials"
     | "handoff-link"
     | "personal-token"

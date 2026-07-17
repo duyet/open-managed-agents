@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "./env";
 import linearPublications from "./routes/linear/publications";
 import githubPublications from "./routes/github/publications";
+import githubManaged from "./routes/github/managed";
 import slackPublications from "./routes/slack/publications";
 import slackSetupPage from "./routes/slack/setup-page";
 import githubManifest from "./routes/github/manifest";
@@ -83,6 +84,7 @@ app.use("/telegram/webhook/*", webhookRateLimitMiddleware);
 // before the gateway catch-all so they always win.
 app.route("/linear/publications", linearPublications);
 app.route("/github/publications", githubPublications);
+app.route("/github/managed", githubManaged);
 app.route("/github/manifest", githubManifest);
 app.route("/slack/publications", slackPublications);
 app.route("/slack-setup", slackSetupPage);

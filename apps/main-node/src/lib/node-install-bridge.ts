@@ -183,8 +183,18 @@ export class NodeInstallBridge implements InstallBridge {
         gatewayOrigin: this.opts.gatewayOrigin,
         defaultCapabilities: DEFAULT_GITHUB_CAPABILITIES,
         mcpServerUrl: DEFAULT_GITHUB_MCP_URL,
+        managedApp: this.opts.githubManagedApp ?? null,
       });
       const stateRaw = args.state ?? "";
+      if (args.extra?.workspaceManaged) {
+        // Managed workspace install callback — no publication; records only a
+        // github_installations row + credential vault.
+        const r = await provider.completeManagedWorkspaceInstall({
+          installationId: String(args.extra?.installationId ?? ""),
+          state: stateRaw,
+        });
+        return { publicationId: "", returnUrl: r.returnUrl, login: r.login };
+      }
       const isManifest = Boolean(args.extra?.manifest);
       const isPublicationFirst = Boolean(args.extra?.publicationFirst);
       const result = await provider.continueInstall({
@@ -414,6 +424,29 @@ export class NodeInstallBridge implements InstallBridge {
           error: "managed_install_unavailable",
           details: msg,
           remediation,
+        });
+      }
+    }
+
+    if (args.mode === "connect-managed-workspace") {
+      if (args.provider !== "github") {
+        return jsonResp(400, { error: "connect-managed-workspace is github-only" });
+      }
+      if (!body.userId || !body.returnUrl) {
+        return jsonResp(400, { error: "userId, returnUrl required" });
+      }
+      try {
+        const result = await providers.github.beginManagedWorkspaceInstall({
+          userId: body.userId as string,
+          returnUrl: body.returnUrl as string,
+        });
+        return jsonResp(200, { url: result.url });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return jsonResp(503, {
+          error: "managed_install_unavailable",
+          details: msg,
+          remediation: "Configure the managed GitHub App secrets on this deployment.",
         });
       }
     }

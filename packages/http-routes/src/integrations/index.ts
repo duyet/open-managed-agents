@@ -527,6 +527,51 @@ export function buildIntegrationsRoutes(deps: IntegrationsRoutesDeps) {
     }
 
     if (provider === "github") {
+      // ─── Managed workspace connect ─────────────────────────────────────
+      // Top-level browser navigation target: the user clicks "Connect" and
+      // installs OMA's managed GitHub App on their org WITHOUT binding an
+      // agent first. AUTHENTICATED (cookie or api-key — the user_id guard
+      // above enforces it). 302-redirects the browser to GitHub's install
+      // consent screen; on no-managed-app / error, 302s back to the console
+      // with a `managed_install=<unavailable|error>` query so the frontend
+      // can surface the outcome. The install callback lands on the shared
+      // gateway (`GET /github/managed/callback`), not here.
+      sub.get("/managed/connect", async (c) => {
+        const userId = c.get("user_id")!;
+        // The frontend supplies the console returnUrl (origin + path) so the
+        // callback can send the browser back there. Falls back to a relative
+        // path when absent (the gateway resolves it against the browser
+        // origin at redirect time).
+        const returnUrl = c.req.query("returnUrl") || "/integrations/github";
+        const proxy =
+          typeof deps.installProxy === "function" ? deps.installProxy(c) : deps.installProxy;
+        if (!proxy) {
+          return c.redirect(managedConnectRedirect(returnUrl, "unavailable"), 302);
+        }
+        try {
+          const res = await proxy.forward({
+            subpath: "github/managed/connect",
+            body: { userId, returnUrl },
+            needsInternalSecret: true,
+            method: "POST",
+          });
+          const data = (await res.json().catch(() => ({}))) as {
+            url?: string;
+            error?: string;
+          };
+          if (res.status === 503) {
+            // No managed App configured on this deployment.
+            return c.redirect(managedConnectRedirect(returnUrl, "unavailable"), 302);
+          }
+          if (!res.ok || !data.url) {
+            return c.redirect(managedConnectRedirect(returnUrl, "error"), 302);
+          }
+          return c.redirect(data.url, 302);
+        } catch {
+          return c.redirect(managedConnectRedirect(returnUrl, "error"), 302);
+        }
+      });
+
       // ─── GitHub issues board (Console Kanban → "GitHub Issues" tab) ────
       // Read-only proxies backing the configurable issues board. Both
       // resolve the installation (ownership-checked) to its vault, then
@@ -619,6 +664,28 @@ async function forwardGithubBoard(
     body: { userId, vaultId: installation.vaultId, ...extra(page) },
     needsInternalSecret: true,
   });
+}
+
+/**
+ * Build the console-bound 302 target for the managed workspace connect route
+ * when we can't hand off to GitHub (no managed App configured, or an error
+ * before the redirect). Mirrors the gateway callback's redirect shape:
+ * `<returnUrl>?managed_install=<status>`. Handles both an absolute returnUrl
+ * (console origin the frontend supplied) and a relative fallback path.
+ */
+function managedConnectRedirect(
+  returnUrl: string,
+  status: "unavailable" | "error",
+): string {
+  const base = returnUrl && returnUrl.trim() ? returnUrl : "/integrations/github";
+  try {
+    const target = new URL(base);
+    target.searchParams.set("managed_install", status);
+    return target.toString();
+  } catch {
+    const sep = base.includes("?") ? "&" : "?";
+    return `${base}${sep}managed_install=${encodeURIComponent(status)}`;
+  }
 }
 
 interface PatchBody {

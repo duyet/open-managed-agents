@@ -2236,6 +2236,20 @@ function bridgeAsInstallProxy(bridge: NodeInstallBridge): InstallProxyForwarder 
         });
       }
 
+      // GitHub managed workspace connect — no publication, github-only.
+      const managedConnect = /^github\/managed\/connect$/.exec(subpath);
+      if (managedConnect && (method ?? "POST") === "POST") {
+        const result = await bridge.startInstallation!({
+          provider: "github",
+          mode: "connect-managed-workspace",
+          body: (body ?? {}) as Record<string, unknown>,
+        });
+        return new Response(JSON.stringify(result.body), {
+          status: result.status,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
       // Linear publication-first endpoints first — they share a subpath
       // prefix with the legacy ones so order matters.
       const newPub = /^linear\/publications$/.exec(subpath);

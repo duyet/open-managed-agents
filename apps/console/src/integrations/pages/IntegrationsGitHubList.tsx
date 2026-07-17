@@ -1,15 +1,30 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { IntegrationsApi } from "../api/client";
 import type { GitHubInstallation, GitHubPublication } from "../api/types";
 import { StatusPill } from "../components/StatusPill";
-import { IntegrationSetupCard } from "../components/IntegrationSetupCard";
 import { ConnectModeChooser } from "../components/ConnectModeChooser";
 import { Avatar } from "../../components/Avatar";
 import { EmptyState } from "../../components/EmptyState";
 import { formatRelative } from "../../lib/format";
 
 const api = new IntegrationsApi();
+
+/** GitHub serves a public avatar for any org/user login at this URL — lets us
+ *  show the installed account's avatar without persisting it on the row. */
+function githubAvatarUrl(login: string): string {
+  return `https://github.com/${encodeURIComponent(login)}.png?size=80`;
+}
+
+/** Kick off OMA's managed-app install as a top-level navigation so the session
+ *  cookie rides along to the backend connect route, which 302s to GitHub's
+ *  app-install screen and (post-install) back here with ?managed_install=ok. */
+function startManagedConnect() {
+  const returnUrl = `${window.location.origin}/integrations/github`;
+  window.location.assign(
+    `/v1/integrations/github/managed/connect?returnUrl=${encodeURIComponent(returnUrl)}`,
+  );
+}
 
 interface InstallationWithPublications {
   installation: GitHubInstallation;
@@ -18,11 +33,17 @@ interface InstallationWithPublications {
 
 export function IntegrationsGitHubList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [items, setItems] = useState<InstallationWithPublications[]>([]);
   const [pending, setPending] = useState<GitHubPublication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [managedAvailable, setManagedAvailable] = useState<boolean | null>(null);
+
+  // Result of a managed-app install round-trip (set on the ?managed_install=
+  // redirect the backend callback bounces us back with).
+  const managedResult = searchParams.get("managed_install");
+  const managedResultLogin = searchParams.get("login");
 
   useEffect(() => {
     void api.github.managedAvailability().then((r) => setManagedAvailable(r.available));
@@ -86,57 +107,16 @@ export function IntegrationsGitHubList() {
           </div>
         )}
 
+        {managedResult && (
+          <ManagedInstallBanner result={managedResult} login={managedResultLogin} />
+        )}
+
         <ConnectModeChooser
           provider="GitHub"
           availability={managedAvailable}
-          onSelectManaged={() => navigate("/integrations/github/bind?mode=managed")}
+          onSelectManaged={startManagedConnect}
           onSelectOwn={() => navigate("/integrations/github/bind")}
         />
-
-        <div className="mb-6">
-          <IntegrationSetupCard
-            name="GitHub"
-            status={items.length > 0 ? "connected" : "not-connected"}
-            statusDetail={
-              items.length > 0
-                ? `${items.length} org${items.length === 1 ? "" : "s"} connected`
-                : undefined
-            }
-            whatIsThis={
-              <>
-                A GitHub App gives each agent its own bot identity so it can
-                open PRs, review code, and reply to issues on your repos. You
-                register the App once per org, then bind agents to it.
-              </>
-            }
-            requirements={[
-              { label: "A GitHub App", detail: "registered on your org (App ID + private key)" },
-              { label: "Webhook secret", detail: "so the App can verify inbound events" },
-              { label: "An OMA agent", detail: "the identity that acts in GitHub" },
-            ]}
-            steps={[
-              {
-                title: "Start the bind wizard",
-                body: (
-                  <>
-                    Click <span className="font-medium text-fg">Bind agent</span> above.
-                    The wizard walks you through registering (or reusing) a
-                    GitHub App and staging its credentials.
-                  </>
-                ),
-              },
-              {
-                title: "Paste the App credentials",
-                body: "App ID, the .pem private key, and the webhook secret. They're stored encrypted in your vault — never handed to the sandbox.",
-              },
-              {
-                title: "Install the App on your org",
-                body: "Follow the install link the wizard hands you, pick the repos, and the agent goes live as a bot user.",
-              },
-            ]}
-            collapsibleSteps
-          />
-        </div>
 
         {pending.length > 0 && (
           <section className="mb-6">
@@ -175,6 +155,48 @@ export function IntegrationsGitHubList() {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Banner shown after a managed-app install round-trips back here via the
+ *  ?managed_install= redirect. "ok" confirms the org is connected; the other
+ *  states surface a reason without derailing the page. */
+function ManagedInstallBanner({
+  result,
+  login,
+}: {
+  result: string;
+  login: string | null;
+}) {
+  if (result === "ok") {
+    return (
+      <div className="mb-6 flex items-center gap-3 rounded-md border border-success/30 bg-success-subtle px-4 py-3">
+        {login && (
+          <Avatar src={githubAvatarUrl(login)} name={login} size="sm" />
+        )}
+        <p className="text-[13px] text-fg">
+          <span className="font-medium text-success">Connected</span>
+          {login ? (
+            <>
+              {" "}— OMA's GitHub App is installed on{" "}
+              <span className="font-medium text-fg">@{login}</span>. Bind an
+              agent below to put it to work.
+            </>
+          ) : (
+            <> — OMA's GitHub App is installed. Bind an agent below to put it to work.</>
+          )}
+        </p>
+      </div>
+    );
+  }
+  const message =
+    result === "unavailable"
+      ? "The managed GitHub App isn't configured on this deployment — ask your admin to set the managed app secrets, or bring your own app."
+      : "The GitHub App install didn't complete. Try again, or bring your own app.";
+  return (
+    <div className="mb-6 rounded-md border border-warning/30 bg-warning-subtle px-4 py-3 text-[13px] text-fg">
+      {message}
     </div>
   );
 }
@@ -244,21 +266,28 @@ function WorkspaceCard({
   return (
     <div className="border border-border rounded-lg overflow-hidden bg-bg hover:border-border-strong transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]">
       <div className="flex items-center justify-between gap-4 px-5 py-4">
-        <div className="min-w-0">
-          <div className="flex items-baseline gap-2">
-            <h2 className="text-[15px] font-medium text-fg truncate">
-              {installation.workspace_name}
-            </h2>
-            <span className="text-[11px] text-fg-subtle font-mono uppercase tracking-wider">
-              org · @{installation.bot_login}
-            </span>
+        <div className="flex items-center gap-3 min-w-0">
+          <Avatar
+            src={githubAvatarUrl(installation.workspace_name)}
+            name={installation.workspace_name}
+            size="md"
+          />
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-2">
+              <h2 className="text-[15px] font-medium text-fg truncate">
+                {installation.workspace_name}
+              </h2>
+              <span className="text-[11px] text-fg-subtle font-mono uppercase tracking-wider">
+                org · @{installation.bot_login}
+              </span>
+            </div>
+            <p className="mt-0.5 text-[12px] text-fg-muted">
+              GitHub App · full identity ·{" "}
+              <span className="text-fg">
+                {publications.length} agent{publications.length === 1 ? "" : "s"}
+              </span>
+            </p>
           </div>
-          <p className="mt-0.5 text-[12px] text-fg-muted">
-            GitHub App · full identity ·{" "}
-            <span className="text-fg">
-              {publications.length} agent{publications.length === 1 ? "" : "s"}
-            </span>
-          </p>
         </div>
         <Link
           to={`/integrations/github/installations/${installation.id}`}
@@ -268,12 +297,25 @@ function WorkspaceCard({
         </Link>
       </div>
 
-      {publications.length > 0 && (
+      {publications.length > 0 ? (
         <ul className="border-t border-border divide-y divide-border bg-bg-surface/20">
           {publications.map((p) => (
             <PublicationRow key={p.id} pub={p} />
           ))}
         </ul>
+      ) : (
+        <div className="border-t border-border bg-bg-surface/20 px-5 py-4 flex items-center justify-between gap-4">
+          <p className="text-[12px] text-fg-muted min-w-0">
+            No agents bound yet — this GitHub App is installed but idle. Bind an
+            agent to give it a bot identity that responds to issues and PRs.
+          </p>
+          <Link
+            to="/integrations/github/bind?mode=managed"
+            className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-medium rounded-md bg-brand text-brand-fg hover:bg-brand-hover transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
+          >
+            Bind an agent →
+          </Link>
+        </div>
       )}
     </div>
   );

@@ -169,6 +169,63 @@ export function buildIntegrationsGatewayRoutes(deps: IntegrationsGatewayDeps) {
     }
   });
 
+  // GET /github/managed/callback?installation_id=&setup_action=&state=
+  // Managed workspace install callback. This is the ONE fixed Setup URL
+  // configured on the shared managed GitHub App (github.com → the App's
+  // "Setup URL"); GitHub hits it after the user installs the App on an org.
+  // Unlike the publication callbacks there's no agent/publication — the
+  // bridge records only a github_installations row + credential vault, then
+  // we redirect the browser back to the state's returnUrl with
+  // `?managed_install=ok` (+ `&login=<org login>` when known).
+  app.get("/github/managed/callback", async (c) => {
+    const url = new URL(c.req.url);
+    const installationId = url.searchParams.get("installation_id");
+    const setupAction = url.searchParams.get("setup_action");
+    const state = url.searchParams.get("state");
+    const error = url.searchParams.get("error");
+
+    // Best-effort decode of returnUrl so error/denied paths can still land
+    // the user back on the console. Falls back to a same-origin path.
+    let returnUrl: string | null = null;
+    if (state) {
+      try {
+        const decoded = await deps.jwt.verify<{ returnUrl?: string }>(state);
+        returnUrl = decoded.returnUrl ?? null;
+      } catch {
+        returnUrl = null;
+      }
+    }
+
+    if (error) return redirectManagedInstall(c, returnUrl, "error");
+    if (setupAction === "request") {
+      // Org admin requested the install but it's pending approval.
+      return c.html(githubRequestPendingPage(setupAction), 200);
+    }
+    if (!installationId || !state) {
+      return redirectManagedInstall(c, returnUrl, "error");
+    }
+    try {
+      const result = await deps.installBridge.continueInstall({
+        provider: "github",
+        state,
+        extra: { installationId, setupAction, workspaceManaged: true },
+      });
+      return redirectManagedInstall(
+        c,
+        result.returnUrl ?? returnUrl,
+        "ok",
+        result.login ?? null,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log.warn(
+        { op: "github.managed.callback.failed", err: msg },
+        "github managed workspace callback failed",
+      );
+      return redirectManagedInstall(c, returnUrl, "error");
+    }
+  });
+
   // GET /github/install/app/:appOmaId/callback?installation_id=&setup_action=&state=
   // Legacy install callback — kept for installations created before
   // migration 0002. Same semantics, just keyed on app_oma_id rather than
@@ -1003,6 +1060,33 @@ function safeJsonField(body: string, field: string): string | null {
     return typeof v === "string" ? v : null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Build the 302 back to the console after a managed workspace install. The
+ * returnUrl may be absolute (console origin the frontend supplied) or a
+ * relative path (`/integrations/github` fallback); both are handled. Appends
+ * `?managed_install=<status>` (+ `&login=<login>` on success).
+ */
+function redirectManagedInstall(
+  c: import("hono").Context,
+  returnUrl: string | null | undefined,
+  status: "ok" | "error",
+  login?: string | null,
+): Response {
+  const base = returnUrl && returnUrl.trim() ? returnUrl : "/integrations/github";
+  try {
+    const target = new URL(base);
+    target.searchParams.set("managed_install", status);
+    if (login) target.searchParams.set("login", login);
+    return c.redirect(target.toString(), 302);
+  } catch {
+    // Relative path — build the query string by hand.
+    const sep = base.includes("?") ? "&" : "?";
+    let query = `managed_install=${encodeURIComponent(status)}`;
+    if (login) query += `&login=${encodeURIComponent(login)}`;
+    return c.redirect(`${base}${sep}${query}`, 302);
   }
 }
 

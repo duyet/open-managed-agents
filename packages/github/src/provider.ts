@@ -261,6 +261,164 @@ export class GitHubProvider implements IntegrationProvider {
     };
   }
 
+  // ─── Managed workspace connect (no publication) ───────────────────────
+
+  /**
+   * "Connect" — install this deployment's managed GitHub App onto a user's
+   * org/account WITHOUT binding an agent first. Unlike `startManagedInstall`
+   * (which requires agentId + environmentId + persona and creates a
+   * `github_publications` row), this workspace flow creates ONLY a
+   * first-class `github_installations` row (+ its credential vault) once the
+   * install callback lands. No publication, no `github_apps` row.
+   *
+   * Returns the GitHub install-consent URL the browser should be redirected
+   * to; the workspace-kind state JWT carries the userId/tenant/returnUrl the
+   * callback (`completeManagedWorkspaceInstall`) needs.
+   *
+   * Throws if this deployment has no managed App configured — the route
+   * handler surfaces that as a redirect to `?managed_install=unavailable`.
+   */
+  async beginManagedWorkspaceInstall(input: {
+    userId: string;
+    returnUrl: string;
+  }): Promise<{ url: string }> {
+    const managedApp = this.config.managedApp;
+    if (!managedApp) {
+      throw new Error(
+        "GitHub managed install: no managed App configured on this deployment " +
+          "(GITHUB_MANAGED_APP_ID/APP_SLUG/BOT_LOGIN/PRIVATE_KEY/WEBHOOK_SECRET unset)",
+      );
+    }
+    const tenantId = await this.container.tenants.resolveByUserId(input.userId);
+    const state = await this.container.jwt.sign(
+      {
+        kind: "github.install.workspace",
+        userId: input.userId,
+        tenantId,
+        returnUrl: input.returnUrl,
+        nonce: this.container.ids.generate(),
+      },
+      OAUTH_STATE_TTL_SECONDS,
+    );
+    return { url: buildInstallUrl({ appSlug: managedApp.appSlug, state }) };
+  }
+
+  /**
+   * Install-callback half of the workspace flow. GitHub redirects the managed
+   * App's fixed Setup URL (`/github/managed/callback`) here after the user
+   * picks an org. Mints a 1-hour installation token via the managed App's JWT,
+   * records a `github_installations` row + credential vault for the tenant,
+   * and returns the state's returnUrl (+ the installed org login, when easy)
+   * so the route can redirect the browser back to the console.
+   *
+   * Idempotent: a repeat callback for the same GitHub installation id reuses
+   * the existing live row (no second vault) — mirrors `handleOAuthCallback`'s
+   * idempotency guard.
+   *
+   * Note: unlike the BYOA flow there is NO `github_apps` row, so the
+   * installation is stored with `appId: null`. The `refresh-by-vault` path
+   * (which resolves a per-tenant `github_apps` private key) therefore doesn't
+   * cover these installs yet — the minted token is valid for 1 hour.
+   */
+  async completeManagedWorkspaceInstall(input: {
+    installationId: string;
+    state: string;
+  }): Promise<{ returnUrl: string; login: string | null }> {
+    const managedApp = this.config.managedApp;
+    if (!managedApp) {
+      throw new Error(
+        "GitHub managed workspace callback: no managed App configured on this deployment",
+      );
+    }
+    if (!input.installationId) {
+      throw new Error("GitHub managed workspace callback: missing installation_id");
+    }
+    if (!input.state) {
+      throw new Error("GitHub managed workspace callback: missing state");
+    }
+
+    const state = await this.container.jwt.verify<{
+      kind: string;
+      userId: string;
+      tenantId: string;
+      returnUrl: string;
+    }>(input.state);
+    if (state.kind !== "github.install.workspace") {
+      throw new Error("GitHub managed workspace callback: invalid state kind");
+    }
+
+    // Idempotency: reuse a live workspace installation for this GitHub
+    // installation id rather than minting a second vault. Workspace installs
+    // carry appId=null (no github_apps row), so we match on that.
+    const existing = await this.container.installations.findByWorkspace(
+      PROVIDER_ID,
+      input.installationId,
+      "dedicated",
+      null,
+    );
+    if (existing) {
+      return { returnUrl: state.returnUrl, login: existing.workspaceName };
+    }
+
+    // Mint a 1-hour installation access token and look up the install's org.
+    const appJwt = await mintAppJwt(managedApp.privateKey, { appId: managedApp.appId });
+    const tokReq = buildInstallationTokenRequest(appJwt, input.installationId);
+    const tokRes = await this.container.http.fetch({
+      method: "POST",
+      url: tokReq.url,
+      headers: tokReq.headers,
+      body: tokReq.body,
+    });
+    if (tokRes.status < 200 || tokRes.status >= 300) {
+      throw new Error(
+        `GitHub installation token: HTTP ${tokRes.status} ${tokRes.body.slice(0, 200)}`,
+      );
+    }
+    const token = parseInstallationTokenResponse(tokRes.body);
+    const installDetail = await this.api.getInstallation(appJwt, input.installationId);
+
+    const installation = await this.container.installations.insert({
+      tenantId: state.tenantId,
+      userId: state.userId,
+      providerId: PROVIDER_ID,
+      // The numeric GitHub installation id is the stable workspace handle.
+      workspaceId: input.installationId,
+      workspaceName: installDetail.account.login,
+      installKind: "dedicated",
+      // No per-tenant github_apps row for managed workspace installs.
+      appId: null,
+      accessToken: token.token,
+      refreshToken: null,
+      scopes: Object.keys(installDetail.permissions),
+      botUserId: managedApp.botLogin,
+    });
+
+    // One vault, two surfaces (static_bearer for the hosted GitHub MCP,
+    // cap_cli id="gh" for `gh`/`git` in the sandbox) — same as the BYOA
+    // publication flow, just named "· managed" and with no persona.
+    const vaultName = `GitHub · ${installDetail.account.login} · managed`;
+    const { vaultId } = await this.container.vaults.createCredentialForUser({
+      userId: state.userId,
+      vaultName,
+      displayName: "GitHub MCP token (managed)",
+      mcpServerUrl: this.config.mcpServerUrl,
+      bearerToken: token.token,
+      provider: "github",
+    });
+    await this.container.vaults.addCapCliCredential({
+      userId: state.userId,
+      vaultId,
+      vaultName,
+      displayName: "GitHub CLI token (managed)",
+      cliId: "gh",
+      token: token.token,
+      provider: "github",
+    });
+    await this.container.installations.setVaultId(installation.id, vaultId);
+
+    return { returnUrl: state.returnUrl, login: installDetail.account.login };
+  }
+
   async continueInstall(
     input: ContinueInstallInput,
   ): Promise<InstallStep | InstallComplete> {
