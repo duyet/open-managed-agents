@@ -40,6 +40,7 @@ async function startMainNode(opts: { dataDir: string }): Promise<ProcessHandle> 
       SESSION_OUTPUTS_DIR: join(opts.dataDir, "outputs"),
       AUTH_DISABLED: "1",
       BETTER_AUTH_SECRET: "test-secret-only-for-vitest",
+      PLATFORM_ROOT_SECRET: "test-root-secret-only-for-vitest",
       NODE_ENV: "test",
     },
     stdio: ["ignore", "pipe", "pipe"],

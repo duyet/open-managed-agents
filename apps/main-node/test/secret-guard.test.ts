@@ -92,4 +92,20 @@ describe("main-node boot guard: leaked .env.example placeholder secrets", () => 
     expect(output).toMatch(/Refusing to start/i);
     expect(output).toContain("BETTER_AUTH_SECRET");
   }, 20_000);
+
+  // issue #187: the docs promise PLATFORM_ROOT_SECRET is "required before
+  // first boot" (at-rest encryption of vault credentials) and CF's
+  // buildServices enforces it — Node must fail closed the same way instead
+  // of silently storing credentials in plaintext.
+  it("refuses to start when PLATFORM_ROOT_SECRET is unset", async () => {
+    const { code, output } = await runMainNode({
+      // Empty string overrides any inherited value from the runner env.
+      PLATFORM_ROOT_SECRET: "",
+      BETTER_AUTH_SECRET: "test-secret-only-for-vitest",
+    });
+    expect(code).not.toBe(0);
+    expect(output).toMatch(/Refusing to start/i);
+    expect(output).toContain("PLATFORM_ROOT_SECRET");
+    expect(output).toMatch(/at-rest encryption/i);
+  }, 20_000);
 });

@@ -124,6 +124,7 @@ import {
   buildNodeProvidersForRequest,
 } from "./lib/node-install-bridge.js";
 import { OmaVaultResolver } from "@duyet/oma-cap-adapter";
+import { buildCredentialCrypto } from "./lib/credential-crypto.js";
 import { NodeSessionRouter } from "./lib/node-session-router.js";
 import { nodeOutputsAdapter } from "./lib/node-outputs-adapter.js";
 import { nodeSessionLifecycle } from "./lib/node-session-lifecycle.js";
@@ -262,11 +263,25 @@ if (usePostgres) {
 }
 await ensureEventLogSchema(sql, dialect);
 
-// Integrations subsystem boot is gated on PLATFORM_ROOT_SECRET (used to
-// encrypt OAuth tokens etc.). Tables are part of the consolidated baseline
-// above so they're always created — the gate now only controls subsystem
-// wiring, not schema bootstrap.
+// PLATFORM_ROOT_SECRET is the at-rest encryption root for vault credentials
+// (credentials.auth) and integrations OAuth tokens. The docs have always
+// called it "required before first boot", and the CF deployment enforces
+// that (buildServices throws) — the Node runtime silently booted without it
+// and stored vault credentials in PLAINTEXT (issue #187). Fail closed,
+// matching CF, rather than quietly writing secrets unencrypted.
 const platformRootSecret = process.env.PLATFORM_ROOT_SECRET;
+if (!platformRootSecret) {
+  console.error(
+    "Refusing to start: PLATFORM_ROOT_SECRET is not set.\n" +
+      "It is required for at-rest encryption of vault credentials (and " +
+      "integration OAuth tokens) — without it those secrets would be stored " +
+      "in plaintext in the database.\n" +
+      "Generate one with `openssl rand -base64 32`, set it in your .env / " +
+      "docker compose environment, and back it up: losing it makes every " +
+      "encrypted row unreadable.",
+  );
+  process.exit(1);
+}
 
 // ─── Auth ───────────────────────────────────────────────────────────────
 
@@ -392,7 +407,14 @@ if (trustedProxyConfig && authDisabled) {
 
 const agentsService = createSqliteAgentService({ db: drizzleDb });
 const vaultService = createSqliteVaultService({ db: drizzleDb });
-const credentialService = createSqliteCredentialService({ db: drizzleDb });
+// At-rest encryption for the credentials.auth column (issue #187) — same
+// AES-GCM + "credentials.auth" label as the CF deployment's mintCrypto,
+// with a read-side tolerance for legacy plaintext rows written before this
+// wiring existed (see lib/credential-crypto.ts).
+const credentialService = createSqliteCredentialService(
+  { db: drizzleDb },
+  { crypto: buildCredentialCrypto(platformRootSecret) },
+);
 const sessionsService = createSqliteSessionService({ db: drizzleDb });
 const filesService = createSqliteFileService({ db: drizzleDb });
 const evalsService = createSqliteEvalRunService({ db: drizzleDb });
