@@ -80,12 +80,31 @@ const MARKS: Record<string, Mark> = {
   daytona: DAYTONA,
 };
 
-export function ProviderMark({ id, className }: { id: string; className?: string }) {
-  const mark = MARKS[id.trim().toLowerCase()] ?? BOX;
+/** Official brand colors (simple-icons values), used when `colored` is set.
+ *  Ids without an entry (generic glyphs like subprocess/litebox) stay on
+ *  currentColor. Values chosen to stay legible on both light and dark bg. */
+const BRAND_COLORS: Record<string, string> = {
+  cloudflare: "#F38020",
+  kubernetes: "#326CE5",
+  k8s: "#326CE5",
+  "k8s-bridge": "#326CE5",
+  "k8s-remote": "#326CE5",
+  "docker-compose": "#2496ED",
+  openshell: "#76B900",
+  "github-actions": "#2088FF",
+  daytona: "#22C55E",
+  e2b: "#F97316",
+};
+
+export function ProviderMark({ id, className, colored }: { id: string; className?: string; colored?: boolean }) {
+  const key = id.trim().toLowerCase();
+  const mark = MARKS[key] ?? BOX;
+  const brand = colored ? BRAND_COLORS[key] : undefined;
   return (
     <svg
       viewBox="0 0 24 24"
       className={className}
+      style={brand ? { color: brand } : undefined}
       aria-hidden="true"
       {...(mark.mode === "fill"
         ? { fill: "currentColor" }

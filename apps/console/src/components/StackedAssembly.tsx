@@ -137,7 +137,7 @@ function QuickViewBody({ view }: { view: QuickView }) {
             className="flex items-center gap-2 rounded-md border border-border bg-bg-surface/40 px-2.5 py-2"
           >
             <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-bg">
-              <ProviderMark id={id} className="size-4 text-fg-muted" />
+              <ProviderMark id={id} colored className="size-4 text-fg-muted" />
             </span>
             <span className="truncate text-[13px] text-fg">{view.rows[i]?.primary ?? id}</span>
           </div>

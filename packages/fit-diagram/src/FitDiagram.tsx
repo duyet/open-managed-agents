@@ -64,7 +64,7 @@ function ProviderMarkGroup({ ids }: { ids: string[] }) {
           title={id}
           className="flex size-6 items-center justify-center rounded-full border border-border bg-bg-surface ring-2 ring-bg"
         >
-          <ProviderMark id={id} className="size-3.5 text-fg-muted" />
+          <ProviderMark id={id} colored className="size-3.5 text-fg-muted" />
         </span>
       ))}
       {ids.length > 5 && (
