@@ -65,6 +65,14 @@
      mirrors console's --color-success/--color-warning tokens. */
   --color-success: #22c55e;
   --color-warning: #d97706;
+
+  /* Motion tokens the shared fit-diagram (and its card transitions)
+     reference — mirrors console's --dur-*/--ease-* values. */
+  --dur-quick: 100ms;
+  --dur-base: 150ms;
+  --dur-slow: 220ms;
+  --ease-soft: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-snap: cubic-bezier(0.5, 0, 0.1, 1);
 }
 
 .dark {

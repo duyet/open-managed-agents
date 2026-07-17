@@ -98,7 +98,7 @@ function FitCardView({ card }: { card: FitCard }) {
         "active:translate-y-px transition-[color,background-color,border-color,transform,opacity] duration-[var(--dur-quick)] ease-[var(--ease-soft)]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50",
         card.dashed || empty
-          ? "border-dashed border-border bg-transparent opacity-70 hover:opacity-100 hover:border-border-strong"
+          ? "border-dashed border-border bg-bg/50 opacity-70 hover:opacity-100 hover:border-border-strong"
           : card.hero
             ? "border-brand/50 bg-brand/5 hover:border-brand"
             : "border-border bg-bg hover:border-border-strong hover:bg-bg-surface/40",
@@ -201,9 +201,9 @@ function StepHeader({ step, onCollapse }: { step: FitStep; onCollapse?: () => vo
 
 function ExpandedStepPanel({ step, onCollapse }: { step: FitStep; onCollapse?: () => void }) {
   return (
-    <div className={cn("flex min-w-0 flex-1 flex-col rounded-lg border border-dashed border-border/70 p-3", step.wide && "flex-[1.2]")}>
+    <div className={cn("flex min-w-0 flex-1 flex-col rounded-lg border border-dashed border-border/70 bg-bg-surface/50 p-3", step.wide && "flex-[1.2]")}>
       <StepHeader step={step} onCollapse={onCollapse} />
-      <div className={cn("flex flex-1 flex-col", step.chain ? "gap-0" : "gap-2", step.center && "justify-center")}>
+      <div className={cn("flex flex-1 flex-col justify-center", step.chain ? "gap-0" : "gap-2")}>
         {step.cards.map((row, i) => (
           <Fragment key={rowKey(row)}>
             {step.chain && i > 0 && (
@@ -213,7 +213,7 @@ function ExpandedStepPanel({ step, onCollapse }: { step: FitStep; onCollapse?: (
               </div>
             )}
             {Array.isArray(row) ? (
-              <div className="flex flex-wrap items-stretch gap-2">
+              <div className="fit-rise flex flex-wrap items-stretch gap-2" style={{ animationDelay: `${i * 45}ms` }}>
                 {row.map((c) => (
                   <div key={c.key} className="flex min-w-[8.5rem] flex-1">
                     <FitCardView card={c} />
@@ -221,7 +221,9 @@ function ExpandedStepPanel({ step, onCollapse }: { step: FitStep; onCollapse?: (
                 ))}
               </div>
             ) : (
-              <FitCardView card={row} />
+              <div className="fit-rise" style={{ animationDelay: `${i * 45}ms` }}>
+                <FitCardView card={row} />
+              </div>
             )}
           </Fragment>
         ))}
@@ -239,25 +241,39 @@ function StepPanel({
   collapsed: boolean;
   onToggle: (expand: boolean) => void;
 }) {
-  if (!collapsed) return <ExpandedStepPanel step={step} onCollapse={() => onToggle(false)} />;
+  // The wrapper always renders and animates flex-grow/flex-basis — both
+  // numeric, so the column smoothly widens/narrows between rail and panel.
   return (
-    <button
-      type="button"
-      onClick={() => onToggle(true)}
-      aria-label={`Expand step ${step.number} — ${step.name}`}
-      aria-expanded="false"
-      className="flex shrink-0 flex-col items-center gap-2 rounded-lg border border-dashed border-border/70 px-1.5 py-3 text-fg-subtle transition-colors hover:border-border-strong hover:text-fg"
+    <div
+      className="flex min-w-0 transition-[flex-grow,flex-basis] duration-[var(--dur-slow,220ms)] ease-[var(--ease-soft,ease-out)] motion-reduce:transition-none"
+      style={
+        collapsed
+          ? { flexGrow: 0.0001, flexBasis: "2.75rem" }
+          : { flexGrow: step.wide ? 1.2 : 1, flexBasis: "0%" }
+      }
     >
-      <ChevronsRightIcon className="h-3.5 w-3.5" />
-      <span className="font-mono text-[10px] uppercase tracking-[0.12em]" style={{ writingMode: "vertical-rl" }}>
-        {step.number} · {step.name}
-      </span>
-      {step.done && (
-        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success/15 text-success">
-          <CheckIcon className="h-2.5 w-2.5" strokeWidth={3} />
-        </span>
+      {collapsed ? (
+        <button
+          type="button"
+          onClick={() => onToggle(true)}
+          aria-label={`Expand step ${step.number} — ${step.name}`}
+          aria-expanded="false"
+          className="fit-rise flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/70 bg-bg-surface/50 px-1.5 py-3 text-fg-subtle transition-colors hover:border-border-strong hover:text-fg"
+        >
+          <ChevronsRightIcon className="h-3.5 w-3.5" />
+          <span className="font-mono text-[10px] uppercase tracking-[0.12em]" style={{ writingMode: "vertical-rl" }}>
+            {step.number} · {step.name}
+          </span>
+          {step.done && (
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success/15 text-success">
+              <CheckIcon className="h-2.5 w-2.5" strokeWidth={3} />
+            </span>
+          )}
+        </button>
+      ) : (
+        <ExpandedStepPanel step={step} onCollapse={() => onToggle(false)} />
       )}
-    </button>
+    </div>
   );
 }
 
@@ -333,6 +349,13 @@ export function FitDiagram({ steps, formula, collapsible, className }: FitDiagra
   const { rowRef, expandedSet, toggleStep } = useCapacityAccordion(steps);
   return (
     <div className={className}>
+      {/* Self-contained keyframes — the package ships no CSS file, so the
+          rise-in animation lives here and works on any host. */}
+      <style>{`
+        @keyframes fit-rise { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }
+        .fit-rise { animation: fit-rise var(--dur-slow, 220ms) var(--ease-soft, ease-out) both }
+        @media (prefers-reduced-motion: reduce) { .fit-rise { animation: none } }
+      `}</style>
       {formula && <FitFormula rows={formula} />}
       {/* Always a single horizontal row — narrow viewports collapse columns
           to rails (capacity accordion) instead of stacking to 4 rows. The
