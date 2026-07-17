@@ -2554,7 +2554,9 @@ async function main() {
         await runProfilesList();
         return;
       }
-      default:
+      default: {
+        const { logo } = await import("./bridge/lib/style.js");
+        console.error(logo() + "\n");
         console.error(
           "oma bridge — pair a local ACP agent with OMA\n\n" +
           "  oma bridge setup [--server-url=…] [--no-service] [--force] [--yes]\n" +
@@ -2570,6 +2572,7 @@ async function main() {
           "  daemons side-by-side (e.g. prod in launchd + staging foreground).\n",
         );
         process.exit(sub ? 1 : 0);
+      }
     }
   }
 

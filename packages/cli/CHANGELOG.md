@@ -1,5 +1,11 @@
 # @getoma/cli
 
+## 0.1.4
+
+### Patch Changes
+
+- `oma bridge` help now leads with the brand-mark banner.
+
 ## 0.1.3
 
 ### Patch Changes
