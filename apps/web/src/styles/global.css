@@ -620,6 +620,11 @@ input:focus-visible,
   background: var(--color-brand);
   transform: rotate(45deg);
 }
+.flow-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
 .flow-arrow {
   flex: none;
   color: var(--color-border-strong);
