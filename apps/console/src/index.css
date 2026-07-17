@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Workspace packages ship raw .tsx through symlinks, which Tailwind v4's
+   auto-detection skips (node_modules) — without this, classes used only in
+   the shared package (e.g. FitDiagram's border-border/70, border-brand/50,
+   ring-bg) are never generated and borders fall back to currentColor. */
+@source "../../../packages/fit-diagram/src";
+
 /* Code highlight theme — light by default */
 @import "highlight.js/styles/github.css";
 
