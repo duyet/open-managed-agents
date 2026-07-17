@@ -86,6 +86,69 @@ app.post("/", async (c) => {
   }
 });
 
+/**
+ * POST /linear/publications/start-managed
+ *
+ * "Add to Linear" one-click install. Same body shape as `POST /`, but skips
+ * the BYOA credentials step entirely: the publication shell is created and
+ * immediately credentialed with this deployment's managed OAuth App
+ * (LINEAR_MANAGED_CLIENT_ID/SECRET/WEBHOOK_SECRET), returning the Linear
+ * OAuth authorize URL directly. 503s with a remediation message when no
+ * managed App is configured on this deployment.
+ */
+app.post("/start-managed", async (c) => {
+  if (!requireInternalSecret(c.env, c.req.header("x-internal-secret"))) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const body = await c.req.json<CreatePublicationBody>();
+  if (
+    !body.userId ||
+    !body.agentId ||
+    !body.environmentId ||
+    !body.personaName ||
+    !body.returnUrl
+  ) {
+    return c.json(
+      { error: "userId, agentId, environmentId, personaName, returnUrl required" },
+      400,
+    );
+  }
+
+  const { linear } = buildProviders(c.env);
+
+  let result;
+  try {
+    result = await linear.startManagedInstall({
+      userId: body.userId,
+      agentId: body.agentId,
+      environmentId: body.environmentId,
+      mode: "full",
+      persona: { name: body.personaName, avatarUrl: body.personaAvatarUrl },
+      returnUrl: body.returnUrl,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json(
+      {
+        error: "managed_install_unavailable",
+        details: msg,
+        remediation: "Use /linear/publications (BYOA OAuth app flow) instead.",
+      },
+      503,
+    );
+  }
+
+  if (result.kind !== "step" || result.step !== "install_link") {
+    return c.json({ error: "unexpected install result", result }, 500);
+  }
+  return c.json({
+    url: result.data.url,
+    publication_id: result.data.publicationId,
+    callback_url: result.data.callbackUrl,
+    webhook_url: result.data.webhookUrl,
+  });
+});
+
 interface SubmitCredentialsBody {
   clientId: string;
   clientSecret: string;

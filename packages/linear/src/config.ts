@@ -22,6 +22,21 @@ export interface LinearConfig {
    * (which may only further restrict) are stored on the Publication row.
    */
   defaultCapabilities: ReadonlyArray<CapabilityKey>;
+
+  /**
+   * OMA-hosted managed Linear OAuth App credentials. When set,
+   * `startManagedInstall` (the "Add to Linear" one-click flow) is available:
+   * a publication shell is created and immediately credentialed with these
+   * shared client_id/client_secret/webhook_secret, skipping the BYOA
+   * "register your own OAuth app" step. When absent, `startManagedInstall`
+   * throws — deployments without a managed App only get the OAuth/PAT
+   * wizard.
+   */
+  managedApp?: {
+    clientId: string;
+    clientSecret: string;
+    webhookSecret: string;
+  } | null;
 }
 
 export const DEFAULT_LINEAR_SCOPES: ReadonlyArray<string> = [

@@ -299,18 +299,11 @@ export class LinearProvider implements IntegrationProvider {
     }
     if (!input.persona?.name) throw new Error("startPublication: persona.name required");
 
-    const tenantId = await this.container.tenants.resolveByUserId(input.userId);
-    const publication = await this.container.publications.insertShell({
-      tenantId,
+    const publication = await this.insertPublicationShell({
       userId: input.userId,
       agentId: input.agentId,
       environmentId: input.environmentId,
-      mode: "full",
       persona: input.persona,
-      capabilities: new Set<CapabilityKey>(
-        this.config.defaultCapabilities ?? ALL_CAPABILITIES,
-      ),
-      sessionGranularity: "per_issue",
     });
 
     return {
@@ -323,6 +316,102 @@ export class LinearProvider implements IntegrationProvider {
       // OAuth dance; we don't store returnUrl on the publication row
       // (it's a one-shot UI hint, not durable state).
       returnUrl: input.returnUrl,
+    };
+  }
+
+  /**
+   * Shared shell-insert used by both `startPublication` (BYOA) and
+   * `startManagedInstall`. Single source of truth for the
+   * `linear_publications` shell-row shape so the two flows can't drift.
+   */
+  private async insertPublicationShell(input: {
+    userId: string;
+    agentId: string;
+    environmentId: string;
+    persona: Persona;
+  }): Promise<Publication> {
+    const tenantId = await this.container.tenants.resolveByUserId(input.userId);
+    return this.container.publications.insertShell({
+      tenantId,
+      userId: input.userId,
+      agentId: input.agentId,
+      environmentId: input.environmentId,
+      mode: "full",
+      persona: input.persona,
+      capabilities: new Set<CapabilityKey>(
+        this.config.defaultCapabilities ?? ALL_CAPABILITIES,
+      ),
+      sessionGranularity: "per_issue",
+    });
+  }
+
+  /**
+   * "Add to Linear" one-click install — the managed-App counterpart to
+   * startPublication + submitCredentials. Uses the deployment-wide OAuth
+   * App credentials from `config.managedApp` instead of asking the user to
+   * register their own Linear OAuth app, so the flow collapses to a single
+   * redirect to Linear's OAuth consent screen.
+   *
+   * Throws if this deployment has no managed App configured — callers
+   * (the route handler) surface that as a 503 with remediation, so the
+   * Console button can fall back to (or simply hide in favor of) the
+   * OAuth/PAT wizard.
+   *
+   * Reuses the exact same publication-first shell + credential-staging
+   * machinery as the BYOA flow, so `handleOAuthCallback`
+   * (`/linear/oauth/pub/:pubId/callback`) needs no changes at all — it
+   * can't tell a managed install apart from a BYOA one once credentials
+   * are on the row.
+   */
+  async startManagedInstall(input: StartInstallInput): Promise<InstallStep> {
+    const managedApp = this.config.managedApp;
+    if (!managedApp) {
+      throw new Error(
+        "Linear managed install: no managed OAuth App configured on this deployment " +
+          "(LINEAR_MANAGED_CLIENT_ID/SECRET unset) — use the manifest/BYOA flow instead",
+      );
+    }
+
+    const publication = await this.insertPublicationShell({
+      userId: input.userId,
+      agentId: input.agentId,
+      environmentId: input.environmentId,
+      persona: input.persona,
+    });
+
+    await this.container.publications.setCredentials(publication.id, {
+      clientId: managedApp.clientId,
+      clientSecret: managedApp.clientSecret,
+      webhookSecret: managedApp.webhookSecret,
+      signingSecret: null,
+    });
+
+    const state = await this.container.jwt.sign(
+      {
+        kind: "linear.oauth.publication",
+        publicationId: publication.id,
+        returnUrl: input.returnUrl,
+        nonce: this.container.ids.generate(),
+      },
+      OAUTH_STATE_TTL_SECONDS,
+    );
+    const url = buildAuthorizeUrl({
+      clientId: managedApp.clientId,
+      redirectUri: this.publicationCallbackUri(publication.id),
+      scopes: this.config.scopes ?? DEFAULT_LINEAR_SCOPES,
+      state,
+      actor: "app",
+    });
+
+    return {
+      kind: "step",
+      step: "install_link",
+      data: {
+        url,
+        publicationId: publication.id,
+        callbackUrl: this.publicationCallbackUri(publication.id),
+        webhookUrl: this.publicationWebhookUri(publication.id),
+      },
     };
   }
 
