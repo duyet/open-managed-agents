@@ -11,10 +11,10 @@ import type { Env } from "@duyet/oma-shared";
 import {
   buildConsumerAuthRoutes,
   createSqlConsumerAuthStore,
+  verifyMagicLinkToken as verifyMagicLinkTokenWithStore,
   type ConsumerSessionRow,
+  type VerifyMagicLinkResult,
 } from "@duyet/oma-http-routes";
-
-export { verifyMagicLinkToken } from "@duyet/oma-http-routes";
 import { sqlClientFromD1 } from "@duyet/oma-sql-client/adapters/cf-d1";
 import { sendEmail } from "../auth-config";
 import { rateLimitMagicLinkEmail } from "../rate-limit";
@@ -43,6 +43,19 @@ export async function resolveConsumerSession(
   token: string,
 ): Promise<ConsumerSessionRow | null> {
   return createSqlConsumerAuthStore(sqlClientFromD1(db)).resolveConsumerSession(token);
+}
+
+/**
+ * Verify a magic-link token. Kept as a D1-signatured helper for the same
+ * reason as resolveConsumerSession above: apps/main/src/index.ts's clickable
+ * /p/auth/verify landing page (issue #215) already holds a D1Database, so the
+ * store adapter is wired here rather than at that call site.
+ */
+export async function verifyMagicLinkToken(
+  db: D1Database,
+  token: string,
+): Promise<VerifyMagicLinkResult> {
+  return verifyMagicLinkTokenWithStore(createSqlConsumerAuthStore(sqlClientFromD1(db)), token);
 }
 
 const wrapper = buildConsumerAuthRoutes({

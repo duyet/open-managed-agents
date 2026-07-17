@@ -225,14 +225,18 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
   });
 
   // GET /p/auth/verify?token=...&slug=... — clickable magic-link landing
-  // page (issue #215). Exchanges the token via the SAME core logic as
-  // POST /v1/public/auth/verify (deps.verifyMagicLink — consumer-auth.ts's
-  // verifyMagicLinkToken), stores the session token in localStorage under
-  // the exact key the hosted chat page reads (oma_pub_tok_<slug>), then
-  // bounces to /p/<slug>. `slug` is a pure UX hint for where to return —
+  // page (issue #215). `slug` is a pure UX hint for where to return —
   // the magic-link token itself isn't scoped to any one publication, so an
   // unknown/mismatched slug just lands on that slug's own guardrail page
   // (hidden/paused), same as visiting it directly.
+  //
+  // Two-step consume (issue #254): corporate email scanners (Outlook Safe
+  // Links etc.) pre-fetch every URL in an email, and the single-use token
+  // used to be consumed right here on GET — a scanner could burn the link
+  // before the human ever clicked it. GET is now a pure render (no token
+  // exchange, safe to fetch any number of times); the actual verification
+  // happens when the "Continue" button POSTs the token back to this same
+  // path. Link-scanning bots issue GET/HEAD but don't submit forms.
   //
   // Registered here (2 path segments: "auth", "verify") rather than
   // colliding with the 1-segment `/:slug` route above — Hono only matches
@@ -241,6 +245,28 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
   app.get("/auth/verify", async (c) => {
     const token = c.req.query("token");
     const slug = c.req.query("slug");
+    if (!token || !slug) {
+      return new Response(
+        htmlErrorPage(
+          "Invalid link",
+          "This sign-in link is missing information and can't be used.",
+        ),
+        { status: 400, headers: { "content-type": "text/html; charset=utf-8" } },
+      );
+    }
+    return c.html(renderVerifyConfirmPage(new URL(c.req.url).pathname, slug, token));
+  });
+
+  // POST /p/auth/verify — consumes the single-use token (form-encoded
+  // `token` + `slug` from the confirm page above). Exchanges it via the
+  // SAME core logic as POST /v1/public/auth/verify (deps.verifyMagicLink —
+  // consumer-auth.ts's verifyMagicLinkToken), stores the session token in
+  // localStorage under the exact key the hosted chat page reads
+  // (oma_pub_tok_<slug>), then bounces to /p/<slug>.
+  app.post("/auth/verify", async (c) => {
+    const form = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>);
+    const token = typeof form.token === "string" ? form.token : undefined;
+    const slug = typeof form.slug === "string" ? form.slug : undefined;
     if (!token || !slug) {
       return new Response(
         htmlErrorPage(
@@ -984,6 +1010,42 @@ function htmlErrorPage(heading: string, body: string, cta?: { href: string; labe
 /** Post-verify bounce page (issue #215): stores the freshly-minted consumer
  *  session token under the exact localStorage key the hosted chat page reads
  *  (`oma_pub_tok_<slug>`), then redirects to /p/<slug> already signed in. */
+function renderVerifyConfirmPage(actionPath: string, slug: string, token: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<meta name="referrer" content="no-referrer" />
+<title>Confirm sign-in</title>
+<style>
+  :root { --bg:#ffffff; --fg:#1a1a1f; --muted:#6b6b76; --border:#e4e4ea; --brand:#5b5bd6; --brand-fg:#ffffff; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16161a; --fg:#ececf1; --muted:#a0a0ad; --border:#2e2e37; --brand:#7d7dee; --brand-fg:#16161a; } }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--fg); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; }
+  .card { max-width: 380px; text-align: center; padding: 32px; border: 1px solid var(--border); border-radius: 14px; margin: 16px; }
+  h1 { font-size: 18px; margin: 0 0 8px; }
+  p { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
+  button { background: var(--brand); color: var(--brand-fg); border: 0; border-radius: 10px; padding: 10px 24px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  button:hover { opacity: 0.9; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Confirm sign-in</h1>
+    <p>Click continue to finish signing in and return to the chat.</p>
+    <form method="post" action="${escapeHtml(actionPath)}">
+      <input type="hidden" name="token" value="${escapeHtml(token)}" />
+      <input type="hidden" name="slug" value="${escapeHtml(slug)}" />
+      <button type="submit">Continue</button>
+    </form>
+  </div>
+</body>
+</html>
+`;
+}
+
 function renderVerifyRedirectPage(slug: string, sessionToken: string): string {
   const target = `/p/${encodeURIComponent(slug)}`;
   // `<` neutralised the same way renderChatPage's `cfg` literal is above, so
