@@ -91,6 +91,19 @@ const TARGETS = {
       // OAuth (needed for GitHub App manifest flow callbacks)
       "GITHUB_CLIENT_ID",
       "GITHUB_CLIENT_SECRET",
+      // Managed apps (one-click installs) — optional per-provider groups;
+      // all vars in a group must be set together or the flow 503s.
+      "SLACK_MANAGED_CLIENT_ID",
+      "SLACK_MANAGED_CLIENT_SECRET",
+      "SLACK_MANAGED_SIGNING_SECRET",
+      "GITHUB_MANAGED_APP_ID",
+      "GITHUB_MANAGED_APP_SLUG",
+      "GITHUB_MANAGED_BOT_LOGIN",
+      "GITHUB_MANAGED_PRIVATE_KEY",
+      "GITHUB_MANAGED_WEBHOOK_SECRET",
+      "LINEAR_MANAGED_CLIENT_ID",
+      "LINEAR_MANAGED_CLIENT_SECRET",
+      "LINEAR_MANAGED_WEBHOOK_SECRET",
     ],
   },
 
