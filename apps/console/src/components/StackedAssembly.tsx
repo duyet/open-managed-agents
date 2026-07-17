@@ -1,11 +1,22 @@
 // "How it fits together" — one panel that is BOTH the conceptual map and the
-// setup tracker. The Agent is the hero card (the thing you're building — most
-// important, visually dominant); beneath it, three columns of pieces it is
-// built from, ordered by importance: ① Foundation (required — model,
-// environment, runtime, keys), ② Capabilities (skills + MCP connections),
-// ③ Reach (channels + publications). Each card's title is a component TYPE,
-// its body the actual created instances as badges — an empty/grey card *is*
-// the to-do item, so nothing needs a second checklist.
+// setup tracker, drawn as a left-to-right flow so the *relations* between the
+// pieces are the thing you read first:
+//
+//   1 · CONFIGURE  →  2 · COMPOSE  →  3 · RUN  →  4 · REACH
+//   (the pieces)      (the agent)     (session    (channels &
+//                                      ↓ sandbox)  publications)
+//
+// The flow mirrors the page's own header copy — "configure the pieces, compose
+// them into an agent, and every conversation runs as a session inside a
+// sandbox". Steps 1/2 are required; 3 is what happens once they're done; 4 is
+// optional. Pointers between steps are plain divs (no SVG/diagram lib) so the
+// whole thing reflows to a vertical stack on narrow screens.
+//
+// Each card's title is a component TYPE, its body the actual created
+// instances as badges — an empty/dashed card *is* the to-do item, so nothing
+// needs a second checklist. RUN's cards describe runtime behaviour rather
+// than instances you create, so they carry a `description` instead.
+import { Fragment } from "react";
 import { useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -14,13 +25,22 @@ import { IntegrationsApi } from "../integrations/api/client";
 import { friendlyHostingDescription } from "../lib/hostingTypes";
 import {
   AgentIcon,
+  ApiKeysIcon,
   ModelCardsIcon,
+  SessionsIcon,
   SkillsIcon,
   EnvIcon,
   VaultIcon,
   RuntimesIcon,
 } from "./icons";
-import { PlugIcon, MessageCircleIcon, GlobeIcon, CheckIcon } from "lucide-react";
+import {
+  PlugIcon,
+  MessageCircleIcon,
+  GlobeIcon,
+  CheckIcon,
+  ArrowRightIcon,
+  ArrowDownIcon,
+} from "lucide-react";
 
 interface AgentRecord {
   id: string;
@@ -53,6 +73,13 @@ interface PublicationEntry {
   title: string;
   status: "draft" | "live" | "paused";
 }
+interface ApiKeyEntry {
+  id: string;
+  name: string;
+}
+interface SessionEntry {
+  id: string;
+}
 interface Page<T> {
   data: T[];
   next_cursor?: string;
@@ -84,6 +111,13 @@ interface TypeCard {
   /** Real instance names shown as badges (capped at 3 + "+N"). */
   badges: string[];
   emptyCta: string;
+  /** Static explainer shown *instead of* badges. For pieces you don't
+   *  create-and-name (a Session, the Sandbox) a list of instances is noise —
+   *  what the piece DOES is the useful thing to say. */
+  description?: string;
+  /** The Agent — the thing you're actually building. Brand-accented and a
+   *  size up, so the eye lands on step 2 first and reads outward. */
+  hero?: boolean;
 }
 
 const BADGE_CAP = 3;
@@ -116,7 +150,9 @@ function TypeCardView({ card, nav }: { card: TypeCard; nav: (to: string) => void
     <div
       role="link"
       tabIndex={0}
-      aria-label={`${card.title} — ${empty ? "not set up yet" : card.badges.join(", ")}`}
+      aria-label={`${card.title} — ${
+        card.description ?? (empty ? "not set up yet" : card.badges.join(", "))
+      }`}
       onClick={() => nav(card.to)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -130,17 +166,30 @@ function TypeCardView({ card, nav }: { card: TypeCard; nav: (to: string) => void
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50",
         empty
           ? "border-dashed border-border bg-transparent opacity-70 hover:opacity-100 hover:border-border-strong"
-          : "border-border bg-bg hover:border-border-strong hover:bg-bg-surface/40",
+          : card.hero
+            ? "border-brand/50 bg-brand/5 hover:border-brand"
+            : "border-border bg-bg hover:border-border-strong hover:bg-bg-surface/40",
       )}
     >
       <div className="flex items-center gap-2">
-        <span className="text-fg-subtle shrink-0">{card.icon}</span>
-        <span className="text-[13px] font-medium text-fg flex-1 min-w-0 truncate">
+        <span className={cn("shrink-0", card.hero ? "text-brand" : "text-fg-subtle")}>
+          {card.icon}
+        </span>
+        <span
+          className={cn(
+            "flex-1 min-w-0 truncate text-fg",
+            card.hero ? "text-[15px] font-semibold" : "text-[13px] font-medium",
+          )}
+        >
           {card.title}
         </span>
         <StatusDot status={card.status} />
       </div>
-      {empty ? (
+      {card.description ? (
+        <div className="mt-1 text-[11px] leading-snug text-fg-muted">
+          {card.description}
+        </div>
+      ) : empty ? (
         <div className="mt-1 text-[11px] leading-snug text-fg-muted">
           {card.emptyCta}
         </div>
@@ -151,55 +200,82 @@ function TypeCardView({ card, nav }: { card: TypeCard; nav: (to: string) => void
   );
 }
 
+/** Mini pointer between steps — the thing that makes this read as a diagram
+ *  rather than four unrelated columns. Horizontal on wide screens, vertical
+ *  once the flow stacks. Decorative: the step numbers already carry the order
+ *  for screen readers. */
+function FlowPointer() {
+  return (
+    <div
+      className="flex shrink-0 items-center justify-center self-center py-1 text-fg-subtle lg:py-0"
+      aria-hidden="true"
+    >
+      <ArrowDownIcon className="h-3.5 w-3.5 lg:hidden" />
+      <ArrowRightIcon className="hidden h-3.5 w-3.5 lg:block" />
+    </div>
+  );
+}
+
 interface Step {
   number: string;
   name: string;
   optional?: boolean;
   done: boolean;
   cards: TypeCard[];
+  /** Vertically centre the cards — COMPOSE holds a single hero card and
+   *  would otherwise float at the top of a much taller CONFIGURE column. */
+  center?: boolean;
+  /** Chain the cards with ↓ pointers instead of plain gaps. RUN is a
+   *  sequence (a session runs *inside* a sandbox), not an unordered set. */
+  chain?: boolean;
 }
 
-function StepBadge({ step }: { step: Step }) {
-  if (step.done) {
-    return (
-      <span
-        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success/15 text-success"
-        aria-label="complete"
-      >
-        <CheckIcon className="h-3.5 w-3.5" strokeWidth={2.5} />
-      </span>
-    );
-  }
+function StepHeader({ step }: { step: Step }) {
   return (
-    <span
-      className={cn(
-        "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[12px] font-semibold",
-        step.optional
-          ? "border-dashed border-border text-fg-subtle"
-          : "border-border-strong text-fg-muted",
+    <div className="mb-2.5 flex items-center gap-1.5">
+      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-fg-subtle">
+        {step.number} · {step.name}
+      </span>
+      {step.optional && (
+        <span className="rounded-full border border-border px-1.5 py-px text-[9px] uppercase tracking-[0.08em] text-fg-subtle">
+          optional
+        </span>
       )}
-      aria-label={step.optional ? "optional" : "not complete"}
-    >
-      {step.number}
-    </span>
+      {step.done && (
+        <span
+          className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-success/15 text-success"
+          aria-label="complete"
+        >
+          <CheckIcon className="h-2.5 w-2.5" strokeWidth={3} />
+        </span>
+      )}
+    </div>
   );
 }
 
-function StepColumn({ step, nav }: { step: Step; nav: (to: string) => void }) {
+function StepPanel({ step, nav }: { step: Step; nav: (to: string) => void }) {
   return (
-    <div className="flex min-w-0 flex-col">
-      <div className="mb-2.5 flex items-center gap-2">
-        <StepBadge step={step} />
-        <span className="text-[13px] font-semibold text-fg">{step.name}</span>
-        {step.optional && (
-          <span className="rounded-full border border-border px-1.5 py-px text-[10px] uppercase tracking-[0.08em] text-fg-subtle">
-            optional
-          </span>
+    <div className="flex min-w-0 flex-1 flex-col rounded-lg border border-dashed border-border/70 p-3">
+      <StepHeader step={step} />
+      <div
+        className={cn(
+          "flex flex-1 flex-col",
+          step.chain ? "gap-0" : "gap-2",
+          step.center && "justify-center",
         )}
-      </div>
-      <div className="flex flex-1 flex-col gap-2 border-l border-border/60 pl-3 md:border-l-0 md:pl-0">
-        {step.cards.map((c) => (
-          <TypeCardView key={c.key} card={c} nav={nav} />
+      >
+        {step.cards.map((c, i) => (
+          <Fragment key={c.key}>
+            {step.chain && i > 0 && (
+              <div
+                className="flex justify-center py-1 text-fg-subtle"
+                aria-hidden="true"
+              >
+                <ArrowDownIcon className="h-3.5 w-3.5" />
+              </div>
+            )}
+            <TypeCardView card={c} nav={nav} />
+          </Fragment>
         ))}
       </div>
     </div>
@@ -225,6 +301,8 @@ export function StackedAssembly() {
   const envQ = useApiQuery<Page<EnvEntry>>("/v1/environments", { limit: "10" });
   const vaultsQ = useApiQuery<Page<VaultEntry>>("/v1/vaults", { limit: "10" });
   const pubsQ = useApiQuery<Page<PublicationEntry>>("/v1/publications", { limit: "10" });
+  const apiKeysQ = useApiQuery<Page<ApiKeyEntry>>("/v1/api_keys", { limit: "10" });
+  const sessionsQ = useApiQuery<Page<SessionEntry>>("/v1/sessions", { limit: "10" });
 
   // Channels: reuse the same live-installation counts the Integrations Hub
   // already computes (issue #92) rather than inventing a new endpoint.
@@ -254,6 +332,8 @@ export function StackedAssembly() {
   const mcps = mcpQ.data?.data ?? [];
   const pubs = pubsQ.data?.data ?? [];
   const channels = chatQ.data ?? [];
+  const apiKeys = apiKeysQ.data?.data ?? [];
+  const sessions = sessionsQ.data?.data ?? [];
 
   const envAttention = envs.some((e) => e.status === "building" || e.status === "error");
   const envStatus: CardStatus =
@@ -265,11 +345,20 @@ export function StackedAssembly() {
   const agentReady = agents.length > 0;
   const firstAgent = agents[0];
 
-  const foundation: Step = {
+  const configure: Step = {
     number: "1",
-    name: "Foundation",
+    name: "Configure",
     done: modelCards.length > 0 && envStatus === "ready",
     cards: [
+      {
+        key: "api-key",
+        icon: <ApiKeysIcon className="w-4 h-4" />,
+        title: "API key",
+        to: "/api-keys",
+        status: countStatus(apiKeys.length),
+        badges: apiKeys.map((k) => k.name),
+        emptyCta: "+ Auth for the CLI & your agent",
+      },
       {
         key: "model",
         icon: <ModelCardsIcon className="w-4 h-4" />,
@@ -289,15 +378,6 @@ export function StackedAssembly() {
         emptyCta: "+ Create a sandbox environment",
       },
       {
-        key: "runtime",
-        icon: <RuntimesIcon className="w-4 h-4" />,
-        title: "Sandbox runtime",
-        to: "/runtimes",
-        status: envStatus,
-        badges: providers,
-        emptyCta: "+ Where sandboxes run — set by your environment",
-      },
-      {
         key: "vaults",
         icon: <VaultIcon className="w-4 h-4" />,
         title: "Keys (Vault)",
@@ -306,15 +386,6 @@ export function StackedAssembly() {
         badges: vaults.map((v) => v.name),
         emptyCta: "+ Store an API key or credential",
       },
-    ],
-  };
-
-  const capabilities: Step = {
-    number: "2",
-    name: "Capabilities",
-    optional: true,
-    done: skills.length > 0 || mcps.length > 0,
-    cards: [
       {
         key: "skills",
         icon: <SkillsIcon className="w-4 h-4" />,
@@ -338,8 +409,60 @@ export function StackedAssembly() {
     ],
   };
 
-  const reach: Step = {
+  const compose: Step = {
+    number: "2",
+    name: "Compose",
+    done: agentReady,
+    center: true,
+    cards: [
+      {
+        key: "agent",
+        hero: true,
+        icon: <AgentIcon className="w-5 h-5" />,
+        title: "Agent",
+        to: agentReady ? "/agents" : "/agents/new",
+        status: agentReady ? "ready" : "empty",
+        badges: agents.map((a) => a.name),
+        emptyCta: "+ Create your first agent — it composes everything in step 1",
+      },
+    ],
+  };
+
+  const run: Step = {
     number: "3",
+    name: "Run",
+    done: sessions.length > 0,
+    chain: true,
+    cards: [
+      {
+        key: "session",
+        icon: <SessionsIcon className="w-4 h-4" />,
+        title: "Session",
+        to: "/sessions",
+        status: countStatus(sessions.length),
+        badges: [],
+        emptyCta: "",
+        description:
+          "One conversation or task — streamed, resumable event log.",
+      },
+      {
+        key: "runtime",
+        icon: <RuntimesIcon className="w-4 h-4" />,
+        title: "Sandbox",
+        to: "/runtimes",
+        status: envStatus,
+        badges: providers,
+        emptyCta: "+ Where sandboxes run — set by your environment",
+        description:
+          providers.length > 0
+            ? `Runs on ${providers.join(", ")} — set by your environment.`
+            : undefined,
+      },
+    ],
+  };
+
+  const reach: Step = {
+    number: "4",
     name: "Reach",
     optional: true,
     done: channels.length > 0 || pubs.length > 0,
@@ -365,10 +488,8 @@ export function StackedAssembly() {
     ],
   };
 
-  const steps = [foundation, capabilities, reach];
-  const requiredDone = [foundation.done, agentReady].filter(Boolean).length;
-
-  const heroTo = agentReady ? "/agents" : "/agents/new";
+  const steps = [configure, compose, run, reach];
+  const requiredDone = [configure.done, agentReady].filter(Boolean).length;
 
   return (
     <section className="border border-border rounded-lg p-5 md:p-6">
@@ -381,62 +502,19 @@ export function StackedAssembly() {
         </span>
       </div>
       <p className="mt-1 mb-5 text-[13px] text-fg-muted">
-        The agent is what you're building. It needs a foundation to run;
-        capabilities and reach are optional extras. Click any card to manage
-        that piece.
+        Configure the pieces, compose them into an agent, and every conversation
+        runs as a session inside a sandbox. Reach is optional. Click any card to
+        manage that piece.
       </p>
 
-      {/* Hero: the agent — the most important piece, everything below feeds it. */}
-      <div
-        role="link"
-        tabIndex={0}
-        aria-label={
-          agentReady
-            ? `Agent — ${agents.map((a) => a.name).join(", ")}`
-            : "Agent — not set up yet"
-        }
-        onClick={() => nav(heroTo)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            nav(heroTo);
-          }
-        }}
-        className={cn(
-          "group relative w-full text-left rounded-md border px-4 py-3.5 cursor-pointer select-none",
-          "active:translate-y-px transition-[color,background-color,border-color,transform,opacity] duration-[var(--dur-quick)] ease-[var(--ease-soft)]",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50",
-          agentReady
-            ? "border-brand/50 bg-brand/5 hover:border-brand"
-            : "border-dashed border-border bg-transparent opacity-80 hover:opacity-100 hover:border-border-strong",
-        )}
-      >
-        <div className="flex items-center gap-2">
-          <AgentIcon className="w-5 h-5 text-brand shrink-0" />
-          <span className="text-[15px] font-semibold text-fg flex-1 min-w-0 truncate">
-            Agent
-          </span>
-          <StatusDot status={agentReady ? "ready" : "empty"} />
-        </div>
-        {agentReady ? (
-          <InstanceBadges names={agents.map((a) => a.name)} />
-        ) : (
-          <div className="mt-1 text-[12px] text-fg-muted">
-            + Create your first agent — it composes everything below
-          </div>
-        )}
-      </div>
-
-      {/* Soft "built from" connector */}
-      <div className="flex items-center justify-center gap-2 py-2.5 text-[11px] text-fg-subtle">
-        <span className="h-px flex-1 bg-border" />
-        <span>built from</span>
-        <span className="h-px flex-1 bg-border" />
-      </div>
-
-      <div className="grid grid-cols-1 gap-x-5 gap-y-6 md:grid-cols-2 lg:grid-cols-3">
-        {steps.map((s) => (
-          <StepColumn key={s.number} step={s} nav={nav} />
+      {/* The flow. Pointers sit between panels as their own flex children, so
+          the row reflows to a vertical stack (with ↓ pointers) under lg. */}
+      <div className="flex flex-col lg:flex-row lg:items-stretch">
+        {steps.map((s, i) => (
+          <Fragment key={s.number}>
+            {i > 0 && <FlowPointer />}
+            <StepPanel step={s} nav={nav} />
+          </Fragment>
         ))}
       </div>
     </section>

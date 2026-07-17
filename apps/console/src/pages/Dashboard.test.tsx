@@ -22,6 +22,7 @@ function mockAssemblyDeps() {
       "/v1/environments",
       "/v1/vaults",
       "/v1/publications",
+      "/v1/api_keys",
     ].map((path) => http.get(path, () => HttpResponse.json({ data: [] }))),
     http.get("/v1/integrations/linear/installations", () =>
       HttpResponse.json({ data: [] }),
