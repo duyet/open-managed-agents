@@ -2,6 +2,7 @@ import "dotenv/config";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import type { BridgeBackend } from "./backend";
+import { resolveBridgeBackendKind } from "./backend";
 import { authMiddleware } from "./auth";
 import { K8sManager } from "./k8s-manager";
 import { OpenShellManager } from "./openshell-manager";
@@ -31,12 +32,14 @@ const notifier = process.env.SLACK_WEBHOOK_URL
 
 const app = new Hono();
 
-// Backend selection. Default is the Kubernetes backend; setting
-// BRIDGE_BACKEND=openshell fronts NVIDIA OpenShell sandboxes over the same
-// HTTP surface (the bridge holds the gRPC client the CF Worker can't run).
-const backendKind = (process.env.BRIDGE_BACKEND ?? "").toLowerCase();
+// Backend selection. An explicit BRIDGE_BACKEND (k8s | openshell) is
+// trusted as-is; when unset the bridge auto-detects — an
+// OPENSHELL_GATEWAY_ENDPOINT selects the OpenShell backend (the bridge
+// holds the gRPC client the CF Worker can't run), otherwise Kubernetes.
+const selection = resolveBridgeBackendKind(process.env);
+console.log(`bridge backend: ${selection.kind} — ${selection.reason}`);
 const manager: BridgeBackend =
-  backendKind === "openshell" ? new OpenShellManager() : new K8sManager();
+  selection.kind === "openshell" ? new OpenShellManager() : new K8sManager();
 
 // Background poller for sandbox-level events (OOM, crash loops, stuck
 // pending, low cluster capacity) that aren't triggered by a bridge API

@@ -52,3 +52,38 @@ export interface BridgeBackend {
   getPodMetrics(): Promise<PodMetrics[]>;
   getSandboxDetail(id: string): Promise<SandboxDetail | null>;
 }
+
+// ─── Backend auto-detection ──────────────────────────────────────────
+//
+// Mirrors `resolveDefaultLocalSandboxProvider` in
+// packages/sandbox/src/provider-config.ts: an explicit BRIDGE_BACKEND is
+// trusted as-is; when unset (or "auto"), the presence of
+// OPENSHELL_GATEWAY_ENDPOINT selects the OpenShell backend, otherwise
+// Kubernetes. Pure so it's unit-testable without a process env.
+
+export type BridgeBackendKind = "k8s" | "openshell";
+
+export interface BridgeBackendSelection {
+  kind: BridgeBackendKind;
+  /** Human-readable reason, safe to log as-is. */
+  reason: string;
+}
+
+export function resolveBridgeBackendKind(
+  env: Record<string, string | undefined>,
+): BridgeBackendSelection {
+  const v = (env.BRIDGE_BACKEND ?? "").trim().toLowerCase();
+  if (v === "openshell") {
+    return { kind: "openshell", reason: "BRIDGE_BACKEND=openshell (explicit)" };
+  }
+  if (v === "k8s" || v === "kubernetes") {
+    return { kind: "k8s", reason: `BRIDGE_BACKEND=${v} (explicit)` };
+  }
+  if (env.OPENSHELL_GATEWAY_ENDPOINT) {
+    return {
+      kind: "openshell",
+      reason: `auto-detected: OPENSHELL_GATEWAY_ENDPOINT=${env.OPENSHELL_GATEWAY_ENDPOINT}`,
+    };
+  }
+  return { kind: "k8s", reason: "auto-detected: no OpenShell gateway configured" };
+}
