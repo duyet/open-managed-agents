@@ -387,9 +387,11 @@ function SkeletonCard() {
   );
 }
 
-// Quickstart moved here from the Dashboard — installing the CLI and
-// minting a key is what you do right before connecting a runtime.
-function CliQuickstart() {
+// Quickstart moved here from the Dashboard — installing the CLI and minting a
+// key is what you do right before connecting a runtime. Lives inside the
+// provider set-up dialog rather than on the page, so `onNavigate` lets the
+// host dismiss that dialog before a step routes away from it.
+function CliQuickstart({ onNavigate }: { onNavigate?: () => void }) {
   const nav = useNavigate();
   const [copied, setCopied] = useState<string | null>(null);
   const copy = (text: string, key: string) => {
@@ -457,7 +459,10 @@ function CliQuickstart() {
             Your agent needs this to authenticate. Keep it somewhere it can read.
           </p>
           <button
-            onClick={() => nav("/api-keys")}
+            onClick={() => {
+              onNavigate?.();
+              nav("/api-keys");
+            }}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand text-brand-fg rounded-md text-[13px] font-medium hover:bg-brand-hover transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
           >
             Generate API key
@@ -652,9 +657,6 @@ export function RuntimesList() {
         )}
       </section>
 
-      {/* CLI quickstart (moved from the dashboard) */}
-      <CliQuickstart />
-
       {/* Provider registration help */}
       <details className="rounded-lg border border-border bg-bg-surface/50">
         <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-fg select-none hover:text-fg">
@@ -746,28 +748,37 @@ export function RuntimesList() {
         onCreated={() => void loadProviders()}
       />
 
-      {/* Set-up dialog for a not-configured provider (e.g. Local subprocess) */}
+      {/* Set-up dialog for a not-configured provider (e.g. Local subprocess).
+          Holds the CLI quickstart too — installing the CLI and minting a key
+          is the same job as connecting the runtime, so the steps live where
+          you actually do them instead of taking up the page at all times.
+          Hence the wider shell: three step rows need more than max-w-lg. */}
       <Modal
         open={setupProvider !== null}
         onClose={() => setSetupProvider(null)}
         title={`Set up ${setupProvider?.label ?? "provider"}`}
         subtitle="Run this on the machine you want to connect."
+        maxWidth="max-w-3xl"
         footer={<Button onClick={() => setSetupProvider(null)}>Done</Button>}
       >
-        <div className="space-y-4 text-sm">
-          <p className="text-fg-muted">
-            Connect this host's local runtime by starting the bridge daemon:
-          </p>
-          <div className="bg-bg-surface border border-border rounded-lg p-3 font-mono text-xs space-y-1">
-            <div className="text-fg select-all">npx @duyet/oma-cli bridge setup</div>
+        <div className="space-y-5 text-sm">
+          <div className="space-y-4">
+            <p className="text-fg-muted">
+              Connect this host's local runtime by starting the bridge daemon:
+            </p>
+            <div className="bg-bg-surface border border-border rounded-lg p-3 font-mono text-xs space-y-1">
+              <div className="text-fg select-all">npx @duyet/oma-cli bridge setup</div>
+            </div>
+            <p className="text-fg-muted text-xs">
+              Setup opens this browser for OAuth, writes credentials to{" "}
+              <code className="bg-bg-surface px-1 rounded">~/.oma/bridge/</code>, and (on macOS) installs a launchd job
+              that keeps the daemon running across reboots. Once connected, this provider flips to{" "}
+              <span className="text-success">Healthy</span> and any ACP agents on <code className="bg-bg-surface px-1 rounded">$PATH</code> appear as
+              machines in the list behind this dialog.
+            </p>
           </div>
-          <p className="text-fg-muted text-xs">
-            Setup opens this browser for OAuth, writes credentials to{" "}
-            <code className="bg-bg-surface px-1 rounded">~/.oma/bridge/</code>, and (on macOS) installs a launchd job
-            that keeps the daemon running across reboots. Once connected, this provider flips to{" "}
-            <span className="text-success">Healthy</span> and any ACP agents on <code className="bg-bg-surface px-1 rounded">$PATH</code> appear as
-            machines above.
-          </p>
+
+          <CliQuickstart onNavigate={() => setSetupProvider(null)} />
         </div>
       </Modal>
     </div>
