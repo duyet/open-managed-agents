@@ -499,6 +499,7 @@ export function ModelCardsList() {
     <div className="py-6 space-y-10">
       <AnyRouterConnectCard />
       <DataTable<ModelCard>
+      subtitle="A model card binds a model handle to a provider, API key, and base URL, so an agent can name it instead of the default provider."
       createLabel="+ New model card"
       onCreate={() => { setShowCreate(true); setError(""); }}
       searchPlaceholder="Search model cards..."

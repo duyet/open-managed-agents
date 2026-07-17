@@ -288,6 +288,7 @@ export function FilesList() {
 
   return (
     <DataTable<FileRecord>
+      subtitle="A file is uploaded content or session output that you can attach to a session to mount it in the sandbox."
       searchPlaceholder="Filter loaded files by name…"
       searchValue={search}
       onSearchChange={setSearch}

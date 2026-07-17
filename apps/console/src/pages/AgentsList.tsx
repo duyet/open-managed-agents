@@ -265,6 +265,7 @@ export function AgentsList() {
 
   return (
     <DataTable<Agent>
+      subtitle="An agent is a versioned config — model, system prompt, tools, skills, and MCP servers — that sessions run."
       createLabel="+ New agent"
       onCreate={() => setShowCreate(true)}
       searchPlaceholder="Search agents..."

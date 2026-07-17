@@ -440,7 +440,7 @@ export function SkillsList() {
 
   return (
     <DataTable<Skill>
-      subtitle="Manage pre-built and custom skills for your agents."
+      subtitle="A skill is a reusable prompt fragment plus files, mounted into the sandbox and injected into the system prompt. Attached per agent."
       createLabel="+ New skill"
       onCreate={() => setShowCreate(true)}
       filters={filters}

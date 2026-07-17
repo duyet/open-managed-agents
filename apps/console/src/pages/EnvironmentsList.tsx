@@ -318,6 +318,7 @@ export function EnvironmentsList() {
 
   return (
     <DataTable<Env>
+      subtitle="An environment defines the execution sandbox — packages, networking, container image — and is reusable across sessions."
       createLabel="+ Add environment"
       onCreate={() => setShowCreate(true)}
       searchPlaceholder="Search environments..."

@@ -214,7 +214,7 @@ export function VaultsList() {
 
   return (
     <DataTable<Vault>
-      subtitle="Manage credential vaults that provide your agents with access to MCP servers and other tools."
+      subtitle="A vault stores credentials that never enter the sandbox — an outbound proxy injects them into matching requests. Attached per session."
       createLabel="+ New vault"
       onCreate={() => setShowCreateVault(true)}
       filters={filters}

@@ -233,7 +233,7 @@ export function MemoryStoresList() {
 
   return (
     <DataTable<MemoryStore>
-      subtitle="Browse and manage persistent memory for your agents."
+      subtitle="A memory store persists across sessions, mounted at /mnt/memory/<store_name>/ where the agent reads and writes with the normal file tools."
       createLabel="+ New store"
       onCreate={() => {
         setShowCreate(true);

@@ -149,6 +149,7 @@ export function ApiKeysList() {
 
   return (
     <DataTable<ApiKey>
+      subtitle="An API key authenticates calls to this platform's API from the CLI, the SDK, or your own code."
       createLabel="+ New API key"
       onCreate={() => setShowCreate(true)}
       data={keys}

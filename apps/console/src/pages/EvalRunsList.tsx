@@ -298,6 +298,7 @@ export function EvalRunsList() {
 
   return (
     <DataTable<EvalRunSummary>
+      subtitle="An eval run executes a set of tasks against one agent in one environment and scores how many trials passed."
       filters={filters}
       data={runs}
       loading={loading}

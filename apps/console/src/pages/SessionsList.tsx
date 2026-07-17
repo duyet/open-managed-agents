@@ -823,6 +823,7 @@ export function SessionsList() {
 
   return (
     <DataTable<Session>
+      subtitle="A session is one conversation with an agent, backed by an append-only event log you can stream and resume."
       createLabel="+ New session"
       onCreate={openModal}
       searchPlaceholder="Search sessions..."
