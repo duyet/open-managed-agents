@@ -71,7 +71,10 @@ const K8S_INSTANCE_TYPES = [
 
 function instanceTypesForProvider(provider: string) {
   if (provider === "k8s" || provider === "kubernetes") return K8S_INSTANCE_TYPES;
-  return CF_INSTANCE_TYPES;
+  if (provider === "cloud" || provider === "cloudflare") return CF_INSTANCE_TYPES;
+  // Local / fixed-size providers (subprocess, litebox, docker-compose,
+  // openshell, boxrun, …) have no instance sizing — the field is hidden.
+  return [];
 }
 
 // Map a stored config.type (wire id, e.g. "cloud") to a human label. The
@@ -390,6 +393,7 @@ export function EnvironmentsList() {
             )}
             <p className="text-xs text-fg-subtle mt-1">This cannot be changed after creation.</p>
           </div>
+          {instanceTypesForProvider(form.type).length > 0 && (
           <div>
             <span className="text-sm text-fg-muted block mb-1">Instance Type <span className="text-fg-subtle">(optional)</span></span>
             <Select
@@ -407,6 +411,7 @@ export function EnvironmentsList() {
             </Select>
             <p className="text-xs text-fg-subtle mt-1">Sandbox size. Only takes effect when the provider supports multiple sizes.</p>
           </div>
+          )}
           <div>
             <label htmlFor="env-create-description" className="text-sm text-fg-muted block mb-1">Description <span className="text-fg-subtle">(optional)</span></label>
             <textarea

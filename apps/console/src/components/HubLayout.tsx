@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { NavLink, Outlet, useOutletContext } from "react-router";
+import { NavLink, Outlet, useLocation, useOutletContext } from "react-router";
 
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,9 @@ export interface HubTab {
   label: string;
   path: string;
   end?: boolean;
+  /** Shown under the h1 while this tab is active; falls back to the hub's
+   *  own description when unset. */
+  description?: string;
 }
 
 export interface HubConfig {
@@ -45,6 +48,12 @@ export interface HubConfig {
  */
 export function HubLayout({ title, description, tabs }: HubConfig) {
   const parentCtx = useOutletContext<AppOutletContext | undefined>();
+  // The h1 tracks the ACTIVE tab (e.g. "Vaults" on /vaults), not the hub's
+  // umbrella name — longest path prefix wins so detail routes still match.
+  const { pathname } = useLocation();
+  const activeTab = tabs
+    .filter((t) => pathname === t.path || pathname.startsWith(`${t.path}/`))
+    .sort((a, b) => b.path.length - a.path.length)[0];
   const slot = parentCtx?.pageHeaderSlot ?? null;
   const [subSlot, setSubSlot] = useState<HTMLDivElement | null>(null);
 
@@ -59,8 +68,8 @@ export function HubLayout({ title, description, tabs }: HubConfig) {
   const header = (
     <div className="bg-bg">
       <div className="pt-3">
-        <h1 className="text-xl font-semibold tracking-tight truncate">{title}</h1>
-        <p className="text-sm text-fg-muted mt-0.5">{description}</p>
+        <h1 className="text-xl font-semibold tracking-tight truncate">{activeTab?.label ?? title}</h1>
+        <p className="text-sm text-fg-muted mt-0.5">{activeTab?.description ?? description}</p>
       </div>
       <nav
         aria-label={`${title} sections`}

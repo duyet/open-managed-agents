@@ -246,7 +246,10 @@ export function Combobox<T>({
                   key={v}
                   value={v}
                   onSelect={() => handleSelect(v, it)}
-                  className="cursor-pointer"
+                  className={cn(
+                    "cursor-pointer",
+                    value === v && "bg-brand/10 text-brand data-[selected=true]:bg-brand/15",
+                  )}
                 >
                   <span className="truncate flex-1">{getLabel(it)}</span>
                   {value === v && (

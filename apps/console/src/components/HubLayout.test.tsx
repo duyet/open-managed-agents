@@ -32,15 +32,19 @@ function renderAt(pathname: string) {
 }
 
 describe("<HubLayout />", () => {
-  it("renders the header and one tab link per config entry", () => {
+  it("titles the header after the ACTIVE tab, with one tab link per config entry", () => {
     renderAt("/environments");
-    expect(screen.getByRole("heading", { name: "Resources" })).toBeInTheDocument();
-    expect(
-      screen.getByText(/Environments, credentials, memory/),
-    ).toBeInTheDocument();
+    // The h1 tracks the active tab, not the hub's umbrella name — a user on
+    // /environments should read "Environments", not "Resources".
+    expect(screen.getByRole("heading", { name: "Environments" })).toBeInTheDocument();
     for (const tab of CONFIG.tabs) {
       expect(screen.getByRole("link", { name: tab.label })).toBeInTheDocument();
     }
+  });
+
+  it("switches the header title when another tab is active", () => {
+    renderAt("/vaults");
+    expect(screen.getByRole("heading", { name: "Vaults" })).toBeInTheDocument();
   });
 
   it("renders the active tab's child route", () => {

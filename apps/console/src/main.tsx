@@ -115,12 +115,12 @@ const RESOURCES_HUB: HubConfig = {
   description:
     "Environments, credentials, memory, skills, files, and model cards your agents use.",
   tabs: [
-    { label: "Environments", path: "/environments" },
-    { label: "Vaults", path: "/vaults" },
-    { label: "Memory Stores", path: "/memory" },
-    { label: "Skills", path: "/skills" },
-    { label: "Files", path: "/files" },
-    { label: "Model Cards", path: "/model-cards" },
+    { label: "Environments", path: "/environments", description: "Sandbox definitions — provider, packages, networking, and hardware." },
+    { label: "Vaults", path: "/vaults", description: "Credential stores — secrets injected at the network layer, never into the sandbox." },
+    { label: "Memory Stores", path: "/memory", description: "Persistent memory mounted into sessions at /mnt/memory — versioned and auditable." },
+    { label: "Skills", path: "/skills", description: "Reusable prompt fragments and files attached to agents." },
+    { label: "Files", path: "/files", description: "Uploaded files agents can mount into a session's sandbox." },
+    { label: "Model Cards", path: "/model-cards", description: "Model + provider + credential bindings agents reference by handle." },
   ],
 };
 
