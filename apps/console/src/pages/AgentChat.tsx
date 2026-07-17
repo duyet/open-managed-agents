@@ -1,10 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { readApiError } from "../lib/api";
+import { useApiQuery } from "../lib/useApiQuery";
+import { useDefaultEnvironment } from "../lib/useDefaultEnvironment";
+import { Select, SelectOption } from "../components/Select";
 
 interface ChatMessage {
   role: "user" | "agent";
   text: string;
+}
+
+interface AgentLite {
+  id: string;
+  runtime_binding?: { runtime_id: string; acp_agent_id: string };
 }
 
 export function AgentChat() {
@@ -14,8 +22,27 @@ export function AgentChat() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [streamingText, setStreamingText] = useState("");
+  const [pickedEnvId, setPickedEnvId] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const { data: agent } = useApiQuery<AgentLite>(agent_id ? `/v1/agents/${agent_id}` : null);
+  const isLocalRuntime = !!agent?.runtime_binding;
+  const {
+    environments,
+    isLoading: envsLoading,
+    singleEnvironmentId,
+    hasNoEnvironments,
+    needsPicker,
+  } = useDefaultEnvironment();
+
+  // The environment to send on session-create, once resolved. Cloud agents
+  // with several environments require the user to pick one first (below);
+  // a single environment is used silently, matching the backend's
+  // `environment_id is required for cloud agents` contract
+  // (packages/http-routes/src/sessions/index.ts).
+  const resolvedEnvId = isLocalRuntime ? undefined : (singleEnvironmentId ?? (pickedEnvId || undefined));
+  const envBlocked = !isLocalRuntime && !resolvedEnvId;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -23,7 +50,7 @@ export function AgentChat() {
 
   const sendMessage = async () => {
     const text = input.trim();
-    if (!text || !agent_id || loading) return;
+    if (!text || !agent_id || loading || envBlocked) return;
     setInput("");
     setMessages((prev) => [...prev, { role: "user", text }]);
     setLoading(true);
@@ -32,14 +59,16 @@ export function AgentChat() {
     try {
       let sid = sessionId;
       if (!sid) {
+        const body: Record<string, unknown> = { agent: agent_id };
+        if (resolvedEnvId) body.environment_id = resolvedEnvId;
         const res = await fetch("/v1/sessions", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ agent: agent_id }),
+          body: JSON.stringify(body),
         });
         if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(readApiError(body, res.status).message);
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(readApiError(errBody, res.status).message);
         }
         const session = await res.json();
         sid = session.id;
@@ -111,6 +140,27 @@ export function AgentChat() {
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        {hasNoEnvironments && !isLocalRuntime && (
+          <div className="max-w-2xl mx-auto rounded-lg border border-border bg-bg-surface px-4 py-3 text-sm text-fg-muted">
+            This agent needs an environment to run sessions, and your tenant has none yet.{" "}
+            <a href="/environments" className="text-brand hover:underline">
+              Create an environment
+            </a>{" "}
+            to start chatting.
+          </div>
+        )}
+        {needsPicker && !sessionId && (
+          <div className="max-w-2xl mx-auto flex items-center gap-2">
+            <span className="text-sm text-fg-muted shrink-0">Environment</span>
+            <Select value={pickedEnvId} onValueChange={setPickedEnvId} placeholder="Select environment...">
+              {environments.map((e) => (
+                <SelectOption key={e.id} value={e.id}>
+                  {e.name}
+                </SelectOption>
+              ))}
+            </Select>
+          </div>
+        )}
         {messages.length === 0 && !loading && (
           <p className="text-sm text-fg-muted text-center mt-8">
             Send a message to start chatting with this agent.
@@ -146,12 +196,12 @@ export function AgentChat() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
             placeholder="Type a message…"
-            disabled={loading}
+            disabled={loading || envsLoading || envBlocked}
             className="flex-1 border border-border rounded-md px-3 py-2 text-sm bg-bg text-fg outline-none focus:border-brand disabled:opacity-50"
           />
           <button
             onClick={sendMessage}
-            disabled={loading || !input.trim()}
+            disabled={loading || envsLoading || envBlocked || !input.trim()}
             className="px-4 py-2 bg-brand text-brand-fg text-sm font-medium rounded-md hover:bg-brand-hover disabled:opacity-50 transition-colors"
           >
             {loading ? "…" : "Send"}

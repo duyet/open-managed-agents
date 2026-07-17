@@ -5,6 +5,7 @@ import { useApiQuery } from "../../lib/useApiQuery";
 import { Modal } from "../../components/Modal";
 import { Button } from "@/components/ui/button";
 import { McpServerPickerModal } from "../../components/McpServerPickerModal";
+import { RuntimeInfo } from "../../components/RuntimeInfo";
 import type { ModelCard } from "@duyet/oma-api-types";
 import type { AgentRecord as Agent } from "../../types/agent";
 import {
@@ -61,7 +62,9 @@ export function AgentEditDialog({ open, onClose, agent, onSaved }: AgentEditDial
   const [form, setForm] = useState<FormState>({ ...INITIAL_FORM });
   const [auxModel, setAuxModel] = useState("");
   const [metadataText, setMetadataText] = useState("{}");
-  const [tab, setTab] = useState<"basic" | "tools" | "skills" | "mcp" | "agents">("basic");
+  const [tab, setTab] = useState<"basic" | "tools" | "skills" | "mcp" | "agents" | "runtime">(
+    "basic",
+  );
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [showMcpPicker, setShowMcpPicker] = useState(false);
@@ -233,6 +236,7 @@ export function AgentEditDialog({ open, onClose, agent, onSaved }: AgentEditDial
               ["skills", "Skills"],
               ["mcp", "MCP Servers"],
               ["agents", "Multi-Agent"],
+              ["runtime", "Runtime"],
             ] as const
           ).map(([t, label]) => (
             <button
@@ -324,6 +328,8 @@ export function AgentEditDialog({ open, onClose, agent, onSaved }: AgentEditDial
             removeCallable={removeCallable}
           />
         )}
+
+        {tab === "runtime" && <RuntimeInfo harness={form.harness} />}
 
         {error && tab !== "basic" && tab !== "tools" && (
           <div className="mt-3 text-sm text-danger bg-danger-subtle border border-danger/30 rounded-lg px-3 py-2">

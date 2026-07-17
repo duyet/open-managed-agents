@@ -20,6 +20,11 @@ function mockAuxFetches() {
   server.use(
     http.get("/v1/skills", () => HttpResponse.json({ data: [] })),
     http.get("/v1/model_cards", () => HttpResponse.json({ data: [] })),
+    http.get("/v1/environments", () =>
+      HttpResponse.json({
+        data: [{ id: "env_1", name: "Default", config: { type: "cloud" } }],
+      }),
+    ),
   );
 }
 
@@ -135,6 +140,17 @@ describe("<AgentBuilder />", () => {
     await waitFor(() => expect(capturedBody).not.toBeNull());
     const body = capturedBody as Record<string, unknown>;
     expect(body.mcp_servers).toBeUndefined();
+  });
+
+  it("shows the Runtime summary with harness + environment provider/image", async () => {
+    mockAuxFetches();
+    renderWizard();
+    await advanceToIntegrationsStep();
+    await userEvent.click(screen.getByRole("button", { name: "Next →" })); // → Summary
+
+    expect(await screen.findByText("Standard")).toBeInTheDocument();
+    expect(screen.getByText("Default")).toBeInTheDocument();
+    expect(screen.getByText("ghcr.io/duyet/sandbox-base:latest")).toBeInTheDocument();
   });
 
   it("only offers the built-in Anthropic models when no model card is configured", async () => {

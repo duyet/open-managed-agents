@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useApi } from "../lib/api";
 import { McpServerPickerModal } from "../components/McpServerPickerModal";
+import { RuntimeInfo } from "../components/RuntimeInfo";
 import type { McpRegistryEntry } from "../data/mcp-registry";
 import { formToConfig, INITIAL_FORM, McpTab, type FormState } from "./agents/AgentFormDialog";
 import type { ModelCard } from "@duyet/oma-api-types";
@@ -358,6 +359,10 @@ export function AgentBuilder() {
                 : "None"
             }
           />
+          <div className="pt-2 border-t border-border">
+            <span className="text-xs text-fg-muted block mb-2">Runtime</span>
+            <RuntimeInfo harness={form.harness} />
+          </div>
         </div>
       ),
     },
