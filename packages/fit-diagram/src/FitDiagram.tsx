@@ -161,9 +161,8 @@ export function FitFormula({ rows }: { rows: FitFormulaRow[] }) {
 
 function FlowPointer() {
   return (
-    <div className="flex shrink-0 items-center justify-center self-center py-1 text-fg-subtle xl:py-0" aria-hidden="true">
-      <ArrowDownIcon className="h-3.5 w-3.5 xl:hidden" />
-      <ArrowRightIcon className="hidden h-3.5 w-3.5 xl:block" />
+    <div className="flex shrink-0 items-center justify-center self-center px-0.5 text-fg-subtle" aria-hidden="true">
+      <ArrowRightIcon className="h-3.5 w-3.5" />
     </div>
   );
 }
@@ -191,7 +190,7 @@ function StepHeader({ step, onCollapse }: { step: FitStep; onCollapse?: () => vo
           type="button"
           onClick={onCollapse}
           aria-label={`Collapse ${step.name}`}
-          className="ml-auto hidden h-5 w-5 items-center justify-center rounded text-fg-subtle transition-colors hover:bg-bg-surface hover:text-fg xl:flex"
+          className="ml-auto flex h-5 w-5 items-center justify-center rounded text-fg-subtle transition-colors hover:bg-bg-surface hover:text-fg"
         >
           <ChevronsLeftIcon className="h-3.5 w-3.5" />
         </button>
@@ -202,7 +201,7 @@ function StepHeader({ step, onCollapse }: { step: FitStep; onCollapse?: () => vo
 
 function ExpandedStepPanel({ step, onCollapse }: { step: FitStep; onCollapse?: () => void }) {
   return (
-    <div className={cn("flex min-w-0 flex-1 flex-col rounded-lg border border-dashed border-border/70 p-3", step.wide && "xl:flex-[1.2]")}>
+    <div className={cn("flex min-w-0 flex-1 flex-col rounded-lg border border-dashed border-border/70 p-3", step.wide && "flex-[1.2]")}>
       <StepHeader step={step} onCollapse={onCollapse} />
       <div className={cn("flex flex-1 flex-col", step.chain ? "gap-0" : "gap-2", step.center && "justify-center")}>
         {step.cards.map((row, i) => (
@@ -242,28 +241,23 @@ function StepPanel({
 }) {
   if (!collapsed) return <ExpandedStepPanel step={step} onCollapse={() => onToggle(false)} />;
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => onToggle(true)}
-        aria-label={`Expand step ${step.number} — ${step.name}`}
-        aria-expanded="false"
-        className="hidden shrink-0 flex-col items-center gap-2 rounded-lg border border-dashed border-border/70 px-1.5 py-3 text-fg-subtle transition-colors hover:border-border-strong hover:text-fg xl:flex"
-      >
-        <ChevronsRightIcon className="h-3.5 w-3.5" />
-        <span className="font-mono text-[10px] uppercase tracking-[0.12em]" style={{ writingMode: "vertical-rl" }}>
-          {step.number} · {step.name}
+    <button
+      type="button"
+      onClick={() => onToggle(true)}
+      aria-label={`Expand step ${step.number} — ${step.name}`}
+      aria-expanded="false"
+      className="flex shrink-0 flex-col items-center gap-2 rounded-lg border border-dashed border-border/70 px-1.5 py-3 text-fg-subtle transition-colors hover:border-border-strong hover:text-fg"
+    >
+      <ChevronsRightIcon className="h-3.5 w-3.5" />
+      <span className="font-mono text-[10px] uppercase tracking-[0.12em]" style={{ writingMode: "vertical-rl" }}>
+        {step.number} · {step.name}
+      </span>
+      {step.done && (
+        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success/15 text-success">
+          <CheckIcon className="h-2.5 w-2.5" strokeWidth={3} />
         </span>
-        {step.done && (
-          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success/15 text-success">
-            <CheckIcon className="h-2.5 w-2.5" strokeWidth={3} />
-          </span>
-        )}
-      </button>
-      <div className="flex min-w-0 flex-1 xl:hidden">
-        <ExpandedStepPanel step={step} onCollapse={() => onToggle(false)} />
-      </div>
-    </>
+      )}
+    </button>
   );
 }
 
@@ -279,7 +273,9 @@ function useCapacityAccordion(steps: FitStep[]) {
   const rowRef = (el: HTMLDivElement | null) => {
     if (!el || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver((entries) => {
-      setRowWidth(entries[0]?.contentRect.width ?? null);
+      // `|| null`: jsdom's ResizeObserver reports 0 — treat as unmeasured
+      // (no auto-collapse) rather than collapsing everything to rails.
+      setRowWidth(entries[0]?.contentRect.width || null);
     });
     ro.observe(el);
   };
@@ -296,9 +292,14 @@ function useCapacityAccordion(steps: FitStep[]) {
   const expandedSet = (() => {
     const userExpanded = intent.filter((n) => !n.startsWith("!"));
     const userCollapsed = new Set(intent.filter((n) => n.startsWith("!")).map((n) => n.slice(1)));
-    const basePriority = steps
-      .filter((s) => !(s.optional && !s.done))
-      .sort((a, b) => Number(a.number === "1" || a.number === "4") - Number(b.number === "1" || b.number === "4"))
+    // Priority: middle steps (2, 3) first, then edges (1, 4), with
+    // not-yet-done optional steps last — they still expand when there's room.
+    const basePriority = [...steps]
+      .sort(
+        (a, b) =>
+          Number(a.optional && !a.done) - Number(b.optional && !b.done) ||
+          Number(a.number === "1" || a.number === "4") - Number(b.number === "1" || b.number === "4"),
+      )
       .map((s) => s.number);
     const ordered = [
       ...userExpanded,
@@ -321,9 +322,9 @@ export interface FitDiagramProps {
   steps: FitStep[];
   /** Renders the `agent = model + skills + mcp` box above the flow. */
   formula?: FitFormulaRow[];
-  /** Opt into the ResizeObserver-driven capacity-accordion column collapse
-   *  (Console dashboard). The static demo surface leaves this off — its
-   *  columns just wrap to a vertical stack under `xl`. */
+  /** Opt into the ResizeObserver-driven capacity-accordion column collapse.
+   *  Both hosts pass this — without it, narrow viewports overflow since the
+   *  row never stacks vertically. */
   collapsible?: boolean;
   className?: string;
 }
@@ -333,7 +334,11 @@ export function FitDiagram({ steps, formula, collapsible, className }: FitDiagra
   return (
     <div className={className}>
       {formula && <FitFormula rows={formula} />}
-      <div ref={collapsible ? rowRef : undefined} className="flex flex-col xl:flex-row xl:items-stretch">
+      {/* Always a single horizontal row — narrow viewports collapse columns
+          to rails (capacity accordion) instead of stacking to 4 rows. The
+          min-height keeps the panel from shrinking when every step is
+          collapsed to a rail. */}
+      <div ref={collapsible ? rowRef : undefined} className="flex flex-row items-stretch min-h-[20rem]">
         {steps.map((s, i) => (
           <Fragment key={s.number}>
             {i > 0 && <FlowPointer />}

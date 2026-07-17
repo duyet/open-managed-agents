@@ -1,13 +1,5 @@
 import { useNavigate } from "react-router";
 import { TriangleAlertIcon } from "lucide-react";
-import {
-  AgentIcon,
-  SessionsIcon,
-  EnvIcon,
-  VaultIcon,
-  SkillsIcon,
-  ModelCardsIcon,
-} from "../components/icons";
 import { useAuth } from "../lib/auth";
 import { formatQueryError, useApiQuery } from "../lib/useApiQuery";
 import { StatusPill } from "../components/Badge";
@@ -105,35 +97,6 @@ export function Dashboard() {
     },
   ];
 
-  const stat = (label: string, value: number | undefined, to: string, icon: React.ReactNode) => (
-    <button
-      key={label}
-      onClick={() => nav(to)}
-      className="group relative text-left px-4 py-3.5 border border-border rounded-md bg-bg hover:border-border-strong hover:bg-bg-surface/40 active:translate-y-px transition-[color,background-color,border-color,transform] duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="font-display text-[28px] leading-none font-semibold text-fg group-hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] tabular-nums">
-          {value ?? "–"}
-        </div>
-        <span className="text-fg-subtle group-hover:text-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]">
-          {icon}
-        </span>
-      </div>
-      <div className="mt-2 text-[11px] uppercase tracking-[0.08em] text-fg-muted font-medium">
-        {label}
-      </div>
-    </button>
-  );
-
-  const stats_ = [
-    { label: "Agents", value: stats?.agents, to: "/agents", icon: <AgentIcon className="w-4 h-4" /> },
-    { label: "Sessions", value: stats?.sessions, to: "/sessions", icon: <SessionsIcon className="w-4 h-4" /> },
-    { label: "Environments", value: stats?.environments, to: "/environments", icon: <EnvIcon className="w-4 h-4" /> },
-    { label: "Vaults", value: stats?.vaults, to: "/vaults", icon: <VaultIcon className="w-4 h-4" /> },
-    { label: "Skills", value: stats?.skills, to: "/skills", icon: <SkillsIcon className="w-4 h-4" /> },
-    { label: "Model Cards", value: stats?.model_cards, to: "/model-cards", icon: <ModelCardsIcon className="w-4 h-4" /> },
-  ];
-
   return (
     <div className="pb-4">
       <div className="space-y-10 pt-3">
@@ -195,13 +158,6 @@ export function Dashboard() {
             as badges; step headers check off as required cards go green —
             the conceptual map and the setup checklist in one panel. */}
         <StackedAssembly />
-
-        {/* Stats — number-forward, each with its resource icon */}
-        <section>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-            {stats_.map((s) => stat(s.label, s.value, s.to, s.icon))}
-          </div>
-        </section>
 
         {/* Recent sessions */}
         <section>

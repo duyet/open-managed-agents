@@ -113,9 +113,6 @@ describe("<Dashboard />", () => {
     expect(metricCard("Active sessions").getByText("2")).toBeInTheDocument();
     expect(metricCard("Active sessions").getByText("right now")).toBeInTheDocument();
     expect(metricCard("Agents").getByText("3")).toBeInTheDocument();
-    // "Agents" also appears in the pre-existing resource-count row below —
-    // the existing feature must still render alongside the new one.
-    expect(screen.getAllByText("Agents").length).toBeGreaterThanOrEqual(2);
   });
 
   it("renders intentional empty states when there's no usage yet", async () => {

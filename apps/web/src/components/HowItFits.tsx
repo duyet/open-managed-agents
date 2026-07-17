@@ -193,6 +193,7 @@ export default function HowItFits() {
     <div aria-label="How it fits together">
       <FitDiagram
         steps={steps}
+        collapsible
         formula={[
           { lhs: "agent", parts: ["model", "skills", "mcp"] },
           { lhs: "session", parts: ["agent", "env", "vaults"] },
