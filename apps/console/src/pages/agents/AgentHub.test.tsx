@@ -110,6 +110,40 @@ describe("<AgentDetail /> hub layout", () => {
   });
 });
 
+describe("<AgentDetail /> New Session dialog", () => {
+  beforeEach(mountHubHandlers);
+
+  it("opens a dialog instead of creating a session immediately", async () => {
+    server.use(
+      http.get("/v1/environments", () =>
+        HttpResponse.json({ data: [{ id: "env_1", name: "Default" }] }),
+      ),
+      http.get("/v1/environments/env_1", () =>
+        HttpResponse.json({ id: "env_1", name: "Default" }),
+      ),
+    );
+    let created = false;
+    server.use(
+      http.post("/v1/sessions", () => {
+        created = true;
+        return HttpResponse.json({ id: "sess_1" });
+      }),
+    );
+
+    renderHub();
+    await screen.findByRole("heading", { name: "My Agent" });
+
+    await userEvent.click(screen.getByRole("button", { name: "+ New Session" }));
+
+    // Dialog opens — no session created yet.
+    expect(await screen.findByRole("heading", { name: "New session" })).toBeInTheDocument();
+    expect(created).toBe(false);
+
+    await userEvent.click(screen.getByRole("button", { name: "Create session" }));
+    await waitFor(() => expect(created).toBe(true));
+  });
+});
+
 describe("<AgentOverviewTab /> version picker", () => {
   beforeEach(mountHubHandlers);
 

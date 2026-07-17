@@ -10,12 +10,10 @@ import {
 
 import { useApi } from "../lib/api";
 import { useApiQuery } from "../lib/useApiQuery";
-import { useDefaultEnvironment } from "../lib/useDefaultEnvironment";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/hooks/useConfirm";
-import { Modal } from "../components/Modal";
-import { EnvironmentPicker } from "../components/ResourcePicker";
+import { NewSessionDialog } from "../components/NewSessionDialog";
 import { AgentEditDialog } from "./agents/AgentEditDialog";
 import type { AppOutletContext } from "../components/AppShell";
 import type { AgentRecord as Agent } from "../types/agent";
@@ -82,14 +80,10 @@ export function AgentDetail() {
   );
   const versions = versionsRes?.data ?? [];
 
-  const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [pickEnvOpen, setPickEnvOpen] = useState(false);
-  const [pickedEnvId, setPickedEnvId] = useState("");
+  const [newSessionOpen, setNewSessionOpen] = useState(false);
 
   const isLocalRuntime = !!agent?.runtime_binding;
-  const { environments, isLoading: envsLoading, singleEnvironmentId, hasNoEnvironments } =
-    useDefaultEnvironment();
 
   const childContext = useMemo<AgentHubContext | null>(
     () =>
@@ -104,38 +98,6 @@ export function AgentDetail() {
         : null,
     [subSlot, agent, versions, refetchAgent, refetchVersions],
   );
-
-  const createSession = async (environmentId?: string) => {
-    setCreating(true);
-    try {
-      const body: Record<string, unknown> = { agent: id };
-      if (environmentId) body.environment_id = environmentId;
-      const session = await api<{ id: string }>("/v1/sessions", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
-      nav(`/sessions/${session.id}`);
-    } catch {
-      setCreating(false);
-    }
-  };
-
-  // Cloud agents need an environment_id (server-enforced). Exactly one
-  // environment → use it silently. Several → let the user pick via a small
-  // modal. None → the button becomes a CTA to /environments instead of
-  // letting the create call 400.
-  const handleNewSessionClick = () => {
-    if (isLocalRuntime || singleEnvironmentId) {
-      createSession(singleEnvironmentId ?? undefined);
-      return;
-    }
-    if (hasNoEnvironments) {
-      nav("/environments");
-      return;
-    }
-    setPickedEnvId(environments[0]?.id ?? "");
-    setPickEnvOpen(true);
-  };
 
   const confirm = useConfirm();
 
@@ -199,17 +161,8 @@ export function AgentDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handleNewSessionClick}
-            disabled={creating || (!isLocalRuntime && envsLoading)}
-          >
-            {creating
-              ? "Creating…"
-              : !isLocalRuntime && hasNoEnvironments
-                ? "Create an environment"
-                : "+ New Session"}
+          <Button variant="default" size="sm" onClick={() => setNewSessionOpen(true)}>
+            + New Session
           </Button>
           <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
             Edit
@@ -265,30 +218,16 @@ export function AgentDetail() {
         }}
       />
 
-      <Modal
-        open={pickEnvOpen}
-        onClose={() => setPickEnvOpen(false)}
-        title="Choose an environment"
-        subtitle="This agent's sessions need an environment to run in."
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setPickEnvOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                setPickEnvOpen(false);
-                createSession(pickedEnvId);
-              }}
-              disabled={!pickedEnvId}
-            >
-              Create session
-            </Button>
-          </>
-        }
-      >
-        <EnvironmentPicker value={pickedEnvId} onChange={setPickedEnvId} />
-      </Modal>
+      <NewSessionDialog
+        open={newSessionOpen}
+        onClose={() => setNewSessionOpen(false)}
+        agentId={id!}
+        isLocalRuntime={isLocalRuntime}
+        onCreated={(sessionId) => {
+          setNewSessionOpen(false);
+          nav(`/sessions/${sessionId}`);
+        }}
+      />
     </>
   );
 }
