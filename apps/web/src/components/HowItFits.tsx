@@ -20,6 +20,9 @@ interface DialogContent {
   resources?: DialogResource[];
   /** Related docs / blog links. */
   links?: { label: string; href: string }[];
+  /** Product screenshot shown in a right-side pane (borderless). Absolute
+   *  /screenshots/* URLs — same assets are hot-linkable from docs/help. */
+  image?: { src: string; alt: string };
 }
 
 interface DialogResource {
@@ -352,6 +355,7 @@ export default function HowItFits() {
                   { label: "Deploy overview", href: `${DOCS}/deploy/` },
                   { label: "Configuration reference", href: `${DOCS}/reference/configuration/` },
                 ],
+                image: { src: "/screenshots/sandbox-add-provider.jpg", alt: "Add sandbox provider dialog in the OMA Console" },
               },
               ),
           },
@@ -440,6 +444,7 @@ export default function HowItFits() {
                   { label: "Deploy overview", href: `${DOCS}/deploy/` },
                   { label: "Architecture deep-dive", href: "/blog/architecture-durable-objects-r2-brain-sandbox-split/" },
                 ],
+                image: { src: "/screenshots/sandbox-runtime.jpg", alt: "Sandbox Runtimes page in the OMA Console" },
               },
             ),
         },
@@ -528,11 +533,14 @@ export default function HowItFits() {
       <dialog
         ref={dialogRef}
         aria-labelledby="fits-dialog-title"
-        className="fixed inset-0 m-auto h-fit max-h-[calc(100dvh-3rem)] w-[calc(100vw-2.5rem)] max-w-lg overflow-y-auto rounded-[10px] border border-border bg-bg p-0 text-fg backdrop:bg-bg/60 backdrop:backdrop-blur-[2px]"
+        className={`fixed inset-0 m-auto h-fit max-h-[calc(100dvh-3rem)] w-[calc(100vw-2.5rem)] ${
+          dialog?.image ? "max-w-4xl" : "max-w-lg"
+        } overflow-y-auto rounded-[10px] border border-border bg-bg p-0 text-fg backdrop:bg-bg/60 backdrop:backdrop-blur-[2px]`}
         onClick={(e) => {
           if (e.target === dialogRef.current) dialogRef.current?.close();
         }}
       >
+        <div className={dialog?.image ? "grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]" : undefined}>
         <div className="p-[1.1rem_1.25rem_1.25rem]">
           <div className="mb-2 flex items-center justify-between gap-3">
             <h3 id="fits-dialog-title" className="text-base font-semibold tracking-tight">
@@ -590,6 +598,17 @@ export default function HowItFits() {
               </ul>
             </div>
           )}
+        </div>
+        {dialog?.image && (
+          <div className="hidden items-center justify-center p-3 pl-0 md:flex">
+            <img
+              src={dialog.image.src}
+              alt={dialog.image.alt}
+              loading="lazy"
+              className="max-h-[calc(100dvh-6rem)] w-full rounded-md object-contain"
+            />
+          </div>
+        )}
         </div>
       </dialog>
     </div>
