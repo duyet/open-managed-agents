@@ -151,16 +151,33 @@ try {
   process.exit(1);
 }
 
-/** Extract a value for `key` from .env text. Handles quotes + inline comments. */
+/** Extract a value for `key` from .env text. Handles quotes + inline
+ * comments, plus quoted MULTI-LINE values (e.g. a PEM private key wrapped
+ * in single or double quotes spanning several lines). */
 function parseValue(text, key) {
   const re = new RegExp(`^[\\t ]*${key}[\\t ]*=([^\\n]*)$`, "m");
   const m = text.match(re);
   if (!m) return null;
   let v = m[1].trim();
-  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
-    v = v.slice(1, -1);
+  // Opening quote with no closing quote on the same line → multi-line
+  // value; consume up to the next line that ends with the same quote.
+  const q = v.startsWith('"') ? '"' : v.startsWith("'") ? "'" : null;
+  if (q && !(v.length > 1 && v.endsWith(q))) {
+    const startIdx = m.index + m[0].length;
+    const closeRe = new RegExp(`${q}[\\t ]*$`, "m");
+    const rest = text.slice(startIdx);
+    const close = rest.match(closeRe);
+    if (!close) {
+      console.error(`✗ ${key}: unterminated ${q}-quoted multi-line value in .env.local`);
+      process.exit(1);
+    }
+    return (v.slice(1) + rest.slice(0, close.index)).trim() || null;
   }
-  v = v.replace(/[ \t]+#.*$/, ""); // strip trailing inline comment
+  if (q && v.endsWith(q)) {
+    v = v.slice(1, -1);
+  } else {
+    v = v.replace(/[ \t]+#.*$/, ""); // strip trailing inline comment
+  }
   return v.length ? v : null;
 }
 
