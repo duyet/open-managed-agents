@@ -217,6 +217,9 @@ importers:
       '@duyet/oma-api-types':
         specifier: workspace:*
         version: link:../../packages/api-types
+      '@duyet/oma-fit-diagram':
+        specifier: workspace:*
+        version: link:../../packages/fit-diagram
       '@duyet/oma-integrations-core':
         specifier: workspace:*
         version: link:../../packages/integrations-core
@@ -840,6 +843,9 @@ importers:
       '@astrojs/sitemap':
         specifier: ^3.4.1
         version: 3.7.2
+      '@duyet/oma-fit-diagram':
+        specifier: workspace:*
+        version: link:../../packages/fit-diagram
       '@fontsource-variable/geist':
         specifier: ^5.2.8
         version: 5.2.8
@@ -852,6 +858,9 @@ importers:
       astro:
         specifier: ^5.13.0
         version: 5.18.1(@types/node@25.6.0)(aws4fetch@1.0.20)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.1)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.9.0)
+      lucide-react:
+        specifier: ^1.16.0
+        version: 1.16.0(react@19.2.5)
       react:
         specifier: ^19.0.0
         version: 19.2.5
@@ -1135,6 +1144,19 @@ importers:
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@cloudflare/workers-types@4.20260410.1)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(better-sqlite3@11.10.0)(kysely@0.28.16)(pg@8.20.0)(postgres@3.4.9)(sql.js@1.14.1)
+
+  packages/fit-diagram:
+    dependencies:
+      lucide-react:
+        specifier: ^1.16.0
+        version: 1.16.0(react@19.2.5)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.5
+    devDependencies:
+      '@types/react':
+        specifier: ^19.1.0
+        version: 19.2.14
 
   packages/github:
     dependencies:
