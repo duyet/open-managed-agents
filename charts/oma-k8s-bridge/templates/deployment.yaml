@@ -20,6 +20,8 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -28,7 +30,7 @@ spec:
             - configMapRef:
                 name: {{ include "oma-k8s-bridge.fullname" . }}
             - secretRef:
-                name: {{ include "oma-k8s-bridge.fullname" . }}
+                name: {{ include "oma-k8s-bridge.secretName" . }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
@@ -39,6 +41,8 @@ spec:
             capabilities:
               drop:
                 - ALL
+            seccompProfile:
+              type: RuntimeDefault
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           readinessProbe:

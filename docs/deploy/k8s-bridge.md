@@ -643,67 +643,91 @@ curl -H "Authorization: Bearer $K8S_BRIDGE_TOKEN" \
 
 ## RBAC Permissions
 
-The chart creates a `ClusterRole` with the following rules (scoped to
-a single namespace when `rbac.namespaced=true`):
+The chart (`charts/oma-k8s-bridge/templates/rbac.yaml`) grants the least
+privilege that the bridge's actual code paths need, derived directly from
+`apps/k8s-bridge/src/k8s-manager.ts` and
+`packages/sandbox/src/adapters/kubernetes.ts` — not a hand-guessed
+permissive set. It's split into a namespace-scoped `Role` (everything that
+touches a single session's sandbox) and a `ClusterRole` (the handful of
+operations that are genuinely cluster-scoped or must span every
+namespace):
 
 ```yaml
+# Role, bound in rbac.targetNamespace (falls back to config.namespace) —
+# the namespace sandbox pods actually run in.
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: oma-k8s-bridge
+kind: Role
 rules:
-  # Cluster capacity reporting — get node count, allocatable resources,
-  # and pod density for the /api/v1/cluster/info and /api/v1/cluster/nodes endpoints.
+  # Sandbox lifecycle — K8sManager.createBox creates a bare `Sandbox`
+  # custom resource per session; destroyBox/executor.destroy() deletes it.
+  # No `watch`: readiness is polled (waitForReady), never watched.
+  - apiGroups: ["agents.x-k8s.io"]
+    resources: ["sandboxes"]
+    verbs: ["create", "get", "list", "delete"]
+  # Sandbox discovery/detail — discoverSandboxes/getSandboxHealth/
+  # getSandboxDetail read the pods the Sandbox controller creates.
+  # No `delete`/`patch`: only the Sandbox object above is ever deleted;
+  # the controller cascades pod deletion.
   - apiGroups: [""]
-    resources: ["nodes"]
-    verbs: ["list", "get"]
-
-  # Sandbox lifecycle management — create, list, watch, and delete
-  # ephemeral pods in the sandbox namespace.
-  - apiGroups: [""]
-    resources: ["pods"]
-    verbs: ["create", "get", "list", "watch", "delete", "patch"]
-
-  # Pod log streaming — required for /api/v1/sandboxes/:podName/logs.
-  - apiGroups: [""]
-    resources: ["pods/log"]
-    verbs: ["get"]
-
-  # Pod status patching — required for status reporting on boxes and
-  # condition tracking in /api/v1/boxes/:id/status.
-  - apiGroups: [""]
-    resources: ["pods/status"]
-    verbs: ["patch"]
-
-  # Resource usage metrics — required for /api/v1/sandboxes/metrics.
-  # Only needed if the metrics-server is installed and you use that endpoint.
-  - apiGroups: ["metrics.k8s.io"]
     resources: ["pods"]
     verbs: ["get", "list"]
-
-  # Exec into running pods — required for /api/v1/boxes/:id/exec.
+  # Command execution — KubernetesSandboxExecutor.runExec uses the
+  # standard pods/exec subresource (the same one `kubectl exec` uses).
   - apiGroups: [""]
     resources: ["pods/exec"]
     verbs: ["create"]
+  # Log streaming — getSandboxLogs, backs /api/v1/sandboxes/:podName/logs.
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+# ClusterRole, bound cluster-wide — nodes have no namespace, and cluster
+# capacity aggregation must see pods across every namespace, so no Role
+# scoping can satisfy these.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+rules:
+  # getClusterInfo/getNodes/getCapacityUsage — /api/v1/cluster/*.
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+  # getClusterCapacity's listPodForAllNamespaces — aggregates requested
+  # CPU/memory cluster-wide for estimatedAdditionalSandboxes. list-only:
+  # per-pod get/exec/log stay scoped to the namespaced Role above.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list"]
+  # getPodMetrics — /api/v1/sandboxes/metrics. No-op (empty list) if
+  # metrics-server isn't installed; the bridge fails open.
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]
 ```
 
 **Why each permission is needed:**
 
-| Permission | Used By | Purpose |
-|---|---|---|
-| `nodes list/get` | `/api/v1/cluster/info`, `/api/v1/cluster/nodes` | Capacity reporting, scheduling decisions |
-| `pods create/get/list/watch/delete/patch` | All box endpoints | Full sandbox pod lifecycle |
-| `pods/log get` | `/api/v1/sandboxes/:podName/logs` | Fetch build/test output for the agent |
-| `pods/status patch` | `/api/v1/boxes/:id/status` | Track pod conditions and phase |
-| `pods/exec create` | `/api/v1/boxes/:id/exec` | Run commands inside the sandbox |
-| `metrics.k8s.io pods get/list` | `/api/v1/sandboxes/metrics` | Resource usage monitoring |
+| Permission | Scope | Used By | Purpose |
+|---|---|---|---|
+| `agents.x-k8s.io/sandboxes` create/get/list/delete | Role | `K8sManager.createBox`/`destroyBox` | Full lifecycle of the per-session `Sandbox` custom resource |
+| `pods` get/list | Role | `discoverSandboxes`, `getSandboxHealth`, `getSandboxDetail` | Read pod status/health for the pods the Sandbox controller produces |
+| `pods/exec` create | Role | `KubernetesSandboxExecutor.runExec` | Run commands inside a session's sandbox pod |
+| `pods/log` get | Role | `getSandboxLogs` (`/api/v1/sandboxes/:podName/logs`) | Fetch build/test output for the agent |
+| `nodes` get/list | ClusterRole | `getClusterInfo`/`getNodes`/`getCapacityUsage` | Cluster capacity reporting — nodes are cluster-scoped |
+| `pods` list (cluster-wide) | ClusterRole | `getClusterCapacity` → `listPodForAllNamespaces` | Aggregate requested CPU/memory across the whole cluster for `estimatedAdditionalSandboxes` |
+| `metrics.k8s.io pods/nodes` get/list | ClusterRole | `getPodMetrics` (`/api/v1/sandboxes/metrics`) | Resource usage monitoring (requires metrics-server) |
 
-When `rbac.namespaced=true` (default), the `ClusterRole` is paired with
-a `RoleBinding` (not `ClusterRoleBinding`) that scopes all pod operations
-to `rbac.targetNamespace` (default: `oma-sandbox`). Node and metrics
-permissions still require `ClusterRole` since those resources are
-cluster-scoped, but the binding limits which namespace the bridge can
-create pods in.
+Deliberately **not** granted, because no code path uses it: `pods delete`
+or `pods/status patch` (the bridge only ever deletes the owning `Sandbox`
+object and lets the controller cascade pod teardown — it never patches pod
+status directly), `namespaces` access, and any `watch` verb (Sandbox
+readiness is polled, not watched — see `waitForReady` in
+`packages/sandbox/src/adapters/kubernetes.ts`).
+
+The `Role`/`RoleBinding` are created in `rbac.targetNamespace` (falls back
+to `config.namespace` — the namespace sandbox pods actually run in), bound
+to the bridge's `ServiceAccount` in the release namespace. The
+`ClusterRole`/`ClusterRoleBinding` are unaffected by `rbac.targetNamespace`
+since those grants are inherently cluster-scoped.
 
 ---
 
@@ -760,64 +784,47 @@ stored in a Secret named `oma-k8s-bridge-tls` and mounted automatically.
 
 ### Pod Security
 
-The bridge runs with a hardened security context:
+The bridge's own container (`charts/oma-k8s-bridge/templates/deployment.yaml`)
+runs with a hardened security context:
 
 ```yaml
-securityContext:
-  readOnlyRootFilesystem: true    # immutable rootfs — no writes to /bin, /etc, /usr
-  runAsNonRoot: true              # reject if runAsUser is 0
-  runAsUser: 65534                # nobody
-  capabilities:
-    drop: ["ALL"]                 # no kernel capabilities
+securityContext:               # pod-level
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+containers:
+  - securityContext:            # container-level
+      readOnlyRootFilesystem: true    # immutable rootfs — the bridge writes nothing to disk
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+      seccompProfile:
+        type: RuntimeDefault
 ```
 
-Sandbox pods (boxes) also run with restricted defaults, enforced via
-a `PodSecurityAdmission` label on the `oma-sandbox` namespace:
+This hardens the bridge process itself. It does not affect the ephemeral
+**sandbox** pods it creates for sessions — those are shaped by the
+`agent-sandbox` controller's `Sandbox` CRD `podTemplate.spec` (image,
+`runtimeClassName`, resources — see `packages/sandbox/src/adapters/
+kubernetes.ts`) and the cluster's own PodSecurity/RuntimeClass setup, since
+sandbox pods run untrusted agent-generated code and their hardening is a
+cluster-operator decision (e.g. gVisor/Kata via `runtimeClassName`, or a
+`PodSecurityAdmission` label on the sandbox namespace):
 
 ```bash
-kubectl label ns oma-sandbox pod-security.kubernetes.io/enforce=restricted
+kubectl label ns sandboxes pod-security.kubernetes.io/enforce=restricted
 ```
 
-### Network Policy
-
-The chart creates a default-deny NetworkPolicy when `networkPolicy.enabled=true`:
-
-```yaml
-# Only allow ingress from the cluster (for kubelet health probes)
-# and egress to the outside world (for the agent to fetch dependencies).
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: oma-k8s-bridge
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: oma-k8s-bridge
-  policyTypes:
-    - Ingress
-    - Egress
-  ingress:
-    - from:
-        - podSelector: {}          # same-namespace pods
-        - namespaceSelector: {}    # kubelet health probes
-      ports:
-        - port: 8080
-  egress:
-    - to:
-        - ipBlock:
-            cidr: 0.0.0.0/0       # override with networkPolicy.egressCIDRs
-```
-
-### Rate Limiting
-
-The bridge enforces per-client rate limits at the application layer:
-
-| Limit | Value |
-|---|---|
-| Requests per second | 100 |
-| Burst | 200 |
-| Concurrent execs per box | 5 |
-| Max exec duration | 10 minutes |
+> **Chart scope note:** `networkPolicy.*`, rate limiting, `autoscaling.*`,
+> `box.*`, and `podDisruptionBudget.*` values referenced elsewhere in this
+> document describe a target configuration surface for this chart; the
+> current `charts/oma-k8s-bridge` templates implement `hpa.*` (HPA on CPU)
+> and the RBAC/secret/pod-hardening pieces documented above. Treat any
+> value name not present in `charts/oma-k8s-bridge/values.yaml` as not yet
+> wired — check that file for what's actually installable today.
 
 ---
 

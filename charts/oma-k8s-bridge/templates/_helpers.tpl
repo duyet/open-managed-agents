@@ -40,3 +40,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{- define "oma-k8s-bridge.secretName" -}}
+{{- default (include "oma-k8s-bridge.fullname" .) .Values.secret.existingSecret }}
+{{- end }}
