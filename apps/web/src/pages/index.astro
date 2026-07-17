@@ -214,6 +214,16 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
       aria-hidden="true"
       style="background: radial-gradient(ellipse 70% 45% at 50% -10%, color-mix(in srgb, var(--color-brand) 22%, transparent), transparent 70%);"
     ></div>
+    <!-- Warm dithered tint behind the hero diagram band only — masked hard so
+         it reads as a glow under the product diagram, not a wallpaper. Kept
+         faint (and fainter in dark) so the zinc/iris identity stays in charge. -->
+    <div
+      class="pointer-events-none absolute inset-x-0 top-0 h-[46rem] opacity-[0.16] dark:opacity-[0.10]"
+      aria-hidden="true"
+      style="background: url('/hero-tint.jpg') center top / cover no-repeat;
+        mask-image: radial-gradient(ellipse 75% 65% at 50% 22%, #000 20%, transparent 72%);
+        -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 22%, #000 20%, transparent 72%);"
+    ></div>
     <div class="relative max-w-5xl mx-auto px-4 py-16 md:py-20">
       <div>
         <!-- Full-width first: the Console's "How it fits together" diagram
