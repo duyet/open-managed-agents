@@ -17,7 +17,7 @@
 // instances as badges — an empty/dashed card *is* the to-do item, so nothing
 // needs a second checklist. RUN's cards describe runtime behaviour rather
 // than instances you create, so they carry a `description` instead.
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -43,6 +43,8 @@ import {
   CheckIcon,
   ArrowRightIcon,
   ArrowDownIcon,
+  ChevronsLeftIcon,
+  ChevronsRightIcon,
 } from "lucide-react";
 
 interface AgentRecord {
@@ -267,11 +269,11 @@ function CompositionFormula() {
 function FlowPointer() {
   return (
     <div
-      className="flex shrink-0 items-center justify-center self-center py-1 text-fg-subtle lg:py-0"
+      className="flex shrink-0 items-center justify-center self-center py-1 text-fg-subtle xl:py-0"
       aria-hidden="true"
     >
-      <ArrowDownIcon className="h-3.5 w-3.5 lg:hidden" />
-      <ArrowRightIcon className="hidden h-3.5 w-3.5 lg:block" />
+      <ArrowDownIcon className="h-3.5 w-3.5 xl:hidden" />
+      <ArrowRightIcon className="hidden h-3.5 w-3.5 xl:block" />
     </div>
   );
 }
@@ -298,7 +300,7 @@ interface Step {
   wide?: boolean;
 }
 
-function StepHeader({ step }: { step: Step }) {
+function StepHeader({ step, onCollapse }: { step: Step; onCollapse: () => void }) {
   return (
     <div className="mb-2.5 flex items-center gap-1.5">
       <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-fg-subtle">
@@ -317,6 +319,16 @@ function StepHeader({ step }: { step: Step }) {
           <CheckIcon className="h-2.5 w-2.5" strokeWidth={3} />
         </span>
       )}
+      {/* Collapse — desktop-only affordance; the stacked mobile layout has
+          no horizontal space to reclaim, so the toggle hides there. */}
+      <button
+        type="button"
+        onClick={onCollapse}
+        aria-label={`Collapse ${step.name}`}
+        className="ml-auto hidden h-5 w-5 items-center justify-center rounded text-fg-subtle transition-colors hover:bg-bg-surface hover:text-fg xl:flex"
+      >
+        <ChevronsLeftIcon className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
@@ -325,14 +337,63 @@ const rowKey = (row: StepRow) =>
   Array.isArray(row) ? row.map((c) => c.key).join("+") : row.key;
 
 function StepPanel({ step, nav }: { step: Step; nav: (to: string) => void }) {
+  // Every column can collapse to a slim vertical rail (desktop only) —
+  // click to expand. Optional steps with nothing configured start
+  // collapsed; everything else starts open.
+  const [collapsed, setCollapsed] = useState(!!step.optional && !step.done);
+
+  if (collapsed) {
+    return (
+      <>
+        {/* Slim rail on xl — the stacked mobile layout renders the full
+            panel below instead (no width to reclaim there). */}
+        <button
+          type="button"
+          onClick={() => setCollapsed(false)}
+          aria-label={`Expand step ${step.number} — ${step.name}`}
+          aria-expanded="false"
+          className="hidden shrink-0 flex-col items-center gap-2 rounded-lg border border-dashed border-border/70 px-1.5 py-3 text-fg-subtle transition-colors hover:border-border-strong hover:text-fg xl:flex"
+        >
+          <ChevronsRightIcon className="h-3.5 w-3.5" />
+          <span
+            className="font-mono text-[10px] uppercase tracking-[0.12em]"
+            style={{ writingMode: "vertical-rl" }}
+          >
+            {step.number} · {step.name}
+          </span>
+          {step.done && (
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success/15 text-success">
+              <CheckIcon className="h-2.5 w-2.5" strokeWidth={3} />
+            </span>
+          )}
+        </button>
+        <div className="flex min-w-0 flex-1 xl:hidden">
+          <ExpandedStepPanel step={step} nav={nav} onCollapse={() => setCollapsed(true)} />
+        </div>
+      </>
+    );
+  }
+
+  return <ExpandedStepPanel step={step} nav={nav} onCollapse={() => setCollapsed(true)} />;
+}
+
+function ExpandedStepPanel({
+  step,
+  nav,
+  onCollapse,
+}: {
+  step: Step;
+  nav: (to: string) => void;
+  onCollapse: () => void;
+}) {
   return (
     <div
       className={cn(
         "flex min-w-0 flex-1 flex-col rounded-lg border border-dashed border-border/70 p-3",
-        step.wide && "lg:flex-[1.45]",
+        step.wide && "xl:flex-[1.2]",
       )}
     >
-      <StepHeader step={step} />
+      <StepHeader step={step} onCollapse={onCollapse} />
       <div
         className={cn(
           "flex flex-1 flex-col",
@@ -351,9 +412,12 @@ function StepPanel({ step, nav }: { step: Step; nav: (to: string) => void }) {
               </div>
             )}
             {Array.isArray(row) ? (
-              <div className="flex items-stretch gap-2">
+              // flex-wrap + a per-card minimum: when the column is too
+              // narrow for the pair, cards stack instead of truncating
+              // titles down to one letter.
+              <div className="flex flex-wrap items-stretch gap-2">
                 {row.map((c) => (
-                  <div key={c.key} className="flex min-w-0 flex-1">
+                  <div key={c.key} className="flex min-w-[8.5rem] flex-1">
                     <TypeCardView card={c} nav={nav} />
                   </div>
                 ))}
@@ -465,28 +529,6 @@ export function StackedAssembly() {
         badges: modelCards.map((m) => m.model_id),
         emptyCta: "+ Add a model card — the AI brain",
       },
-      // Optional resources a session can mount. They live here because this is
-      // where you *create* them; the formula above says who *uses* them.
-      [
-        {
-          key: "memory",
-          icon: <MemoryIcon className="w-4 h-4" />,
-          title: "Memory",
-          to: "/memory",
-          status: countStatus(memoryStores.length),
-          badges: memoryStores.map((m) => m.name),
-          emptyCta: "+ Notes it keeps",
-        },
-        {
-          key: "files",
-          icon: <FilesIcon className="w-4 h-4" />,
-          title: "Files",
-          to: "/files",
-          status: countStatus(files.length),
-          badges: files.map((f) => f.filename),
-          emptyCta: "+ Data to mount",
-        },
-      ],
     ],
   };
 
@@ -522,6 +564,28 @@ export function StackedAssembly() {
         badges: skills.map((s) => s.name),
         emptyCta: "+ Prompts & know-how",
       },
+      // Optional knowledge + data the agent works with — grouped with the
+      // agent it augments; sessions mount them at runtime.
+      [
+        {
+          key: "memory",
+          icon: <MemoryIcon className="w-4 h-4" />,
+          title: "Memory",
+          to: "/memory",
+          status: countStatus(memoryStores.length),
+          badges: memoryStores.map((m) => m.name),
+          emptyCta: "+ Notes it keeps",
+        },
+        {
+          key: "files",
+          icon: <FilesIcon className="w-4 h-4" />,
+          title: "Files",
+          to: "/files",
+          status: countStatus(files.length),
+          badges: files.map((f) => f.filename),
+          emptyCta: "+ Data to mount",
+        },
+      ],
     ],
   };
 
@@ -632,7 +696,7 @@ export function StackedAssembly() {
 
       {/* The flow. Pointers sit between panels as their own flex children, so
           the row reflows to a vertical stack (with ↓ pointers) under lg. */}
-      <div className="flex flex-col lg:flex-row lg:items-stretch">
+      <div className="flex flex-col xl:flex-row xl:items-stretch">
         {steps.map((s, i) => (
           <Fragment key={s.number}>
             {i > 0 && <FlowPointer />}

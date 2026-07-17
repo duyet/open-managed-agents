@@ -59,7 +59,9 @@ describe("<StackedAssembly />", () => {
     const steps = await screen.findAllByText(
       /^[1-4] · (Configure|Compose|Run|Reach)$/,
     );
-    expect(steps.map((s) => s.textContent)).toEqual([
+    // Dedupe: a collapsed step renders its label twice (desktop rail +
+    // stacked-mobile full panel) — order is what this test guards.
+    expect([...new Set(steps.map((s) => s.textContent))]).toEqual([
       "1 · Configure",
       "2 · Compose",
       "3 · Run",

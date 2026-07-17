@@ -42,20 +42,6 @@ const steps: FitStep[] = [
         badges: ["claude-sonnet-4-6"],
         desc: "The AI brain, made pluggable. A model card binds a model id to a provider and credentials — Anthropic, any OpenAI-compatible gateway, or your own endpoint. Agents reference it by handle, so swapping providers never touches agent config.",
       },
-      [
-        {
-          title: "Memory",
-          note: "Notes it keeps",
-          dashed: true,
-          desc: "Persistent memory stores, mounted into the sandbox at /mnt/memory/<name>. The agent reads and writes them with ordinary file tools, so knowledge survives across sessions — versioned, auditable, and rollback-able.",
-        },
-        {
-          title: "Files",
-          note: "Data to mount",
-          dashed: true,
-          desc: "Files you upload once and mount into any session's sandbox at a path you choose — datasets, configs, reference documents. Created here, attached to sessions at runtime.",
-        },
-      ],
     ],
   },
   {
@@ -74,6 +60,20 @@ const steps: FitStep[] = [
         badges: ["xlsx", "pdf", "pptx"],
         desc: "Reusable know-how: prompt fragments and files mounted into the sandbox and injected into the system prompt. Write a skill once, attach it to any number of agents.",
       },
+      [
+        {
+          title: "Memory",
+          note: "Notes it keeps",
+          dashed: true,
+          desc: "Persistent memory stores, mounted into the sandbox at /mnt/memory/<name>. The agent reads and writes them with ordinary file tools, so knowledge survives across sessions — versioned, auditable, and rollback-able.",
+        },
+        {
+          title: "Files",
+          note: "Data to mount",
+          dashed: true,
+          desc: "Files you upload once and mount into any session's sandbox at a path you choose — datasets, configs, reference documents. Created once, attached to sessions at runtime.",
+        },
+      ],
     ],
   },
   {
@@ -312,8 +312,8 @@ const rows = (step: FitStep): FitCard[][] =>
     padding: 0.15rem 0;
     color: var(--color-fg-subtle);
   }
-  .fits-row { display: flex; align-items: stretch; gap: 0.45rem; }
-  .fits-row > .fits-card { flex: 1; min-width: 0; }
+  .fits-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.45rem; }
+  .fits-row > .fits-card { flex: 1; min-width: 7.5rem; }
   .fits-card {
     display: block;
     width: 100%;
