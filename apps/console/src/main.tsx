@@ -29,6 +29,7 @@ import { AgentDetail } from "./pages/AgentDetail";
 import { AgentOverviewTab } from "./pages/agents/AgentOverviewTab";
 import { AgentSessionsTab } from "./pages/agents/AgentSessionsTab";
 import { AgentDeploymentsTab } from "./pages/agents/AgentDeploymentsTab";
+import { AgentSchedulesTab } from "./pages/agents/AgentSchedulesTab";
 import { AgentObservabilityTab } from "./pages/agents/AgentObservabilityTab";
 import { AgentPublishingTab } from "./pages/agents/AgentPublishingTab";
 import { SessionsList } from "./pages/SessionsList";
@@ -172,6 +173,11 @@ const protectedRoutes: RouteObject[] = [
             path: "deployments",
             element: <AgentDeploymentsTab />,
             handle: { crumb: "Deployments" },
+          },
+          {
+            path: "schedules",
+            element: <AgentSchedulesTab />,
+            handle: { crumb: "Schedules" },
           },
           {
             path: "observability",

@@ -15,6 +15,20 @@
 //   - E2BSandbox (TODO) — wraps @e2b/sdk for Firecracker microVM
 //     isolation. Production self-host path.
 
+/**
+ * Default container image for image-accepting sandbox adapters (kubernetes,
+ * kubernetes-remote, boxrun, litebox, daytona, docker-compose, k8s-bridge).
+ *
+ * ghcr.io/duyet/oma-runtime-base is the batteries-included toolset image
+ * built from docker/base/Dockerfile (git, curl, gh, ripgrep, python3,
+ * build-essential) and published by .github/workflows/build-node-images.yml.
+ * The previous default, bare `node:22-slim`, shipped no curl/git/python —
+ * agents couldn't do real work and couldn't self-install either, because
+ * apt's clearsigned verification breaks through the vault MITM proxy
+ * (issue #140). Environments can always pin their own `config.image`.
+ */
+export const DEFAULT_SANDBOX_IMAGE = "ghcr.io/duyet/oma-runtime-base:latest";
+
 export interface ProcessHandle {
   id: string;
   pid: number;

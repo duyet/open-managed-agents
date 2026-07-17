@@ -428,7 +428,7 @@ describe("hosted chat page — content negotiation (issue #178)", () => {
   });
 });
 
-describe("clickable magic-link landing page — GET /p/auth/verify (issue #215)", () => {
+describe("clickable magic-link landing page — /p/auth/verify (issues #215, #254)", () => {
   function makeVerifyApp(verifyMagicLink: PublicPublicationRoutesDeps["verifyMagicLink"]) {
     const app = new Hono<{ Bindings: never }>();
     app.route(
@@ -446,14 +446,57 @@ describe("clickable magic-link landing page — GET /p/auth/verify (issue #215)"
     return app;
   }
 
-  it("valid token: stores the token under the chat page's exact localStorage key and redirects to /p/<slug>", async () => {
+  function postVerify(app: Hono<{ Bindings: never }>, form: Record<string, string>) {
+    return app.request("/p/auth/verify", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(form).toString(),
+    });
+  }
+
+  // issue #254: email security scanners (Outlook Safe Links etc.) pre-fetch
+  // GET URLs — the landing must NOT consume the single-use token on GET.
+  it("GET renders a confirm form WITHOUT consuming the token (scanner pre-fetch safe)", async () => {
+    let called = 0;
+    const app = makeVerifyApp(async () => {
+      called += 1;
+      return { ok: true, session_token: "x", consumer_id: "y", expires_at: "z" };
+    });
+    // A scanner may hit the link several times; none of them may burn it.
+    for (let i = 0; i < 3; i += 1) {
+      const res = await app.request("/p/auth/verify?token=tok123&slug=duyetbot");
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toContain("text/html");
+      const body = await res.text();
+      // The confirm form POSTs the token back to the same path.
+      expect(body).toContain('method="post"');
+      expect(body).toContain('action="/p/auth/verify"');
+      expect(body).toContain('name="token" value="tok123"');
+      expect(body).toContain('name="slug" value="duyetbot"');
+      // No token exchange yet — nothing to store, nowhere to redirect.
+      expect(body).not.toContain("localStorage.setItem(");
+    }
+    expect(called).toBe(0);
+  });
+
+  it("GET escapes token/slug in the form attributes (no attribute breakout)", async () => {
+    const app = makeVerifyApp(async () => ({ ok: false, error: "x", status: 401 }));
+    const res = await app.request(
+      `/p/auth/verify?token=${encodeURIComponent('t"><script>')}&slug=duyetbot`,
+    );
+    const body = await res.text();
+    expect(body).toContain("t&quot;&gt;&lt;script&gt;");
+    expect(body).not.toContain('value="t"><script>');
+  });
+
+  it("POST with a valid token: stores it under the chat page's exact localStorage key and redirects to /p/<slug>", async () => {
     const app = makeVerifyApp(async () => ({
       ok: true,
       session_token: "csess_abc",
       consumer_id: "cons_1",
       expires_at: "2026-01-01T00:00:00.000Z",
     }));
-    const res = await app.request("/p/auth/verify?token=tok123&slug=duyetbot");
+    const res = await postVerify(app, { token: "tok123", slug: "duyetbot" });
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/html");
     const body = await res.text();
@@ -464,9 +507,9 @@ describe("clickable magic-link landing page — GET /p/auth/verify (issue #215)"
     expect(body).toContain('window.location.replace("/p/duyetbot")');
   });
 
-  it("invalid/expired token: renders a friendly error page with a back-to-chat pointer", async () => {
+  it("POST with an invalid/expired token: renders a friendly error page with a back-to-chat pointer", async () => {
     const app = makeVerifyApp(async () => ({ ok: false, error: "Token expired", status: 401 }));
-    const res = await app.request("/p/auth/verify?token=tok123&slug=duyetbot");
+    const res = await postVerify(app, { token: "tok123", slug: "duyetbot" });
     expect(res.status).toBe(401);
     expect(res.headers.get("content-type")).toContain("text/html");
     const body = await res.text();
@@ -476,7 +519,7 @@ describe("clickable magic-link landing page — GET /p/auth/verify (issue #215)"
     expect(body).toContain("Back to chat");
   });
 
-  it("missing token or slug: 400 without calling verifyMagicLink", async () => {
+  it("missing token or slug: 400 without calling verifyMagicLink (GET and POST)", async () => {
     let called = false;
     const app = makeVerifyApp(async () => {
       called = true;
@@ -487,12 +530,16 @@ describe("clickable magic-link landing page — GET /p/auth/verify (issue #215)"
     expect(noSlug.status).toBe(400);
     const noToken = await app.request("/p/auth/verify?slug=duyetbot");
     expect(noToken.status).toBe(400);
+    const postNoSlug = await postVerify(app, { token: "tok123" });
+    expect(postNoSlug.status).toBe(400);
+    const postNoToken = await postVerify(app, { slug: "duyetbot" });
+    expect(postNoToken.status).toBe(400);
     expect(called).toBe(false);
   });
 
-  it("renders a clear error instead of crashing when verifyMagicLink isn't wired up", async () => {
+  it("POST renders a clear error instead of crashing when verifyMagicLink isn't wired up", async () => {
     const app = makeVerifyApp(undefined);
-    const res = await app.request("/p/auth/verify?token=tok123&slug=duyetbot");
+    const res = await postVerify(app, { token: "tok123", slug: "duyetbot" });
     expect(res.status).toBe(500);
     expect(res.headers.get("content-type")).toContain("text/html");
   });

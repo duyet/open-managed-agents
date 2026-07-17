@@ -25,6 +25,7 @@ import { join } from "node:path";
 import {
   RuntimeAdapterImpl,
   SessionStateMachine,
+  resolveTurnTimeoutMs,
 } from "@duyet/oma-session-runtime";
 import type { SqlClient } from "@duyet/oma-sql-client";
 import { SqlStreamRepo, type SqlEventLog } from "@duyet/oma-event-log/sql";
@@ -45,6 +46,12 @@ import { getLogger } from "@duyet/oma-observability";
 import type { EventStreamHub } from "./lib/event-stream-hub.js";
 
 const log = getLogger("session-registry");
+
+// Turn watchdog ceiling (issue #135) — resolved once at module load, not
+// per-session, since it's process-wide config. `undefined` OMA_TURN_TIMEOUT_MS
+// resolves to the 15-minute default inside resolveTurnTimeoutMs(); set it to
+// "off" to disable the watchdog entirely.
+const turnTimeoutMs = resolveTurnTimeoutMs(process.env.OMA_TURN_TIMEOUT_MS);
 
 export interface SessionRegistryDeps {
   sql: SqlClient;
@@ -319,6 +326,7 @@ export class SessionRegistry {
           eventLog,
         }),
       publish: (event: SessionEvent) => this.deps.hub.publish(sessionId, event),
+      turnTimeoutMs,
     });
 
     return { machine, sandbox, eventLog };

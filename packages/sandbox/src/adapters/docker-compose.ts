@@ -16,6 +16,7 @@ import { execSync, spawnSync } from "node:child_process";
 import { join, dirname } from "node:path";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import type { SandboxExecutor, SandboxFactory } from "../ports";
+import { DEFAULT_SANDBOX_IMAGE } from "../ports";
 import { getLogger } from "@duyet/oma-observability";
 
 const moduleLogger = getLogger("docker-compose-sandbox");
@@ -55,7 +56,7 @@ export class DockerComposeSandbox implements SandboxExecutor {
     try {
       void fs.access(composeYml);
     } catch {
-      const image = this.opts.image ?? "node:22-slim";
+      const image = this.opts.image ?? DEFAULT_SANDBOX_IMAGE;
       writeFileSync(
         composeYml,
         [

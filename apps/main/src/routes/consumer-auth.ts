@@ -11,10 +11,10 @@ import type { Env } from "@duyet/oma-shared";
 import {
   buildConsumerAuthRoutes,
   createSqlConsumerAuthStore,
-  verifyMagicLinkToken as verifyMagicLinkTokenWithStore,
   type ConsumerSessionRow,
-  type VerifyMagicLinkResult,
 } from "@duyet/oma-http-routes";
+
+export { verifyMagicLinkToken } from "@duyet/oma-http-routes";
 import { sqlClientFromD1 } from "@duyet/oma-sql-client/adapters/cf-d1";
 import { sendEmail } from "../auth-config";
 import { rateLimitMagicLinkEmail } from "../rate-limit";
@@ -29,10 +29,6 @@ interface CfConsumerAuthEnv {
    *  (unset/anything else): token is never returned, only delivered via email.
    *  Never enable in production. */
   CONSUMER_AUTH_DEV_ECHO_TOKEN?: string;
-  /** Public origin used to build the absolute clickable link in the
-   *  magic-link email (issue #215). Falls back to the incoming request's
-   *  own origin when unset (mirrors deployments.ts' webhookUrl). */
-  PUBLIC_BASE_URL?: string;
 }
 
 /**
@@ -49,20 +45,6 @@ export async function resolveConsumerSession(
   return createSqlConsumerAuthStore(sqlClientFromD1(db)).resolveConsumerSession(token);
 }
 
-/**
- * Exchange a magic-link token for a consumer session (issue #215). Kept as a
- * D1-signatured wrapper — same rationale as resolveConsumerSession above — for
- * the CF callers that already hold a D1Database (apps/main/src/index.ts wires
- * it into the /p surface's `verifyMagicLink` port so the clickable landing
- * page shares this exact logic with POST /v1/public/auth/verify).
- */
-export async function verifyMagicLinkToken(
-  db: D1Database,
-  token: string,
-): Promise<VerifyMagicLinkResult> {
-  return verifyMagicLinkTokenWithStore(createSqlConsumerAuthStore(sqlClientFromD1(db)), token);
-}
-
 const wrapper = buildConsumerAuthRoutes({
   store: (c) => createSqlConsumerAuthStore(sqlClientFromD1((c.env as CfConsumerAuthEnv).MAIN_DB)),
   sendEmail: async (c, msg) => {
@@ -74,7 +56,6 @@ const wrapper = buildConsumerAuthRoutes({
     const v = (c.env as CfConsumerAuthEnv).CONSUMER_AUTH_DEV_ECHO_TOKEN;
     return v === "1" || v === "true";
   },
-  publicBaseUrl: (c) => (c.env as CfConsumerAuthEnv).PUBLIC_BASE_URL,
 });
 
 export default wrapper;

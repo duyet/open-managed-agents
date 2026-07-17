@@ -27,6 +27,13 @@ export interface Env {
    *  When set, OMA sends start/success/failure pings to healthchecks.io
    *  for each cron job tick. See https://healthchecks.io */
   HEALTHCHECKS_IO_URL?: string;
+  /** Turn-level watchdog ceiling in ms (issue #135) — a harness/tool call
+   *  that never resolves gets force-aborted (session.error + back to
+   *  idle) once its turn has run this long. Default 15 min when unset;
+   *  see DEFAULT_TURN_TIMEOUT_MS in apps/agent/src/runtime/session-do.ts
+   *  for why that default is safe against the 10-min bash tool ceiling
+   *  and long-running-harness heartbeats. */
+  OMA_TURN_TIMEOUT_MS?: string;
   SEND_EMAIL?: SendEmail;
   // SESSION_DO and SANDBOX are only in sandbox workers
   SESSION_DO?: DurableObjectNamespace;
@@ -141,7 +148,7 @@ export interface Env {
   BOXRUN_CPUS?: string;
   BOXRUN_MEMORY_MIB?: string;
   /** Container image passed to remote sandbox adapters (BoxRun / Daytona /
-   *  E2B) that accept one. Default per-adapter (`node:22-slim`) when unset. */
+   *  E2B) that accept one. Default per-adapter (`ghcr.io/duyet/oma-runtime-base:latest`) when unset. */
   SANDBOX_IMAGE?: string;
   /** Kubernetes agent-sandbox namespace. When set, /v1/hosting_types
    *  advertises Kubernetes as a sandbox provider. The agent-sandbox

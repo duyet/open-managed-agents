@@ -11,21 +11,40 @@ metadata:
   name: oma-k8s-bridge
   labels:
     app: oma-k8s-bridge
+# NOTE: kept namespace-agnostic (ClusterRole) for the plain-manifest path
+# used outside Helm. Prefer charts/oma-k8s-bridge, whose rbac.yaml splits
+# this into a namespace-scoped Role (sandbox pod lifecycle) + a ClusterRole
+# (nodes/metrics/cross-namespace pod listing) for least privilege — see
+# that file's comments and docs/deploy/k8s-bridge.md#rbac-permissions for
+# the verb-by-verb justification this ruleset mirrors.
 rules:
+# Sandbox lifecycle — K8sManager.createBox creates a bare `Sandbox` custom
+# resource per session; destroyBox deletes it. No `watch`: readiness is
+# polled (waitForReady in packages/sandbox/src/adapters/kubernetes.ts).
 - apiGroups: ["agents.x-k8s.io"]
   resources: ["sandboxes"]
-  verbs: ["create", "get", "list", "watch", "delete"]
+  verbs: ["create", "get", "list", "delete"]
+# Sandbox discovery/detail — discoverSandboxes/getSandboxHealth/
+# getSandboxDetail read pods; no direct pod delete (the Sandbox controller
+# cascades pod teardown when the Sandbox object above is deleted).
 - apiGroups: [""]
   resources: ["pods"]
-  verbs: ["get", "list", "watch"]
+  verbs: ["get", "list"]
+# Command execution — KubernetesSandboxExecutor.runExec via pods/exec.
 - apiGroups: [""]
   resources: ["pods/exec"]
   verbs: ["create"]
+# Log streaming — K8sManager.getSandboxLogs.
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get"]
+# Cluster capacity reporting — getClusterInfo/getNodes/getCapacityUsage.
 - apiGroups: [""]
   resources: ["nodes"]
   verbs: ["get", "list"]
-- apiGroups: [""]
-  resources: ["namespaces"]
+# Resource usage metrics — getPodMetrics (/api/v1/sandboxes/metrics).
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["pods", "nodes"]
   verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

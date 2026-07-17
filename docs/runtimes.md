@@ -172,9 +172,9 @@ its sandboxes (`packages/sandbox/src/provider-config.ts`):
 | `subprocess` | None — trusted local dev only | N/A (runs on the host) |
 | `litebox` | Firecracker micro-VM, local | N/A (fixed rootfs) |
 | `boxrun` | Firecracker micro-VM, remote control plane | `SANDBOX_IMAGE` / provider config `image` |
-| `daytona` | Managed VM (Daytona SaaS) | provider config `image`, default `node:22-slim` |
+| `daytona` | Managed VM (Daytona SaaS) | provider config `image`, default `ghcr.io/duyet/oma-runtime-base:latest` |
 | `e2b` | Firecracker microVM (E2B SaaS) | E2B template, default `node:22-slim`-equivalent |
-| `k8s` | Pod via the agent-sandbox controller | provider config `image`, default `node:22-slim` |
+| `k8s` | Pod via the agent-sandbox controller | provider config `image`, default `ghcr.io/duyet/oma-runtime-base:latest` |
 | `cloud` | Cloudflare Containers | fixed — `ghcr.io/duyet/sandbox-base:latest` |
 | `openshell` | NVIDIA OpenShell gateway (gRPC) | provider config `image`, default `ghcr.io/nvidia/openshell-community/sandboxes/base:latest` |
 

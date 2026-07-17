@@ -124,8 +124,31 @@ export class NodeSessionRouter implements SessionRouter {
             row.agent_id,
             event as import("@duyet/oma-shared").UserMessageEvent,
           )
-          .catch((err) => {
+          .catch(async (err) => {
             moduleLog.error({ err, op: "node_session_router.harness_turn_failed", session_id: sessionId }, "harness turn failed");
+            // machine.runHarnessTurn's finally already ended the turn
+            // (status back to 'idle' via adapter.endTurn) — but that's
+            // silent to the client. Without appending session.error here,
+            // a stuck-turn watchdog timeout (issue #135) or any other
+            // harness crash logs server-side only and the SSE/poll
+            // consumer sees nothing beyond the session quietly going
+            // idle. Mirrors the CF SessionDO's error surface (session-do.ts)
+            // and triggerDebugRecovery's synthetic-event pattern above.
+            try {
+              const errLog = this.deps.newEventLog(sessionId);
+              const errorEvent = {
+                type: "session.error",
+                error: err instanceof Error ? err.message : String(err),
+              } as unknown as SessionEvent;
+              await errLog.appendAsync(errorEvent);
+              const stored = await errLog.getEventsAsync();
+              this.deps.hub.publish(sessionId, stored[stored.length - 1]);
+            } catch (publishErr) {
+              moduleLog.error(
+                { err: publishErr, op: "node_session_router.session_error_publish_failed", session_id: sessionId },
+                "failed to publish session.error after harness turn failure",
+              );
+            }
           });
       }
     }

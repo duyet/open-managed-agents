@@ -10,9 +10,9 @@
 
 export {
   buildPublicPublicationRoutes,
-  gatePublicationState,
   publicSessionCaps,
   renderChatPage,
   renderWidgetScript,
+  gatePublicationState,
 } from "@duyet/oma-http-routes";
 export type { PublicPublicationRoutesDeps } from "@duyet/oma-http-routes";

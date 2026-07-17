@@ -648,7 +648,12 @@ export class K8sManager {
     const executor: KubernetesSandboxExecutorLike = new mod.KubernetesSandboxExecutor({
       sessionId,
       namespace: options?.namespace ?? this.namespace,
-      image: options?.image ?? process.env.SANDBOX_IMAGE ?? "node:22-slim",
+      // Default matches DEFAULT_SANDBOX_IMAGE in @duyet/oma-sandbox (this
+      // CJS build can't import the raw-.ts package statically — keep the
+      // literal in lock-step). Batteries-included toolset image built from
+      // docker/base/Dockerfile; bare node:22-slim had no curl/git (issue
+      // #140).
+      image: options?.image ?? process.env.SANDBOX_IMAGE ?? "ghcr.io/duyet/oma-runtime-base:latest",
       cpu: options?.cpu ?? process.env.OMA_K8S_CPU,
       memory: options?.memory ?? process.env.OMA_K8S_MEMORY,
       runtimeClassName: options?.runtimeClassName ?? process.env.OMA_K8S_RUNTIME_CLASS,

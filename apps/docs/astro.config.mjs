@@ -88,6 +88,7 @@ export default defineConfig({
           label: 'Build with the API',
           items: [
             { label: 'REST API', slug: 'build/api' },
+            { label: 'Agent Schedules', slug: 'build/schedules' },
             { label: 'CLI & SDK', slug: 'build/cli-sdk' },
             { label: 'Skills & Tools', slug: 'build/skills-and-tools' },
             { label: 'Vault & MCP', slug: 'build/vault-and-mcp' },
