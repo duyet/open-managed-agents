@@ -1,5 +1,11 @@
 # @duyet/oma-cli
 
+## 0.8.0
+
+### Minor Changes
+
+- beec4d2: Add `oma schedules create|list|run|delete` commands for managing agent schedules (cron-fired sessions).
+
 ## 0.7.1
 
 ### Patch Changes
