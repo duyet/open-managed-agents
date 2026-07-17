@@ -38,6 +38,12 @@ export interface WebhookHandlers {
   linear?: WebhookHandler | null;
   github?: WebhookHandler | null;
   slack?: WebhookHandler | null;
+  /** Handler for the ONE shared managed GitHub App's webhook URL
+   *  (`POST /github/webhook/managed`) — wired to
+   *  `GitHubProvider.handleManagedWebhook`, distinct from `github` (which
+   *  wires `handleWebhook`, the per-App-id BYOA route). Null/undefined
+   *  when no managed App is configured skips mounting the route. */
+  githubManaged?: WebhookHandler | null;
 }
 
 /** Per-tenant rate-limit hook (CF wires the binding; Node soft-passes). */
@@ -420,6 +426,9 @@ export function buildIntegrationsGatewayRoutes(deps: IntegrationsGatewayDeps) {
   // injected webhook closure. Always returns 200 (provider contract).
   if (deps.webhooks.linear) mountLinearWebhook(app, deps.webhooks.linear, deps.rateLimit);
   if (deps.webhooks.github) mountGithubWebhook(app, deps.webhooks.github, deps.rateLimit);
+  if (deps.webhooks.githubManaged) {
+    mountGithubManagedWebhook(app, deps.webhooks.githubManaged, deps.rateLimit);
+  }
   if (deps.webhooks.slack) mountSlackWebhook(app, deps.webhooks.slack, deps.rateLimit);
 
   // ─── Linear MCP ──────────────────────────────────────────────────────
@@ -455,6 +464,39 @@ function mountLinearWebhook(
       // call site across the three providers, which is outside the scope
       // of this refactor.
       installationId: pubId ?? null,
+      deliveryId,
+      headers,
+      rawBody,
+    });
+    if (outcome.tenantId && rl?.shouldDropForTenant) {
+      await rl.shouldDropForTenant(outcome.tenantId);
+    }
+    return c.json({ ok: outcome.handled, reason: outcome.reason ?? null }, 200);
+  });
+}
+
+/**
+ * Stable webhook URL for the ONE shared managed GitHub App
+ * (`GITHUB_MANAGED_*` env config) — configure github.com's App webhook URL
+ * as `<gateway-origin>/github/webhook/managed`. Unlike the per-App route
+ * above there's no per-publication id in the path (a managed App has
+ * exactly one webhook URL regardless of how many publications install
+ * it); `GitHubProvider.handleManagedWebhook` resolves the publication
+ * from the payload's `installation.id` instead.
+ */
+function mountGithubManagedWebhook(
+  app: Hono,
+  handler: WebhookHandler,
+  rl: RateLimitHooks | undefined,
+) {
+  app.post("/github/webhook/managed", async (c) => {
+    const rawBody = await c.req.raw.text();
+    const headers: Record<string, string> = {};
+    c.req.raw.headers.forEach((value, key) => (headers[key.toLowerCase()] = value));
+    const deliveryId = headers["x-github-delivery"] ?? null;
+    const outcome = await handler({
+      providerId: "github",
+      installationId: null,
       deliveryId,
       headers,
       rawBody,

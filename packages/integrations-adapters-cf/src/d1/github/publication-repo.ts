@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import {
   asBuilder,
   getAll,
@@ -7,7 +7,7 @@ import {
   type OmaDbBuilder,
   runOnce,
 } from "@duyet/oma-db-schema";
-import { github_publications } from "@duyet/oma-db-schema/cf-integrations";
+import { github_installations, github_publications } from "@duyet/oma-db-schema/cf-integrations";
 import type {
   CapabilityKey,
   CapabilitySet,
@@ -352,6 +352,56 @@ export class SqlGitHubPublicationRepo implements GitHubPublicationRepo {
         .select()
         .from(github_publications)
         .where(eq(github_publications.app_oma_id, appOmaId))
+        .limit(1),
+    );
+    return row ? this.toDomain(row) : null;
+  }
+
+  async findByInstallationId(githubInstallationId: string): Promise<Publication | null> {
+    // github_publications.installation_id references the OMA-internal
+    // github_installations.id, not GitHub's own numeric installation id —
+    // join through github_installations.workspace_id (which stores that
+    // numeric id) to find the owning publication.
+    const row = await getOne<typeof github_publications.$inferSelect>(
+      this.db
+        .select({
+          id: github_publications.id,
+          tenant_id: github_publications.tenant_id,
+          user_id: github_publications.user_id,
+          agent_id: github_publications.agent_id,
+          installation_id: github_publications.installation_id,
+          mode: github_publications.mode,
+          status: github_publications.status,
+          persona_name: github_publications.persona_name,
+          persona_avatar_url: github_publications.persona_avatar_url,
+          capabilities: github_publications.capabilities,
+          session_granularity: github_publications.session_granularity,
+          created_at: github_publications.created_at,
+          unpublished_at: github_publications.unpublished_at,
+          environment_id: github_publications.environment_id,
+          app_oma_id: github_publications.app_oma_id,
+          client_id: github_publications.client_id,
+          client_secret_cipher: github_publications.client_secret_cipher,
+          app_id: github_publications.app_id,
+          app_slug: github_publications.app_slug,
+          bot_login: github_publications.bot_login,
+          webhook_secret_cipher: github_publications.webhook_secret_cipher,
+          private_key_cipher: github_publications.private_key_cipher,
+          vault_id: github_publications.vault_id,
+          trigger_label: github_publications.trigger_label,
+        })
+        .from(github_publications)
+        .innerJoin(
+          github_installations,
+          eq(github_installations.id, github_publications.installation_id),
+        )
+        .where(
+          and(
+            eq(github_installations.provider_id, "github"),
+            eq(github_installations.workspace_id, githubInstallationId),
+            isNull(github_installations.revoked_at),
+          ),
+        )
         .limit(1),
     );
     return row ? this.toDomain(row) : null;

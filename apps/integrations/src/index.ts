@@ -171,6 +171,7 @@ app.use("*", async (c, next) => {
     webhooks: {
       linear: (req) => providers.linear.handleWebhook(req),
       github: (req) => providers.github.handleWebhook(req),
+      githubManaged: (req) => providers.github.handleManagedWebhook(req),
       slack: (req) => providers.slack.handleWebhook(req),
     },
     internalSecret: env.INTEGRATIONS_INTERNAL_SECRET ?? null,

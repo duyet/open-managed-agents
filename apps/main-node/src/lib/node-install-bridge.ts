@@ -128,6 +128,18 @@ export interface NodeInstallBridgeOpts {
 export class NodeInstallBridge implements InstallBridge {
   constructor(private readonly opts: NodeInstallBridgeOpts) {}
 
+  /** Read-only view of the managed-App configs this bridge was constructed
+   *  with — `buildNodeProvidersForRequest` (a free function, not a method)
+   *  needs these to wire `startManagedInstall`/`handleManagedWebhook`
+   *  support into per-request provider instances. */
+  get managedAppConfigs() {
+    return {
+      slack: this.opts.slackManagedApp ?? null,
+      github: this.opts.githubManagedApp ?? null,
+      linear: this.opts.linearManagedApp ?? null,
+    };
+  }
+
   async continueInstall(args: ContinueInstallArgs): Promise<ContinueInstallResult> {
     const containers = this.buildContainers();
     const { jwt } = containers.linear;
@@ -807,17 +819,20 @@ export function buildNodeProvidersForRequest(
       gatewayOrigin,
       scopes: DEFAULT_LINEAR_SCOPES,
       defaultCapabilities: ALL_LINEAR_CAPS,
+      managedApp: bridge.managedAppConfigs.linear,
     }),
     github: new GitHubProvider(containers.github, {
       gatewayOrigin,
       defaultCapabilities: DEFAULT_GITHUB_CAPABILITIES,
       mcpServerUrl: DEFAULT_GITHUB_MCP_URL,
+      managedApp: bridge.managedAppConfigs.github,
     }),
     slack: new SlackProvider(containers.slack, {
       gatewayOrigin,
       botScopes: DEFAULT_SLACK_BOT_SCOPES,
       userScopes: DEFAULT_SLACK_USER_SCOPES,
       defaultCapabilities: ALL_SLACK_CAPABILITIES,
+      managedApp: bridge.managedAppConfigs.slack,
     }),
   };
 }

@@ -1772,6 +1772,8 @@ if (installBridge) {
       webhooks: {
         linear: (req) => buildNodeProvidersForRequest(installBridge!, gatewayOrigin).linear.handleWebhook(req),
         github: (req) => buildNodeProvidersForRequest(installBridge!, gatewayOrigin).github.handleWebhook(req),
+        githubManaged: (req) =>
+          buildNodeProvidersForRequest(installBridge!, gatewayOrigin).github.handleManagedWebhook(req),
         slack: (req) => buildNodeProvidersForRequest(installBridge!, gatewayOrigin).slack.handleWebhook(req),
       },
       internalSecret: integrationsInternalToken,

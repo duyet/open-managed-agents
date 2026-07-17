@@ -116,6 +116,15 @@ export interface Env {
   // github.com/settings/apps/<slug> → General (App ID / App slug / bot
   // login are the app's own identity) and Private keys / Webhook secret
   // (the PEM and secret you generate there).
+  //
+  // IMPORTANT: configure this App's webhook URL on github.com as
+  // `<gateway-origin>/github/webhook/managed` — NOT the per-App
+  // `/github/webhook/app/<appOmaId>` path BYOA Apps use. A managed App has
+  // one shared identity but many publications install it, each minting its
+  // own appOmaId; the per-App path only delivers events to whichever
+  // publication's id happens to be baked into the URL, leaving the rest
+  // deaf. The `/managed` route resolves the publication from the payload's
+  // `installation.id` instead, so it works for every managed install.
   GITHUB_MANAGED_APP_ID?: string;
   GITHUB_MANAGED_APP_SLUG?: string;
   GITHUB_MANAGED_BOT_LOGIN?: string;

@@ -211,6 +211,16 @@ export class InMemoryGitHubPublicationRepo
     return null;
   }
 
+  /** Test-fake equivalent of the D1 join: matches whatever installation id
+   *  bindInstallation recorded (tests stand in GitHub's numeric id
+   *  directly, unlike prod which joins through github_installations). */
+  async findByInstallationId(githubInstallationId: string): Promise<Publication | null> {
+    for (const [pubId, bound] of this.boundInstallations.entries()) {
+      if (bound.installationId === githubInstallationId) return this.get(pubId);
+    }
+    return null;
+  }
+
   private triggerLabels = new Map<string, string>();
 
   async getTriggerLabel(publicationId: string): Promise<string | null> {

@@ -133,6 +133,20 @@ export interface GitHubPublicationRepo extends PublicationRepo {
   findByAppOmaId(appOmaId: string): Promise<Publication | null>;
 
   /**
+   * Lookup by GitHub's own numeric installation id (the `installation.id`
+   * field in every webhook payload) rather than our OMA-internal
+   * `app_oma_id`. Needed for the shared managed-App webhook route
+   * (`POST /github/webhook/managed`): a managed App has exactly ONE
+   * webhook URL configured on github.com regardless of how many
+   * publications install it, so there's no per-App id in the path to
+   * resolve the publication from — the payload's installation id is all
+   * we get. Implementations join github_installations.workspace_id (which
+   * stores this same numeric id) back to the owning publication via
+   * github_publications.installation_id.
+   */
+  findByInstallationId(githubInstallationId: string): Promise<Publication | null>;
+
+  /**
    * Read the trigger label for label-based engagement. Returns the
    * `trigger_label` column verbatim — caller is responsible for empty-string
    * / null disambiguation. The provider uses this in the webhook parser

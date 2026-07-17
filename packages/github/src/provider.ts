@@ -1018,6 +1018,81 @@ export class GitHubProvider implements IntegrationProvider {
       return { handled: false, reason: "no_live_publication" };
     }
 
+    return this.dispatchWebhookForPublication(req, publication, webhookSecret, tenantId ?? "");
+  }
+
+  /**
+   * Webhook receiver for the ONE shared managed GitHub App
+   * (`POST /github/webhook/managed`). A managed App has a single webhook
+   * URL configured on github.com regardless of how many publications
+   * install it, so — unlike the per-App route above — there is no
+   * app-scoped id in the path to resolve the publication from. Instead we
+   * verify HMAC with the shared `GITHUB_MANAGED_WEBHOOK_SECRET`, parse the
+   * payload's `installation.id`, and resolve the publication via
+   * `findByInstallationId` (joins github_installations.workspace_id, which
+   * holds GitHub's numeric installation id, back to the owning
+   * publication). Everything past that point — idempotency, event
+   * parsing, dispatch — is identical to the per-App path.
+   */
+  async handleManagedWebhook(req: WebhookRequest): Promise<WebhookOutcome> {
+    if (!req.deliveryId) {
+      return { handled: false, reason: "missing_delivery_id" };
+    }
+    const managedApp = this.config.managedApp;
+    if (!managedApp) {
+      return { handled: false, reason: "managed_app_not_configured" };
+    }
+
+    // Verify HMAC up front with the shared managed-App secret — the
+    // installation.id in the body isn't trustworthy until we know the
+    // request actually came from GitHub.
+    const sigHeader =
+      req.headers["x-hub-signature-256"] ?? req.headers["X-Hub-Signature-256"] ?? "";
+    if (!sigHeader.startsWith("sha256=")) {
+      return { handled: false, reason: "missing_or_malformed_signature" };
+    }
+    const sigHex = sigHeader.slice("sha256=".length);
+    const ok = await this.container.hmac.verify(managedApp.webhookSecret, req.rawBody, sigHex);
+    if (!ok) return { handled: false, reason: "invalid_signature" };
+
+    let installationId: string | null = null;
+    try {
+      const raw = JSON.parse(req.rawBody) as { installation?: { id?: number | string } };
+      installationId = raw.installation?.id != null ? String(raw.installation.id) : null;
+    } catch {
+      return { handled: false, reason: "invalid_json" };
+    }
+    if (!installationId) {
+      return { handled: false, reason: "missing_installation_id" };
+    }
+
+    const publication = await this.container.publications.findByInstallationId(installationId);
+    if (!publication) {
+      return { handled: false, reason: "unknown_installation" };
+    }
+    if (publication.status !== "live") {
+      return { handled: false, reason: "no_live_publication" };
+    }
+
+    return this.dispatchWebhookForPublication(
+      req,
+      publication,
+      managedApp.webhookSecret,
+      publication.tenantId,
+    );
+  }
+
+  /**
+   * Shared tail of both webhook entry points once the publication +
+   * webhook secret + tenant are resolved: HMAC verify, idempotency,
+   * payload parse, and dispatch.
+   */
+  private async dispatchWebhookForPublication(
+    req: WebhookRequest,
+    publication: Publication,
+    webhookSecret: string,
+    tenantId: string,
+  ): Promise<WebhookOutcome> {
     // Verify HMAC. GitHub sends `sha256=<hex>` in `x-hub-signature-256`.
     const sigHeader =
       req.headers["x-hub-signature-256"] ?? req.headers["X-Hub-Signature-256"] ?? "";
@@ -1030,8 +1105,8 @@ export class GitHubProvider implements IntegrationProvider {
 
     // Idempotency: refuse to dispatch the same delivery twice.
     const fresh = await this.container.webhookEvents.recordIfNew(
-      req.deliveryId,
-      tenantId ?? "",
+      req.deliveryId!,
+      tenantId,
       publication.id, // stash publicationId here for traceability
       req.headers["x-github-event"] ?? "unknown",
       this.container.clock.nowMs(),
@@ -1042,23 +1117,23 @@ export class GitHubProvider implements IntegrationProvider {
     try {
       raw = JSON.parse(req.rawBody) as RawWebhookEnvelope;
     } catch {
-      await this.container.webhookEvents.attachError(req.deliveryId, "invalid_json");
+      await this.container.webhookEvents.attachError(req.deliveryId!, "invalid_json");
       return { handled: false, reason: "invalid_json" };
     }
     const event = parseWebhook({
       eventType: req.headers["x-github-event"] ?? "",
-      deliveryId: req.deliveryId,
+      deliveryId: req.deliveryId!,
       raw,
-      botLogin: await this.botLoginFor(publication, appOmaId),
+      botLogin: await this.botLoginFor(publication),
       triggerLabel: await this.container.publications.getTriggerLabel(publication.id),
     });
     if (!event) {
-      await this.container.webhookEvents.attachError(req.deliveryId, "unparseable");
+      await this.container.webhookEvents.attachError(req.deliveryId!, "unparseable");
       return { handled: false, reason: "unparseable" };
     }
 
     await this.container.webhookEvents.attachPublication(
-      req.deliveryId,
+      req.deliveryId!,
       publication.id,
     );
 
@@ -1096,7 +1171,7 @@ export class GitHubProvider implements IntegrationProvider {
       // a sibling webhook). Acknowledge to GitHub but report not_handled.
       return { handled: false, reason: "race_lost_to_concurrent_create" };
     }
-    await this.container.webhookEvents.attachSession(req.deliveryId, sessionId);
+    await this.container.webhookEvents.attachSession(req.deliveryId!, sessionId);
 
     return {
       handled: true,
@@ -1112,13 +1187,11 @@ export class GitHubProvider implements IntegrationProvider {
    * credential state if present (publication-first path); falls back to
    * the legacy github_apps row otherwise.
    */
-  private async botLoginFor(
-    publication: Publication,
-    appOmaId: string,
-  ): Promise<string> {
+  private async botLoginFor(publication: Publication): Promise<string> {
     const state = await this.container.publications.getCredentialState(publication.id);
     if (state?.botLogin) return state.botLogin;
-    const app = await this.container.githubApps.get(appOmaId);
+    if (!state?.appOmaId) return "";
+    const app = await this.container.githubApps.get(state.appOmaId);
     return app?.botLogin ?? "";
   }
 

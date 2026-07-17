@@ -40,6 +40,14 @@ export interface GitHubConfig {
    * since the managed flow doesn't require OAuth-as-user-auth for the
    * installation-token flow. When absent, `startManagedInstall` throws —
    * deployments without a managed App only get the manifest/BYOA wizard.
+   *
+   * IMPORTANT — webhook URL: this shared App has exactly ONE webhook URL
+   * configured on github.com, regardless of how many publications install
+   * it. Configure it as `<gateway-origin>/github/webhook/managed` (NOT the
+   * per-App `/github/webhook/app/<appOmaId>` path BYOA Apps use — that path
+   * is keyed on a per-publication id and only the publication whose id
+   * happens to match would receive events). `handleManagedWebhook` resolves
+   * the publication from the payload's `installation.id` instead.
    */
   managedApp?: {
     appId: string;
