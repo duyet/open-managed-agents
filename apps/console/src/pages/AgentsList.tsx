@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { ArchiveIcon, TrashIcon } from "lucide-react";
+import { toast } from "sonner";
+import {
+  ArchiveIcon,
+  CopyIcon,
+  MessageSquareIcon,
+  PencilIcon,
+  RocketIcon,
+  ListIcon,
+  TrashIcon,
+} from "lucide-react";
 
 import { useApi } from "../lib/api";
 import { useInfiniteApiQuery } from "../lib/useApiQuery";
@@ -12,6 +21,8 @@ import { useConfirm } from "@/hooks/useConfirm";
 import type { ModelCard } from "@duyet/oma-api-types";
 import type { AgentRecord as Agent } from "../types/agent";
 import { AgentFormDialog } from "./agents/AgentFormDialog";
+import { AgentEditDialog } from "./agents/AgentEditDialog";
+import { PublishAgentDialog } from "./agents/PublishAgentDialog";
 
 type Runtime = {
   id: string;
@@ -52,6 +63,8 @@ export function AgentsList() {
   const [runtimes, setRuntimes] = useState<Runtime[]>([]);
   const [, setAuxLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [editAgent, setEditAgent] = useState<Agent | null>(null);
+  const [publishAgent, setPublishAgent] = useState<Agent | null>(null);
   const confirm = useConfirm();
 
   // Server-driven filter state. Each piece flows into agentsParams below
@@ -139,6 +152,28 @@ export function AgentsList() {
 
   const modelStr = (m: Agent["model"]) => (typeof m === "string" ? m : m?.id || "");
 
+  const duplicateAgent = async (a: Agent) => {
+    try {
+      const created = await api<Agent>("/v1/agents", {
+        method: "POST",
+        body: JSON.stringify({
+          name: `${a.name} (copy)`,
+          model: a.model,
+          system: a.system ?? "",
+          description: a.description,
+          tools: a.tools,
+          mcp_servers: a.mcp_servers,
+          skills: a.skills,
+          multiagent: a.multiagent,
+        }),
+      });
+      toast.success(`Duplicated as "${created.name}"`);
+      refreshAgents();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to duplicate agent");
+    }
+  };
+
   // TanStack column defs. Order, filtering, and search all flow through
   // server params now — no per-column sort/filter UI. Required columns
   // (id, name) opt out of the Columns hide menu so the user can't end
@@ -208,10 +243,53 @@ export function AgentsList() {
               label={`Actions for ${a.name}`}
               actions={[
                 {
+                  label: "Open chat",
+                  icon: <MessageSquareIcon className="size-4" />,
+                  onSelect: () => nav(`/publish/${a.id}`),
+                },
+                {
+                  label: "View sessions",
+                  icon: <ListIcon className="size-4" />,
+                  onSelect: () => nav(`/agents/${a.id}/sessions`),
+                },
+                {
+                  label: "Edit",
+                  icon: <PencilIcon className="size-4" />,
+                  onSelect: () => setEditAgent(a),
+                },
+                {
+                  label: "Duplicate",
+                  icon: <CopyIcon className="size-4" />,
+                  onSelect: () => duplicateAgent(a),
+                },
+                {
+                  label: "Copy agent ID",
+                  icon: <CopyIcon className="size-4" />,
+                  onSelect: () => {
+                    navigator.clipboard.writeText(a.id);
+                    toast.success("Copied agent ID");
+                  },
+                },
+                {
+                  label: "Publish…",
+                  icon: <RocketIcon className="size-4" />,
+                  onSelect: () => setPublishAgent(a),
+                },
+                {
                   label: archived ? "Unarchive" : "Archive",
                   icon: <ArchiveIcon className="size-4" />,
                   disabled: archived,
+                  destructive: true,
                   onSelect: async () => {
+                    if (
+                      !(await confirm({
+                        title: `Archive ${a.name}?`,
+                        description: "The agent will be hidden from active lists. Existing sessions keep working.",
+                        confirmLabel: "Archive",
+                        destructive: true,
+                      }))
+                    )
+                      return;
                     try {
                       await api(`/v1/agents/${a.id}/archive`, {
                         method: "POST",
@@ -249,7 +327,7 @@ export function AgentsList() {
         size: 56,
       },
     ],
-    [api, refreshAgents, confirm],
+    [api, refreshAgents, confirm, nav, duplicateAgent],
   );
 
   const filters = (
@@ -316,6 +394,25 @@ export function AgentsList() {
         modelCards={modelCards}
         runtimes={runtimes}
       />
+      {editAgent && (
+        <AgentEditDialog
+          open={!!editAgent}
+          onClose={() => setEditAgent(null)}
+          agent={editAgent}
+          onSaved={() => {
+            setEditAgent(null);
+            refreshAgents();
+          }}
+        />
+      )}
+      {publishAgent && (
+        <PublishAgentDialog
+          open={!!publishAgent}
+          onClose={() => setPublishAgent(null)}
+          agent={publishAgent}
+          onPublished={() => setPublishAgent(null)}
+        />
+      )}
     </DataTable>
   );
 }
