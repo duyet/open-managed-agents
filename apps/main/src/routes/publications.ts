@@ -10,6 +10,7 @@
 
 export {
   buildPublicPublicationRoutes,
+  gatePublicationState,
   publicSessionCaps,
   renderChatPage,
   renderWidgetScript,

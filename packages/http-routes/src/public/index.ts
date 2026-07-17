@@ -6,6 +6,7 @@
 
 export {
   buildPublicPublicationRoutes,
+  gatePublicationState,
   publicSessionCaps,
   renderChatPage,
   renderWidgetScript,
@@ -21,6 +22,8 @@ export {
   createSqlConsumerAuthStore,
   magicLinkEmailHtml,
   magicLinkEmailText,
+  magicLinkVerifyUrl,
+  verifyMagicLinkToken,
   MAGIC_LINK_EMAIL_SUBJECT,
 } from "./consumer-auth";
 export type {
@@ -28,4 +31,7 @@ export type {
   ConsumerAuthStore,
   ConsumerAuthEmail,
   ConsumerSessionRow,
+  VerifyMagicLinkOk,
+  VerifyMagicLinkErr,
+  VerifyMagicLinkResult,
 } from "./consumer-auth";

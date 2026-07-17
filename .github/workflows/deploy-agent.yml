@@ -59,6 +59,14 @@ jobs:
           workingDirectory: apps/agent
           command: deploy --env production
 
+      # No post-deploy /health curl here: this worker (oma-sandbox-default)
+      # has no custom-domain route — apps/agent/wrangler.jsonc sets no
+      # `routes` at the top level or in the production/staging env
+      # overlays. It's reached only via service binding from the main
+      # worker (INTEGRATIONS / MAIN_MCP), never a public URL, so there's
+      # no endpoint to smoke-test directly. See #244 / deploy-main.yml for
+      # the main worker's post-deploy /health assert.
+
       - name: Healthchecks — success
         if: success() && vars.HEALTHCHECKS_IO_URL != ''
         run: |

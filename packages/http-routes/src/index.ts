@@ -74,6 +74,7 @@ export type {
 // session/message pass-throughs, shared by both runtimes.
 export {
   buildPublicPublicationRoutes,
+  gatePublicationState,
   publicSessionCaps,
   renderChatPage,
   renderWidgetScript,
@@ -81,6 +82,8 @@ export {
   createSqlConsumerAuthStore,
   magicLinkEmailHtml,
   magicLinkEmailText,
+  magicLinkVerifyUrl,
+  verifyMagicLinkToken,
   MAGIC_LINK_EMAIL_SUBJECT,
 } from "./public";
 export type {
@@ -91,6 +94,9 @@ export type {
   ConsumerAuthStore,
   ConsumerAuthEmail,
   ConsumerSessionRow,
+  VerifyMagicLinkOk,
+  VerifyMagicLinkErr,
+  VerifyMagicLinkResult,
 } from "./public";
 
 export { buildIntegrationsRoutes } from "./integrations";

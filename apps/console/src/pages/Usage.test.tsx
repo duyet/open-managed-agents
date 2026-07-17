@@ -21,26 +21,48 @@ function renderPage() {
 }
 
 const fullUsage = {
+  period: { days: 0, since: null },
   total_active_seconds: 4 * 3600 + 32 * 60, // 4h 32m
   total_sessions: 12,
   by_kind: [
-    { kind: "sandbox_active_seconds", total_seconds: 4 * 3600 + 32 * 60 },
-    { kind: "model_input_tokens", total_seconds: 105000 },
-    { kind: "model_output_tokens", total_seconds: 7500 },
+    { kind: "sandbox_active_seconds", total: 4 * 3600 + 32 * 60 },
+    { kind: "model_input_tokens", total: 105000 },
+    { kind: "model_output_tokens", total: 7500 },
   ],
   by_instance_type: [{ instance_type: "standard-1", total_seconds: 3600 }],
   daily: [
     { date: "2026-07-15", active_seconds: 600, runs: 2 },
     { date: "2026-07-16", active_seconds: 1200, runs: 3 },
   ],
+  by_agent: [
+    {
+      agent_id: "agent_1",
+      agent_name: "Research Bot",
+      total_active_seconds: 3600,
+      total_sessions: 8,
+      by_kind: [
+        { kind: "model_input_tokens", total: 80000 },
+        { kind: "model_output_tokens", total: 6000 },
+      ],
+    },
+    {
+      agent_id: null,
+      agent_name: null,
+      total_active_seconds: 1920,
+      total_sessions: 4,
+      by_kind: [{ kind: "model_input_tokens", total: 25000 }],
+    },
+  ],
 };
 
 const emptyUsage = {
+  period: { days: 0, since: null },
   total_active_seconds: 0,
   total_sessions: 0,
   by_kind: [],
   by_instance_type: [],
   daily: [],
+  by_agent: [],
 };
 
 const fullCostReport = {
@@ -77,8 +99,32 @@ describe("<Usage />", () => {
     expect(screen.getByText("By sandbox instance type")).toBeInTheDocument();
     expect(screen.getByText("standard-1")).toBeInTheDocument();
 
+    expect(screen.getByText("By agent")).toBeInTheDocument();
+    expect(screen.getByText("Research Bot")).toBeInTheDocument();
+    expect(screen.getByText("Unattributed")).toBeInTheDocument();
+    expect(screen.getByText("80K")).toBeInTheDocument(); // agent_1 tokens in
+    expect(screen.getByText("25K")).toBeInTheDocument(); // unattributed tokens in
+
     expect(await screen.findByText("$5.12")).toBeInTheDocument();
     expect(screen.getByText("Workers")).toBeInTheDocument();
+  });
+
+  // #231 — the "All time" tiles must stay genuinely all-time now that the
+  // server defaults ?days= to 30, and the per-agent table needs group_by.
+  it("requests /v1/usage with days=0 and group_by=agent", async () => {
+    let lastParams: URLSearchParams | null = null;
+    server.use(
+      http.get("/v1/usage", ({ request }) => {
+        lastParams = new URL(request.url).searchParams;
+        return HttpResponse.json(fullUsage);
+      }),
+      http.get("/v1/cost_report", () => HttpResponse.json(fullCostReport)),
+    );
+    renderPage();
+
+    await screen.findByText("All time");
+    expect(lastParams!.get("days")).toBe("0");
+    expect(lastParams!.get("group_by")).toBe("agent");
   });
 
   // A failed /v1/usage fetch must render the error+Retry state, never the

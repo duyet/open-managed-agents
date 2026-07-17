@@ -445,6 +445,10 @@ export async function createInternalSession(
       agent_snapshot: agentSnapshot,
       environment_snapshot: toEnvironmentConfig(envRow),
       vault_credentials: vaultCredentials,
+      // Mirror the row's final metadata (post-Linear augmentation, if any)
+      // into DO state (issue #222) — see SessionInitParams.metadata in
+      // apps/agent/src/runtime/session-do.ts.
+      metadata: sessionMetadata,
       // Generic event hooks. Per-provider consumers live behind these URLs;
       // SessionDO POSTs every broadcast to each one. Provider-specific
       // translation (e.g. Linear AgentActivity mirror) happens at the

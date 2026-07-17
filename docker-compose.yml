@@ -85,10 +85,17 @@ services:
       dockerfile: apps/oma-vault/Dockerfile
     image: oma/oma-vault:dev
     container_name: oma-vault
+    env_file:
+      - path: ./.env
+        required: false
     environment:
       DATABASE_PATH: /app/data/oma.db
       OMA_VAULT_CA_DIR: /app/data/oma-vault-ca
       OMA_VAULT_PORT: "14322"
+      # Must match oma-server's value — credentials.auth is encrypted at
+      # rest under this secret (issue #187) and the proxy decrypts rows to
+      # inject outbound Authorization headers. Refuses to start unset.
+      PLATFORM_ROOT_SECRET: ${PLATFORM_ROOT_SECRET:-}
       # Tenant scope. Default "*" matches active credentials across ALL
       # tenants by hostname — fine for single-operator self-host (every
       # vault belongs to "me"), unsafe for shared multi-tenant deploys

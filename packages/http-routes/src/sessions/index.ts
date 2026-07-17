@@ -312,6 +312,7 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
       environment?: string | { id: string };
       title?: string;
       vault_ids?: string[];
+      metadata?: Record<string, unknown>;
       resources?: Array<{
         type: "file" | "memory_store" | "github_repository" | "github_repo" | "env" | "env_secret";
         file_id?: string;
@@ -332,6 +333,21 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
     const wrappedEnv =
       typeof body.environment === "string" ? body.environment : body.environment?.id;
     if (!agentId) return c.json({ error: "agent is required" }, 400);
+
+    // metadata: optional plain-object bag stamped onto the session row at
+    // create (issue #252). Publication session-create forwards
+    // publication_id/end_user_id here — dropping it silently breaks the
+    // per_1k_tokens post-turn debit (no wallet resolves) and notify webhook
+    // envelopes. Same shape the POST /:id update route accepts.
+    if (
+      body.metadata !== undefined &&
+      (body.metadata === null ||
+        typeof body.metadata !== "object" ||
+        Array.isArray(body.metadata))
+    ) {
+      return c.json({ error: "metadata must be a plain object" }, 400);
+    }
+    const metadata = body.metadata;
 
     const memCount = (body.resources ?? []).filter((r) => r.type === "memory_store").length;
     if (memCount > 8) {
@@ -461,6 +477,7 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
         vaultIds,
         agentSnapshot: agentSnapshot as AgentConfig,
         environmentSnapshot: envSnap ?? undefined,
+        metadata,
         resources: nonFileInputs as never,
       });
       session = result.session;
@@ -481,6 +498,9 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
       environmentSnapshot: envSnap ?? undefined,
       vaultCredentials: vaultCreds,
       initEvents: refreshEvents,
+      // Mirror whatever metadata ended up on the just-created row into DO
+      // state (issue #222) — see SessionInitParams.metadata.
+      metadata: session.metadata ?? undefined,
     };
     await router.init(sessionId, initParams).catch((err) => {
       console.warn(`[sessions] router.init failed for ${sessionId}:`, err);
@@ -936,7 +956,7 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
     });
     if (!sess) return c.json({ error: "Session not found" }, 404);
     try {
-      const trajectory = await router.getTrajectory(sess as never, {
+      const trajectory = (await router.getTrajectory(sess as never, {
         fetchEnvironmentConfig: () =>
           deps.loadEnvironment
             ? deps.loadEnvironment({
@@ -944,7 +964,19 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
                 environmentId: (sess as unknown as { environment_id: string }).environment_id,
               })
             : Promise.resolve(null),
-      });
+      })) as { agent_config?: AgentConfig } & Record<string, unknown>;
+      // buildTrajectory (packages/eval-core) embeds session.agent_snapshot
+      // verbatim as agent_config — including the real mcp_servers[].
+      // authorization_token — because eval-core is framework-agnostic and
+      // has no HTTP boundary of its own. This route is the client-facing
+      // seam, so redact here the same way the session GET route does
+      // (issue #223 / mcp-server-redaction.ts).
+      if (trajectory.agent_config) {
+        trajectory.agent_config = {
+          ...trajectory.agent_config,
+          mcp_servers: redactMcpServers(trajectory.agent_config.mcp_servers),
+        };
+      }
       return c.json(trajectory);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

@@ -32,6 +32,15 @@ const consumerSchema = z.object({
   name: z.string().min(1).max(100).optional(),
 });
 
+// Magic-link requests may optionally carry the originating bot's slug so
+// the clickable email link can bounce the visitor back to /p/<slug> after
+// verifying (issue #215). The token itself isn't scoped to any one
+// publication — slug is purely a UX hint for the landing page — so it's
+// kept out of the shared `consumerSchema` (also used by /auth/upgrade).
+const magicLinkRequestSchema = consumerSchema.extend({
+  slug: z.string().min(1).max(200).optional(),
+});
+
 const MAGIC_LINK_EXPIRY = 15 * 60 * 1000;
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -184,23 +193,43 @@ export function createSqlConsumerAuthStore(sql: SqlClient): ConsumerAuthStore {
 /** Subject line for the magic-link email. */
 export const MAGIC_LINK_EMAIL_SUBJECT = "Your sign-in code — oma";
 
-/** Transactional email body for a consumer magic-link (issue #162). No
- *  clickable callback page exists yet for the public chat surface, so the
- *  token is presented as a copyable sign-in code — the recipient (or the
- *  publication's UI, once built) submits it to POST /v1/public/auth/verify. */
-export function magicLinkEmailHtml(token: string): string {
+/** Absolute URL for the clickable magic-link landing page (issue #215,
+ *  GET /p/auth/verify in ./publications.ts). `slug` bounces the visitor back
+ *  to the right bot once the token is exchanged. */
+export function magicLinkVerifyUrl(base: string, token: string, slug: string): string {
+  return `${base.replace(/\/$/, "")}/p/auth/verify?token=${encodeURIComponent(token)}&slug=${encodeURIComponent(slug)}`;
+}
+
+/** Transactional email body for a consumer magic-link (issue #162, updated
+ *  #215). When `verifyUrl` is available (the request named the bot's slug)
+ *  the email leads with a clickable "Sign in" link that lands on
+ *  GET /p/auth/verify and exchanges the token automatically; the raw code
+ *  always stays too as copy-paste fallback text. */
+export function magicLinkEmailHtml(token: string, verifyUrl?: string): string {
+  const heading = verifyUrl ? "Your sign-in link" : "Your sign-in code";
+  const linkHtml = verifyUrl
+    ? [
+        `<p style="margin:0 0 20px"><a href="${verifyUrl.replace(/&/g, "&amp;")}" style="display:inline-block;background:#5b5bd6;color:#fff;text-decoration:none;font-weight:bold;padding:10px 20px;border-radius:8px">Sign in</a></p>`,
+        '<p style="color:#666;font-size:13px;margin:0 0 4px">Or use this code if the button doesn\'t work:</p>',
+      ].join("")
+    : "";
   return [
     '<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:32px">',
-    '<h2 style="margin:0 0 16px">Your sign-in code</h2>',
+    `<h2 style="margin:0 0 16px">${heading}</h2>`,
+    linkHtml,
     `<p style="font-size:16px;letter-spacing:1px;font-weight:bold;margin:24px 0;word-break:break-all">${token}</p>`,
     '<p style="color:#666;font-size:14px">This code expires in 15 minutes. If you did not request this, ignore this email.</p>',
     "</div>",
   ].join("");
 }
 
-/** Plain-text fallback body for the magic-link email. */
-export function magicLinkEmailText(token: string): string {
-  return `Your sign-in code: ${token} (expires in 15 minutes)`;
+/** Plain-text fallback body for the magic-link email. Leads with the
+ *  clickable link when the request named a slug (issue #215), else the
+ *  copyable code alone. */
+export function magicLinkEmailText(token: string, verifyUrl?: string): string {
+  return verifyUrl
+    ? `Sign in: ${verifyUrl}\n\nOr use this code: ${token} (expires in 15 minutes)`
+    : `Your sign-in code: ${token} (expires in 15 minutes)`;
 }
 
 export interface ConsumerAuthEmail {
@@ -223,6 +252,11 @@ export interface ConsumerAuthRoutesDeps {
   /** Dev/test escape hatch: when it returns true, the raw token is echoed in
    *  the magic-link response body. Never enable in production (issue #162). */
   devEchoToken?: (c: Context) => boolean;
+  /** Public origin used to build the absolute clickable link in the
+   *  magic-link email (issue #215) — CF reads env.PUBLIC_BASE_URL, Node its
+   *  process env. Falls back to the incoming request's own origin when unset
+   *  or when the port isn't wired. */
+  publicBaseUrl?: (c: Context) => string | undefined;
 }
 
 function resolveStore(arg: ConsumerAuthRoutesDeps["store"], c: Context): ConsumerAuthStore {
@@ -250,16 +284,56 @@ async function issueSession(
   return { token, expires_at: expiresAt };
 }
 
+export interface VerifyMagicLinkOk {
+  ok: true;
+  session_token: string;
+  consumer_id: string;
+  expires_at: string;
+}
+
+export interface VerifyMagicLinkErr {
+  ok: false;
+  error: string;
+  status: 401;
+}
+
+export type VerifyMagicLinkResult = VerifyMagicLinkOk | VerifyMagicLinkErr;
+
+/**
+ * Exchange a magic-link token for a consumer session. Extracted (issue #215)
+ * so the clickable landing page (GET /p/auth/verify, ./publications.ts) shares
+ * the exact same query/expiry/consume/issue-session logic as POST /auth/verify
+ * below instead of duplicating it. Takes the store port rather than a
+ * D1Database so both runtimes reuse it (issue #226); the CF worker keeps a
+ * D1-signatured wrapper for its existing callers.
+ */
+export async function verifyMagicLinkToken(
+  store: ConsumerAuthStore,
+  token: string,
+): Promise<VerifyMagicLinkResult> {
+  const link = await store.findUnusedMagicLink(token);
+  if (!link) {
+    return { ok: false, error: "Invalid or expired token", status: 401 };
+  }
+  if (new Date(link.expires_at) < new Date()) {
+    return { ok: false, error: "Token expired", status: 401 };
+  }
+
+  await store.markMagicLinkUsed(token);
+  const { token: sessionToken, expires_at } = await issueSession(store, link.consumer_id);
+  return { ok: true, session_token: sessionToken, consumer_id: link.consumer_id, expires_at };
+}
+
 export function buildConsumerAuthRoutes(deps: ConsumerAuthRoutesDeps) {
   const app = new Hono();
 
   app.post("/auth/magic-link", async (c) => {
     const body = await c.req.json().catch(() => ({}));
-    const parsed = consumerSchema.safeParse(body);
+    const parsed = magicLinkRequestSchema.safeParse(body);
     if (!parsed.success) {
       return c.json({ error: "Invalid email", details: parsed.error.flatten() }, 400);
     }
-    const { email, name } = parsed.data;
+    const { email, name, slug } = parsed.data;
 
     // Anti-spam-the-victim: an attacker who doesn't own `email` can otherwise
     // hammer this endpoint to flood the real owner's inbox. Reject BEFORE any
@@ -295,13 +369,20 @@ export function buildConsumerAuthRoutes(deps: ConsumerAuthRoutesDeps) {
     // the HTTP response, since that lets anyone impersonate any email address.
     // A transient send failure is logged, not fatal: the token is already
     // persisted and the caller can retry (rate-limited above).
+    //
+    // `slug` (issue #215) lets the email link straight to GET /p/auth/verify;
+    // without it (caller didn't say which bot) the email falls back to the
+    // copyable-code-only form, same as before #215.
+    const verifyUrl = slug
+      ? magicLinkVerifyUrl(deps.publicBaseUrl?.(c) || new URL(c.req.url).origin, token, slug)
+      : undefined;
     if (deps.sendEmail) {
       try {
         await deps.sendEmail(c, {
           to: email,
           subject: MAGIC_LINK_EMAIL_SUBJECT,
-          html: magicLinkEmailHtml(token),
-          text: magicLinkEmailText(token),
+          html: magicLinkEmailHtml(token, verifyUrl),
+          text: magicLinkEmailText(token, verifyUrl),
         });
       } catch (err) {
         log.warn({ consumer_id: consumerId, email, err }, "magic link email dispatch failed");
@@ -326,18 +407,19 @@ export function buildConsumerAuthRoutes(deps: ConsumerAuthRoutesDeps) {
     const { token } = z.object({ token: z.string().min(1) }).parse(body);
 
     const store = resolveStore(deps.store, c);
-    const link = await store.findUnusedMagicLink(token);
-    if (!link) {
-      return c.json({ error: "Invalid or expired token" }, 401);
-    }
-    if (new Date(link.expires_at) < new Date()) {
-      return c.json({ error: "Token expired" }, 401);
+    const result = await verifyMagicLinkToken(store, token);
+    if (!result.ok) {
+      return c.json({ error: result.error }, result.status);
     }
 
-    await store.markMagicLinkUsed(token);
-    const { token: sessionToken, expires_at } = await issueSession(store, link.consumer_id);
-
-    return c.json({ session_token: sessionToken, consumer_id: link.consumer_id, expires_at }, 200);
+    return c.json(
+      {
+        session_token: result.session_token,
+        consumer_id: result.consumer_id,
+        expires_at: result.expires_at,
+      },
+      200,
+    );
   });
 
   // Guest mode (issue #73): mint an anonymous consumer + session so a visitor

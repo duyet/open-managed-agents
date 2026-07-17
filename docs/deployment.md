@@ -9,7 +9,7 @@ is wired at startup.
 |---|---|---|
 | **Self-host** | `docker compose up` (or `pnpm --filter main-node start`) — single Node process + sqlite/pg + LocalSubprocess sandbox + `oma-vault` sidecar | Self-host, Fly.io / Render / VPS, no Cloudflare account, full control over data + binaries |
 | **CF local** | `pnpm dev` — `wrangler dev` on the main + agent workers with local D1/KV/R2/DO simulators | Develop against the CF runtime without touching prod; tests; one-off prod-shape repro |
-| **CF prod** | `pnpm deploy` (`scripts/deploy.sh`) — three workers (main / agent / integrations) on Cloudflare's network | Production at scale; you want CF to handle scaling, durability, edge presence; OK with vendor lock-in |
+| **CF prod** | `./scripts/setup-cf.sh` — provisions D1/KV/R2 + secrets, then deploys three workers (main / agent / integrations) on Cloudflare's network | Production at scale; you want CF to handle scaling, durability, edge presence; OK with vendor lock-in |
 
 This doc covers each end-to-end and shows the matrix at the bottom so you can
 diff at a glance.
@@ -255,17 +255,22 @@ each with its own bindings, deployed via `wrangler deploy`.
 ### Deploy
 
 ```bash
-# All deploys go through scripts/deploy.sh:
-#   1. Read svcbind:* keys from CONFIG_KV → list of sandbox-* worker names
-#   2. Generate apps/main/wrangler.jsonc with service bindings populated
-#   3. Upload new versions
-#   4. Smoke-test (curl /health)
-#   5. Activate (wrangler deploy)
-pnpm deploy
+# One-time setup + every redeploy goes through scripts/setup-cf.sh:
+#   1. Preflight: wrangler login, jq + node, prompt for Anthropic key
+#   2. Create resources (idempotent — re-running is safe): 2 D1 DBs,
+#      1 KV namespace, 4 R2 buckets
+#   3. Patch top-level wrangler.jsonc files with the captured IDs
+#   4. Set required secrets (auto-generated where possible)
+#   5. Apply migrations (one consolidated file per D1)
+#   6. Wire R2 → memory-events queue notification
+#   7. Deploy main + agent + integrations workers, in dependency order
+npx wrangler login
+./scripts/setup-cf.sh
 
-# Or piecewise:
-./scripts/deploy.sh upload-only   # versions, don't activate
-./scripts/deploy.sh deploy-only   # activate previously uploaded
+# Flags:
+./scripts/setup-cf.sh --no-deploy     # provision only, don't deploy
+./scripts/setup-cf.sh --skip-secrets  # secrets already set
+./scripts/setup-cf.sh --reset-secrets # rotate everything
 ```
 
 ### Hard limits
@@ -306,7 +311,7 @@ pnpm deploy
 | HTTP routes (CRUD) | `@duyet/oma-http-routes` mount factories | (CF mounts existing per-app files; package mount migration is staged) | (same) |
 | Observability | stdout (pino) | wrangler tail stdout | Analytics Engine + wrangler tail |
 | Start cmd | `docker compose up` | `pnpm dev` | n/a (run-as-deployed) |
-| Deploy cmd | `docker compose up -d` | n/a (dev only) | `pnpm deploy` |
+| Deploy cmd | `docker compose up -d` | n/a (dev only) | `./scripts/setup-cf.sh` |
 | Multi-tenant | better-auth + tenant/membership tables | better-auth + tenant/membership tables | better-auth + tenant/membership tables + shard router |
 | Multi-instance | sqlite: no — single writer. pg: yes — LISTEN/NOTIFY fanout (shared `MEMORY_BLOB_DIR` required; auth.db + oma-vault still 1-proc) | n/a | scales by default |
 
