@@ -90,6 +90,11 @@ downloads. Attach one to an agent with `{ "skill_id": "<id>", "type": "custom" }
 | `examples/skills/github/` | `github` | Using the `gh` CLI for issues/PRs/reviews/checks; never force-pushes or bypasses required checks |
 | `examples/skills/git-commit/` | `git-commit` | Conventional Commits, small atomic commits, no push/amend unless asked |
 | `examples/skills/spreadsheet-xlsx/` | `spreadsheet-xlsx` | Real `.xlsx` workbooks via openpyxl — typed cells, number formats, a `snippets.py` helper |
+| `examples/skills/code-review/` | `code-review` | Read-before-judge review loop, severity-ranked findings, a security checklist; points, never rewrites |
+| `examples/skills/web-research/` | `web-research` | Search-then-verify loop with `web_search`/`web_fetch`, primary-vs-hearsay sourcing, dated cross-checks, inline citations |
+| `examples/skills/api-design/` | `api-design` | REST conventions — resource modeling, status codes, one error envelope, cursor pagination, backward-compatible change |
+| `examples/skills/dockerfile/` | `dockerfile` | Cache-friendly layer order, multi-stage builds, non-root runtime, no baked-in secrets; ships an annotated `Dockerfile.example` |
+| `examples/skills/brand-design/` | `brand-design` | Design tokens for color/type/spacing, WCAG-AA contrast, a modular type scale; ships a portable `tokens.json` |
 
 ```bash
 # Seed the built-in skills into a running instance
@@ -97,7 +102,23 @@ BASE=$BASE KEY=$KEY ./scripts/seed-skills.sh
 
 # Also pull in Anthropic's public skills catalog
 SEED_ANTHROPIC=1 BASE=$BASE KEY=$KEY ./scripts/seed-skills.sh
+
+# Fetch named skills from the skills.sh registry (comma-separated).
+# skills.sh is a discovery frontend for the `skills` CLI ecosystem — every
+# source resolves to a GitHub repo, so the script downloads the repo tarball
+# and seeds the SKILL.md dirs it contains. Entries are registry ids / GitHub
+# sources, either a whole repo or one skill inside it:
+SEED_SKILLS_SH="vercel-labs/agent-skills/web-design-guidelines,anthropics/skills" \
+  BASE=$BASE KEY=$KEY ./scripts/seed-skills.sh
+
+# Or fetch from any git repo (GitHub, GitLab, self-hosted; comma-separated):
+SEED_FROM_REPO="https://github.com/anthropics/skills" \
+  BASE=$BASE KEY=$KEY ./scripts/seed-skills.sh
 ```
+
+`SEED_SKILLS_SH` / `SEED_FROM_REPO` fail loudly **per entry** — a download,
+clone, or "no SKILL.md found" error for one entry prints a `!!` warning and is
+skipped; the remaining entries still seed.
 
 Editing a folder here and re-running the script uploads a new custom skill;
 these are prompt-fragment skills (the SKILL.md body is inlined into the agent's

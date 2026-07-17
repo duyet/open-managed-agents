@@ -13,6 +13,12 @@ import {
   ClipboardList,
   Bug,
   ChartColumn,
+  ListChecks,
+  GitPullRequest,
+  Eye,
+  Wrench,
+  ScrollText,
+  Sprout,
 } from "lucide-react";
 
 import { useApi } from "../../lib/api";
@@ -46,6 +52,12 @@ const TEMPLATE_ICONS: Record<string, LucideGlyph> = {
   clipboard: ClipboardList,
   bug: Bug,
   chart: ChartColumn,
+  listChecks: ListChecks,
+  gitPullRequest: GitPullRequest,
+  eye: Eye,
+  wrench: Wrench,
+  scrollText: ScrollText,
+  sprout: Sprout,
 };
 
 // Brand marks for integration tags. `Icon` renders the actual mark (colored

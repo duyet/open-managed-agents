@@ -1,0 +1,40 @@
+# Annotated multi-stage template. Adapt the base images and build/run commands
+# to your stack; the STRUCTURE (deps-before-source, build stage vs slim runtime,
+# non-root USER, exec-form CMD) is what carries over.
+
+# ---- build stage: full toolchain, never shipped ----------------------------
+FROM node:22.4-slim AS build
+WORKDIR /app
+
+# Dependencies FIRST, from the lock file only — this layer is cached across
+# every change that doesn't touch package.json / package-lock.json.
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Source LAST — editing code busts only the layers below, not the deps above.
+COPY . .
+RUN npm run build
+
+# ---- runtime stage: minimal, only artifacts + prod deps --------------------
+FROM node:22.4-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Reinstall only production dependencies (no build tools, no devDependencies).
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+# Copy just the built output from the build stage — the compiler and its
+# caches stay behind in `build` and never reach the final image.
+COPY --from=build /app/dist ./dist
+
+# Run as the built-in non-root `node` user, not root.
+USER node
+
+# Document the port and let the orchestrator probe readiness.
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD node -e "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+# Exec form: the node process is PID 1 and receives SIGTERM for clean shutdown.
+CMD ["node", "dist/server.js"]
