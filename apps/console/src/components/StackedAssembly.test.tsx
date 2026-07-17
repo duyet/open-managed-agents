@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
@@ -78,7 +78,7 @@ describe("<StackedAssembly />", () => {
       "Environment",
       "Keys (Vault)",
       "Skills",
-      "Connections (MCP)",
+      "MCP",
       "Agent",
       "Session",
       "Sandbox",
@@ -87,6 +87,34 @@ describe("<StackedAssembly />", () => {
     ]) {
       expect(await screen.findByText(title)).toBeInTheDocument();
     }
+  });
+
+  it("puts Skills and MCP together in one row under the Agent, not in Configure", async () => {
+    mockLists();
+    renderAssembly();
+
+    // They attach to the agent, so they belong to step 2 — and they share a
+    // single row, so they must have the same parent element.
+    const compose = (await screen.findByText("2 · Compose")).parentElement
+      ?.parentElement;
+    expect(compose).toBeTruthy();
+
+    // Both live in step 2 — getByText throws here if either is still in step 1.
+    const skillsCard = within(compose!).getByText("Skills").closest('[role="link"]');
+    const mcpCard = within(compose!).getByText("MCP").closest('[role="link"]');
+    expect(skillsCard).not.toBeNull();
+    expect(mcpCard).not.toBeNull();
+
+    // …and share one row wrapper. Asserting a non-null shared ancestor (rather
+    // than comparing two parent chains) keeps this from passing vacuously when
+    // the lookups miss.
+    const row = skillsCard!.closest(".items-stretch");
+    expect(row).not.toBeNull();
+    expect(mcpCard!.closest(".items-stretch")).toBe(row);
+
+    // The agent sits above them, outside that row.
+    expect(within(compose!).getByText("Agent")).toBeInTheDocument();
+    expect(row!.contains(within(compose!).getByText("Agent"))).toBe(false);
   });
 
   it("shows live instance names as badges once resources exist", async () => {

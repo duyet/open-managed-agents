@@ -216,18 +216,26 @@ function FlowPointer() {
   );
 }
 
+/** A step's contents, top to bottom. A nested array is one ROW — cards that
+ *  sit side by side because they're peers of each other (Skills + MCP both
+ *  attach to the agent above them). */
+type StepRow = TypeCard | TypeCard[];
+
 interface Step {
   number: string;
   name: string;
   optional?: boolean;
   done: boolean;
-  cards: TypeCard[];
-  /** Vertically centre the cards — COMPOSE holds a single hero card and
-   *  would otherwise float at the top of a much taller CONFIGURE column. */
+  cards: StepRow[];
+  /** Vertically centre the cards — COMPOSE is shorter than CONFIGURE and
+   *  would otherwise float at the top of a much taller column. */
   center?: boolean;
   /** Chain the cards with ↓ pointers instead of plain gaps. RUN is a
    *  sequence (a session runs *inside* a sandbox), not an unordered set. */
   chain?: boolean;
+  /** Extra width. COMPOSE carries the hero plus a two-up row, so an equal
+   *  quarter-share would crush its titles. */
+  wide?: boolean;
 }
 
 function StepHeader({ step }: { step: Step }) {
@@ -253,9 +261,17 @@ function StepHeader({ step }: { step: Step }) {
   );
 }
 
+const rowKey = (row: StepRow) =>
+  Array.isArray(row) ? row.map((c) => c.key).join("+") : row.key;
+
 function StepPanel({ step, nav }: { step: Step; nav: (to: string) => void }) {
   return (
-    <div className="flex min-w-0 flex-1 flex-col rounded-lg border border-dashed border-border/70 p-3">
+    <div
+      className={cn(
+        "flex min-w-0 flex-1 flex-col rounded-lg border border-dashed border-border/70 p-3",
+        step.wide && "lg:flex-[1.45]",
+      )}
+    >
       <StepHeader step={step} />
       <div
         className={cn(
@@ -264,8 +280,8 @@ function StepPanel({ step, nav }: { step: Step; nav: (to: string) => void }) {
           step.center && "justify-center",
         )}
       >
-        {step.cards.map((c, i) => (
-          <Fragment key={c.key}>
+        {step.cards.map((row, i) => (
+          <Fragment key={rowKey(row)}>
             {step.chain && i > 0 && (
               <div
                 className="flex justify-center py-1 text-fg-subtle"
@@ -274,7 +290,17 @@ function StepPanel({ step, nav }: { step: Step; nav: (to: string) => void }) {
                 <ArrowDownIcon className="h-3.5 w-3.5" />
               </div>
             )}
-            <TypeCardView card={c} nav={nav} />
+            {Array.isArray(row) ? (
+              <div className="flex items-stretch gap-2">
+                {row.map((c) => (
+                  <div key={c.key} className="flex min-w-0 flex-1">
+                    <TypeCardView card={c} nav={nav} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <TypeCardView card={row} nav={nav} />
+            )}
           </Fragment>
         ))}
       </div>
@@ -386,26 +412,6 @@ export function StackedAssembly() {
         badges: vaults.map((v) => v.name),
         emptyCta: "+ Store an API key or credential",
       },
-      {
-        key: "skills",
-        icon: <SkillsIcon className="w-4 h-4" />,
-        title: "Skills",
-        to: "/skills",
-        status: countStatus(skills.length),
-        badges: skills.map((s) => s.name),
-        emptyCta: "+ Add a skill (prompts & know-how)",
-      },
-      {
-        key: "mcp",
-        icon: <PlugIcon className="w-4 h-4" />,
-        title: "Connections (MCP)",
-        // MCP servers are configured on the agent itself — deep-link to the
-        // agent (or its creation flow) rather than the bare list.
-        to: firstAgent ? `/agents/${firstAgent.id}` : "/agents/new",
-        status: countStatus(mcps.length),
-        badges: mcps.map((m) => m.name),
-        emptyCta: "+ Connect a tool or API",
-      },
     ],
   };
 
@@ -414,6 +420,7 @@ export function StackedAssembly() {
     name: "Compose",
     done: agentReady,
     center: true,
+    wide: true,
     cards: [
       {
         key: "agent",
@@ -425,6 +432,31 @@ export function StackedAssembly() {
         badges: agents.map((a) => a.name),
         emptyCta: "+ Create your first agent — it composes everything in step 1",
       },
+      // Skills and MCP hang off the agent rather than the foundation: they're
+      // optional extras you attach to it, so they sit as one row directly
+      // beneath the hero instead of in step 1's required stack.
+      [
+        {
+          key: "skills",
+          icon: <SkillsIcon className="w-4 h-4" />,
+          title: "Skills",
+          to: "/skills",
+          status: countStatus(skills.length),
+          badges: skills.map((s) => s.name),
+          emptyCta: "+ Prompts & know-how",
+        },
+        {
+          key: "mcp",
+          icon: <PlugIcon className="w-4 h-4" />,
+          title: "MCP",
+          // MCP servers are configured on the agent itself — deep-link to the
+          // agent (or its creation flow) rather than the bare list.
+          to: firstAgent ? `/agents/${firstAgent.id}` : "/agents/new",
+          status: countStatus(mcps.length),
+          badges: mcps.map((m) => m.name),
+          emptyCta: "+ Connect a tool or API",
+        },
+      ],
     ],
   };
 
