@@ -162,6 +162,31 @@ class LinearClient {
     });
   }
 
+  /** Whether this deployment has a managed Linear app configured. */
+  async managedAvailability(): Promise<{ available: boolean }> {
+    try {
+      return await request<{ available: boolean }>(
+        this.basePath,
+        "/v1/integrations/linear/managed-availability",
+      );
+    } catch {
+      return { available: false };
+    }
+  }
+
+  /**
+   * One-click install via OMA's managed Linear app — skips the BYOA
+   * credentials form and returns the OAuth authorize URL directly, staged
+   * server-side with this deployment's managed App credentials. Throws
+   * (surfaced as a 503) when no managed App is configured.
+   */
+  async startManaged(input: PublishWizardInput): Promise<A1InstallLink> {
+    return request<A1InstallLink>(this.basePath, "/v1/integrations/linear/start-managed", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
   async submitCredentials(input: LinearSubmitCredentialsInput): Promise<A1InstallLink> {
     return request<A1InstallLink>(this.basePath, "/v1/integrations/linear/credentials", {
       method: "POST",
@@ -333,6 +358,31 @@ class GitHubClient {
     });
   }
 
+  /** Whether this deployment has a managed GitHub app configured. */
+  async managedAvailability(): Promise<{ available: boolean }> {
+    try {
+      return await request<{ available: boolean }>(
+        this.basePath,
+        "/v1/integrations/github/managed-availability",
+      );
+    } catch {
+      return { available: false };
+    }
+  }
+
+  /**
+   * One-click install via OMA's managed GitHub app — skips App registration
+   * (manifest flow) entirely and returns the install URL directly, staged
+   * server-side with this deployment's managed App credentials. Throws
+   * (surfaced as a 503) when no managed App is configured.
+   */
+  async startManaged(input: PublishWizardInput): Promise<GitHubA1InstallLink> {
+    return request<GitHubA1InstallLink>(this.basePath, "/v1/integrations/github/start-managed", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
   async submitCredentials(input: {
     formToken: string;
     appId: string;
@@ -440,6 +490,18 @@ class SlackClient {
       method: "POST",
       body: JSON.stringify(input),
     });
+  }
+
+  /** Whether this deployment has a managed Slack app configured. */
+  async managedAvailability(): Promise<{ available: boolean }> {
+    try {
+      return await request<{ available: boolean }>(
+        this.basePath,
+        "/v1/integrations/slack/managed-availability",
+      );
+    } catch {
+      return { available: false };
+    }
   }
 
   /**

@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { IntegrationsApi } from "../api/client";
 import { Avatar } from "../../components/Avatar";
 import { EmptyState } from "../../components/EmptyState";
 import { IntegrationSetupCard } from "../components/IntegrationSetupCard";
+import { ConnectModeChooser } from "../components/ConnectModeChooser";
 import { formatRelative } from "../../lib/format";
 import type { SlackInstallation, SlackPublication } from "../api/types";
 
@@ -15,10 +16,16 @@ interface InstallationWithPublications {
 }
 
 export function IntegrationsSlackList() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<InstallationWithPublications[]>([]);
   const [pending, setPending] = useState<SlackPublication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [managedAvailable, setManagedAvailable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    void api.slack.managedAvailability().then((r) => setManagedAvailable(r.available));
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -69,13 +76,6 @@ export function IntegrationsSlackList() {
               reply in threads.
             </p>
           </div>
-          <Link
-            to="/integrations/slack/publish"
-            className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand text-brand-fg rounded-md text-[13px] font-medium hover:bg-brand-hover transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] whitespace-nowrap"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
-            Publish agent
-          </Link>
         </header>
 
         {loading && <p className="text-sm text-fg-muted">Loading…</p>}
@@ -84,6 +84,13 @@ export function IntegrationsSlackList() {
             {error}
           </div>
         )}
+
+        <ConnectModeChooser
+          provider="Slack"
+          availability={managedAvailable}
+          onSelectManaged={() => navigate("/integrations/slack/publish?mode=managed")}
+          onSelectOwn={() => navigate("/integrations/slack/publish")}
+        />
 
         <div className="mb-6">
           <IntegrationSetupCard
@@ -277,6 +284,8 @@ function WorkspaceCard({
   );
 }
 
+// TODO: surface a "Managed" vs "Own app" badge once SlackPublication
+// exposes which connect path was used — no such field on the wire type yet.
 function PublicationRow({ pub }: { pub: SlackPublication }) {
   return (
     <li className="flex items-center gap-3 px-5 py-2.5 text-sm">

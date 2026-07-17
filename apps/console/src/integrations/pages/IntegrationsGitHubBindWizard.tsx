@@ -52,6 +52,7 @@ type Phase = "config" | "registering" | "installing" | "done" | "error";
 export function IntegrationsGitHubBindWizard({ loadAgents, loadEnvironments }: Props) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const managedMode = searchParams.get("mode") === "managed";
   const [agents, setAgents] = useState<Agent[]>([]);
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [agentId, setAgentId] = useState<string>("");
@@ -208,6 +209,35 @@ export function IntegrationsGitHubBindWizard({ loadAgents, loadEnvironments }: P
     }
   }
 
+  /**
+   * One-click install via OMA's managed GitHub app — skips the manifest
+   * registration step entirely and jumps straight to the install URL,
+   * staged server-side with this deployment's managed App credentials.
+   * Falls back with an inline error (the "Try again" link drops back to
+   * the config screen) when no managed App is configured.
+   */
+  async function startManagedBind() {
+    if (!agentId || !envId || !persona) {
+      setError("Pick an agent, environment, and persona name.");
+      return;
+    }
+    setError(null);
+    setPhase("installing");
+    try {
+      const link = await api.github.startManaged({
+        agentId,
+        environmentId: envId,
+        personaName: persona,
+        returnUrl: `${window.location.origin}/integrations/github`,
+      });
+      pinPublicationToUrl(link.publicationId);
+      window.location.href = link.url;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setPhase("error");
+    }
+  }
+
   /** Stamp the active publication id into ?pub= so refresh resumes here.
    *  Pure URL state — no storage. */
   function pinPublicationToUrl(publicationId: string) {
@@ -287,7 +317,8 @@ export function IntegrationsGitHubBindWizard({ loadAgents, loadEnvironments }: P
             onAgent={setAgentId}
             onEnv={setEnvId}
             onPersona={(v) => { personaEditedRef.current = true; setPersona(v); }}
-            onSubmit={startBind}
+            onSubmit={managedMode ? startManagedBind : startBind}
+            managed={managedMode}
             error={error}
           />
         )}
@@ -390,7 +421,7 @@ function Stepper({ phase }: { phase: Phase }) {
 
 function ConfigForm({
   agents, environments, agentId, envId, persona,
-  onAgent, onEnv, onPersona, onSubmit, error,
+  onAgent, onEnv, onPersona, onSubmit, managed, error,
 }: {
   agents: Agent[];
   environments: Environment[];
@@ -401,6 +432,9 @@ function ConfigForm({
   onEnv: (v: string) => void;
   onPersona: (v: string) => void;
   onSubmit: () => void;
+  /** Skips the manifest registration step — installs OMA's pre-registered
+   *  GitHub App straight to the install screen. */
+  managed?: boolean;
   error: string | null;
 }) {
   return (
@@ -474,15 +508,21 @@ function ConfigForm({
 
       <div className="flex items-center justify-between gap-4 pt-1">
         <p className="text-[12px] text-fg-muted leading-snug">
-          Opens a popup to GitHub. You'll click <strong>Create GitHub App</strong>
-          {" "}and then <strong>Install</strong> on the org you want this bot to
-          work in.
+          {managed
+            ? "Installs OMA's managed GitHub App — no registration step, straight to picking the org."
+            : (
+              <>
+                Opens a popup to GitHub. You'll click <strong>Create GitHub App</strong>
+                {" "}and then <strong>Install</strong> on the org you want this bot to
+                work in.
+              </>
+            )}
         </p>
         <button
           type="submit"
           className="shrink-0 px-5 py-2 bg-brand text-brand-fg rounded-md text-[13px] font-medium hover:bg-brand-hover transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
         >
-          Bind on GitHub
+          {managed ? "Connect" : "Bind on GitHub"}
         </button>
       </div>
     </form>

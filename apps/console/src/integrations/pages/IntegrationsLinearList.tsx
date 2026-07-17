@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { IntegrationsApi } from "../api/client";
 import { Avatar } from "../../components/Avatar";
 import { EmptyState } from "../../components/EmptyState";
+import { ConnectModeChooser } from "../components/ConnectModeChooser";
 import { formatRelative } from "../../lib/format";
 import type { LinearInstallation, LinearPublication } from "../api/types";
 
@@ -14,10 +15,16 @@ interface InstallationWithPublications {
 }
 
 export function IntegrationsLinearList() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<InstallationWithPublications[]>([]);
   const [pending, setPending] = useState<LinearPublication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [managedAvailable, setManagedAvailable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    void api.linear.managedAvailability().then((r) => setManagedAvailable(r.available));
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -76,13 +83,6 @@ export function IntegrationsLinearList() {
             >
               Install via PAT
             </Link>
-            <Link
-              to="/integrations/linear/publish"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand text-brand-fg rounded-md text-[13px] font-medium hover:bg-brand-hover transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] whitespace-nowrap"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
-              Publish agent
-            </Link>
           </div>
         </header>
 
@@ -92,6 +92,13 @@ export function IntegrationsLinearList() {
             {error}
           </div>
         )}
+
+        <ConnectModeChooser
+          provider="Linear"
+          availability={managedAvailable}
+          onSelectManaged={() => navigate("/integrations/linear/publish?mode=managed")}
+          onSelectOwn={() => navigate("/integrations/linear/publish")}
+        />
 
         {pending.length > 0 && (
           <section className="mb-6">
@@ -225,6 +232,8 @@ function WorkspaceCard({
   );
 }
 
+// TODO: surface a "Managed" vs "Own app" badge once LinearPublication
+// exposes which connect path was used — no such field on the wire type yet.
 function PublicationRow({ pub }: { pub: LinearPublication }) {
   return (
     <li className="flex items-center gap-3 px-5 py-2.5 text-sm">

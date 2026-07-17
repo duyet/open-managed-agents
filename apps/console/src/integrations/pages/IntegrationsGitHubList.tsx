@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { IntegrationsApi } from "../api/client";
 import type { GitHubInstallation, GitHubPublication } from "../api/types";
 import { StatusPill } from "../components/StatusPill";
 import { IntegrationSetupCard } from "../components/IntegrationSetupCard";
+import { ConnectModeChooser } from "../components/ConnectModeChooser";
 import { Avatar } from "../../components/Avatar";
 import { EmptyState } from "../../components/EmptyState";
 import { formatRelative } from "../../lib/format";
@@ -16,10 +17,16 @@ interface InstallationWithPublications {
 }
 
 export function IntegrationsGitHubList() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<InstallationWithPublications[]>([]);
   const [pending, setPending] = useState<GitHubPublication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [managedAvailable, setManagedAvailable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    void api.github.managedAvailability().then((r) => setManagedAvailable(r.available));
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -70,13 +77,6 @@ export function IntegrationsGitHubList() {
               mention them in comments. Each agent gets its own bot identity.
             </p>
           </div>
-          <Link
-            to="/integrations/github/bind"
-            className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand text-brand-fg rounded-md text-[13px] font-medium hover:bg-brand-hover transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] whitespace-nowrap"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
-            Bind agent
-          </Link>
         </header>
 
         {loading && <p className="text-sm text-fg-muted">Loading…</p>}
@@ -85,6 +85,13 @@ export function IntegrationsGitHubList() {
             {error}
           </div>
         )}
+
+        <ConnectModeChooser
+          provider="GitHub"
+          availability={managedAvailable}
+          onSelectManaged={() => navigate("/integrations/github/bind?mode=managed")}
+          onSelectOwn={() => navigate("/integrations/github/bind")}
+        />
 
         <div className="mb-6">
           <IntegrationSetupCard
@@ -272,6 +279,8 @@ function WorkspaceCard({
   );
 }
 
+// TODO: surface a "Managed" vs "Own app" badge once GitHubPublication
+// exposes which connect path was used — no such field on the wire type yet.
 function PublicationRow({ pub }: { pub: GitHubPublication }) {
   return (
     <li className="flex items-center gap-3 px-5 py-2.5 text-sm">

@@ -55,6 +55,7 @@ export function IntegrationsLinearPublishWizard({
   const [search, setSearch] = useSearchParams();
   const preselectedAgent = search.get("agent_id") ?? "";
   const resumePubId = search.get("pub");
+  const managedMode = search.get("mode") === "managed";
 
   const [agents, setAgents] = useState<AgentOption[]>([]);
   const [envs, setEnvs] = useState<EnvironmentOption[]>([]);
@@ -183,6 +184,35 @@ export function IntegrationsLinearPublishWizard({
     }
   }
 
+  /**
+   * One-click install via OMA's managed Linear app — skips the credentials
+   * form and jumps straight to the OAuth authorize URL, staged server-side
+   * with this deployment's managed App credentials. Throws (surfaced as a
+   * 503) when no managed App is configured.
+   */
+  async function startManagedPublish() {
+    if (!agentId || !envId || !personaName) {
+      setError("Pick agent, environment, and persona name first");
+      return;
+    }
+    setError(null);
+    setWorking(true);
+    try {
+      const link = await api.linear.startManaged({
+        agentId,
+        environmentId: envId,
+        personaName,
+        personaAvatarUrl: personaAvatar || null,
+        returnUrl,
+      });
+      if (link.publicationId) pinPublicationToUrl(link.publicationId);
+      window.location.href = link.url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setWorking(false);
+    }
+  }
+
   async function submitCredentials() {
     if (!shell || !clientId || !clientSecret || !webhookSecret) return;
     setError(null);
@@ -253,7 +283,8 @@ export function IntegrationsLinearPublishWizard({
             personaAvatar={personaAvatar}
             setPersonaAvatar={setPersonaAvatar}
             working={working}
-            onContinue={startPublish}
+            onContinue={managedMode ? startManagedPublish : startPublish}
+            managed={managedMode}
           />
         )}
 
@@ -341,6 +372,9 @@ function PickStep(props: {
   setPersonaAvatar: (v: string) => void;
   working: boolean;
   onContinue: () => void;
+  /** Skips the OAuth-app credentials step — connects via OMA's managed
+   *  Linear app straight to the install URL. */
+  managed?: boolean;
 }) {
   return (
     <div className="space-y-5">
@@ -391,8 +425,9 @@ function PickStep(props: {
       </div>
 
       <div className="rounded-md border border-border bg-bg-surface/30 px-3.5 py-3 text-[12px] text-fg-muted">
-        Your agent becomes a real Linear teammate with @autocomplete and a slot in the
-        assignee dropdown. Setup ~3 min, requires Linear admin (or send a setup link).
+        {props.managed
+          ? "Connects via OMA's managed Linear app — no OAuth-app registration, straight to the install screen."
+          : "Your agent becomes a real Linear teammate with @autocomplete and a slot in the assignee dropdown. Setup ~3 min, requires Linear admin (or send a setup link)."}
       </div>
 
       <div className="pt-1">
@@ -401,7 +436,7 @@ function PickStep(props: {
           disabled={props.working}
           className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] bg-brand text-brand-fg rounded-md font-medium hover:bg-brand-hover disabled:opacity-50 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
         >
-          {props.working ? "Working…" : "Continue"}
+          {props.working ? "Working…" : props.managed ? "Connect" : "Continue"}
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
         </button>
       </div>
