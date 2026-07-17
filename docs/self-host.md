@@ -463,6 +463,56 @@ actually unreachable, same as any other explicit selection), `subprocess`
 disables the auto-detect entirely. See `resolveDefaultLocalSandboxProvider`
 in `packages/sandbox/src/provider-config.ts`.
 
+### Running an OpenShell gateway
+
+The `openshell` adapter talks gRPC to any reachable gateway — the same
+adapter covers both deployment shapes below; only
+`OPENSHELL_GATEWAY_ENDPOINT` changes.
+
+**Local (CLI).** Install the OpenShell CLI + gateway on the same machine as
+main-node:
+
+```bash
+curl -LsSf https://raw.githubusercontent.com/NVIDIA/OpenShell/main/install.sh | sh
+openshell status        # confirm the gateway is up
+```
+
+The gateway runs as a background service (systemd / Homebrew) and
+auto-detects a local compute driver (Docker, Podman, or MicroVM). Then in
+`.env.local`:
+
+```bash
+OPENSHELL_GATEWAY_ENDPOINT=localhost:50051   # host:port the gateway listens on
+```
+
+With `OPENSHELL_MODE=auto` (the default) nothing else is needed — the
+startup probe finds the gateway and prefers it over `subprocess`.
+
+**Kubernetes cluster.** Deploy the gateway in-cluster from NVIDIA's OCI
+Helm chart. The [Agent Sandbox controller + CRDs](https://github.com/kubernetes-sigs/agent-sandbox)
+must be installed first — the same controller OMA's own `k8s` provider
+uses, so a cluster already running that provider has the prerequisite:
+
+```bash
+helm install openshell oci://ghcr.io/nvidia/openshell/helm-chart -n openshell --create-namespace
+```
+
+Point main-node (in-cluster, or through an ingress/LB that passes gRPC)
+at the gateway Service:
+
+```bash
+OPENSHELL_GATEWAY_ENDPOINT=openshell.openshell.svc.cluster.local:50051
+OPENSHELL_GATEWAY_TLS=1                       # chart bootstraps PKI; use its CA
+OPENSHELL_GATEWAY_CA_PATH=/etc/openshell/ca.crt
+# + OPENSHELL_GATEWAY_CERT_PATH / OPENSHELL_GATEWAY_KEY_PATH for mTLS
+```
+
+Upstream marks the Kubernetes path "under active development — expect
+rough edges"; the local Docker/Podman path is the stable one. Either way,
+selection is per-environment (`config.sandbox_provider: "openshell"`) or
+via the auto-detected default described above. Not available on the
+Cloudflare deployment (gRPC needs Node — `cfCompatible: false`).
+
 ### BYOK (bring your own key)
 
 Register additional sandbox providers at runtime via the REST API:
