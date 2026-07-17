@@ -387,6 +387,43 @@ function SkeletonCard() {
   );
 }
 
+function ClipboardIcon({ ok }: { ok: boolean }) {
+  return ok ? (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
+  ) : (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
+  );
+}
+
+/** Click-to-copy shell block. Multi-line commands scroll rather than wrap —
+ *  a wrapped `\` continuation is easy to mis-copy by hand. */
+function CopyBlock({
+  id,
+  text,
+  copied,
+  onCopy,
+}: {
+  id: string;
+  text: string;
+  copied: string | null;
+  onCopy: (text: string, key: string) => void;
+}) {
+  return (
+    <button
+      onClick={() => onCopy(text, id)}
+      aria-label={`Copy: ${text.split("\n")[0]}`}
+      className="group w-full text-left rounded-md border border-border bg-bg p-3 flex items-start gap-3 hover:border-border-strong transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
+    >
+      <pre className="flex-1 min-w-0 overflow-x-auto font-mono text-xs leading-relaxed text-fg">
+        {text}
+      </pre>
+      <span className="shrink-0 mt-0.5 text-fg-subtle group-hover:text-fg transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]">
+        <ClipboardIcon ok={copied === id} />
+      </span>
+    </button>
+  );
+}
+
 // Quickstart moved here from the Dashboard — installing the CLI and minting a
 // key is what you do right before connecting a runtime. Lives inside the
 // provider set-up dialog rather than on the page, so `onNavigate` lets the
@@ -506,7 +543,15 @@ export function RuntimesList() {
   const [showInstructions, setShowInstructions] = useState(false);
   const [setupProvider, setSetupProvider] = useState<HostingType | null>(null);
   const [showAddProvider, setShowAddProvider] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const confirm = useConfirm();
+
+  const copy = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    toast.success("Copied");
+    setTimeout(() => setCopied(null), 1600);
+  };
 
   const [providers, setProviders] = useState<HostingType[]>([]);
   const [providersLoading, setProvidersLoading] = useState(true);
@@ -656,6 +701,170 @@ export function RuntimesList() {
           </div>
         )}
       </section>
+
+      {/* Kubernetes install help. Steps mirror charts/oma-k8s-bridge/README.md
+          — keep them in sync if the chart's install flow changes. Deliberately
+          shows the create-Secret-out-of-band path rather than `--set
+          secret.token=...`: the latter lands a real token in `helm history`
+          and shell history, and is for local testing only. */}
+      <details className="rounded-lg border border-border bg-bg-surface/50">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-fg select-none hover:text-fg">
+          Run sandboxes on Kubernetes (Helm)
+        </summary>
+        <div className="px-4 pb-4 space-y-3 text-sm text-fg-muted">
+          <p>
+            A Cloudflare Worker can't load a kubeconfig, so sandboxes on Kubernetes
+            run behind the <span className="text-fg">oma-k8s-bridge</span> — a small
+            token-gated HTTP service you install in the cluster. Deploy the bridge,
+            point OMA at it, and{" "}
+            <span className="text-fg">K8s Bridge (remote)</span> turns{" "}
+            <span className="text-success">Healthy</span> above.
+          </p>
+          <p className="text-xs text-fg-subtle">
+            This is the <code className="bg-bg-surface px-1 rounded">k8s-bridge</code>{" "}
+            provider. Not to be confused with{" "}
+            <code className="bg-bg-surface px-1 rounded">k8s</code>, which needs a local
+            kubeconfig and only runs on the self-host Node runtime.
+          </p>
+
+          <div>
+            <div className="text-xs text-fg-subtle mb-1.5">
+              1 · Create the bearer token the bridge requires, as a Secret
+            </div>
+            <CopyBlock
+              id="k8s-secret"
+              copied={copied}
+              onCopy={copy}
+              text={
+                "kubectl create namespace sandboxes\n" +
+                "kubectl -n sandboxes create secret generic oma-k8s-bridge-token \\\n" +
+                '  --from-literal=K8S_BRIDGE_TOKEN="$(openssl rand -base64 32)"'
+              }
+            />
+          </div>
+
+          <div>
+            <div className="text-xs text-fg-subtle mb-1.5">
+              2 · Install the chart, pointing at that Secret
+            </div>
+            <CopyBlock
+              id="k8s-helm"
+              copied={copied}
+              onCopy={copy}
+              text={
+                "helm install oma-k8s-bridge ./charts/oma-k8s-bridge \\\n" +
+                "  --namespace sandboxes \\\n" +
+                "  --set secret.existingSecret=oma-k8s-bridge-token \\\n" +
+                "  --set config.namespace=sandboxes"
+              }
+            />
+          </div>
+
+          <div>
+            <div className="text-xs text-fg-subtle mb-1.5">
+              3 · Wait for rollout, then check it answers
+            </div>
+            <CopyBlock
+              id="k8s-verify"
+              copied={copied}
+              onCopy={copy}
+              text={
+                "kubectl -n sandboxes rollout status deployment/oma-k8s-bridge\n" +
+                "kubectl -n sandboxes port-forward svc/oma-k8s-bridge 8100:8100 &\n" +
+                'curl -H "Authorization: Bearer $K8S_BRIDGE_TOKEN" \\\n' +
+                "  http://localhost:8100/api/v1/health"
+              }
+            />
+          </div>
+
+          <div>
+            <div className="text-xs text-fg-subtle mb-1.5">
+              4 · Point OMA at the bridge, then restart the host
+            </div>
+            <CopyBlock
+              id="k8s-env"
+              copied={copied}
+              onCopy={copy}
+              text={
+                "K8S_BRIDGE_URL=http://oma-k8s-bridge.sandboxes.svc.cluster.local:8100\n" +
+                "K8S_BRIDGE_TOKEN=<the token from step 1>"
+              }
+            />
+            <p className="mt-1.5 text-xs text-fg-subtle">
+              On Cloudflare, set these with{" "}
+              <code className="bg-bg-surface px-1 rounded">wrangler secret put</code> instead
+              of a <code className="bg-bg-surface px-1 rounded">.env</code> file.
+            </p>
+          </div>
+
+          <div className="pt-1 border-t border-border">
+            <div className="text-xs text-fg-subtle mb-1.5">
+              5 · Point an environment at it
+            </div>
+            <p>
+              On the <span className="text-fg">self-host Node</span> runtime, set{" "}
+              <code className="bg-bg-surface px-1 rounded">sandbox_provider: "k8s"</code> — it talks
+              to the cluster directly via <code className="bg-bg-surface px-1 rounded">KubernetesSandboxExecutor</code>,
+              no bridge needed:
+            </p>
+            <CopyBlock
+              id="k8s-env-self-host"
+              copied={copied}
+              onCopy={copy}
+              text={'{\n  "sandbox_provider": "k8s",\n  "namespace": "sandboxes"\n}'}
+            />
+            <p className="mt-2">
+              On the <span className="text-fg">Cloudflare</span> deployment, a Worker has no
+              kubeconfig, so use <code className="bg-bg-surface px-1 rounded">k8s-remote</code>{" "}
+              instead — it speaks the same boxrun-shaped HTTP API as the bridge above, but to an
+              in-cluster <span className="text-fg">k8s-sandbox-gateway</span> service (create /
+              exec+SSE / files-as-tar / destroy) rather than to oma-k8s-bridge directly:
+            </p>
+            <CopyBlock
+              id="k8s-env-remote"
+              copied={copied}
+              onCopy={copy}
+              text={'{\n  "sandbox_provider": "k8s-remote"\n}'}
+            />
+            <p className="mt-1.5 text-xs text-fg-subtle">
+              Requires <code className="bg-bg-surface px-1 rounded">K8S_SANDBOX_GATEWAY_URL</code>{" "}
+              (<code className="bg-bg-surface px-1 rounded">wrangler secret put</code>) pointing at
+              that gateway — missing it fails the session clearly rather than silently falling
+              back. No Helm chart ships for the gateway itself yet; it implements the same HTTP
+              contract as oma-k8s-bridge (see{" "}
+              <code className="bg-bg-surface px-1 rounded">
+                packages/sandbox/src/adapters/kubernetes-remote.ts
+              </code>
+              ) — you deploy your own gateway implementing that contract in-cluster.{" "}
+              <span className="text-fg">Known limitation:</span> memory-store and
+              session-outputs bind-mounts aren't available over the gateway's HTTP tar API, same
+              as BoxRun.
+            </p>
+          </div>
+
+          <p className="text-xs text-fg-subtle">
+            Full reference — values, ingress/TLS, RBAC, and troubleshooting — at{" "}
+            <a
+              href="https://docs.oma.duyet.net/deploy/k8s-bridge/"
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-fg"
+            >
+              docs.oma.duyet.net/deploy/k8s-bridge
+            </a>
+            ; the 10-minute path is{" "}
+            <a
+              href="https://docs.oma.duyet.net/deploy/kubernetes/"
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-fg"
+            >
+              deploy/kubernetes
+            </a>
+            .
+          </p>
+        </div>
+      </details>
 
       {/* Provider registration help */}
       <details className="rounded-lg border border-border bg-bg-surface/50">
