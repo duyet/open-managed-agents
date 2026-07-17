@@ -312,6 +312,7 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
       environment?: string | { id: string };
       title?: string;
       vault_ids?: string[];
+      metadata?: Record<string, unknown>;
       resources?: Array<{
         type: "file" | "memory_store" | "github_repository" | "github_repo" | "env" | "env_secret";
         file_id?: string;
@@ -332,6 +333,21 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
     const wrappedEnv =
       typeof body.environment === "string" ? body.environment : body.environment?.id;
     if (!agentId) return c.json({ error: "agent is required" }, 400);
+
+    // metadata: optional plain-object bag stamped onto the session row at
+    // create (issue #252). Publication session-create forwards
+    // publication_id/end_user_id here — dropping it silently breaks the
+    // per_1k_tokens post-turn debit (no wallet resolves) and notify webhook
+    // envelopes. Same shape the POST /:id update route accepts.
+    if (
+      body.metadata !== undefined &&
+      (body.metadata === null ||
+        typeof body.metadata !== "object" ||
+        Array.isArray(body.metadata))
+    ) {
+      return c.json({ error: "metadata must be a plain object" }, 400);
+    }
+    const metadata = body.metadata;
 
     const memCount = (body.resources ?? []).filter((r) => r.type === "memory_store").length;
     if (memCount > 8) {
@@ -461,6 +477,7 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
         vaultIds,
         agentSnapshot: agentSnapshot as AgentConfig,
         environmentSnapshot: envSnap ?? undefined,
+        metadata,
         resources: nonFileInputs as never,
       });
       session = result.session;
