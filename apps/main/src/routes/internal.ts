@@ -6,6 +6,7 @@ import type { Services } from "@duyet/oma-services";
 import { forEachShardServices } from "@duyet/oma-services";
 import type { NewResourceInput } from "@duyet/oma-sessions-store";
 import { toEnvironmentConfig } from "@duyet/oma-environments-store";
+import { checkInternalSecret } from "@duyet/oma-http-routes";
 import { CfSessionRouter } from "../lib/cf-session-router";
 
 // Internal endpoints, called only by the integrations gateway worker via the
@@ -146,14 +147,8 @@ app.use("*", async (c, next) => {
   if (c.req.path.startsWith("/v1/internal/usage_events")) {
     return next();
   }
-  const expected = c.env.INTEGRATIONS_INTERNAL_SECRET;
-  if (!expected) {
-    return c.json({ error: "internal endpoints not configured" }, 503);
-  }
-  const provided = c.req.header("x-internal-secret");
-  if (!provided || provided !== expected) {
-    return c.json({ error: "unauthorized" }, 401);
-  }
+  const blocked = checkInternalSecret(c, c.env.INTEGRATIONS_INTERNAL_SECRET);
+  if (blocked) return blocked;
   await next();
 });
 

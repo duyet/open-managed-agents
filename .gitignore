@@ -56,4 +56,5 @@ data/
 
 # Hallmark design skill scratch output — not a build artifact
 .hallmark/
+# local scratch screenshots (NOT apps/web/public/screenshots — those ship)
 /screenshots/

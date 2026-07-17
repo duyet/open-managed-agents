@@ -16,9 +16,6 @@ import { AssignIssueDialog } from "./AssignIssueDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const inputCls =
-  "w-full border border-border rounded-md px-3 py-2 text-sm bg-bg text-fg outline-none focus:border-brand transition-colors placeholder:text-fg-subtle";
-
 /** Whether the applied config is complete enough to fetch issues. */
 function canFetchIssues(c: GitHubBoardConfig): boolean {
   return !!c.installationId && c.repo.includes("/");
@@ -120,7 +117,6 @@ export function GitHubIssuesBoard() {
               value={draft.boardName}
               onChange={(e) => setDraft({ ...draft, boardName: e.target.value })}
               placeholder="e.g. Triage queue"
-              className={inputCls}
             />
           </label>
 
@@ -174,7 +170,6 @@ export function GitHubIssuesBoard() {
               value={draft.labels}
               onChange={(e) => setDraft({ ...draft, labels: e.target.value })}
               placeholder="comma,separated"
-              className={inputCls}
             />
           </label>
 
@@ -184,7 +179,6 @@ export function GitHubIssuesBoard() {
               value={draft.assignee}
               onChange={(e) => setDraft({ ...draft, assignee: e.target.value })}
               placeholder="login or 'none'"
-              className={inputCls}
             />
           </label>
 
@@ -194,7 +188,6 @@ export function GitHubIssuesBoard() {
               value={draft.q}
               onChange={(e) => setDraft({ ...draft, q: e.target.value })}
               placeholder="free-text search"
-              className={inputCls}
             />
           </label>
         </div>

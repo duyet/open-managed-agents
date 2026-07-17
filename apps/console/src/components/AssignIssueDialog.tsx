@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useApi, ApiError } from "../lib/api";
 import { useApiQuery } from "../lib/useApiQuery";
@@ -61,7 +61,7 @@ export function AssignIssueDialog({ open, onClose, issue, repo, onCreated }: Pro
     { limit: "200" },
     { enabled: open },
   );
-  const agents = useMemo(() => agentsRes?.data ?? [], [agentsRes]);
+  const agents = agentsRes?.data ?? [];
 
   const {
     environments,

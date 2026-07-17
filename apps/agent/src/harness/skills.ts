@@ -182,5 +182,5 @@ export async function getSkillFiles(
 
 // No hardcoded built-in skills.
 // All skills (including Anthropic's pptx/xlsx/docx/pdf) are managed via the
-// /v1/skills API and stored in KV. Use `scripts/seed-skills.ts` to import
+// /v1/skills API and stored in KV. Use `scripts/seed-skills.sh` to import
 // skills from github.com/anthropics/skills into your deployment.

@@ -6,7 +6,7 @@
 // instances hard-coded. The click-to-describe <dialog> and the sandbox
 // avatar-group live here (host-specific interaction); FitDiagram only knows
 // about `onActivate` callbacks and `providerMarks` ids.
-import { useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { FitDiagram, ProviderMark, type FitStep } from "@duyet/oma-fit-diagram";
 
 interface DialogContent {
@@ -26,52 +26,13 @@ interface DialogContent {
 }
 
 interface DialogResource {
-  /** ProviderMark id (sandbox providers) or a CHANNEL_MARKS key. */
+  /** ProviderMark id — sandbox providers or channel marks (github/slack/…). */
   id: string;
   label: string;
   href: string;
 }
 
 const DOCS = "https://docs.oma.duyet.net";
-
-// Channel logos (Simple Icons single-path marks) — ProviderMark only covers
-// sandbox providers, so chat/issue-tracker marks live here.
-const CHANNEL_MARKS: Record<string, string> = {
-  github:
-    "M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12",
-  slack:
-    "M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z",
-  telegram:
-    "M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z",
-  linear:
-    "M2.886 4.18A11.982 11.982 0 0 1 11.99 0C18.624 0 24 5.376 24 12.009c0 3.64-1.62 6.903-4.18 9.105L2.887 4.18ZM1.817 5.626l16.556 16.556c-.524.33-1.075.62-1.65.866L.951 7.277c.247-.575.537-1.126.866-1.65ZM.322 9.163l14.515 14.515c-.71.172-1.443.282-2.195.322L0 11.358a12 12 0 0 1 .322-2.195Zm-.17 4.862 9.823 9.824a12.02 12.02 0 0 1-9.824-9.824Z",
-};
-
-// Brand colors for channel marks — GitHub stays currentColor (its black
-// mark would vanish on dark backgrounds).
-const CHANNEL_COLORS: Record<string, string> = {
-  slack: "#E01E5A",
-  telegram: "#26A5E4",
-  linear: "#5E6AD2",
-};
-
-function ResourceMark({ id }: { id: string }) {
-  const channel = CHANNEL_MARKS[id];
-  if (channel) {
-    return (
-      <svg
-        viewBox="0 0 24 24"
-        className="size-4"
-        fill="currentColor"
-        style={CHANNEL_COLORS[id] ? { color: CHANNEL_COLORS[id] } : undefined}
-        aria-hidden="true"
-      >
-        <path d={channel} />
-      </svg>
-    );
-  }
-  return <ProviderMark id={id} colored className="size-4" />;
-}
 
 /** Grid of supported providers/integrations — each tile links to its setup guide. */
 function ResourceGrid({ items }: { items: DialogResource[] }) {
@@ -86,7 +47,7 @@ function ResourceGrid({ items }: { items: DialogResource[] }) {
           className="group flex items-center gap-2 rounded-md border border-border bg-bg-surface/60 px-2.5 py-2 no-underline transition-colors hover:border-brand/60 hover:bg-bg-surface"
         >
           <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-bg text-fg-muted group-hover:text-brand">
-            <ResourceMark id={r.id} />
+            <ProviderMark id={r.id} colored className="size-4" />
           </span>
           <span className="min-w-0">
             <span className="block truncate text-[12px] font-medium text-fg">{r.label}</span>
@@ -143,12 +104,15 @@ export default function HowItFits() {
   const [dialog, setDialog] = useState<DialogContent | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
-  const open = (title: string, desc: string, extra?: Pick<DialogContent, "points" | "flow">) => {
-    setDialog({ title, desc, ...extra });
-    dialogRef.current?.showModal();
-  };
+  const open = useCallback(
+    (title: string, desc: string, extra?: Pick<DialogContent, "points" | "flow">) => {
+      setDialog({ title, desc, ...extra });
+      dialogRef.current?.showModal();
+    },
+    [],
+  );
 
-  const steps: FitStep[] = [
+  const steps: FitStep[] = useMemo(() => [
     {
       number: "1",
       name: "Configure",
@@ -516,7 +480,71 @@ export default function HowItFits() {
         },
       ],
     },
-  ];
+  ], [open]);
+
+  // Text panel of the dialog. Rendered bare when there's no screenshot, or as
+  // the left column of a two-up grid alongside the image when there is — so a
+  // no-image dialog never carries an empty grid wrapper.
+  const dialogBody = (
+    <div className="p-[1.1rem_1.25rem_1.25rem]">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h3 id="fits-dialog-title" className="text-base font-semibold tracking-tight">
+          {dialog?.title}
+        </h3>
+        <button
+          type="button"
+          aria-label="Close"
+          className="px-1 text-sm text-fg-subtle hover:text-fg"
+          onClick={() => dialogRef.current?.close()}
+        >
+          ✕
+        </button>
+      </div>
+      <p className="text-[0.85rem] leading-relaxed text-fg-muted">{dialog?.desc}</p>
+      {dialog?.flow && <FlowDiagram items={dialog.flow} />}
+      {dialog?.resources && (
+        <>
+          <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-fg-subtle">
+            Supported
+          </p>
+          <ResourceGrid items={dialog.resources} />
+        </>
+      )}
+      {dialog?.points && (
+        <ul className="mt-2 space-y-1.5">
+          {dialog.points.map((pt) => (
+            <li key={pt} className="flex gap-2 text-[0.8rem] leading-relaxed text-fg-muted">
+              <span className="mt-[1px] text-brand" aria-hidden="true">
+                ›
+              </span>
+              {pt}
+            </li>
+          ))}
+        </ul>
+      )}
+      {dialog?.links && (
+        <div className="mt-4 border-t border-border pt-3">
+          <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-fg-subtle">
+            Learn more
+          </p>
+          <ul className="space-y-1">
+            {dialog.links.map((l) => (
+              <li key={l.href + l.label}>
+                <a
+                  href={l.href}
+                  target={l.href.startsWith("http") ? "_blank" : undefined}
+                  rel={l.href.startsWith("http") ? "noreferrer" : undefined}
+                  className="text-[0.8rem] text-brand hover:underline"
+                >
+                  {l.label} →
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div aria-label="How it fits together">
@@ -540,76 +568,21 @@ export default function HowItFits() {
           if (e.target === dialogRef.current) dialogRef.current?.close();
         }}
       >
-        <div className={dialog?.image ? "grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]" : undefined}>
-        <div className="p-[1.1rem_1.25rem_1.25rem]">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <h3 id="fits-dialog-title" className="text-base font-semibold tracking-tight">
-              {dialog?.title}
-            </h3>
-            <button
-              type="button"
-              aria-label="Close"
-              className="px-1 text-sm text-fg-subtle hover:text-fg"
-              onClick={() => dialogRef.current?.close()}
-            >
-              ✕
-            </button>
-          </div>
-          <p className="text-[0.85rem] leading-relaxed text-fg-muted">{dialog?.desc}</p>
-          {dialog?.flow && <FlowDiagram items={dialog.flow} />}
-          {dialog?.resources && (
-            <>
-              <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-fg-subtle">
-                Supported
-              </p>
-              <ResourceGrid items={dialog.resources} />
-            </>
-          )}
-          {dialog?.points && (
-            <ul className="mt-2 space-y-1.5">
-              {dialog.points.map((pt) => (
-                <li key={pt} className="flex gap-2 text-[0.8rem] leading-relaxed text-fg-muted">
-                  <span className="mt-[1px] text-brand" aria-hidden="true">
-                    ›
-                  </span>
-                  {pt}
-                </li>
-              ))}
-            </ul>
-          )}
-          {dialog?.links && (
-            <div className="mt-4 border-t border-border pt-3">
-              <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-fg-subtle">
-                Learn more
-              </p>
-              <ul className="space-y-1">
-                {dialog.links.map((l) => (
-                  <li key={l.href + l.label}>
-                    <a
-                      href={l.href}
-                      target={l.href.startsWith("http") ? "_blank" : undefined}
-                      rel={l.href.startsWith("http") ? "noreferrer" : undefined}
-                      className="text-[0.8rem] text-brand hover:underline"
-                    >
-                      {l.label} →
-                    </a>
-                  </li>
-                ))}
-              </ul>
+        {dialog?.image ? (
+          <div className="grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+            {dialogBody}
+            <div className="hidden items-center justify-center p-3 pl-0 md:flex">
+              <img
+                src={dialog.image.src}
+                alt={dialog.image.alt}
+                loading="lazy"
+                className="max-h-[calc(100dvh-6rem)] w-full rounded-md object-contain"
+              />
             </div>
-          )}
-        </div>
-        {dialog?.image && (
-          <div className="hidden items-center justify-center p-3 pl-0 md:flex">
-            <img
-              src={dialog.image.src}
-              alt={dialog.image.alt}
-              loading="lazy"
-              className="max-h-[calc(100dvh-6rem)] w-full rounded-md object-contain"
-            />
           </div>
+        ) : (
+          dialogBody
         )}
-        </div>
       </dialog>
     </div>
   );

@@ -127,3 +127,5 @@ export type { McpServerRoutesDeps, McpRegistryRow } from "./mcp-servers";
 
 export { buildTelegramWebhookRoute } from "./telegram";
 export type { TelegramWebhookRouteDeps } from "./telegram";
+
+export { checkInternalSecret } from "./internal-auth";

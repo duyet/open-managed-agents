@@ -21,6 +21,7 @@ import { Select, SelectGroup, SelectGroupLabel, SelectOption } from "../../compo
 import { Combobox } from "../../components/Combobox";
 import { McpServerPickerModal } from "../../components/McpServerPickerModal";
 import { GitHubIcon, SlackIcon, LinearIcon } from "../../components/icons";
+import { brandColor } from "@duyet/oma-fit-diagram";
 import { AGENT_TEMPLATES, type AgentTemplate } from "../../data/templates";
 import type { ModelCard } from "@duyet/oma-api-types";
 import {
@@ -54,8 +55,8 @@ const TEMPLATE_ICONS: Record<string, LucideGlyph> = {
 type BrandMark = ComponentType<{ className?: string }>;
 const INTEGRATION_MARKS: Record<string, { Icon?: BrandMark; color?: string }> = {
   github: { Icon: GitHubIcon },
-  slack: { Icon: SlackIcon, color: "#E01E5A" },
-  linear: { Icon: LinearIcon, color: "#5E6AD2" },
+  slack: { Icon: SlackIcon, color: brandColor("slack") },
+  linear: { Icon: LinearIcon, color: brandColor("linear") },
   sentry: { color: "#7B51F8" },
   asana: { color: "#F06A6A" },
   amplitude: { color: "#1E61F0" },

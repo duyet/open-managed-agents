@@ -218,16 +218,21 @@ function UseInEnvironmentSection({
   );
 }
 
-function ProviderCard({ p, onSetup, onRemove, onOpenDetail }: { p: HostingType; onSetup?: (p: HostingType) => void; onRemove?: (p: HostingType) => void; onOpenDetail?: (p: HostingType) => void }) {
-  const health = p.health;
-  const status = health?.status ?? "na";
-  const healthDot =
+// Health dot color + human label for a provider's current health status.
+// Shared by the card and the detail dialog so the ternary ladder lives once.
+function providerHealth(p: HostingType): {
+  dot: string;
+  label: string;
+  status: "healthy" | "unhealthy" | "not_configured" | "na";
+} {
+  const status = p.health?.status ?? "na";
+  const dot =
     status === "healthy"
       ? "bg-success"
       : status === "unhealthy"
         ? "bg-destructive"
         : "bg-fg-subtle";
-  const healthLabel =
+  const label =
     status === "healthy"
       ? "Healthy"
       : status === "unhealthy"
@@ -235,6 +240,12 @@ function ProviderCard({ p, onSetup, onRemove, onOpenDetail }: { p: HostingType; 
         : status === "not_configured"
           ? "Not configured"
           : "N/A";
+  return { dot, label, status };
+}
+
+function ProviderCard({ p, onSetup, onRemove, onOpenDetail }: { p: HostingType; onSetup?: (p: HostingType) => void; onRemove?: (p: HostingType) => void; onOpenDetail?: (p: HostingType) => void }) {
+  const health = p.health;
+  const { dot: healthDot, label: healthLabel, status } = providerHealth(p);
 
   const clickable = !!onOpenDetail;
 
@@ -522,7 +533,7 @@ function MachineDetailDialog({
   );
   return (
     <Modal
-      open={machine !== null}
+      open
       onClose={onClose}
       title={r.hostname}
       subtitle="Connected machine running the bridge daemon"
@@ -647,24 +658,10 @@ function ProviderDetailDialog({
   if (!provider) return null;
   const p = provider;
   const health = p.health;
-  const status = health?.status ?? "na";
-  const healthDot =
-    status === "healthy"
-      ? "bg-success"
-      : status === "unhealthy"
-        ? "bg-destructive"
-        : "bg-fg-subtle";
-  const healthLabel =
-    status === "healthy"
-      ? "Healthy"
-      : status === "unhealthy"
-        ? "Unhealthy"
-        : status === "not_configured"
-          ? "Not configured"
-          : "N/A";
+  const { dot: healthDot, label: healthLabel, status } = providerHealth(p);
   return (
     <Modal
-      open={provider !== null}
+      open
       onClose={onClose}
       title={p.label}
       subtitle={p.id}

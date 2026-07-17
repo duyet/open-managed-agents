@@ -26,6 +26,7 @@ import type {
   JwtSigner,
 } from "@duyet/oma-integrations-core";
 import { getLogger } from "@duyet/oma-observability";
+import { checkInternalSecret } from "../internal-auth";
 
 const log = getLogger("http-routes.integrations.gateway");
 
@@ -302,7 +303,7 @@ export function buildIntegrationsGatewayRoutes(deps: IntegrationsGatewayDeps) {
   // public-facing route in integrations/index.ts resolves installation →
   // vaultId + ownership before forwarding here with the internal secret.
   app.post("/github/internal/list-repos", async (c) => {
-    const gate = requireInternal(c, deps.internalSecret);
+    const gate = checkInternalSecret(c, deps.internalSecret);
     if (gate) return gate;
     let body: { userId?: string; vaultId?: string; page?: number };
     try {
@@ -356,7 +357,7 @@ export function buildIntegrationsGatewayRoutes(deps: IntegrationsGatewayDeps) {
   // `is:issue` keeps pull requests out. Same token-mint + internal-secret
   // gate as list-repos.
   app.post("/github/internal/list-issues", async (c) => {
-    const gate = requireInternal(c, deps.internalSecret);
+    const gate = checkInternalSecret(c, deps.internalSecret);
     if (gate) return gate;
     let body: {
       userId?: string;
@@ -914,19 +915,6 @@ function jsonRpcError(
 // ─── GitHub board helpers (repo picker + issues board) ────────────────
 
 const GITHUB_API_ORIGIN = "https://api.github.com";
-
-/** Shared internal-secret gate for the /github/internal/* board endpoints —
- *  mirrors the inline check on refresh-by-vault. Returns a Response to short
- *  circuit with, or null to proceed. */
-function requireInternal(
-  c: import("hono").Context,
-  expected: string | null,
-): Response | null {
-  if (!expected) return c.json({ error: "internal endpoints not configured" }, 503);
-  const provided = c.req.header("x-internal-secret");
-  if (!provided || provided !== expected) return c.json({ error: "unauthorized" }, 401);
-  return null;
-}
 
 /** Plain authenticated GET against the GitHub REST API using an installation
  *  token. Kept dependency-free (raw fetch, like linearGraphQLFetch) so
