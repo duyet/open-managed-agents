@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { useApiQuery } from "../lib/useApiQuery";
 import { IntegrationsApi } from "../integrations/api/client";
 import { friendlyHostingDescription } from "../lib/hostingTypes";
+import { ProviderMark } from "./ProviderMark";
 import {
   AgentIcon,
   ApiKeysIcon,
@@ -124,6 +125,9 @@ interface TypeCard {
   /** The Agent — the thing you're actually building. Brand-accented and a
    *  size up, so the eye lands on step 2 first and reads outward. */
   hero?: boolean;
+  /** Provider ids rendered as small monochrome brand marks under the
+   *  description (the Sandbox card's "runs on" row). */
+  providerMarks?: string[];
 }
 
 const BADGE_CAP = 3;
@@ -192,9 +196,18 @@ function TypeCardView({ card, nav }: { card: TypeCard; nav: (to: string) => void
         <StatusDot status={card.status} />
       </div>
       {card.description ? (
-        <div className="mt-1 text-[11px] leading-snug text-fg-muted">
-          {card.description}
-        </div>
+        <>
+          <div className="mt-1 text-[11px] leading-snug text-fg-muted">
+            {card.description}
+          </div>
+          {card.providerMarks && card.providerMarks.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {card.providerMarks.map((id) => (
+                <ProviderMark key={id} id={id} className="size-3.5 text-fg-subtle" />
+              ))}
+            </div>
+          )}
+        </>
       ) : empty ? (
         <div className="mt-1 text-[11px] leading-snug text-fg-muted">
           {card.emptyCta}
@@ -414,6 +427,16 @@ export function StackedAssembly() {
   const envStatus: CardStatus =
     envs.length === 0 ? "empty" : envAttention ? "attention" : "ready";
   const providers = [...new Set(envs.map(providerLabel))];
+  const providerIds = [
+    ...new Set(
+      envs.map(
+        (e) =>
+          (e.config?.sandbox_provider as string | undefined) ??
+          (e.config?.type as string | undefined) ??
+          "cloud",
+      ),
+    ),
+  ];
 
   const countStatus = (n: number): CardStatus => (n > 0 ? "ready" : "empty");
 
@@ -554,6 +577,7 @@ export function StackedAssembly() {
           providers.length > 0
             ? `Runs on ${providers.join(", ")} — set by your environment.`
             : undefined,
+        providerMarks: providerIds,
       },
     ],
   };

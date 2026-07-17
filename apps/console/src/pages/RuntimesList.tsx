@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Modal } from "../components/Modal";
 import { AddSandboxProviderDialog } from "./AddSandboxProviderDialog";
 import { RowActionsMenu } from "../components/RowActionsMenu";
+import { ProviderMark } from "../components/ProviderMark";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/hooks/useConfirm";
 
@@ -161,9 +162,12 @@ function ProviderCard({ p, onSetup, onRemove }: { p: HostingType; onSetup?: (p: 
     <Card size="sm" className="flex flex-col">
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <CardTitle className="truncate">{p.label}</CardTitle>
-            <div className="text-xs text-fg-subtle font-mono mt-0.5">{p.id}</div>
+          <div className="flex min-w-0 items-start gap-2.5">
+            <ProviderMark id={p.id} className="mt-0.5 size-5 shrink-0 text-fg-subtle" />
+            <div className="min-w-0">
+              <CardTitle className="truncate">{p.label}</CardTitle>
+              <div className="text-xs text-fg-subtle font-mono mt-0.5">{p.id}</div>
+            </div>
           </div>
           <span className={cn("shrink-0 w-2.5 h-2.5 rounded-full mt-1.5", healthDot)} title={healthLabel} />
         </div>
