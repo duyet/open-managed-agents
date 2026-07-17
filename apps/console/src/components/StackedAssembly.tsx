@@ -17,9 +17,12 @@
 // instances as badges — an empty/dashed card *is* the to-do item, so nothing
 // needs a second checklist. RUN's cards describe runtime behaviour rather
 // than instances you create, so they carry a `description` instead.
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
-import { FitDiagram, type FitCardStatus, type FitStep } from "@duyet/oma-fit-diagram";
+import { FitDiagram, ProviderMark, type FitCardStatus, type FitStep } from "@duyet/oma-fit-diagram";
+import { Modal } from "./Modal";
+import { Button } from "@/components/ui/button";
 import { useApiQuery } from "../lib/useApiQuery";
 import { IntegrationsApi } from "../integrations/api/client";
 import { friendlyHostingDescription } from "../lib/hostingTypes";
@@ -100,8 +103,82 @@ function providerLabel(env: EnvEntry): string {
   return desc?.split(" — ")[0] ?? id;
 }
 
+// ── Quick-view dialog ───────────────────────────────────────────────────
+// Clicking a card no longer navigates straight away — it opens a compact
+// dialog with the live rows the dashboard already fetched (table for list
+// resources, a mark grid for sandbox providers) plus a link to the full page.
+
+interface QuickRow {
+  primary: string;
+  secondary?: string;
+  tag?: string;
+}
+
+interface QuickView {
+  title: string;
+  desc: string;
+  href: string;
+  linkLabel: string;
+  rows: QuickRow[];
+  /** Renders a provider-mark grid instead of the row table. */
+  marks?: string[];
+  emptyText: string;
+}
+
+const QUICK_ROW_CAP = 8;
+
+function QuickViewBody({ view }: { view: QuickView }) {
+  if (view.marks && view.marks.length > 0) {
+    return (
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {view.marks.map((id, i) => (
+          <div
+            key={id}
+            className="flex items-center gap-2 rounded-md border border-border bg-bg-surface/40 px-2.5 py-2"
+          >
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-bg">
+              <ProviderMark id={id} className="size-4 text-fg-muted" />
+            </span>
+            <span className="truncate text-[13px] text-fg">{view.rows[i]?.primary ?? id}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (view.rows.length === 0) {
+    return <p className="text-sm text-fg-muted">{view.emptyText}</p>;
+  }
+  const shown = view.rows.slice(0, QUICK_ROW_CAP);
+  const rest = view.rows.length - shown.length;
+  return (
+    <div className="rounded-md border border-border">
+      <div className="divide-y divide-border">
+        {shown.map((r, i) => (
+          <div key={`${r.primary}-${i}`} className="flex items-center gap-3 px-3 py-2">
+            <span className="min-w-0 flex-1 truncate text-[13px] text-fg">{r.primary}</span>
+            {r.tag && (
+              <span className="shrink-0 rounded bg-bg-surface px-1.5 py-0.5 text-[11px] text-fg-muted">
+                {r.tag}
+              </span>
+            )}
+            {r.secondary && (
+              <span className="shrink-0 font-mono text-[11px] text-fg-subtle">{r.secondary}</span>
+            )}
+          </div>
+        ))}
+      </div>
+      {rest > 0 && (
+        <div className="border-t border-border px-3 py-1.5 text-[12px] text-fg-subtle">
+          +{rest} more on the full page
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function StackedAssembly() {
   const nav = useNavigate();
+  const [quick, setQuick] = useState<QuickView | null>(null);
 
   const agentsQ = useApiQuery<Page<AgentRecord>>("/v1/agents", { limit: "10" });
   const modelCardsQ = useApiQuery<Page<ModelCard>>("/v1/model_cards", { limit: "10" });
@@ -168,7 +245,15 @@ export function StackedAssembly() {
         status: countStatus(apiKeys.length),
         badges: apiKeys.map((k) => k.name),
         emptyCta: "+ Auth for the CLI & your agent",
-        onActivate: () => nav("/api-keys"),
+        onActivate: () =>
+          setQuick({
+            title: "API keys",
+            desc: "Authenticate the CLI, SDK, and REST calls against your OMA instance.",
+            href: "/api-keys",
+            linkLabel: "API Keys",
+            rows: apiKeys.map((k) => ({ primary: k.name, secondary: k.id })),
+            emptyText: "No API keys yet — create one to use the CLI and SDK.",
+          }),
       },
       {
         key: "model",
@@ -177,7 +262,32 @@ export function StackedAssembly() {
         status: countStatus(modelCards.length),
         badges: modelCards.map((m) => m.model_id),
         emptyCta: "+ Add a model card — the AI brain",
-        onActivate: () => nav("/model-cards"),
+        onActivate: () =>
+          setQuick({
+            title: "Model cards",
+            desc: "Each card binds a model handle to a provider, key, and base URL.",
+            href: "/model-cards",
+            linkLabel: "Model Cards",
+            rows: modelCards.map((m) => ({ primary: m.model_id, secondary: m.id })),
+            emptyText: "No model cards yet — agents fall back to the environment key.",
+          }),
+      },
+      {
+        key: "integrations",
+        icon: <MessageCircleIcon className="w-4 h-4" />,
+        title: "Integrations",
+        status: countStatus(channels.length),
+        badges: channels,
+        emptyCta: "+ Set up GitHub, Slack, Linear",
+        onActivate: () =>
+          setQuick({
+            title: "Integrations",
+            desc: "Wire agents into GitHub, Slack, and Linear — messages become session turns.",
+            href: "/integrations",
+            linkLabel: "Integrations",
+            rows: channels.map((c) => ({ primary: c })),
+            emptyText: "Nothing connected yet — set up GitHub, Slack, or Linear.",
+          }),
       },
     ],
   };
@@ -196,7 +306,17 @@ export function StackedAssembly() {
         status: agentReady ? "ready" : "empty",
         badges: agents.map((a) => a.name),
         emptyCta: "+ Create your first agent — it composes everything in step 1",
-        onActivate: () => nav(agentReady ? "/agents" : "/agents/new"),
+        onActivate: () =>
+          agentReady
+            ? setQuick({
+                title: "Agents",
+                desc: "agent = model + skills + mcp — a versioned configuration; every conversation with it runs as a session.",
+                href: "/agents",
+                linkLabel: "Agents",
+                rows: agents.map((a) => ({ primary: a.name, secondary: a.id })),
+                emptyText: "No agents yet.",
+              })
+            : nav("/agents/new"),
       },
       // Skills is the only piece of `agent = model + skills + mcp` that is
       // also a resource with its own page, so it's the only one that earns a
@@ -211,7 +331,15 @@ export function StackedAssembly() {
         status: countStatus(skills.length),
         badges: skills.map((s) => s.name),
         emptyCta: "+ Prompts & know-how",
-        onActivate: () => nav("/skills"),
+        onActivate: () =>
+          setQuick({
+            title: "Skills",
+            desc: "Reusable prompts and files mounted into the sandbox and injected into the system prompt.",
+            href: "/skills",
+            linkLabel: "Skills",
+            rows: skills.map((k) => ({ primary: k.name, secondary: k.id })),
+            emptyText: "No skills yet — write one once, attach it to any agent.",
+          }),
       },
       // Optional knowledge + data the agent works with — grouped with the
       // agent it augments; sessions mount them at runtime.
@@ -223,7 +351,15 @@ export function StackedAssembly() {
           status: countStatus(memoryStores.length),
           badges: memoryStores.map((m) => m.name),
           emptyCta: "+ Notes it keeps",
-          onActivate: () => nav("/memory"),
+          onActivate: () =>
+            setQuick({
+              title: "Memory stores",
+              desc: "Mounted at /mnt/memory/<name> — knowledge that survives across sessions, versioned and auditable.",
+              href: "/memory",
+              linkLabel: "Memory Stores",
+              rows: memoryStores.map((m) => ({ primary: m.name, secondary: m.id })),
+              emptyText: "No memory stores yet.",
+            }),
         },
         {
           key: "files",
@@ -232,7 +368,15 @@ export function StackedAssembly() {
           status: countStatus(files.length),
           badges: files.map((f) => f.filename),
           emptyCta: "+ Data to mount",
-          onActivate: () => nav("/files"),
+          onActivate: () =>
+            setQuick({
+              title: "Files",
+              desc: "Uploaded once, mounted into any session's sandbox at a path you choose.",
+              href: "/files",
+              linkLabel: "Files",
+              rows: files.map((f) => ({ primary: f.filename, secondary: f.id })),
+              emptyText: "No files yet.",
+            }),
         },
       ],
     ],
@@ -258,7 +402,15 @@ export function StackedAssembly() {
           status: envStatus,
           badges: envs.map((e) => e.name),
           emptyCta: "+ Create a sandbox environment",
-          onActivate: () => nav("/environments"),
+          onActivate: () =>
+            setQuick({
+              title: "Environments",
+              desc: "Which sandbox provider runs the session, what's preinstalled, and what networking is allowed.",
+              href: "/environments",
+              linkLabel: "Environments",
+              rows: envs.map((e) => ({ primary: e.name, secondary: providerLabel(e), tag: e.status })),
+              emptyText: "No environments yet.",
+            }),
         },
         {
           key: "vaults",
@@ -267,7 +419,15 @@ export function StackedAssembly() {
           status: countStatus(vaults.length),
           badges: vaults.map((v) => v.name),
           emptyCta: "+ Secrets it calls out with",
-          onActivate: () => nav("/vaults"),
+          onActivate: () =>
+            setQuick({
+              title: "Credential vaults",
+              desc: "Secrets injected by the outbound proxy at the network layer — raw credentials never enter the sandbox.",
+              href: "/vaults",
+              linkLabel: "Credential Vaults",
+              rows: vaults.map((v) => ({ primary: v.name, secondary: v.id })),
+              emptyText: "No vaults yet.",
+            }),
         },
       ],
       {
@@ -278,7 +438,15 @@ export function StackedAssembly() {
         badges: [],
         emptyCta: "",
         description: "One conversation or task — streamed, resumable event log.",
-        onActivate: () => nav("/sessions"),
+        onActivate: () =>
+          setQuick({
+            title: "Sessions",
+            desc: "session = agent + env + vaults — an append-only, resumable event log per conversation.",
+            href: "/sessions",
+            linkLabel: "Sessions",
+            rows: sessions.map((s) => ({ primary: s.id })),
+            emptyText: "No sessions yet.",
+          }),
       },
       {
         key: "runtime",
@@ -290,7 +458,16 @@ export function StackedAssembly() {
         description:
           providers.length > 0 ? "Where tools execute — set by your environment." : undefined,
         providerMarks: providerIds,
-        onActivate: () => nav("/runtimes"),
+        onActivate: () =>
+          setQuick({
+            title: "Sandbox providers",
+            desc: "Where tools execute — the isolated container or micro-VM each session runs inside, set by its environment.",
+            href: "/runtimes",
+            linkLabel: "Sandbox Runtime",
+            rows: providers.map((p) => ({ primary: p })),
+            marks: providerIds,
+            emptyText: "No environments yet, so no sandbox providers in use.",
+          }),
       },
     ],
   };
@@ -308,7 +485,15 @@ export function StackedAssembly() {
         status: countStatus(channels.length),
         badges: channels,
         emptyCta: "+ Connect Telegram, Slack, or GitHub",
-        onActivate: () => nav("/integrations"),
+        onActivate: () =>
+          setQuick({
+            title: "Channels",
+            desc: "Where the agent meets users: Telegram, Slack, GitHub — replies flow back to the channel.",
+            href: "/integrations",
+            linkLabel: "Integrations",
+            rows: channels.map((c) => ({ primary: c })),
+            emptyText: "No channels connected yet.",
+          }),
       },
       {
         key: "publications",
@@ -317,7 +502,15 @@ export function StackedAssembly() {
         status: countStatus(pubs.length),
         badges: pubs.map((p) => p.title),
         emptyCta: "+ Publish a public chat page or widget",
-        onActivate: () => nav("/my-bots"),
+        onActivate: () =>
+          setQuick({
+            title: "Publications",
+            desc: "The agent as a consumer-facing bot: hosted chat page, embeddable widget, optional billing.",
+            href: "/my-bots",
+            linkLabel: "My Bots",
+            rows: pubs.map((p) => ({ primary: p.title, tag: p.status })),
+            emptyText: "Nothing published yet.",
+          }),
       },
     ],
   };
@@ -349,6 +542,32 @@ export function StackedAssembly() {
           { lhs: "session", parts: ["agent", "env", "vaults"] },
         ]}
       />
+
+      {quick && (
+        <Modal
+          open
+          onClose={() => setQuick(null)}
+          title={quick.title}
+          subtitle={quick.desc}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setQuick(null)}>
+                Close
+              </Button>
+              <Button
+                onClick={() => {
+                  setQuick(null);
+                  nav(quick.href);
+                }}
+              >
+                Open {quick.linkLabel} →
+              </Button>
+            </>
+          }
+        >
+          <QuickViewBody view={quick} />
+        </Modal>
+      )}
     </section>
   );
 }
