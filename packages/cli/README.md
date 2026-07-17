@@ -1,16 +1,26 @@
 # @getoma/cli
 
-Command-line client for [oma](https://oma.duyet.net) managed agents.
+Command-line client for [oma](https://oma.duyet.net) managed agents — agents, sessions, environments, vaults, memory, schedules, channel publishing (Linear / GitHub / Slack), and the local-runtime bridge.
 
-> **Pre-1.0.** API surface and command names may still change in a minor release.
+> **Pre-1.0 (0.1.x).** API surface and command names may still change in a patch release.
 
-## Install
+## Run it
+
+No install needed:
+
+```bash
+npx @getoma/cli auth login
+npx @getoma/cli agents list
+```
+
+Or install globally to get the short `oma` binary:
 
 ```bash
 npm i -g @getoma/cli
+oma auth login
 ```
 
-This installs an `oma` binary on your `PATH`. (If a different `oma` is already installed, npm will overwrite or warn — both are safe.)
+The examples below use `npx @getoma/cli`; with a global install, replace it with `oma`.
 
 ## Configure
 
@@ -18,9 +28,9 @@ Either log in interactively (recommended) or set env vars.
 
 ```bash
 # Browser handoff (default), device-code, or paste-token for headless boxes
-oma auth login                 # opens the console, waits for the redirect back
-oma auth login --device        # print a code, approve it in any browser
-oma auth login --paste-token   # fully headless: paste a token minted in the console
+npx @getoma/cli auth login                 # opens the console, waits for the redirect back
+npx @getoma/cli auth login --device        # print a code, approve it in any browser
+npx @getoma/cli auth login --paste-token   # fully headless: paste a token minted in the console
 ```
 
 Or point the CLI at a deployment directly:
@@ -32,19 +42,63 @@ export OMA_BASE_URL=https://app.oma.duyet.net   # default
 
 Generate an API key from the [oma console](https://oma.duyet.net) → API Keys.
 
-## Usage
+## Quick start
 
 ```bash
-oma agents list
-oma agents create --name my-agent --model claude-sonnet-4-6
-oma sessions list
-oma sessions create --agent <agent-id> --env <env-id>
-oma session <session-id> tail        # follow events live
-oma linear publish <agent-id> --env <env-id>
-oma api                              # HTTP API quick reference
+npx @getoma/cli agents create my-agent --model claude-sonnet-4-6
+npx @getoma/cli envs create default
+npx @getoma/cli sessions create --agent <agent-id> --env <env-id>
+npx @getoma/cli sessions chat <session-id> "Run the test suite and summarize failures"
+npx @getoma/cli sessions tail <session-id>     # follow the event stream live
 ```
 
-Run `oma --help` for the full command tree.
+## Command tree
+
+Run `npx @getoma/cli --help` for flags and details on every command.
+
+| Group | Commands |
+|---|---|
+| **Auth** | `auth login` (browser / `--device` / `--paste-token`), `auth logout`, `whoami`, `auth tenant ls`, `auth tenant use <id>` |
+| **Agents** | `agents list` · `create <name> [--model <id>]` · `get <id>` · `delete <id>` |
+| **Sessions** | `sessions list` · `create --agent <id> --env <id>` · `message <id> <text>` · `chat <id> <text>` (streamed) · `tail <id>` · `logs <id>` |
+| **Environments** | `envs list` · `envs create <name>` |
+| **Model cards** | `models list` · `models create --model-id <id> --api-key <key>` |
+| **API keys** | `keys list` · `keys create [name]` · `keys revoke <id>` |
+| **Vaults** | `vaults list` · `vaults create <name>` · `creds list <vault-id>` · `cli add --vault <id> --cli-id <gh\|aws\|…> --token <t>` |
+| **Skills** | `skills list` · `skills install <slug>` (from ClawHub) |
+| **MCP** | `connect <server\|url> --vault <id>` (OAuth) |
+| **Memory** | `memory stores create/list/get/archive/delete` · `memory write/read/ls/update/rm` · `memory versions/version/redact` |
+| **Schedules** | `schedules create <agent-id> --cron <expr> --env <id> --input <text>` · `list` · `run` · `delete` |
+| **Runtimes** | `runtime list` · `runtime rm <id>` |
+| **Linear** | `linear list/pubs/get/publish/submit/handoff/update/unpublish/install-pat` · `linear rules list/create/patch/delete` |
+| **GitHub** | `github list/pubs/get/bind/submit/handoff/update/unpublish` |
+| **Slack** | `slack list/pubs/get/publish/submit/handoff/update/unpublish` |
+| **Bridge** | see below |
+| **API reference** | `api` · `api <resource>` — print the HTTP endpoint map |
+
+## Bridge — relay a local machine into OMA
+
+The bridge pairs a machine you own (laptop, workstation, homelab box) with your OMA deployment so agents can run against its local runtimes. It relays securely outbound — no inbound ports needed.
+
+```bash
+npx @getoma/cli bridge setup        # pair this machine + install the daemon service
+npx @getoma/cli bridge status       # show creds + probe server reachability
+npx @getoma/cli bridge refresh      # reconcile authorized tenants + reload daemon
+npx @getoma/cli bridge agents refresh   # re-detect local agents + offer wrapper installs
+npx @getoma/cli bridge uninstall    # stop service + remove creds
+```
+
+Once paired, the machine appears on the Console's **Sandbox Runtime** page and can be revoked there or with `runtime rm`.
+
+## Environment variables
+
+| Var | Purpose |
+|---|---|
+| `OMA_BASE_URL` | API base (default `https://app.oma.duyet.net`) |
+| `OMA_API_KEY` | API key — overrides stored credentials when set |
+| `XDG_CONFIG_HOME` | Base dir for credentials (default `~/.config`) |
+
+Stored credentials live at `~/.config/oma/credentials.json`.
 
 ## License
 
