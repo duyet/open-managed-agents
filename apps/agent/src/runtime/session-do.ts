@@ -350,6 +350,31 @@ const MAX_PENDING_WAKEUPS = 20;
 const STATE_ROW_ID = "cf_state_row_id";
 const KEEP_ALIVE_INTERVAL_MS = 30_000;
 const HUNG_SCHEDULE_TIMEOUT_SECONDS = 30;
+/**
+ * Turn watchdog (issue #135): a harness/tool call that never resolves — for
+ * any reason — otherwise pins a session in `running` forever with no
+ * `session.error` and no way out. The DO stays alive on its own 30s
+ * heartbeat (KEEP_ALIVE_INTERVAL_MS above), so the eviction-based orphan
+ * recovery in `_finalizeStaleTurns` never catches it — that path only fires
+ * for turns owned by a *dead* incarnation (it explicitly skips anything in
+ * `_activeTurnIds`, i.e. a turn this live instance still thinks is running).
+ *
+ * Default 15 minutes, chosen against the two things that legitimately run
+ * long inside a single turn:
+ *   - the `bash` tool itself caps at a 10-minute hard timeout (see the tool
+ *     table in AGENTS.md), so no single tool call can justify more than
+ *     ~10 min of turn time on its own;
+ *   - the `long-running` harness emits `agent.status` heartbeats on a fixed
+ *     cadence *within* a still-active turn — those don't reset this clock
+ *     (see `_checkTurnWatchdog` below, which reads `turn_started_at`, not
+ *     last-heartbeat time), so 15 min is deliberately generous headroom
+ *     above a single bash call plus surrounding model/tool round-trips,
+ *     not a per-heartbeat budget a legitimately busy agent could blow
+ *     through.
+ * Override via `OMA_TURN_TIMEOUT_MS` (ms) for deployments running heavier
+ * per-turn tool chains.
+ */
+const DEFAULT_TURN_TIMEOUT_MS = 15 * 60_000;
 
 export class SessionDO extends DurableObject<Env> {
   // ── cf-agents-replacement state (see _ensureCfAgentsSchema below) ─────
@@ -6382,6 +6407,15 @@ export class SessionDO extends DurableObject<Env> {
     // documented stance: "LLM calls are NOT replayed.")
     await this._finalizeStaleTurns();
 
+    // Turn watchdog (issue #135): _finalizeStaleTurns above only reaps
+    // turns owned by a *dead* incarnation (filtered out of
+    // _activeTurnIds). A turn that's genuinely alive in THIS incarnation
+    // but stuck on a never-resolving tool/harness call is invisible to
+    // that path — the 30s keep-alive heartbeat above keeps the DO warm
+    // forever, so nothing else ever notices. Runs after the stale-turn
+    // pass so a turn that just got reaped there isn't double-counted.
+    await this._checkTurnWatchdog();
+
     // (Keep-alive rearm — sub-agent + supervisor heartbeat — folded
     // into _scheduleNextAlarm below so it can MERGE with data-driven
     // wakeups and not get clobbered by the deleteAlarm() branch when
@@ -6625,6 +6659,87 @@ export class SessionDO extends DurableObject<Env> {
         await this.recoverEventQueue();
       } catch (err) {
         console.warn(`[finalize-stale] post-recovery drain failed:`, err);
+      }
+    }
+  }
+
+  /**
+   * Turn-level watchdog (issue #135). Backstop for a harness/tool call
+   * that never resolves: no adapter error, no crash, no eviction — the
+   * turn is simply stuck forever inside this still-alive DO. Nothing
+   * else catches this:
+   *   - `_finalizeStaleTurns` explicitly skips anything in
+   *     `_activeTurnIds` (that's the contract for a live incarnation's
+   *     own turn — see the comment there).
+   *   - The 30s keep-alive heartbeat (KEEP_ALIVE_INTERVAL_MS via
+   *     `hintTurnInFlight`) exists specifically to keep this DO from
+   *     being evicted while a turn runs, so eviction-based recovery
+   *     never fires either.
+   *
+   * Only fires for turn ids this instance owns AND that have been
+   * running longer than the configured ceiling — a paused session
+   * waiting on `user.tool_confirmation` / `user.custom_tool_result`
+   * already flipped `sessions.status` back to 'idle' before pausing
+   * (see the stop_reason / requires_action handling around
+   * session.status_idle emission), so `listOrphanTurns` (status='running'
+   * only) never returns those rows in the first place — the watchdog
+   * can't mistake "waiting on the user" for "hung".
+   *
+   * On fire: emit `session.error` (retryable) + `session.status_idle`,
+   * call `endTurn` to flip the sessions row, and drop the turn id from
+   * `_activeTurnIds`. This is the exact recovery shape crash recovery
+   * already produces (AGENTS.md "Crash Recovery"), reused verbatim —
+   * the next `user.message` rebuilds a fresh turn from the event log.
+   * `endTurn` filters `WHERE turn_id=?`, so if the stuck call ever does
+   * return, its own `finally` block's endTurn call is a no-op (turn_id
+   * has already moved on) — no double events, no clobbering a
+   * subsequent turn.
+   */
+  private async _checkTurnWatchdog(): Promise<void> {
+    if (!this._state) return;
+    const configuredMs = Number(this.env.OMA_TURN_TIMEOUT_MS);
+    const timeoutMs =
+      Number.isFinite(configuredMs) && configuredMs > 0 ? configuredMs : DEFAULT_TURN_TIMEOUT_MS;
+    const now = Date.now();
+    const running = await this.runtimeAdapter.listOrphanTurns(this.state.session_id);
+    for (const turn of running) {
+      // Only turns this live instance still thinks are running — a row
+      // NOT in _activeTurnIds is a dead-incarnation orphan, already
+      // handled (with its own, much shorter, grace period) by
+      // _finalizeStaleTurns above.
+      if (!this._activeTurnIds.has(turn.turn_id)) continue;
+      if (now - turn.turn_started_at < timeoutMs) continue;
+
+      console.error(
+        `[turn-watchdog] turn ${turn.turn_id} on session ${this.state.session_id} exceeded ${timeoutMs}ms (running ${now - turn.turn_started_at}ms) — force-aborting`,
+      );
+      try {
+        await this.runtimeAdapter.endTurn(this.state.session_id, turn.turn_id, "idle");
+      } catch (err) {
+        console.warn(`[turn-watchdog] endTurn failed for ${turn.turn_id}:`, err);
+        continue; // row didn't flip — don't emit events for a no-op
+      }
+      this._activeTurnIds.delete(turn.turn_id);
+      const errorEvent: SessionEvent = {
+        type: "session.error",
+        error: {
+          type: "turn_watchdog_timeout",
+          message: `Turn exceeded the ${timeoutMs}ms watchdog ceiling with no response — force-aborted. Re-send your message to retry.`,
+          retry_status: "retryable",
+        },
+      } as unknown as SessionEvent;
+      const idleEvent = { type: "session.status_idle" } as unknown as SessionEvent;
+      try {
+        await this.runtimeAdapter.eventLog.append(errorEvent);
+        this.broadcastEvent(errorEvent);
+      } catch (err) {
+        console.warn(`[turn-watchdog] failed to append session.error for ${turn.turn_id}:`, err);
+      }
+      try {
+        await this.runtimeAdapter.eventLog.append(idleEvent);
+        this.broadcastEvent(idleEvent);
+      } catch (err) {
+        console.warn(`[turn-watchdog] failed to append session.status_idle for ${turn.turn_id}:`, err);
       }
     }
   }

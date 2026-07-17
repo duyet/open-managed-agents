@@ -638,6 +638,113 @@ describe("SessionDO recovery — DO-level", () => {
     });
   });
 
+  // ─────────────────────────────────────────────────────────────────
+  // Turn watchdog (issue #135) — backstop for a harness/tool call that
+  // never resolves. Distinct from the "active_turn_skip" test above:
+  // that one proves a *fresh* active turn survives untouched; these
+  // prove a turn that's been active for longer than the configured
+  // ceiling gets force-aborted, while one still within the ceiling
+  // (however long-running) does not.
+  // ─────────────────────────────────────────────────────────────────
+
+  it("turn watchdog force-aborts a hung turn past OMA_TURN_TIMEOUT_MS", async () => {
+    const sessionId = await newSessionDirect("watchdog_hung_turn");
+    const stub = env.SESSION_DO.get(env.SESSION_DO.idFromName(sessionId));
+    const ownTurnId = "turn_hung_watchdog";
+
+    // Plant a turn that's been "running" well past a 1s test ceiling —
+    // owned by this instance (in _activeTurnIds), so _finalizeStaleTurns
+    // skips it; only the watchdog should touch it.
+    await env.AUTH_DB.prepare(
+      `UPDATE sessions SET status='running', turn_id=?, turn_started_at=?, updated_at=?
+        WHERE id=?`,
+    )
+      .bind(ownTurnId, Date.now() - 5_000, Date.now(), sessionId)
+      .run();
+
+    await runInDurableObject(stub, async (instance, state) => {
+      const set = (instance as { _activeTurnIds: Set<string> })._activeTurnIds;
+      set.add(ownTurnId);
+      (instance as unknown as { env: Record<string, unknown> }).env.OMA_TURN_TIMEOUT_MS = "1000";
+      await state.storage.setAlarm(Date.now() - 1000);
+    });
+    await runDurableObjectAlarm(stub);
+    await new Promise((r) => setTimeout(r, 100));
+
+    // Row flipped back to idle — turn_id cleared.
+    const after = await env.AUTH_DB.prepare(
+      `SELECT status, turn_id FROM sessions WHERE id=?`,
+    )
+      .bind(sessionId)
+      .first();
+    expect(after.status).toBe("idle");
+    expect(after.turn_id).toBeNull();
+
+    // session.error + session.status_idle were appended — same recovery
+    // shape crash recovery already produces.
+    const ev = await stub.fetch(new Request("http://internal/events"));
+    const { data: events } = await ev.json();
+    const errorEvent = events.find((e: { type: string }) => e.type === "session.error");
+    expect(errorEvent, "watchdog must emit session.error").toBeDefined();
+    const errPayload = errorEvent.data?.error;
+    expect(String(errPayload?.type ?? errPayload)).toMatch(/watchdog/i);
+    expect(errPayload?.retry_status).toBe("retryable");
+    const idleEvent = events.find((e: { type: string }) => e.type === "session.status_idle");
+    expect(idleEvent, "watchdog must return the session to idle").toBeDefined();
+
+    // _activeTurnIds no longer tracks the aborted turn.
+    await runInDurableObject(stub, (instance) => {
+      const set = (instance as { _activeTurnIds: Set<string> })._activeTurnIds;
+      expect(set.has(ownTurnId)).toBe(false);
+    });
+  });
+
+  it("turn watchdog does NOT fire on a healthy long-running turn within the ceiling", async () => {
+    const sessionId = await newSessionDirect("watchdog_healthy_long");
+    const stub = env.SESSION_DO.get(env.SESSION_DO.idFromName(sessionId));
+    const ownTurnId = "turn_healthy_long";
+
+    // 5 minutes elapsed — legitimately long (e.g. a near-max bash call
+    // plus model round-trips) but well under the default 15-min ceiling
+    // (and under the explicit long ceiling set below).
+    await env.AUTH_DB.prepare(
+      `UPDATE sessions SET status='running', turn_id=?, turn_started_at=?, updated_at=?
+        WHERE id=?`,
+    )
+      .bind(ownTurnId, Date.now() - 5 * 60_000, Date.now(), sessionId)
+      .run();
+
+    await runInDurableObject(stub, async (instance, state) => {
+      const set = (instance as { _activeTurnIds: Set<string> })._activeTurnIds;
+      set.add(ownTurnId);
+      (instance as unknown as { env: Record<string, unknown> }).env.OMA_TURN_TIMEOUT_MS =
+        String(20 * 60_000);
+      await state.storage.setAlarm(Date.now() - 1000);
+    });
+    await runDurableObjectAlarm(stub);
+    await new Promise((r) => setTimeout(r, 100));
+
+    const after = await env.AUTH_DB.prepare(
+      `SELECT status, turn_id FROM sessions WHERE id=?`,
+    )
+      .bind(sessionId)
+      .first();
+    expect(after.status).toBe("running");
+    expect(after.turn_id).toBe(ownTurnId);
+
+    const ev = await stub.fetch(new Request("http://internal/events"));
+    const { data: events } = await ev.json();
+    const errorEvent = events.find((e: { type: string }) => e.type === "session.error");
+    expect(errorEvent, "watchdog must not fire on a healthy long turn").toBeUndefined();
+
+    // Cleanup so subsequent tests start fresh.
+    await runInDurableObject(stub, async (instance) => {
+      const set = (instance as { _activeTurnIds: Set<string> })._activeTurnIds;
+      set.delete(ownTurnId);
+      delete (instance as unknown as { env: Record<string, unknown> }).env.OMA_TURN_TIMEOUT_MS;
+    });
+  });
+
   it("alarm() DOES recover a turn that's NOT in _activeTurnIds (real orphan)", async () => {
     // Mirror image: D1 row exists but the turn id is NOT in our local
     // active set — simulates a previous DO incarnation that died.

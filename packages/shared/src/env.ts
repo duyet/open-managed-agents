@@ -27,6 +27,13 @@ export interface Env {
    *  When set, OMA sends start/success/failure pings to healthchecks.io
    *  for each cron job tick. See https://healthchecks.io */
   HEALTHCHECKS_IO_URL?: string;
+  /** Turn-level watchdog ceiling in ms (issue #135) — a harness/tool call
+   *  that never resolves gets force-aborted (session.error + back to
+   *  idle) once its turn has run this long. Default 15 min when unset;
+   *  see DEFAULT_TURN_TIMEOUT_MS in apps/agent/src/runtime/session-do.ts
+   *  for why that default is safe against the 10-min bash tool ceiling
+   *  and long-running-harness heartbeats. */
+  OMA_TURN_TIMEOUT_MS?: string;
   SEND_EMAIL?: SendEmail;
   // SESSION_DO and SANDBOX are only in sandbox workers
   SESSION_DO?: DurableObjectNamespace;
