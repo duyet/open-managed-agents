@@ -88,6 +88,31 @@ app.route("/slack/publications", slackPublications);
 app.route("/slack-setup", slackSetupPage);
 app.route("/telegram", telegramWebhook);
 
+// Managed-app availability probe — powers the Console's "OMA managed app"
+// vs "bring your own app" chooser. Reports whether this deployment has the
+// managed-App secret trio/quintet configured for a given provider, without
+// leaking any of the secret values themselves. Mounted before the gateway
+// catch-all so it always wins.
+app.get("/:provider/managed-availability", (c) => {
+  const provider = c.req.param("provider");
+  const env = c.env;
+  const available =
+    provider === "slack"
+      ? Boolean(env.SLACK_MANAGED_CLIENT_ID && env.SLACK_MANAGED_CLIENT_SECRET && env.SLACK_MANAGED_SIGNING_SECRET)
+      : provider === "linear"
+        ? Boolean(env.LINEAR_MANAGED_CLIENT_ID && env.LINEAR_MANAGED_CLIENT_SECRET && env.LINEAR_MANAGED_WEBHOOK_SECRET)
+        : provider === "github"
+          ? Boolean(
+              env.GITHUB_MANAGED_APP_ID &&
+                env.GITHUB_MANAGED_APP_SLUG &&
+                env.GITHUB_MANAGED_BOT_LOGIN &&
+                env.GITHUB_MANAGED_PRIVATE_KEY &&
+                env.GITHUB_MANAGED_WEBHOOK_SECRET,
+            )
+          : false;
+  return c.json({ available });
+});
+
 // Unified OAuth "Connect" surface (issue #92). One consistent
 // /oauth/:provider/start + /oauth/:provider/callback pair, backed by the
 // shared CSRF-state helper (oauth-state.ts) and env-configured OMA OAuth

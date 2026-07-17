@@ -1466,6 +1466,39 @@ const slackManagedApp =
         signingSecret: process.env.SLACK_MANAGED_SIGNING_SECRET,
       }
     : null;
+// OMA-hosted managed GitHub App credentials — mirrors apps/integrations'
+// GITHUB_MANAGED_APP_ID/APP_SLUG/BOT_LOGIN/PRIVATE_KEY/WEBHOOK_SECRET.
+// Powers the "Add to GitHub" one-click install; unset disables it (503,
+// App Manifest wizard still works).
+const githubManagedApp =
+  process.env.GITHUB_MANAGED_APP_ID &&
+  process.env.GITHUB_MANAGED_APP_SLUG &&
+  process.env.GITHUB_MANAGED_BOT_LOGIN &&
+  process.env.GITHUB_MANAGED_PRIVATE_KEY &&
+  process.env.GITHUB_MANAGED_WEBHOOK_SECRET
+    ? {
+        appId: process.env.GITHUB_MANAGED_APP_ID,
+        appSlug: process.env.GITHUB_MANAGED_APP_SLUG,
+        botLogin: process.env.GITHUB_MANAGED_BOT_LOGIN,
+        privateKey: process.env.GITHUB_MANAGED_PRIVATE_KEY,
+        webhookSecret: process.env.GITHUB_MANAGED_WEBHOOK_SECRET,
+        clientId: process.env.GITHUB_MANAGED_CLIENT_ID ?? null,
+        clientSecret: process.env.GITHUB_MANAGED_CLIENT_SECRET ?? null,
+      }
+    : null;
+// OMA-hosted managed Linear OAuth App credentials — mirrors apps/integrations'
+// LINEAR_MANAGED_CLIENT_ID/SECRET/WEBHOOK_SECRET. Powers the "Add to Linear"
+// one-click install; unset disables it (503, BYOA OAuth app flow still works).
+const linearManagedApp =
+  process.env.LINEAR_MANAGED_CLIENT_ID &&
+  process.env.LINEAR_MANAGED_CLIENT_SECRET &&
+  process.env.LINEAR_MANAGED_WEBHOOK_SECRET
+    ? {
+        clientId: process.env.LINEAR_MANAGED_CLIENT_ID,
+        clientSecret: process.env.LINEAR_MANAGED_CLIENT_SECRET,
+        webhookSecret: process.env.LINEAR_MANAGED_WEBHOOK_SECRET,
+      }
+    : null;
 let installBridge: NodeInstallBridge | null = null;
 if (platformRootSecret) {
   installBridge = new NodeInstallBridge({
@@ -1478,6 +1511,8 @@ if (platformRootSecret) {
     sessions: sessionsService,
     agents: agentsService,
     slackManagedApp,
+    githubManagedApp,
+    linearManagedApp,
     resolveTenantId: async (userId) => {
       const row = await sql
         .prepare(
@@ -1959,6 +1994,27 @@ function randomFallback(): string {
 function bridgeAsInstallProxy(bridge: NodeInstallBridge): InstallProxyForwarder {
   return {
     async forward({ subpath, body, method }) {
+      // Managed-app availability probe — powers the Console's "OMA managed
+      // app" chooser. Reports availability from the same env-derived
+      // managedApp objects wired into NodeInstallBridge, no gateway
+      // round-trip needed.
+      const availability = /^([^/]+)\/managed-availability$/.exec(subpath);
+      if (availability && (method ?? "GET") === "GET") {
+        const [, provider] = availability;
+        const available =
+          provider === "slack"
+            ? Boolean(slackManagedApp)
+            : provider === "github"
+              ? Boolean(githubManagedApp)
+              : provider === "linear"
+                ? Boolean(linearManagedApp)
+                : false;
+        return new Response(JSON.stringify({ available }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
       // Linear publication-first endpoints first — they share a subpath
       // prefix with the legacy ones so order matters.
       const newPub = /^linear\/publications$/.exec(subpath);

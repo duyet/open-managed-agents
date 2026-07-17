@@ -73,7 +73,7 @@ export interface InstallProxyForwarder {
     subpath: string;
     body: unknown;
     needsInternalSecret: boolean;
-    method?: "POST" | "PATCH" | "PUT";
+    method?: "GET" | "POST" | "PATCH" | "PUT";
   }): Promise<Response>;
 }
 
@@ -251,25 +251,39 @@ export function buildIntegrationsRoutes(deps: IntegrationsRoutesDeps) {
       });
     });
 
-    // Slack-only "Add to Slack" one-click install: skips the BYOA
-    // credentials_form step by staging this deployment's managed App
+    // "Add to <provider>" one-click install: skips the BYOA
+    // credentials-paste step by staging this deployment's managed App
     // credentials server-side. 503s (proxied through unchanged) when no
-    // managed App is configured.
-    if (provider === "slack") {
-      sub.post("/start-managed", async (c) => {
-        const proxy = typeof deps.installProxy === "function" ? deps.installProxy(c) : deps.installProxy;
-        if (!proxy) {
-          return c.json({ error: "install proxy not configured" }, 503);
-        }
-        const userId = c.get("user_id")!;
-        const body = (await c.req.json()) as Record<string, unknown>;
-        return proxy.forward({
-          subpath: "slack/publications/start-managed",
-          body: { ...body, userId },
-          needsInternalSecret: true,
-        });
+    // managed App is configured for this provider on this deployment.
+    sub.post("/start-managed", async (c) => {
+      const proxy = typeof deps.installProxy === "function" ? deps.installProxy(c) : deps.installProxy;
+      if (!proxy) {
+        return c.json({ error: "install proxy not configured" }, 503);
+      }
+      const userId = c.get("user_id")!;
+      const body = (await c.req.json()) as Record<string, unknown>;
+      return proxy.forward({
+        subpath: `${provider}/publications/start-managed`,
+        body: { ...body, userId },
+        needsInternalSecret: true,
       });
-    }
+    });
+
+    // Reports whether this deployment has a managed App configured for
+    // this provider, without leaking any secret values — powers the
+    // Console's "OMA managed app" vs "bring your own app" chooser.
+    sub.get("/managed-availability", async (c) => {
+      const proxy = typeof deps.installProxy === "function" ? deps.installProxy(c) : deps.installProxy;
+      if (!proxy) {
+        return c.json({ available: false });
+      }
+      return proxy.forward({
+        subpath: `${provider}/managed-availability`,
+        body: undefined,
+        needsInternalSecret: false,
+        method: "GET",
+      });
+    });
 
     sub.post("/credentials", async (c) => {
       const proxy = typeof deps.installProxy === "function" ? deps.installProxy(c) : deps.installProxy; if (!proxy) {

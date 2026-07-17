@@ -105,6 +105,24 @@ export interface NodeInstallBridgeOpts {
    *  Slack" one-click install (`mode: "start-managed"`); unset disables it
    *  with a 503, same as the CF path. */
   slackManagedApp?: { clientId: string; clientSecret: string; signingSecret: string } | null;
+  /** OMA-hosted managed GitHub App credentials (mirrors apps/integrations'
+   *  GITHUB_MANAGED_APP_ID/APP_SLUG/BOT_LOGIN/PRIVATE_KEY/WEBHOOK_SECRET).
+   *  Powers the "Add to GitHub" one-click install (`mode: "start-managed"`);
+   *  unset disables it with a 503, same as the CF path. */
+  githubManagedApp?: {
+    appId: string;
+    appSlug: string;
+    botLogin: string;
+    privateKey: string;
+    webhookSecret: string;
+    clientId?: string | null;
+    clientSecret?: string | null;
+  } | null;
+  /** OMA-hosted managed Linear OAuth App credentials (mirrors apps/integrations'
+   *  LINEAR_MANAGED_CLIENT_ID/SECRET/WEBHOOK_SECRET). Powers the "Add to
+   *  Linear" one-click install (`mode: "start-managed"`); unset disables it
+   *  with a 503, same as the CF path. */
+  linearManagedApp?: { clientId: string; clientSecret: string; webhookSecret: string } | null;
 }
 
 export class NodeInstallBridge implements InstallBridge {
@@ -298,11 +316,13 @@ export class NodeInstallBridge implements InstallBridge {
         gatewayOrigin: this.opts.gatewayOrigin,
         scopes: DEFAULT_LINEAR_SCOPES,
         defaultCapabilities: ALL_LINEAR_CAPS,
+        managedApp: this.opts.linearManagedApp ?? null,
       }),
       github: new GitHubProvider(containers.github, {
         gatewayOrigin: this.opts.gatewayOrigin,
         defaultCapabilities: DEFAULT_GITHUB_CAPABILITIES,
         mcpServerUrl: DEFAULT_GITHUB_MCP_URL,
+        managedApp: this.opts.githubManagedApp ?? null,
       }),
       slack: new SlackProvider(containers.slack, {
         gatewayOrigin: this.opts.gatewayOrigin,
@@ -347,16 +367,21 @@ export class NodeInstallBridge implements InstallBridge {
     }
 
     if (args.mode === "start-managed") {
-      if (args.provider !== "slack") {
-        return jsonResp(400, { error: `managed install not supported for provider: ${args.provider}` });
-      }
       if (!body.userId || !body.agentId || !body.environmentId || !body.personaName || !body.returnUrl) {
         return jsonResp(400, {
           error: "userId, agentId, environmentId, personaName, returnUrl required",
         });
       }
+      const remediation =
+        args.provider === "linear"
+          ? "Use POST /v1/integrations/linear/publications (BYOA OAuth app flow) instead."
+          : args.provider === "github"
+            ? "Use mode=start-a1 (BYOA manifest wizard) instead."
+            : "Use mode=start-a1 (BYOA manifest wizard) instead.";
       try {
-        const result = await (provider as SlackProvider).startManagedInstall({
+        const result = await (
+          provider as SlackProvider | GitHubProvider | LinearProvider
+        ).startManagedInstall({
           userId: body.userId as string,
           agentId: body.agentId as string,
           environmentId: body.environmentId as string,
@@ -376,7 +401,7 @@ export class NodeInstallBridge implements InstallBridge {
         return jsonResp(503, {
           error: "managed_install_unavailable",
           details: msg,
-          remediation: "Use mode=start-a1 (BYOA manifest wizard) instead.",
+          remediation,
         });
       }
     }
