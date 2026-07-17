@@ -1,5 +1,11 @@
 # @getoma/cli
 
+## 0.1.5
+
+### Patch Changes
+
+- `bridge status` now lists the running sessions on this machine's runtime — session id, agent, status, ages — each with a clickable dashboard deep-link and an `oma sessions tail <id>` hint.
+
 ## 0.1.4
 
 ### Patch Changes
