@@ -76,7 +76,7 @@ describe("<AgentBuilder />", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create Agent" }));
 
     await waitFor(() => expect(capturedBody).not.toBeNull());
-    const body = capturedBody as Record<string, unknown>;
+    const body = capturedBody as unknown as Record<string, unknown>;
 
     expect(body.name).toBe("Test Agent");
     expect(body.model).toBe("claude-sonnet-4-6");
@@ -138,7 +138,7 @@ describe("<AgentBuilder />", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create Agent" }));
 
     await waitFor(() => expect(capturedBody).not.toBeNull());
-    const body = capturedBody as Record<string, unknown>;
+    const body = capturedBody as unknown as Record<string, unknown>;
     expect(body.mcp_servers).toBeUndefined();
   });
 

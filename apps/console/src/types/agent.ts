@@ -26,6 +26,10 @@ export interface AgentRecord {
   created_at: string;
   updated_at?: string;
   archived_at?: string;
+  /** Present when the agent is bound to a local ACP runtime (set by the
+   *  control plane on the row itself, not only under `_oma`) — its
+   *  presence means sessions don't need an environment_id. */
+  runtime_binding?: { runtime_id: string; acp_agent_id: string };
   /** Console-only enrichment from the OMA control plane: scratch/aux model
    *  selection, harness binding, appendable prompt presets. Not on the
    *  wire-format AgentConfig (those fields live in OMA-private storage). */
