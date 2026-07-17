@@ -300,13 +300,68 @@ function authToHeader(auth: CredentialAuth): { name: string; value: string } | n
   }
 }
 
+// ─── Package-manager passthrough ─────────────────────────────────────────
+//
+// apt/pip/npm/cargo break through a MITM proxy: apt's clearsigned InRelease
+// verification rejects re-encoded bodies ("Clearsigned file isn't valid,
+// got 'NOSPLIT'" — issue #140), and none of these hosts ever need
+// credential injection. So package-mirror traffic bypasses interception
+// entirely:
+//   - HTTPS: `tlsPassthrough` tunnels the raw TLS stream upstream (no MITM,
+//     upstream cert verified by the client itself).
+//   - plain HTTP (apt's default for deb.debian.org): a higher-priority
+//     `thenPassThrough()` rule streams the request/response verbatim,
+//     preserving content-encoding and byte-exact bodies.
+// Extend with OMA_VAULT_PASSTHROUGH_HOSTS=host1,host2 (comma-separated;
+// URLPattern wildcards like *.example.com allowed).
+const DEFAULT_PASSTHROUGH_HOSTS = [
+  // apt (debian + ubuntu)
+  "deb.debian.org",
+  "security.debian.org",
+  "archive.ubuntu.com",
+  "security.ubuntu.com",
+  "ports.ubuntu.com",
+  // npm / yarn / pnpm
+  "registry.npmjs.org",
+  "registry.yarnpkg.com",
+  // pip / uv
+  "pypi.org",
+  "files.pythonhosted.org",
+  // cargo
+  "crates.io",
+  "static.crates.io",
+  "index.crates.io",
+  // gem
+  "rubygems.org",
+  // go
+  "proxy.golang.org",
+  "sum.golang.org",
+];
+const passthroughHosts = [
+  ...DEFAULT_PASSTHROUGH_HOSTS,
+  ...(process.env.OMA_VAULT_PASSTHROUGH_HOSTS ?? "")
+    .split(",")
+    .map((h) => h.trim())
+    .filter(Boolean),
+];
+
 // ─── mockttp proxy ───────────────────────────────────────────────────────
 
 const proxy = getLocal({
-  https: { cert: ca.cert, key: ca.key },
+  https: {
+    cert: ca.cert,
+    key: ca.key,
+    tlsPassthrough: passthroughHosts.map((hostname) => ({ hostname })),
+  },
   // record traffic = false; we don't keep request bodies in memory
   recordTraffic: false,
 });
+
+// Plain-HTTP passthrough for the same hosts — higher priority than the
+// injection catch-all below. Verbatim streaming, no header rewriting.
+for (const hostname of passthroughHosts) {
+  proxy.forAnyRequest().forHostname(hostname).asPriority(2).thenPassThrough();
+}
 
 // Match all proxied traffic. For each request: look up credentials, inject
 // header, forward. Plain HTTP and HTTPS via CONNECT both flow through the

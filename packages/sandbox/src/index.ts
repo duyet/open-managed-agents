@@ -7,6 +7,8 @@ export type {
   SandboxCapacity,
 } from "./ports";
 
+export { DEFAULT_SANDBOX_IMAGE } from "./ports";
+
 export {
   DefaultSandboxOrchestrator,
   type SandboxOrchestrator,

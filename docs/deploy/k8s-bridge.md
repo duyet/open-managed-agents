@@ -124,7 +124,7 @@ All values in `values.yaml`:
 | `livenessProbe` | object | `{...}` | Liveness probe config |
 | `readinessProbe` | object | `{...}` | Readiness probe config |
 | `logLevel` | string | `"info"` | Log level (debug, info, warn, error) |
-| `box.defaultImage` | string | `"node:22-slim"` | Default sandbox container image |
+| `box.defaultImage` | string | `"ghcr.io/duyet/oma-runtime-base:latest"` | Default sandbox container image |
 | `box.defaultCpu` | string | `"1"` | Default CPU for sandbox pods |
 | `box.defaultMemory` | string | `"512Mi"` | Default memory for sandbox pods |
 | `box.defaultTtlSeconds` | int | `3600` | Default TTL for sandbox pods (seconds) |
@@ -469,7 +469,7 @@ curl -X POST -H "Authorization: Bearer $K8S_BRIDGE_TOKEN" \
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `sessionId` | string | Yes | — | OMA session identifier |
-| `image` | string | No | `node:22-slim` | Container image for the sandbox |
+| `image` | string | No | `ghcr.io/duyet/oma-runtime-base:latest` | Container image for the sandbox |
 | `cpu` | number | No | `1` | CPU cores (fractional OK) |
 | `memory` | number | No | `512` | Memory in MiB |
 | `env` | object | No | `{}` | Environment variables |

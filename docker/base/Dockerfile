@@ -1,10 +1,14 @@
 # oma-runtime-base — generic sandbox toolset image.
 #
-# Use as `config.image` for the daytona / e2b / k8s / boxrun sandbox
-# adapters (packages/sandbox/src/adapters/{daytona,e2b,kubernetes}.ts all
-# default to `node:22-slim` when `image` is unset — this is that default,
-# pre-loaded with the tools OMA's built-in toolset (bash/read/write/edit/
-# glob/grep) and coding agents commonly need).
+# Published to GHCR as ghcr.io/duyet/oma-runtime-base:latest by
+# .github/workflows/build-node-images.yml, and used as the DEFAULT
+# `config.image` for the daytona / e2b / k8s / boxrun / litebox /
+# docker-compose sandbox adapters when an environment doesn't pin one
+# (DEFAULT_SANDBOX_IMAGE in packages/sandbox/src/ports.ts — issue #140:
+# bare node:22-slim shipped no curl/git/python and apt couldn't
+# self-install through the vault MITM proxy). Pre-loaded with the tools
+# OMA's built-in toolset (bash/read/write/edit/glob/grep) and coding
+# agents commonly need.
 #
 # This image is intentionally harness- and model-agnostic: the LLM call
 # itself always happens on the platform side (apps/agent or apps/main-node),

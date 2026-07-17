@@ -43,7 +43,8 @@ export interface K8sBridgeSandboxOptions {
   bearerToken: string;
   /** Used to name the box for operator visibility. Optional. */
   sessionId?: string;
-  /** Container image. Default: `node:22-slim`. */
+  /** Container image. Default: the bridge server's SANDBOX_IMAGE (falls
+   *  back to DEFAULT_SANDBOX_IMAGE). */
   image?: string;
   /** CPU cores (fractional allowed). */
   cpu?: number;
