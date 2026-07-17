@@ -3,6 +3,7 @@ import {
   ANYROUTER_API_BASE,
   ANYROUTER_OAUTH_AUTHORIZE_URL,
   ANYROUTER_OAUTH_REGISTER_URL,
+  ANYROUTER_OAUTH_SCOPE,
   ANYROUTER_OAUTH_TOKEN_URL,
   base64url,
   buildAuthorizeUrl,
@@ -12,6 +13,7 @@ import {
   generatePkcePair,
   generateState,
   parseModelsResponse,
+  parsePresetsResponse,
   parseRegisterResponse,
   parseTokenResponse,
 } from "../src/index";
@@ -78,6 +80,15 @@ describe("@duyet/oma-anyrouter — dynamic client registration", () => {
 
   it("parseRegisterResponse throws when client_id is missing", () => {
     expect(() => parseRegisterResponse(JSON.stringify({ error: "rate_limited" }))).toThrow();
+  });
+});
+
+describe("@duyet/oma-anyrouter — oauth scope", () => {
+  it("requests inference plus preset + credit read scopes, space-separated", () => {
+    const scopes = ANYROUTER_OAUTH_SCOPE.split(" ");
+    expect(scopes).toContain("standard");
+    expect(scopes).toContain("read:presets");
+    expect(scopes).toContain("read:credits");
   });
 });
 
@@ -185,5 +196,43 @@ describe("@duyet/oma-anyrouter — model catalog", () => {
     );
     expect(models).toHaveLength(1);
     expect(models[0].id).toBe("openai/gpt-5");
+  });
+
+  it("parsePresetsResponse reads the top-level presets array and skips rows without an id", () => {
+    const presets = parsePresetsResponse(
+      JSON.stringify({
+        data: [{ id: "anthropic/claude-sonnet-4-6" }],
+        presets: [
+          {
+            id: "pre_1",
+            slug: "fast-coder",
+            name: "Fast Coder",
+            description: "Speedy edits",
+            config: { model: "anthropic/claude-sonnet-4-6" },
+          },
+          { slug: "no-id" },
+        ],
+      }),
+    );
+    expect(presets).toHaveLength(1);
+    expect(presets[0]).toEqual({
+      id: "pre_1",
+      slug: "fast-coder",
+      name: "Fast Coder",
+      description: "Speedy edits",
+      config: { model: "anthropic/claude-sonnet-4-6" },
+      raw: {
+        id: "pre_1",
+        slug: "fast-coder",
+        name: "Fast Coder",
+        description: "Speedy edits",
+        config: { model: "anthropic/claude-sonnet-4-6" },
+      },
+    });
+  });
+
+  it("parsePresetsResponse tolerates a response with no presets field", () => {
+    const presets = parsePresetsResponse(JSON.stringify({ data: [{ id: "openai/gpt-5" }] }));
+    expect(presets).toEqual([]);
   });
 });

@@ -35,5 +35,8 @@ export const ANYROUTER_API_COMPAT = "oai" as const;
 /** OAuth scope bundle to request. AnyRouter's consent screen lets the user
  *  downgrade to a narrower bundle regardless of what's requested; "standard"
  *  covers inference + key/preset management, which is what an agent runtime
- *  needs (no BYOK / management-key admin surface). */
-export const ANYROUTER_OAUTH_SCOPE = "standard";
+ *  needs (no BYOK / management-key admin surface). The extra `read:presets`
+ *  and `read:credits` scopes let the connected key read the account's saved
+ *  presets (surfaced by GET /models) and credit balance (GET /credits).
+ *  Space-separated per RFC 6749 §3.3. */
+export const ANYROUTER_OAUTH_SCOPE = "standard read:presets read:credits";

@@ -94,7 +94,7 @@ function FitCardView({ card }: { card: FitCard }) {
         "active:translate-y-px transition-[color,background-color,border-color,transform,opacity] duration-[var(--dur-quick)] ease-[var(--ease-soft)]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50",
         card.dashed || empty
-          ? "border-dashed border-border bg-bg/50 opacity-70 hover:opacity-100 hover:border-border-strong"
+          ? "border-dashed border-border bg-bg opacity-70 hover:opacity-100 hover:border-border-strong"
           : card.hero
             ? "border-brand/50 bg-brand/5 hover:border-brand"
             : "border-border bg-bg hover:border-border-strong hover:bg-bg-surface/40",
@@ -134,7 +134,7 @@ function FitCardView({ card }: { card: FitCard }) {
 /** The `agent = model + skills + mcp` composition rule, stated outright. */
 export function FitFormula({ rows }: { rows: FitFormulaRow[] }) {
   return (
-    <div className="mb-5 rounded-md border border-border bg-bg-surface/40 px-3.5 py-2.5">
+    <div className="mb-5 rounded-md border border-border bg-bg-surface px-3.5 py-2.5">
       <div className="flex flex-col gap-1 font-mono text-[12px] leading-relaxed">
         {rows.map((r) => (
           <div key={r.lhs} data-testid={`formula-${r.lhs}`} className="flex items-baseline gap-1.5">
@@ -197,7 +197,7 @@ function StepHeader({ step, onCollapse }: { step: FitStep; onCollapse?: () => vo
 
 function ExpandedStepPanel({ step, onCollapse }: { step: FitStep; onCollapse?: () => void }) {
   return (
-    <div className={cn("flex min-w-0 flex-1 flex-col rounded-lg border border-dashed border-border/70 bg-bg-surface/50 p-3", step.wide && "flex-[1.2]")}>
+    <div className={cn("flex min-w-0 flex-1 flex-col rounded-lg border border-dashed border-border/70 bg-bg-surface p-3", step.wide && "flex-[1.2]")}>
       <StepHeader step={step} onCollapse={onCollapse} />
       <div className={cn("flex flex-1 flex-col justify-center", step.chain ? "gap-0" : "gap-2")}>
         {step.cards.map((row, i) => (
@@ -254,7 +254,7 @@ function StepPanel({
           onClick={() => onToggle(true)}
           aria-label={`Expand step ${step.number} — ${step.name}`}
           aria-expanded="false"
-          className="fit-rise flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/70 bg-bg-surface/50 px-1.5 py-3 text-fg-subtle transition-colors hover:border-border-strong hover:text-fg"
+          className="fit-rise flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/70 bg-bg-surface px-1.5 py-3 text-fg-subtle transition-colors hover:border-border-strong hover:text-fg"
         >
           <ChevronsRightIcon className="h-3.5 w-3.5" />
           <span className="font-mono text-[10px] uppercase tracking-[0.12em]" style={{ writingMode: "vertical-rl" }}>

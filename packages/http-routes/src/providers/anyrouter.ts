@@ -13,7 +13,8 @@
 //   GET  /callback      — AnyRouter's OAuth redirect target
 //   GET  /status         — is this tenant connected?
 //   POST /disconnect    — archive the credential
-//   GET  /models        — cached AnyRouter model catalog (GET /api/v1/models)
+//   GET  /models        — cached AnyRouter model catalog + saved presets (GET /api/v1/models)
+//   GET  /credits       — cached AnyRouter credit balance (GET /api/v1/credits)
 //
 // Model-card bind (#136): on a successful callback, when `services.modelCards`
 // is wired (Cloudflare — see apps/main/src/lib/cf-route-services.ts), the
@@ -47,9 +48,11 @@ import {
   generatePkcePair,
   generateState,
   parseModelsResponse,
+  parsePresetsResponse,
   parseRegisterResponse,
   parseTokenResponse,
 } from "@duyet/oma-anyrouter";
+import type { AnyRouterModel, AnyRouterPreset } from "@duyet/oma-anyrouter";
 import type { KvStore } from "@duyet/oma-kv-store";
 import type { RouteServices, RouteServicesArg } from "../types";
 import { resolveServices } from "../types";
@@ -71,8 +74,10 @@ interface Vars {
 const KV_CLIENT_KEY = "anyrouter:oauth_client";
 const KV_PENDING_PREFIX = "anyrouter:oauth_pending:";
 const KV_MODELS_CACHE_KEY = "anyrouter:models_cache";
+const KV_CREDITS_CACHE_PREFIX = "anyrouter:credits_cache:";
 const PENDING_TTL_SECONDS = 10 * 60;
 const MODELS_CACHE_TTL_MS = 60 * 60 * 1000;
+const CREDITS_CACHE_TTL_MS = 60 * 1000;
 const VAULT_NAME = "AnyRouter";
 const CREDENTIAL_DISPLAY_NAME = "AnyRouter inference key";
 const CLIENT_NAME = "Open Managed Agents";
@@ -403,9 +408,14 @@ export function buildAnyRouterRoutes(deps: AnyRouterRoutesDeps) {
 
     const cached = await services.kv.get(KV_MODELS_CACHE_KEY);
     if (cached) {
-      const parsed = JSON.parse(cached) as { fetchedAt: number; models: unknown[] };
+      // Old cache entries predate presets — treat a missing `presets` as [].
+      const parsed = JSON.parse(cached) as {
+        fetchedAt: number;
+        models: AnyRouterModel[];
+        presets?: AnyRouterPreset[];
+      };
       if (Date.now() - parsed.fetchedAt < MODELS_CACHE_TTL_MS) {
-        return c.json({ data: parsed.models, cached: true });
+        return c.json({ data: parsed.models, presets: parsed.presets ?? [], cached: true });
       }
     }
 
@@ -415,9 +425,50 @@ export function buildAnyRouterRoutes(deps: AnyRouterRoutesDeps) {
     const req = buildModelsRequest(hit.token);
     const res = await fetchImpl(req.url, { headers: req.headers });
     if (!res.ok) return c.json({ data: [], error: `HTTP ${res.status}` }, 502);
-    const models = parseModelsResponse(await res.text());
-    await services.kv.put(KV_MODELS_CACHE_KEY, JSON.stringify({ fetchedAt: Date.now(), models }));
-    return c.json({ data: models });
+    // AnyRouter's authenticated /models response carries both the catalog
+    // (`data`) and the account's saved presets (`presets`) — cache them
+    // together off one read of the body.
+    const body = await res.text();
+    const models = parseModelsResponse(body);
+    const presets = parsePresetsResponse(body);
+    await services.kv.put(KV_MODELS_CACHE_KEY, JSON.stringify({ fetchedAt: Date.now(), models, presets }));
+    return c.json({ data: models, presets });
+  });
+
+  // ── Credit balance ──────────────────────────────────────────────────────
+  app.get("/credits", async (c) => {
+    const services = resolveServices(deps.services, c);
+    const tenantId = c.var.tenant_id;
+    if (!tenantId) return c.json({ error: "authentication required" }, 401);
+
+    const cacheKey = `${KV_CREDITS_CACHE_PREFIX}${tenantId}`;
+    const cached = await services.kv.get(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached) as { fetchedAt: number; credits: Record<string, unknown> };
+      if (Date.now() - parsed.fetchedAt < CREDITS_CACHE_TTL_MS) {
+        return c.json({ ...parsed.credits, cached: true });
+      }
+    }
+
+    const hit = await findCredential(services, tenantId);
+    if (!hit) return c.json({ connect_required: true });
+
+    const res = await fetchImpl(`${ANYROUTER_API_BASE}/credits`, {
+      headers: { authorization: `Bearer ${hit.token}` },
+    });
+    if (!res.ok) return c.json({ error: `AnyRouter credits fetch failed: HTTP ${res.status}` }, 502);
+
+    const raw = JSON.parse(await res.text()) as Record<string, unknown>;
+    const credits = {
+      balance: raw.balance,
+      monthly_balance: raw.monthly_balance,
+      topup_balance: raw.topup_balance,
+      used: raw.used,
+      today_cost: raw.today_cost,
+      currency: raw.currency,
+    };
+    await services.kv.put(cacheKey, JSON.stringify({ fetchedAt: Date.now(), credits }));
+    return c.json(credits);
   });
 
   return app;

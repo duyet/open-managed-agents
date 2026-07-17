@@ -30,7 +30,12 @@ const RETURN_URL = "https://console.example.com/model_cards";
  *  models catalog endpoints. `modelsResponse` lets each test control what
  *  the catalog probe sees (used to exercise the default-model validation
  *  branches). */
-function makeFetchImpl(opts: { modelsResponse?: Response | (() => Response) } = {}) {
+function makeFetchImpl(
+  opts: {
+    modelsResponse?: Response | (() => Response);
+    creditsResponse?: Response | (() => Response);
+  } = {},
+) {
   return async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const u = typeof url === "string" ? url : url.toString();
     if (u.endsWith("/mcp/oauth/register")) {
@@ -53,6 +58,22 @@ function makeFetchImpl(opts: { modelsResponse?: Response | (() => Response) } = 
         { status: 200 },
       );
     }
+    if (u.endsWith("/credits")) {
+      const resp = opts.creditsResponse;
+      if (typeof resp === "function") return resp();
+      if (resp) return resp;
+      return new Response(
+        JSON.stringify({
+          balance: 42.5,
+          monthly_balance: 40,
+          topup_balance: 2.5,
+          used: 7.25,
+          today_cost: 1.1,
+          currency: "USD",
+        }),
+        { status: 200 },
+      );
+    }
     if (u.endsWith("/models")) {
       const resp = opts.modelsResponse;
       if (typeof resp === "function") return resp();
@@ -68,6 +89,7 @@ function makeFetchImpl(opts: { modelsResponse?: Response | (() => Response) } = 
 function makeApp(opts: {
   withModelCards: boolean;
   modelsResponse?: Response | (() => Response);
+  creditsResponse?: Response | (() => Response);
 }) {
   const { service: vaults } = createInMemoryVaultService();
   const { service: credentials } = createInMemoryCredentialService();
@@ -92,7 +114,10 @@ function makeApp(opts: {
       services: services as unknown as RouteServicesArg,
       publicOrigin: PUBLIC_ORIGIN,
       returnUrl: RETURN_URL,
-      fetchImpl: makeFetchImpl({ modelsResponse: opts.modelsResponse }) as unknown as typeof fetch,
+      fetchImpl: makeFetchImpl({
+        modelsResponse: opts.modelsResponse,
+        creditsResponse: opts.creditsResponse,
+      }) as unknown as typeof fetch,
     }),
   );
   return { app, vaults, credentials, modelCards, kv };
@@ -215,6 +240,143 @@ describe("buildAnyRouterRoutes — model card bind (#136)", () => {
 
       const after = await modelCards.findByModelId({ tenantId: TENANT, modelId: "anyrouter" });
       expect(after).toBeNull();
+    });
+  });
+
+  describe("GET /models — presets", () => {
+    it("passes presets through and serves them from cache", async () => {
+      // A call-counting catalog stub: calls 1 (default-model probe on connect)
+      // and 2 (the first real GET) succeed with presets; a 3rd call would 502.
+      // So the second GET returning presets + cached:true proves it hit the
+      // KV cache rather than re-fetching.
+      let modelsCalls = 0;
+      const modelsResponse = () => {
+        modelsCalls += 1;
+        if (modelsCalls >= 3) return new Response("upstream gone", { status: 502 });
+        return new Response(
+          JSON.stringify({
+            data: [{ id: "anthropic/claude-sonnet-4-6" }],
+            presets: [{ id: "pre_1", slug: "fast-coder", name: "Fast Coder" }],
+          }),
+          { status: 200 },
+        );
+      };
+      const { app } = makeApp({ withModelCards: true, modelsResponse });
+      await connectAndCallback(app, "code-1");
+
+      const first = await app.request("/v1/providers/anyrouter/models");
+      const firstBody = (await first.json()) as {
+        data: { id: string }[];
+        presets: { id: string; slug?: string; name?: string }[];
+        cached?: boolean;
+      };
+      expect(firstBody.data.map((m) => m.id)).toEqual(["anthropic/claude-sonnet-4-6"]);
+      expect(firstBody.presets).toHaveLength(1);
+      expect(firstBody.presets[0].id).toBe("pre_1");
+      expect(firstBody.presets[0].slug).toBe("fast-coder");
+      expect(firstBody.cached).toBeUndefined();
+
+      const second = await app.request("/v1/providers/anyrouter/models");
+      const secondBody = (await second.json()) as {
+        presets: { id: string }[];
+        cached?: boolean;
+      };
+      expect(secondBody.cached).toBe(true);
+      expect(secondBody.presets[0].id).toBe("pre_1");
+    });
+
+    it("an old-shape cache entry (no presets field) yields presets []", async () => {
+      const { app, kv } = makeApp({ withModelCards: true });
+      await kv.put(
+        "anyrouter:models_cache",
+        JSON.stringify({
+          fetchedAt: Date.now(),
+          models: [{ id: "openai/gpt-5", raw: { id: "openai/gpt-5" } }],
+        }),
+      );
+
+      const res = await app.request("/v1/providers/anyrouter/models");
+      const body = (await res.json()) as {
+        data: { id: string }[];
+        presets: unknown[];
+        cached?: boolean;
+      };
+      expect(body.cached).toBe(true);
+      expect(body.data).toHaveLength(1);
+      expect(body.presets).toEqual([]);
+    });
+  });
+
+  describe("GET /credits", () => {
+    it("passes the balance fields through on a happy path", async () => {
+      const { app } = makeApp({ withModelCards: true });
+      await connectAndCallback(app, "code-1");
+
+      const res = await app.request("/v1/providers/anyrouter/credits");
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as Record<string, unknown>;
+      expect(body).toEqual({
+        balance: 42.5,
+        monthly_balance: 40,
+        topup_balance: 2.5,
+        used: 7.25,
+        today_cost: 1.1,
+        currency: "USD",
+      });
+      expect(body.cached).toBeUndefined();
+    });
+
+    it("returns { connect_required: true } when the tenant hasn't connected", async () => {
+      const { app } = makeApp({ withModelCards: true });
+      const res = await app.request("/v1/providers/anyrouter/credits");
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ connect_required: true });
+    });
+
+    it("returns 502 when the upstream credits fetch fails", async () => {
+      const { app } = makeApp({
+        withModelCards: true,
+        creditsResponse: new Response("upstream error", { status: 500 }),
+      });
+      await connectAndCallback(app, "code-1");
+
+      const res = await app.request("/v1/providers/anyrouter/credits");
+      expect(res.status).toBe(502);
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toContain("HTTP 500");
+    });
+
+    it("serves the balance from a per-tenant cache on the second call", async () => {
+      // First credits call succeeds; a second upstream call would 502 — so the
+      // second GET returning the balance + cached:true proves the KV cache hit.
+      let creditsCalls = 0;
+      const creditsResponse = () => {
+        creditsCalls += 1;
+        if (creditsCalls >= 2) return new Response("gone", { status: 502 });
+        return new Response(
+          JSON.stringify({
+            balance: 42.5,
+            monthly_balance: 40,
+            topup_balance: 2.5,
+            used: 7.25,
+            today_cost: 1.1,
+            currency: "USD",
+          }),
+          { status: 200 },
+        );
+      };
+      const { app } = makeApp({ withModelCards: true, creditsResponse });
+      await connectAndCallback(app, "code-1");
+
+      const first = await app.request("/v1/providers/anyrouter/credits");
+      expect(first.status).toBe(200);
+      expect(((await first.json()) as { balance: number }).balance).toBe(42.5);
+
+      const second = await app.request("/v1/providers/anyrouter/credits");
+      expect(second.status).toBe(200);
+      const body = (await second.json()) as { balance: number; cached?: boolean };
+      expect(body.cached).toBe(true);
+      expect(body.balance).toBe(42.5);
     });
   });
 

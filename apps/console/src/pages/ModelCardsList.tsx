@@ -46,11 +46,39 @@ interface AnyRouterModelOption {
   name?: string;
 }
 
+interface AnyRouterPreset {
+  slug: string;
+  name?: string;
+  description?: string;
+}
+
+interface AnyRouterCredits {
+  connect_required?: boolean;
+  balance?: number;
+  today_cost?: number;
+  currency?: string;
+}
+
+/** Split a wire target like "model@preset/slug" or "@preset/slug" into parts. */
+function parseTarget(model: string | undefined): { model: string; preset: string } {
+  if (!model) return { model: "", preset: "" };
+  const at = model.indexOf("@preset/");
+  if (at === -1) return { model, preset: "" };
+  return { model: model.slice(0, at), preset: model.slice(at + "@preset/".length) };
+}
+
+function composeTarget(model: string, preset: string): string {
+  if (!preset) return model;
+  return `${model}@preset/${preset}`;
+}
+
 function AnyRouterConnectCard({ onStatus }: { onStatus?: (s: AnyRouterStatus) => void }) {
   const { api } = useApi();
   const [status, setStatus] = useState<AnyRouterStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [models, setModels] = useState<AnyRouterModelOption[]>([]);
+  const [presets, setPresets] = useState<AnyRouterPreset[]>([]);
+  const [credits, setCredits] = useState<AnyRouterCredits | null>(null);
   const [modelBusy, setModelBusy] = useState(false);
 
   const refresh = useCallback(() => {
@@ -88,12 +116,31 @@ function AnyRouterConnectCard({ onStatus }: { onStatus?: (s: AnyRouterStatus) =>
   useEffect(() => {
     if (!status?.connected || !status.model_card_id) {
       setModels([]);
+      setPresets([]);
       return;
     }
-    api<{ data: AnyRouterModelOption[] }>("/v1/providers/anyrouter/models")
-      .then((res) => setModels(res.data ?? []))
-      .catch(() => setModels([]));
+    api<{ data: AnyRouterModelOption[]; presets?: AnyRouterPreset[] }>("/v1/providers/anyrouter/models")
+      .then((res) => {
+        setModels(res.data ?? []);
+        setPresets(res.presets ?? []);
+      })
+      .catch(() => {
+        setModels([]);
+        setPresets([]);
+      });
   }, [api, status?.connected, status?.model_card_id]);
+
+  // Credits ride their own fetch — the endpoint is cheap (60s server cache)
+  // and shouldn't block the model picker if it errors.
+  useEffect(() => {
+    if (!status?.connected) {
+      setCredits(null);
+      return;
+    }
+    api<AnyRouterCredits>("/v1/providers/anyrouter/credits")
+      .then((c) => setCredits(c.connect_required ? null : c))
+      .catch(() => setCredits(null));
+  }, [api, status?.connected]);
 
   const disconnect = async () => {
     setBusy(true);
@@ -108,15 +155,16 @@ function AnyRouterConnectCard({ onStatus }: { onStatus?: (s: AnyRouterStatus) =>
     }
   };
 
-  const changeModel = async (model: string) => {
-    if (!status?.model_card_id || model === status.model) return;
+  const changeTarget = async (model: string, preset: string) => {
+    const target = composeTarget(model, preset);
+    if (!status?.model_card_id || !target || target === status.model) return;
     setModelBusy(true);
     try {
       await api(`/v1/model_cards/${status.model_card_id}`, {
         method: "POST",
-        body: JSON.stringify({ model }),
+        body: JSON.stringify({ model: target }),
       });
-      toast.success(`AnyRouter now targets ${model}.`);
+      toast.success(`AnyRouter now targets ${target}.`);
       refresh();
     } catch (e: any) {
       toast.error(e?.message || "Failed to update the target model");
@@ -164,35 +212,84 @@ function AnyRouterConnectCard({ onStatus }: { onStatus?: (s: AnyRouterStatus) =>
           </Button>
         )}
       </div>
-      {status.connected && status.model_card_id && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          <span className="text-xs text-fg-subtle">Model:</span>
-          <Select
-            value={status.model}
-            onValueChange={changeModel}
-            disabled={modelBusy || models.length === 0}
+      {status.connected && credits && (
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-border pt-3 text-xs">
+          <span className="text-fg-subtle">
+            Credits:{" "}
+            <span className="font-medium text-fg tabular-nums">
+              ${(credits.balance ?? 0).toFixed(2)}
+            </span>
+          </span>
+          <span className="text-fg-subtle">
+            Today:{" "}
+            <span className="font-medium text-fg tabular-nums">
+              ${(credits.today_cost ?? 0).toFixed(2)}
+            </span>
+          </span>
+          <a
+            href="https://anyrouter.dev"
+            target="_blank"
+            rel="noreferrer"
+            className="ml-auto text-brand hover:underline"
           >
-            <SelectTrigger size="sm" className="min-w-56">
-              <SelectValue placeholder={status.model || "Loading models…"} />
-            </SelectTrigger>
-            <SelectContent>
-              {(models.some((m) => m.id === status.model)
-                ? models
-                : status.model
-                  ? [{ id: status.model, name: status.model }, ...models]
-                  : models
-              ).map((m) => (
-                <SelectItem key={m.id} value={m.id}>
-                  {m.name ? `${m.name} (${m.id})` : m.id}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="ghost" size="sm" onClick={setAsDefault} disabled={busy}>
-            Set as default
-          </Button>
+            Open AnyRouter ↗
+          </a>
         </div>
       )}
+      {status.connected && status.model_card_id && (() => {
+        const target = parseTarget(status.model);
+        return (
+          <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+            <span className="text-xs text-fg-subtle">Model:</span>
+            <Select
+              value={target.model || undefined}
+              onValueChange={(m) => changeTarget(m, target.preset)}
+              disabled={modelBusy || models.length === 0}
+            >
+              <SelectTrigger size="sm" className="min-w-56">
+                <SelectValue placeholder={target.model || "Loading models…"} />
+              </SelectTrigger>
+              <SelectContent>
+                {(models.some((m) => m.id === target.model)
+                  ? models
+                  : target.model
+                    ? [{ id: target.model, name: target.model }, ...models]
+                    : models
+                ).map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.name ? `${m.name} (${m.id})` : m.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {presets.length > 0 && (
+              <>
+                <span className="text-xs text-fg-subtle">Preset:</span>
+                <Select
+                  value={target.preset || "__none__"}
+                  onValueChange={(v) => changeTarget(target.model, v === "__none__" ? "" : v)}
+                  disabled={modelBusy}
+                >
+                  <SelectTrigger size="sm" className="min-w-40">
+                    <SelectValue placeholder="No preset" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No preset</SelectItem>
+                    {presets.map((pr) => (
+                      <SelectItem key={pr.slug} value={pr.slug}>
+                        {pr.name ? `${pr.name} (@${pr.slug})` : `@${pr.slug}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
+            <Button variant="ghost" size="sm" onClick={setAsDefault} disabled={busy}>
+              Set as default
+            </Button>
+          </div>
+        );
+      })()}
     </div>
   );
 }
