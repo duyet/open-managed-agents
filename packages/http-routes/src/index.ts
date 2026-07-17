@@ -70,6 +70,35 @@ export type {
   PublicationRoutesDeps,
 } from "./publications";
 
+// Public consumer surface (issue #226) — /p/:slug hosted chat page + widget +
+// session/message pass-throughs, shared by both runtimes.
+export {
+  buildPublicPublicationRoutes,
+  gatePublicationState,
+  publicSessionCaps,
+  renderChatPage,
+  renderWidgetScript,
+  buildConsumerAuthRoutes,
+  createSqlConsumerAuthStore,
+  magicLinkEmailHtml,
+  magicLinkEmailText,
+  magicLinkVerifyUrl,
+  verifyMagicLinkToken,
+  MAGIC_LINK_EMAIL_SUBJECT,
+} from "./public";
+export type {
+  PublicPublicationRoutesDeps,
+  PublicPublicationServices,
+  PublicEnv,
+  ConsumerAuthRoutesDeps,
+  ConsumerAuthStore,
+  ConsumerAuthEmail,
+  ConsumerSessionRow,
+  VerifyMagicLinkOk,
+  VerifyMagicLinkErr,
+  VerifyMagicLinkResult,
+} from "./public";
+
 export { buildIntegrationsRoutes } from "./integrations";
 export type {
   IntegrationsRoutesDeps,

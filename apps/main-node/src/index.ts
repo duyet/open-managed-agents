@@ -103,6 +103,14 @@ import {
   type InstallProxyForwarder,
   mintApiKeyOnStorage,
   sha256Hex,
+  buildPublicPublicationRoutes,
+  publicSessionCaps,
+  gatePublicationState,
+  buildConsumerAuthRoutes,
+  createSqlConsumerAuthStore,
+  verifyMagicLinkToken,
+  buildPublicationRoutes,
+  buildAgentPublicationRoutes,
 } from "@duyet/oma-http-routes";
 import {
   getActiveAnyRouterProvider,
@@ -167,6 +175,7 @@ import {
   TelegramAgentHandler,
 } from "@duyet/oma-telegram";
 import { NodeTelegramSessionCreator } from "./lib/node-telegram.js";
+import { buildMemoryGates } from "@duyet/oma-rate-limit/adapters/memory";
 
 // ─── Boot-time secret guard ──────────────────────────────────────────────
 //
@@ -1134,6 +1143,15 @@ const authMw = buildAuthMw({
   bypassPath: (path) =>
     path === "/health" ||
     path.startsWith("/auth/") ||
+    // Consumer (end-user) auth realm — issue #226. A consumer never holds a
+    // tenant API key, so /v1/public/* must not be gated by authMw. It lives
+    // under /v1 (matching CF's URL surface) but is mounted separately, and
+    // `v1.use("*", authMw)` would otherwise 401 every guest/magic-link
+    // request before the public handler ever ran.
+    //
+    // The trailing slash is load-bearing: "/v1/public/" must NOT match the
+    // tenant-authed creator route "/v1/publications".
+    path.startsWith("/v1/public/") ||
     path === "/v1/device/code" ||
     path === "/v1/device/token" ||
     path === "/v1/oma/device/code" ||
@@ -1195,6 +1213,11 @@ v1.use("*", authMw);
 
 // Mount route bundles. Same paths CF uses; behavior preserved.
 v1.route("/agents", buildAgentRoutes({ services }));
+// Published-agent management API (issue #72) — tenant-authed CRUD backing
+// the public /p/:slug chat surface. Runtime-neutral (only needs `services`),
+// mirroring apps/main's mounts at the same paths (issue #226).
+v1.route("/agents/:id/publications", buildAgentPublicationRoutes({ services }, "id"));
+v1.route("/publications", buildPublicationRoutes({ services }));
 const sessionRouter = new NodeSessionRouter({
   sql,
   hub,
@@ -1650,6 +1673,178 @@ v1.delete("/files/:id", async (c) => {
 });
 
 app.route("/v1", v1);
+
+// ── Consumer (end-user) auth + public chat surface (issue #226) ─────────
+//
+// Mirrors apps/main's /v1/public and /p mounts, ported here so the
+// self-host Node runtime has the same publication surface. Both mounts sit
+// OUTSIDE `v1` (which carries `authMw` for tenant x-api-key auth) — a
+// consumer never holds a tenant API key, same as CF's split.
+const consumerAuthStore = createSqlConsumerAuthStore(sql);
+const consumerRateLimitGates = buildMemoryGates();
+
+app.route(
+  "/v1/public",
+  buildConsumerAuthRoutes({
+    store: consumerAuthStore,
+    sendEmail: async (_c, msg) => {
+      if (!sender) {
+        logger.info(
+          { to: msg.to, subject: msg.subject },
+          "[consumer-auth] email not sent (no SMTP sender configured)",
+        );
+        return;
+      }
+      await sender.send(msg);
+    },
+    rateLimitMagicLinkEmail: async (_c, email) => {
+      const r = await consumerRateLimitGates.authSendEmail.consume(email);
+      return !r.ok;
+    },
+    devEchoToken: () =>
+      process.env.CONSUMER_AUTH_DEV_ECHO_TOKEN === "1" ||
+      process.env.CONSUMER_AUTH_DEV_ECHO_TOKEN === "true",
+    publicBaseUrl: () => process.env.PUBLIC_BASE_URL,
+  }),
+);
+
+// Build a standalone /sessions app for the /p/:slug forwarding path — same
+// deps as the authenticated v1 mount, but NOT behind `authMw`. Tenant
+// scoping instead comes from `x-oma-internal-tenant-id`, set by
+// forwardToSessions (packages/http-routes/src/public/publications.ts) and
+// re-hydrated into `c.var.tenant_id` by the middleware below (mirrors CF's
+// invokePackage header rehydration in apps/main/src/index.ts).
+function buildPublicSessionsApp() {
+  const inner = buildSessionRoutes({
+    services,
+    router: sessionRouter,
+    outputs: nodeOutputsAdapter(outputsRoot),
+    lifecycle: nodeSessionLifecycle({ files: filesService, filesBlob }),
+    localRuntimeEnvId: "env-local-runtime",
+    loadEnvironment: async ({ environmentId }) => {
+      return {
+        id: environmentId,
+        runtime: "local",
+        sandbox_template: null,
+      } as unknown as import("@duyet/oma-shared").EnvironmentConfig;
+    },
+  });
+  const wrapped = new Hono<{
+    Variables: { tenant_id: string; user_id?: string };
+  }>();
+  wrapped.use("*", async (c, next) => {
+    const t = c.req.header("x-oma-internal-tenant-id");
+    if (t) c.set("tenant_id", t);
+    await next();
+  });
+  // forwardToSessions (packages/http-routes/src/public/publications.ts)
+  // only strips the `/p/:slug` prefix off the incoming URL, leaving
+  // `/sessions`, `/sessions/:id/messages`, etc — so the returned app must
+  // itself be mounted under a `/sessions` prefix wrapping the raw session
+  // routes (which live at `/`, `/:id`, ...). Mirrors the shape
+  // apps/main/src/routes/publications.test.ts's fakes assert against.
+  wrapped.route("/sessions", inner);
+  return wrapped;
+}
+
+const publicSessionCapGates = buildMemoryGates();
+
+function clientIpFromRequest(req: Request): string {
+  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "anonymous";
+}
+
+app.use("/p/*", async (c, next) => {
+  const ip = clientIpFromRequest(c.req.raw);
+  const isWrite = c.req.method === "POST" || c.req.method === "PUT" || c.req.method === "DELETE";
+  if (isWrite) {
+    const r = await publicSessionCapGates.apiWrite.consume(`ip:${ip}`);
+    if (!r.ok) return c.json({ error: "Rate limit exceeded" }, 429);
+  }
+  await next();
+});
+
+app.route(
+  "/p",
+  buildPublicPublicationRoutes({
+    env: {} as never,
+    servicesForTenant: async () => services as never,
+    buildSessionsApp: async () => buildPublicSessionsApp() as never,
+    resolvePublication: async (slug: string) => {
+      const pub = await publicationsService.getBySlug({ slug });
+      if (!pub) {
+        return new Response(JSON.stringify({ error: "Not found" }), {
+          status: 404,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      const gate = gatePublicationState(pub);
+      if (gate) return gate;
+      return pub;
+    },
+    guardSessionCreate: async (opts) => {
+      const today = new Date().toISOString().slice(0, 10);
+      return publicSessionCaps(kv, process.env, {
+        slug: opts.publication.slug,
+        ip: opts.ip,
+        today,
+      });
+    },
+    assertSessionOwnedByPublication: async (publication, sessionId) => {
+      const sess = await services.sessions.get({
+        tenantId: publication.tenant_id,
+        sessionId,
+      });
+      if (!sess) return false;
+      const pubId = (sess.metadata as Record<string, unknown> | null)?.publication_id;
+      return pubId === publication.id;
+    },
+    // Metering/paywall is NOT ported to self-host — Stripe billing
+    // (@duyet/oma-payments) requires a D1Database, which Node doesn't have.
+    // free / no-pricing-row publications work end-to-end; a publication
+    // configured with a metered pricing mode fails closed with an honest
+    // 501 instead of silently being treated as free or half-wiring Stripe.
+    //
+    // In practice this is a guard, not a live path: Node doesn't mount
+    // buildPublicationPricingRoutes, so a metered `publication_pricing` row
+    // can't be created here through the API at all. It stays because the row
+    // CAN arrive another way (a DB migrated over from CF, direct SQL), and
+    // serving a paid bot for free is the one outcome worth failing closed on.
+    enforcePaywall: async (opts) => {
+      // Kill-switch truthiness must match @duyet/oma-payments isPaymentsEnabled:
+      // ANY value other than "0"/"false" disables payments, not just "1" —
+      // otherwise `PAYMENTS_DISABLED=true` on self-host would 501 a metered
+      // publication instead of making it free, which is what the docs promise.
+      const disabled = process.env.PAYMENTS_DISABLED;
+      if (disabled && disabled !== "0" && disabled !== "false") return null;
+      const row = await sql
+        .prepare(`SELECT mode FROM publication_pricing WHERE publication_id = ?`)
+        .bind(opts.publication.id)
+        .first<{ mode: string }>();
+      if (!row || row.mode === "free") return null;
+      return Response.json(
+        {
+          error:
+            "Metered publications are not supported on the self-host Node runtime yet — only free bots can be published here.",
+          code: "metered_publications_not_supported",
+        },
+        { status: 501 },
+      );
+    },
+    verifyMagicLink: async (token: string) => {
+      return verifyMagicLinkToken(consumerAuthStore, token);
+    },
+    resolveEndUserId: async (req: Request) => {
+      const auth = req.headers.get("authorization");
+      const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
+      if (token) {
+        const session = await consumerAuthStore.resolveConsumerSession(token);
+        if (session) return `eu:${session.consumer_id}`;
+        return `tok:${token}`;
+      }
+      return `ip:${clientIpFromRequest(req)}`;
+    },
+  }),
+);
 
 // /v1/oma/* mirror — same Hono sub-app mounted twice. New OMA-only
 // endpoints should be added here only; the bare /v1/<resource> mounts

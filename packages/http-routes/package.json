@@ -33,6 +33,7 @@
     "@duyet/oma-vault-forward": "workspace:*",
     "@duyet/oma-vaults-store": "workspace:*",
     "hono": "^4.7.0",
-    "nanoid": "^5.1.0"
+    "nanoid": "^5.1.0",
+    "zod": "4.3.6"
   }
 }
