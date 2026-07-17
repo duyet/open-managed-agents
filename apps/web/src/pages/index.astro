@@ -249,6 +249,12 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
     ></div>
     <div class="relative max-w-5xl mx-auto px-4 py-16 md:py-20">
       <div>
+        <!-- Full-width first: the Console's "How it fits together" diagram
+             leads the hero — the product's mental model before the pitch. -->
+        <div class="mb-12">
+          <HowItFits />
+        </div>
+
         <!-- Pitch -->
         <div class="hero-pitch text-left">
           <h1 class="font-display text-4xl sm:text-5xl md:text-[3.1rem] lg:text-[3.4rem] font-bold tracking-tight leading-[1.07]">
@@ -291,12 +297,6 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
           </ul>
         </div>
 
-        <!-- Full-width: the Console's "How it fits together" diagram,
-             rendered static (no links) — the product's mental model right
-             in the hero. -->
-        <div class="mt-10">
-          <HowItFits />
-        </div>
       </div>
     </div>
   </section>

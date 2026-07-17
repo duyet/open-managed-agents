@@ -1,10 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="oma">
-  <!-- Coral tile + ink [•] mark — square brackets = the harness, dot = the
-       agent it runs. Filled tile reads punchy in a browser tab at 16px. -->
-  <rect width="64" height="64" rx="14" fill="#FF6B50" />
-  <g fill="none" stroke="#3d2520" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M24 15 H15 V49 H24" />
-    <path d="M40 15 H49 V49 H40" />
+  <!-- Iris tile + the oma mark (2026 redesign): rounded-square frame = the
+       sandbox, edge wired into the solid node = the managed agent. Filled
+       tile reads punchy in a browser tab at 16px. Keep in sync with
+       logo.svg / apps/console Logo.tsx. -->
+  <rect width="64" height="64" rx="14" fill="#4f46e5" />
+  <g transform="translate(9.8,9.8) scale(1.85)" fill="none">
+    <rect x="3.25" y="3.25" width="17.5" height="17.5" rx="5" stroke="#fff" stroke-width="2" />
+    <path d="M7 7 11 11" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+    <circle cx="12" cy="12" r="2.75" fill="#fff" />
   </g>
-  <circle cx="32" cy="32" r="8" fill="#3d2520" />
 </svg>
