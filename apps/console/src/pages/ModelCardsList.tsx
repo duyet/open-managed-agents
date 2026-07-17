@@ -46,7 +46,7 @@ interface AnyRouterModelOption {
   name?: string;
 }
 
-function AnyRouterConnectCard() {
+function AnyRouterConnectCard({ onStatus }: { onStatus?: (s: AnyRouterStatus) => void }) {
   const { api } = useApi();
   const [status, setStatus] = useState<AnyRouterStatus | null>(null);
   const [busy, setBusy] = useState(false);
@@ -55,9 +55,15 @@ function AnyRouterConnectCard() {
 
   const refresh = useCallback(() => {
     api<AnyRouterStatus>("/v1/providers/anyrouter/status")
-      .then(setStatus)
-      .catch(() => setStatus({ connected: false }));
-  }, [api]);
+      .then((s) => {
+        setStatus(s);
+        onStatus?.(s);
+      })
+      .catch(() => {
+        setStatus({ connected: false });
+        onStatus?.({ connected: false });
+      });
+  }, [api, onStatus]);
 
   useEffect(() => {
     refresh();
@@ -138,7 +144,7 @@ function AnyRouterConnectCard() {
   if (status === null) return null;
 
   return (
-    <div className="mb-4 flex flex-col gap-3 rounded-lg border border-border bg-bg-surface px-4 py-3">
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-bg-surface px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="text-sm font-medium text-fg">AnyRouter</div>
@@ -230,6 +236,13 @@ export function ModelCardsList() {
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string }>>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [showModelSuggestions, setShowModelSuggestions] = useState(false);
+  // The card row auto-minted by the AnyRouter connect flow — managed from
+  // the AnyRouter panel above the table, so it's excluded from the table
+  // itself (editing/deleting it by hand would fight the managed connection).
+  const [anyrouterCardId, setAnyrouterCardId] = useState<string | null>(null);
+  // api_key_preview of the card being edited — shown under the key field so
+  // "type to replace" is explicit.
+  const [editingPreview, setEditingPreview] = useState<string | null>(null);
   const confirm = useConfirm();
 
   // Server-driven filter state. Each piece flows into cardsParams below
@@ -355,11 +368,11 @@ export function ModelCardsList() {
       is_default: card.is_default || false,
       custom_headers: hdrs,
     });
-    setEditingId(card.id); setShowCreate(true); setError("");
+    setEditingId(card.id); setEditingPreview(card.api_key_preview ?? null); setShowCreate(true); setError("");
   };
 
   const closeDialog = () => {
-    setShowCreate(false); setEditingId(null); setForm({ ...INITIAL_FORM }); setError("");
+    setShowCreate(false); setEditingId(null); setEditingPreview(null); setForm({ ...INITIAL_FORM }); setError("");
   };
 
   const inputCls = "w-full border border-border rounded-md px-3 py-2 min-h-11 sm:min-h-0 text-sm bg-bg text-fg outline-none focus:border-brand transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] placeholder:text-fg-subtle";
@@ -495,9 +508,27 @@ export function ModelCardsList() {
     </>
   );
 
+  // Stable identity — an inline arrow would re-trigger the card's
+  // status-fetch effect on every parent render.
+  const handleAnyRouterStatus = useCallback(
+    (s: AnyRouterStatus) => setAnyrouterCardId(s.model_card_id ?? null),
+    [],
+  );
+
+  // AnyRouter's managed card lives in the panel above, not the table.
+  const tableCards = cards.filter(
+    (c) => c.id !== anyrouterCardId && c.model_id !== "anyrouter",
+  );
+
   return (
-    <div className="py-6 space-y-10">
-      <AnyRouterConnectCard />
+    <div className="py-6 space-y-8">
+      <section>
+        <h2 className="font-display text-lg font-semibold text-fg mb-1">Provider connections</h2>
+        <p className="text-[13px] text-fg-muted mb-3">
+          Managed connections — one click, keys minted for you.
+        </p>
+        <AnyRouterConnectCard onStatus={handleAnyRouterStatus} />
+      </section>
       <DataTable<ModelCard>
       subtitle="A model card binds a model handle to a provider, API key, and base URL, so an agent can name it instead of the default provider."
       createLabel="+ New model card"
@@ -506,7 +537,7 @@ export function ModelCardsList() {
       searchValue={search}
       onSearchChange={setSearch}
       filters={filters}
-      data={cards}
+      data={tableCards}
       loading={loading}
       error={fetchError}
       onRetry={load}
@@ -604,9 +635,14 @@ export function ModelCardsList() {
           <div>
             <label htmlFor="modelcard-api-key" className="text-sm text-fg-muted block mb-1">API Key {editingId ? "" : "*"}</label>
             <SecretInput id="modelcard-api-key" value={form.api_key} onChange={(e) => setForm({ ...form, api_key: e.target.value })} className={inputCls}
-              placeholder={editingId ? "Leave blank to keep current key" : "sk-..."}
+              placeholder={editingId ? "Type a new key to replace the current one" : "sk-..."}
               name="model-api-key-field"
               onBlur={() => { if (OFFICIAL_PROVIDERS.has(form.provider) && form.api_key) fetchModels(form.provider, form.api_key); }} />
+            {editingId && editingPreview && !form.api_key && (
+              <p className="text-xs text-fg-subtle mt-1">
+                Current key: <span className="font-mono">****{editingPreview}</span> — kept unless you enter a new one.
+              </p>
+            )}
             {OFFICIAL_PROVIDERS.has(form.provider) && modelsLoading && (
               <p className="text-xs text-fg-subtle mt-1">Loading models...</p>
             )}

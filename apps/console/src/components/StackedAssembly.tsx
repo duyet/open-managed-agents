@@ -19,7 +19,7 @@
 // than instances you create, so they carry a `description` instead.
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
-import { FitDiagram, type FitStep } from "@duyet/oma-fit-diagram";
+import { FitDiagram, type FitCardStatus, type FitStep } from "@duyet/oma-fit-diagram";
 import { useApiQuery } from "../lib/useApiQuery";
 import { IntegrationsApi } from "../integrations/api/client";
 import { friendlyHostingDescription } from "../lib/hostingTypes";
@@ -84,13 +84,18 @@ interface Page<T> {
   next_cursor?: string;
 }
 
-type CardStatus = "ready" | "attention" | "empty";
-
-function providerLabel(env: EnvEntry): string {
-  const id =
+/** Single source of the provider-id fallback chain — keeps labels and
+ *  provider marks derived from the same resolution. */
+function providerId(env: EnvEntry): string {
+  return (
     (env.config?.sandbox_provider as string | undefined) ??
     (env.config?.type as string | undefined) ??
-    "cloud";
+    "cloud"
+  );
+}
+
+function providerLabel(env: EnvEntry): string {
+  const id = providerId(env);
   const desc = friendlyHostingDescription({ id, label: id });
   return desc?.split(" — ")[0] ?? id;
 }
@@ -142,21 +147,12 @@ export function StackedAssembly() {
   const files = filesQ.data?.data ?? [];
 
   const envAttention = envs.some((e) => e.status === "building" || e.status === "error");
-  const envStatus: CardStatus =
+  const envStatus: FitCardStatus =
     envs.length === 0 ? "empty" : envAttention ? "attention" : "ready";
   const providers = [...new Set(envs.map(providerLabel))];
-  const providerIds = [
-    ...new Set(
-      envs.map(
-        (e) =>
-          (e.config?.sandbox_provider as string | undefined) ??
-          (e.config?.type as string | undefined) ??
-          "cloud",
-      ),
-    ),
-  ];
+  const providerIds = [...new Set(envs.map(providerId))];
 
-  const countStatus = (n: number): CardStatus => (n > 0 ? "ready" : "empty");
+  const countStatus = (n: number): FitCardStatus => (n > 0 ? "ready" : "empty");
 
   const agentReady = agents.length > 0;
 
@@ -190,7 +186,6 @@ export function StackedAssembly() {
     number: "2",
     name: "Compose",
     done: agentReady,
-    center: true,
     wide: true,
     cards: [
       {

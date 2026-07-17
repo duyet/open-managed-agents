@@ -171,7 +171,7 @@ export function AppShell() {
                 role="region"
                 aria-label="Page header"
                 className={[
-                  "empty:hidden shrink-0 px-3 py-3 transition-[border-color] duration-150",
+                  "empty:hidden shrink-0 px-5 py-3 transition-[border-color] duration-150",
                   scrolled ? "border-b border-border" : "border-b border-transparent",
                 ].join(" ")}
               />
@@ -190,7 +190,7 @@ export function AppShell() {
                 key={pathname}
                 role="main"
                 aria-label="Page content"
-                className="flex-1 min-h-0 overflow-y-auto bg-bg pl-3 pr-4 py-3 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
+                className="flex-1 min-h-0 overflow-y-auto bg-bg pl-5 pr-6 py-5 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
               >
                 <Outlet context={outletContext} />
               </main>

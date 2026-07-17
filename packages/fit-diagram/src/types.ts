@@ -41,8 +41,6 @@ export interface FitStep {
   optional?: boolean;
   done?: boolean;
   cards: FitRow[];
-  /** Vertically centre the cards. */
-  center?: boolean;
   /** Chain the cards with ↓ pointers instead of plain gaps. */
   chain?: boolean;
   /** Labels for the chain's ↓ pointers (index i annotates the arrow before

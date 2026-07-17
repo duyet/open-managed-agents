@@ -13,7 +13,7 @@
 // correct value on either host without a mapping layer. Web's theme didn't
 // define --color-success/--color-warning; added minimal entries there for
 // the status dot (see apps/web/src/styles/global.css).
-import { Fragment, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { ArrowDownIcon, ArrowRightIcon, CheckIcon, ChevronsLeftIcon, ChevronsRightIcon } from "lucide-react";
 import { cn } from "./cn";
 import { ProviderMark } from "./ProviderMark";
@@ -21,20 +21,16 @@ import type { FitCard, FitFormulaRow, FitRow, FitStep } from "./types";
 
 const BADGE_CAP = 3;
 
+const DOT_CLASS: Record<NonNullable<FitCard["status"]>, string> = {
+  ready: "bg-success",
+  attention: "bg-warning",
+  empty: "border border-border bg-transparent",
+};
+
 function StatusDot({ status, dashed }: { status?: FitCard["status"]; dashed?: boolean }) {
-  const empty = status === "empty" || (dashed && !status);
-  return (
-    <span
-      className={cn(
-        "shrink-0 w-2 h-2 rounded-full",
-        !empty && status === "ready" && "bg-success",
-        !empty && status === "attention" && "bg-warning",
-        !empty && !status && "bg-success",
-        empty && "border border-border bg-transparent",
-      )}
-      aria-hidden="true"
-    />
-  );
+  // No explicit status: dashed cards read as empty, solid cards as ready.
+  const resolved = status ?? (dashed ? "empty" : "ready");
+  return <span className={cn("shrink-0 w-2 h-2 rounded-full", DOT_CLASS[resolved])} aria-hidden="true" />;
 }
 
 function InstanceBadges({ names }: { names: string[] }) {
@@ -277,6 +273,12 @@ function StepPanel({
   );
 }
 
+const FIT_KEYFRAMES = `
+@keyframes fit-rise { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }
+.fit-rise { animation: fit-rise var(--dur-slow, 220ms) var(--ease-soft, ease-out) both }
+@media (prefers-reduced-motion: reduce) { .fit-rise { animation: none } }
+`;
+
 const MIN_COL = 250;
 const RAIL = 60; // rail width + pointer
 
@@ -286,7 +288,10 @@ const RAIL = 60; // rail width + pointer
  *  the row is full evicts the least-recently-wanted expanded column. */
 function useCapacityAccordion(steps: FitStep[]) {
   const [rowWidth, setRowWidth] = useState<number | null>(null);
+  const roRef = useRef<ResizeObserver | null>(null);
   const rowRef = (el: HTMLDivElement | null) => {
+    roRef.current?.disconnect();
+    roRef.current = null;
     if (!el || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver((entries) => {
       // `|| null`: jsdom's ResizeObserver reports 0 — treat as unmeasured
@@ -294,6 +299,7 @@ function useCapacityAccordion(steps: FitStep[]) {
       setRowWidth(entries[0]?.contentRect.width || null);
     });
     ro.observe(el);
+    roRef.current = ro;
   };
   const [intent, setIntent] = useState<string[]>([]);
 
@@ -351,11 +357,7 @@ export function FitDiagram({ steps, formula, collapsible, className }: FitDiagra
     <div className={className}>
       {/* Self-contained keyframes — the package ships no CSS file, so the
           rise-in animation lives here and works on any host. */}
-      <style>{`
-        @keyframes fit-rise { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }
-        .fit-rise { animation: fit-rise var(--dur-slow, 220ms) var(--ease-soft, ease-out) both }
-        @media (prefers-reduced-motion: reduce) { .fit-rise { animation: none } }
-      `}</style>
+      <style>{FIT_KEYFRAMES}</style>
       {formula && <FitFormula rows={formula} />}
       {/* Always a single horizontal row — narrow viewports collapse columns
           to rails (capacity accordion) instead of stacking to 4 rows. The

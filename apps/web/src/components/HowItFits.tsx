@@ -58,7 +58,6 @@ export default function HowItFits() {
       number: "2",
       name: "Compose",
       wide: true,
-      center: true,
       cards: [
         {
           key: "agent",

@@ -101,7 +101,7 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Publishing",
+    label: "Integrations",
     items: [
       { to: "/my-bots", label: "My Bots", icon: MegaphoneIcon },
       { to: "/integrations/linear", label: "Linear", icon: LinearIcon },
@@ -111,11 +111,8 @@ const navGroups: NavGroup[] = [
   },
   {
     label: "Advanced",
-    items: [{ to: "/evals", label: "Eval Runs", icon: CircleCheckBigIcon }],
-  },
-  {
-    label: "Settings",
     items: [
+      { to: "/evals", label: "Eval Runs", icon: CircleCheckBigIcon },
       { to: "/api-keys", label: "API Keys", icon: ApiKeysIcon },
       { to: "/runtimes", label: "Sandbox Runtime", icon: RuntimesIcon },
     ],
