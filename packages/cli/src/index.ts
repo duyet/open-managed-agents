@@ -2177,6 +2177,108 @@ const commands: Cmd[] = [
       console.log(`Redacted version: ${v.id}`);
     },
   },
+
+  // Agent schedules (cron-fired sessions — see AGENTS.md "Agent Schedules")
+  {
+    group: "Schedules", match: ["schedules", "create"], needsArg: true,
+    usage: "oma schedules create <agent-id> --cron <expr> --env <environment-id> --input <text> [--timezone <tz>] [--max-sessions <n>] [--disabled]",
+    desc: "Create a cron schedule that fires an agent as a fresh session",
+    http: "POST   /v1/agents/:agentId/schedules {cron_expression, input, environment_id, timezone?, max_sessions?, enabled?}",
+    async run(config, args) {
+      const agentId = args.find((a) => !a.startsWith("--"));
+      const cron = flag(args, "--cron");
+      const environmentId = flag(args, "--env") ?? flag(args, "--environment");
+      const input = flag(args, "--input");
+      const timezone = flag(args, "--timezone");
+      const maxSessionsRaw = flag(args, "--max-sessions");
+      if (!agentId || !cron || !environmentId || !input) {
+        console.error(
+          "Usage: oma schedules create <agent-id> --cron <expr> --env <environment-id> --input <text> [--timezone <tz>] [--max-sessions <n>] [--disabled]",
+        );
+        process.exit(1);
+      }
+      const body: Record<string, unknown> = {
+        cron_expression: cron,
+        environment_id: environmentId,
+        input,
+      };
+      if (timezone) body.timezone = timezone;
+      if (maxSessionsRaw) body.max_sessions = Number(maxSessionsRaw);
+      if (args.includes("--disabled")) body.enabled = false;
+      const sch = await apiFetch<{ id: string; cron_expression: string; next_run_at: string | null }>(
+        config, `/v1/agents/${agentId}/schedules`,
+        { method: "POST", body: JSON.stringify(body) },
+      );
+      if (config.json) { console.log(JSON.stringify(sch, null, 2)); return; }
+      console.log(`Created schedule: ${sch.id} (cron="${sch.cron_expression}", next_run_at=${sch.next_run_at ?? "never"})`);
+    },
+  },
+  {
+    group: "Schedules", match: ["schedules", "list"], needsArg: true,
+    usage: "oma schedules list <agent-id>",
+    desc: "List an agent's schedules",
+    http: "GET    /v1/agents/:agentId/schedules",
+    async run(config, args) {
+      const agentId = args[0];
+      const { data } = await apiFetch<{
+        data: Array<{
+          id: string; cron_expression: string; timezone: string; enabled: number | boolean;
+          next_run_at: string | null; last_run_status: string | null;
+        }>;
+      }>(config, `/v1/agents/${agentId}/schedules`);
+      if (!data.length) {
+        console.log(`No schedules for agent ${agentId}. Create one with: oma schedules create ${agentId} --cron "..." --env <env-id> --input "..."`);
+        return;
+      }
+      if (config.json) { console.log(JSON.stringify(data, null, 2)); return; }
+      table([
+        ["ID", "CRON", "TIMEZONE", "ENABLED", "NEXT RUN", "LAST STATUS"],
+        ...data.map((s) => [
+          s.id,
+          s.cron_expression,
+          s.timezone,
+          s.enabled ? "yes" : "no",
+          s.next_run_at ? new Date(s.next_run_at).toLocaleString() : "-",
+          s.last_run_status ?? "-",
+        ]),
+      ]);
+    },
+  },
+  {
+    group: "Schedules", match: ["schedules", "run"], needsArg: true,
+    usage: "oma schedules run <agent-id> <schedule-id>",
+    desc: "Nudge a schedule to fire on the next cron tick",
+    http: "POST   /v1/agents/:agentId/schedules/:scheduleId/run",
+    async run(config, args) {
+      const agentId = args[0];
+      const scheduleId = args[1];
+      if (!agentId || !scheduleId) {
+        console.error("Usage: oma schedules run <agent-id> <schedule-id>");
+        process.exit(1);
+      }
+      const res = await apiFetch<{ status: string; next_run_at: string }>(
+        config, `/v1/agents/${agentId}/schedules/${scheduleId}/run`,
+        { method: "POST" });
+      if (config.json) { console.log(JSON.stringify(res, null, 2)); return; }
+      console.log(`Queued: will fire on the next cron tick (next_run_at=${res.next_run_at})`);
+    },
+  },
+  {
+    group: "Schedules", match: ["schedules", "delete"], needsArg: true,
+    usage: "oma schedules delete <agent-id> <schedule-id>",
+    desc: "Delete a schedule",
+    http: "DELETE /v1/agents/:agentId/schedules/:scheduleId",
+    async run(config, args) {
+      const agentId = args[0];
+      const scheduleId = args[1];
+      if (!agentId || !scheduleId) {
+        console.error("Usage: oma schedules delete <agent-id> <schedule-id>");
+        process.exit(1);
+      }
+      await apiFetch(config, `/v1/agents/${agentId}/schedules/${scheduleId}`, { method: "DELETE" });
+      console.log(`Deleted schedule: ${scheduleId}`);
+    },
+  },
 ];
 
 // ─── API Endpoints not covered by CLI commands ───

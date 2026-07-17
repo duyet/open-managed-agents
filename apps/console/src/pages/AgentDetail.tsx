@@ -40,6 +40,7 @@ const TABS: { label: string; to: string; end?: boolean }[] = [
   { label: "Agent", to: ".", end: true },
   { label: "Sessions", to: "sessions" },
   { label: "Deployments", to: "deployments" },
+  { label: "Schedules", to: "schedules" },
   { label: "Observability", to: "observability" },
   { label: "Publishing", to: "publishing" },
 ];
