@@ -197,32 +197,22 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
 >
   <!-- Hero -->
   <section class="relative overflow-hidden border-b border-[var(--color-border)]">
-    <!-- Ground: a faint hairline grid (engineering-blueprint texture) with a
-         single soft iris glow bleeding from the top. Restrained, monochrome —
-         no colored mesh. -->
+    <!-- Ground: the dithered hero image as the visual floor, full-width and
+         faded toward the bottom so the h1/CTAs stay legible. A solid bg
+         underlay keeps dark mode dark (image at moderate opacity, fainter in
+         dark); a soft iris glow bleeds in over the top. -->
+    <div class="pointer-events-none absolute inset-0 bg-[var(--color-bg)]" aria-hidden="true"></div>
     <div
-      class="pointer-events-none absolute inset-0 opacity-70 dark:opacity-40"
+      class="pointer-events-none absolute inset-0 opacity-50 dark:opacity-25"
       aria-hidden="true"
-      style="background:
-        linear-gradient(to right, var(--color-border) 1px, transparent 1px) 0 0 / 56px 56px,
-        linear-gradient(to bottom, var(--color-border) 1px, transparent 1px) 0 0 / 56px 56px;
-        mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 78%);
-        -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 78%);"
+      style="background: url('/hero-tint.jpg') center top / cover no-repeat;
+        mask-image: linear-gradient(to bottom, #000 0%, #000 42%, transparent 94%);
+        -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 42%, transparent 94%);"
     ></div>
     <div
       class="pointer-events-none absolute inset-0 opacity-[0.5] dark:opacity-[0.35]"
       aria-hidden="true"
       style="background: radial-gradient(ellipse 70% 45% at 50% -10%, color-mix(in srgb, var(--color-brand) 22%, transparent), transparent 70%);"
-    ></div>
-    <!-- Warm dithered tint behind the hero diagram band only — masked hard so
-         it reads as a glow under the product diagram, not a wallpaper. Kept
-         faint (and fainter in dark) so the zinc/iris identity stays in charge. -->
-    <div
-      class="pointer-events-none absolute inset-x-0 top-0 h-[46rem] opacity-[0.16] dark:opacity-[0.10]"
-      aria-hidden="true"
-      style="background: url('/hero-tint.jpg') center top / cover no-repeat;
-        mask-image: radial-gradient(ellipse 75% 65% at 50% 22%, #000 20%, transparent 72%);
-        -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 22%, #000 20%, transparent 72%);"
     ></div>
     <div class="relative max-w-5xl mx-auto px-4 py-16 md:py-20">
       <div>

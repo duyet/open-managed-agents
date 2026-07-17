@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import {
   PlusIcon,
-  MegaphoneIcon,
   ChevronRightIcon,
   SquareKanbanIcon,
   CircleCheckBigIcon,
@@ -103,7 +102,6 @@ const navGroups: NavGroup[] = [
   {
     label: "Integrations",
     items: [
-      { to: "/my-bots", label: "My Bots", icon: MegaphoneIcon },
       { to: "/integrations/linear", label: "Linear", icon: LinearIcon },
       { to: "/integrations/github", label: "GitHub", icon: GitHubIcon },
       { to: "/integrations/slack", label: "Slack", icon: SlackIcon },

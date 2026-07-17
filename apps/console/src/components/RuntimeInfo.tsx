@@ -109,7 +109,7 @@ export function RuntimeInfo({ harness }: { harness: string }) {
                   key={env.id}
                   className="flex items-start gap-3 border border-border rounded-md px-3 py-2"
                 >
-                  <ProviderMark id={providerId} className="size-4 mt-0.5 shrink-0 text-fg-muted" />
+                  <ProviderMark id={providerId} colored className="size-4 mt-0.5 shrink-0 text-fg-muted" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-fg truncate">{env.name}</span>

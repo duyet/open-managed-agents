@@ -225,6 +225,7 @@ export default function HowItFits() {
                 links: [
                   { label: "Skills & tools guide", href: `${DOCS}/build/skills-and-tools/` },
                 ],
+                image: { src: "/screenshots/skills.jpg", alt: "Skills library in the OMA Console" },
               },
             ),
         },
@@ -373,6 +374,7 @@ export default function HowItFits() {
                   { label: "Recovery & idempotency", href: `${DOCS}/contribute/recovery-and-idempotency/` },
                   { label: "Architecture deep-dive", href: "/blog/architecture-durable-objects-r2-brain-sandbox-split/" },
                 ],
+                image: { src: "/screenshots/new-session.jpg", alt: "New Session dialog in the OMA Console" },
               },
             ),
         },
@@ -448,6 +450,7 @@ export default function HowItFits() {
                   { label: "Integrations guide", href: `${DOCS}/build/integrations/` },
                   { label: "Console integrations", href: `${DOCS}/console/integrations/` },
                 ],
+                image: { src: "/screenshots/github-integration.jpg", alt: "GitHub integrations page in the OMA Console" },
               },
             ),
         },
@@ -571,12 +574,12 @@ export default function HowItFits() {
         {dialog?.image ? (
           <div className="grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
             {dialogBody}
-            <div className="hidden items-center justify-center p-3 pl-0 md:flex">
+            <div className="hidden overflow-hidden md:block">
               <img
                 src={dialog.image.src}
                 alt={dialog.image.alt}
                 loading="lazy"
-                className="max-h-[calc(100dvh-6rem)] w-full rounded-md object-contain"
+                className="h-full w-full object-cover object-left-top"
               />
             </div>
           </div>

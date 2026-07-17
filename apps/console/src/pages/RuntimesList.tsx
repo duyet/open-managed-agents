@@ -265,7 +265,7 @@ function ProviderCard({ p, onSetup, onRemove, onOpenDetail }: { p: HostingType; 
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-start gap-2.5">
-            <ProviderMark id={p.id} className="mt-0.5 size-5 shrink-0 text-fg-subtle" />
+            <ProviderMark id={p.id} colored className="mt-0.5 size-5 shrink-0 text-fg-subtle" />
             <div className="min-w-0">
               <CardTitle className="truncate">{p.label}</CardTitle>
               <div className="text-xs text-fg-subtle font-mono mt-0.5 truncate" title={p.id}>{p.id}</div>
@@ -1141,7 +1141,7 @@ export function RuntimesList() {
       <details className="rounded-lg border border-border bg-bg-surface/50">
         <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-fg select-none hover:text-fg">
           <span className="inline-flex items-center gap-2">
-            <ProviderMark id="k8s" className="size-4 shrink-0 text-fg-subtle" />
+            <ProviderMark id="k8s" colored className="size-4 shrink-0 text-fg-subtle" />
             Run sandboxes on Kubernetes (Helm)
           </span>
         </summary>
@@ -1316,7 +1316,7 @@ export function RuntimesList() {
           <div className="bg-bg border border-border rounded-lg p-3 font-mono text-xs space-y-1 overflow-x-auto">
             {SYSTEM_PROVIDER_ENVS.map(({ env, label, providerId }) => (
               <div key={env} className="flex items-center gap-2 whitespace-nowrap">
-                <ProviderMark id={providerId} className="size-3.5 shrink-0 text-fg-subtle" />
+                <ProviderMark id={providerId} colored className="size-3.5 shrink-0 text-fg-subtle" />
                 <span className="text-fg">{env}</span>
                 <span className="text-fg-subtle">— {label}</span>
               </div>
