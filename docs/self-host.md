@@ -298,6 +298,14 @@ Things I'd document if I were the on-call who got paged:
   main-node runs `ALTER TABLE … ADD COLUMN` idempotently on every
   start; existing dbs upgrade in place. If you see `no such column:
   turn_id`, you're on a pre-migration build — pull a newer image.
+- **A hung tool/harness call no longer leaves a session `running`
+  forever (issue #135).** `OMA_TURN_TIMEOUT_MS` bounds a single turn —
+  default 15 minutes — after which the session is force-failed with a
+  `session.error` and returns to `idle`; the client can retry with a
+  new `user.message`. Set it to a larger number for legitimately
+  long-running agentic turns, or `"off"` to disable the watchdog
+  entirely. This is a backstop, not the primary error path — it never
+  auto-retries (retrying a hang just burns another full ceiling).
 
 ## Trusted reverse-proxy / SSO-gateway auth (opt-in)
 

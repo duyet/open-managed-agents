@@ -39,6 +39,7 @@
 // POST /exec auto-starts the VM if needed. Cached `boxId` per-instance.
 
 import type { SandboxExecutor, SandboxFactory } from "../ports";
+import { DEFAULT_SANDBOX_IMAGE } from "../ports";
 import { getLogger } from "@duyet/oma-observability";
 
 const moduleLogger = getLogger("boxrun-sandbox");
@@ -48,8 +49,8 @@ export interface BoxRunSandboxOptions {
    *  `http://boxrun:8100/v1/default`. The trailing `/boxes/...` path is
    *  appended by this adapter. */
   baseUrl: string;
-  /** Container image. Default: `node:22-slim`, matches LocalSubprocess
-   *  / LiteBox defaults so agent bash scripts behave the same. */
+  /** Container image. Default: DEFAULT_SANDBOX_IMAGE, matching the other
+   *  image-accepting adapters so agent bash scripts behave the same. */
   image?: string;
   /** Optional VM resource limits — passed straight to BoxRun's
    *  CreateBoxRequest. */
@@ -304,7 +305,7 @@ export class BoxRunSandbox implements SandboxExecutor {
 
   private async createBox(): Promise<string> {
     const body: Record<string, unknown> = {
-      image: this.opts.image ?? "node:22-slim",
+      image: this.opts.image ?? DEFAULT_SANDBOX_IMAGE,
     };
     if (this.opts.sessionId) body.name = `oma-${this.opts.sessionId.slice(0, 30)}`;
     if (this.opts.cpus) body.cpus = this.opts.cpus;

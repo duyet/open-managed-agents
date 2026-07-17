@@ -37,7 +37,7 @@
 // connector.go). That router is a bespoke binary baked into each
 // example's own Docker image (hello-world-sandbox, python-runtime-
 // sandbox, etc.) — there is no guarantee a generic `SANDBOX_IMAGE`
-// (we default to the same `node:22-slim` the E2B/Daytona adapters use)
+// (we default to the same `oma-runtime-base` image the E2B/Daytona adapters use)
 // ships it.
 //
 // Rather than depend on that bespoke protocol + a custom image, this
@@ -70,7 +70,8 @@
 //
 // Env config (all optional except where noted):
 //   OMA_K8S_NAMESPACE        — namespace for the Sandbox object. Default "default".
-//   SANDBOX_IMAGE             — container image. Default "node:22-slim".
+//   SANDBOX_IMAGE             — container image. Default DEFAULT_SANDBOX_IMAGE
+//                               (ghcr.io/duyet/oma-runtime-base:latest).
 //   OMA_K8S_RUNTIME_CLASS     — RuntimeClass name (e.g. "gvisor", "kata-qemu").
 //   OMA_K8S_SERVICE_ACCOUNT   — ServiceAccount for the sandbox pod.
 //   OMA_K8S_CPU               — CPU request/limit (k8s quantity, e.g. "500m").
@@ -87,7 +88,7 @@
 
 import type { Writable as NodeWritable } from "node:stream";
 import type { ProcessHandle, SandboxExecutor, SandboxFactory } from "../ports";
-import { readS3MemoryBucket } from "../ports";
+import { DEFAULT_SANDBOX_IMAGE, readS3MemoryBucket } from "../ports";
 import { getLogger } from "@duyet/oma-observability";
 
 const moduleLogger = getLogger("k8s-sandbox");
@@ -109,7 +110,7 @@ export interface KubernetesSandboxOptions {
   sessionId: string;
   /** Namespace to create the Sandbox object in. Default "default". */
   namespace?: string;
-  /** Container image. Default "node:22-slim" (matches E2B/Daytona defaults). */
+  /** Container image. Default DEFAULT_SANDBOX_IMAGE (matches E2B/Daytona defaults). */
   image?: string;
   /** Command to run in the container — must not exit, since we exec
    *  additional commands into the running container afterwards. Default
@@ -271,7 +272,7 @@ export class KubernetesSandboxExecutor implements SandboxExecutor {
     this.name = sanitizeK8sName(opts.sessionId);
     this.opts = {
       ...opts,
-      image: opts.image ?? "node:22-slim",
+      image: opts.image ?? DEFAULT_SANDBOX_IMAGE,
       command: opts.command ?? ["sh", "-c", "sleep infinity"],
       readyTimeoutMs: opts.readyTimeoutMs ?? 120_000,
       defaultTimeoutMs: opts.defaultTimeoutMs ?? 120_000,

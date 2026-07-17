@@ -24,6 +24,7 @@
 // once true, mutating ops that affect ctor opts throw.
 
 import type { ProcessHandle, SandboxExecutor, SandboxFactory } from "../ports";
+import { DEFAULT_SANDBOX_IMAGE } from "../ports";
 import { promises as fs, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -33,7 +34,7 @@ import { getLogger } from "@duyet/oma-observability";
 const moduleLogger = getLogger("litebox-sandbox");
 
 export interface LiteBoxSandboxOptions {
-  /** Container image. Default: `node:22-slim`. */
+  /** Container image. Default: DEFAULT_SANDBOX_IMAGE. */
   image?: string;
   /** Optional VM resource limits. */
   memoryMib?: number;
@@ -300,9 +301,9 @@ export class LiteBoxSandbox implements SandboxExecutor {
           `pnpm add @boxlite-ai/boxlite (cause: ${String(err)})`,
         );
       })) as LiteBoxModule;
-      this.logger.log(`creating box (image=${this.opts.image ?? "node:22-slim"})`);
+      this.logger.log(`creating box (image=${this.opts.image ?? DEFAULT_SANDBOX_IMAGE})`);
       const box = new mod.SimpleBox({
-        image: this.opts.image ?? "node:22-slim",
+        image: this.opts.image ?? DEFAULT_SANDBOX_IMAGE,
         memoryMib: this.opts.memoryMib,
         cpus: this.opts.cpus,
         name: this.opts.name,

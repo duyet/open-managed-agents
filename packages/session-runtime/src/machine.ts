@@ -38,6 +38,7 @@ import { recoverInterruptedState } from "./recovery";
 import type { OrphanTurn, RuntimeAdapter, TurnId } from "./ports";
 import type { SandboxExecutor } from "@duyet/oma-sandbox";
 import { fireAgentHook, type AgentHookConfig } from "./hooks";
+import { DEFAULT_TURN_TIMEOUT_MS, runWithTurnWatchdog } from "./watchdog";
 
 /**
  * Pluggable harness — both CF and Node want the same default-loop
@@ -114,6 +115,13 @@ export interface SessionMachineDeps {
    *  hooks fire. */
   hooks?: AgentHookConfig;
 
+  /** Turn watchdog ceiling in ms (issue #135). A harness turn that
+   *  exceeds it is force-failed with TurnWatchdogTimeoutError so the
+   *  session returns to idle instead of hanging `running` forever.
+   *  Undefined → 15-minute default; null → watchdog disabled. Shells
+   *  resolve this from OMA_TURN_TIMEOUT_MS via resolveTurnTimeoutMs(). */
+  turnTimeoutMs?: number | null;
+
   /** Logger. Defaults to console. */
   logger?: { warn: (msg: string, ctx?: unknown) => void; log: (msg: string) => void };
 }
@@ -185,7 +193,23 @@ export class SessionStateMachine {
       });
 
       const harness = this.deps.buildHarness();
-      await harness.run(ctx);
+      // Watchdog backstop (issue #135): a tool/model call that never
+      // resolves must not leave the session `running` forever. On expiry
+      // this throws TurnWatchdogTimeoutError; the finally below still
+      // ends the turn (status back to idle) and the shell's catch surfaces
+      // session.error. Pauses for external input end the turn normally,
+      // so they never race this timer.
+      const timeoutMs =
+        this.deps.turnTimeoutMs === undefined
+          ? DEFAULT_TURN_TIMEOUT_MS
+          : this.deps.turnTimeoutMs;
+      await runWithTurnWatchdog(() => harness.run(ctx), {
+        timeoutMs,
+        onTimeout: () =>
+          this.logger.warn(
+            `turn watchdog fired after ${timeoutMs}ms — forcing the turn to fail (issue #135)`,
+          ),
+      });
     } finally {
       await fireAgentHook(this.deps.hooks, "session_end", this.deps.sessionId, agentId, {
         agent_name: agent.name,

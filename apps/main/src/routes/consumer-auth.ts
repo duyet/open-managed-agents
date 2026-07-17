@@ -163,8 +163,10 @@ function magicLinkVerifyUrl(base: string, token: string, slug: string): string {
 /** Transactional email body for a consumer magic-link (issue #162, updated
  *  #215). When `verifyUrl` is available (the request named the bot's slug)
  *  the email leads with a clickable "Sign in" link that lands on
- *  GET /p/auth/verify and exchanges the token automatically; the raw code
- *  always stays too as copy-paste fallback text. */
+ *  GET /p/auth/verify — a confirm page whose "Continue" button POSTs the
+ *  token for the actual exchange (two-step so email security scanners
+ *  pre-fetching the URL can't burn the single-use token, issue #254); the
+ *  raw code always stays too as copy-paste fallback text. */
 function magicLinkEmailHtml(token: string, verifyUrl?: string): string {
   const heading = verifyUrl ? "Your sign-in link" : "Your sign-in code";
   const linkHtml = verifyUrl

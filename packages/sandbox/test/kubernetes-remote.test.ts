@@ -18,6 +18,7 @@ import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 // the adapter's public writeFileBytes/readFileBytes — those are the only
 // surfaces that touch tar. We don't need to import the helpers directly.
 import { KubernetesRemoteSandbox } from "../src/adapters/kubernetes-remote";
+import { DEFAULT_SANDBOX_IMAGE } from "../src/ports";
 
 function base64(s: string): string {
   return Buffer.from(s, "utf-8").toString("base64");
@@ -88,7 +89,7 @@ describe("KubernetesRemoteSandbox", () => {
 
     const createCall = calls.find((c) => c.method === "POST" && c.url.endsWith("/boxes"));
     expect(createCall).toBeDefined();
-    expect(JSON.parse(createCall!.body!)).toMatchObject({ image: "node:22-slim", name: "oma-sess_1" });
+    expect(JSON.parse(createCall!.body!)).toMatchObject({ image: DEFAULT_SANDBOX_IMAGE, name: "oma-sess_1" });
   });
 
   it("exec() POSTs /exec then parses the SSE stream into stdout + exit", async () => {

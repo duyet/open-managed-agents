@@ -28,6 +28,13 @@ export {
   type AgentHookConfig,
 } from "./hooks";
 
+export {
+  runWithTurnWatchdog,
+  resolveTurnTimeoutMs,
+  TurnWatchdogTimeoutError,
+  DEFAULT_TURN_TIMEOUT_MS,
+} from "./watchdog";
+
 export type {
   SessionRouter,
   SessionInitParams,

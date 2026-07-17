@@ -148,7 +148,7 @@ export interface Env {
   BOXRUN_CPUS?: string;
   BOXRUN_MEMORY_MIB?: string;
   /** Container image passed to remote sandbox adapters (BoxRun / Daytona /
-   *  E2B) that accept one. Default per-adapter (`node:22-slim`) when unset. */
+   *  E2B) that accept one. Default per-adapter (`ghcr.io/duyet/oma-runtime-base:latest`) when unset. */
   SANDBOX_IMAGE?: string;
   /** Kubernetes agent-sandbox namespace. When set, /v1/hosting_types
    *  advertises Kubernetes as a sandbox provider. The agent-sandbox

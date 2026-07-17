@@ -23,7 +23,9 @@ secret:
 
 config:
   namespace: sandboxes
-  sandboxImage: node:22-slim
+  # Batteries-included toolset image (git, curl, gh, ripgrep, python3) —
+  # see docker/base/Dockerfile. Pin your own image here if you need more.
+  sandboxImage: ghcr.io/duyet/oma-runtime-base:latest
   runtimeClass: ""
   serviceAccount: ""
 

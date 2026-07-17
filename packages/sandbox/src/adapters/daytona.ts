@@ -30,7 +30,7 @@
 // safer choice for production / untrusted agents vs LocalSubprocessSandbox.
 
 import type { ProcessHandle, SandboxExecutor, SandboxFactory } from "../ports";
-import { readS3MemoryBucket } from "../ports";
+import { DEFAULT_SANDBOX_IMAGE, readS3MemoryBucket } from "../ports";
 import { promises as fs } from "node:fs";
 import { getLogger } from "@duyet/oma-observability";
 
@@ -44,7 +44,7 @@ export interface DaytonaSandboxOptions {
   apiKey?: string;
   /** Daytona API URL (when self-hosting). Falls back to DAYTONA_API_URL. */
   apiUrl?: string;
-  /** Container image to run. Default: `node:22-slim`. The image must
+  /** Container image to run. Default: DEFAULT_SANDBOX_IMAGE. The image must
    *  ship `sh`, `curl`, and the standard coreutils — the harness's bash
    *  tool relies on them. For s3fs memory mounts the image needs `apt`
    *  (we install s3fs-fuse on boot). */
@@ -323,7 +323,7 @@ export class DaytonaSandbox implements SandboxExecutor {
       });
       this.logger.log(`creating sandbox for session ${this.opts.sessionId}`);
       const sb = await this.daytona.create({
-        image: this.opts.image ?? "node:22-slim",
+        image: this.opts.image ?? DEFAULT_SANDBOX_IMAGE,
         labels: { "oma-session-id": this.opts.sessionId },
       });
       this.logger.log(`sandbox ${sb.id} ready`);
