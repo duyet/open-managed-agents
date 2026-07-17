@@ -457,7 +457,7 @@ input:focus-visible,
   color: var(--color-fg);
   box-shadow: inset 0 -0.12em 0 color-mix(in srgb, var(--color-brand) 60%, transparent);
 }
-/* Rotating headline phrase ("any LLM provider" ⇄ "any Sandbox provider").
+/* Rotating headline phrase ("any LLM provider" ⇄ "any Sandbox").
    The .tw-rot span is driven by the shared data-rotate script in Base.astro;
    these overrides tune the caret + phrase for display type. */
 .hero-rotate .tw-rot {

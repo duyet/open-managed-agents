@@ -207,10 +207,13 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
               />
             </svg>
           </button>
+          <!-- Points at the console root, not /login: signed-in visitors land
+               on the dashboard the label promises, and AppShell still bounces
+               signed-out ones to /login. -->
           <a
-            href="https://app.oma.duyet.net/login"
+            href="https://app.oma.duyet.net/"
             class="ml-2 px-3.5 py-2 rounded-md bg-[var(--color-brand)] text-[var(--color-brand-fg)] font-medium hover:bg-[var(--color-brand-hover)] transition-colors"
-            >Sign in</a
+            >Dashboard →</a
           >
         </nav>
 
@@ -258,9 +261,9 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
                 >GitHub</a
               >
               <a
-                href="https://app.oma.duyet.net/login"
+                href="https://app.oma.duyet.net/"
                 class="block mx-2 mt-1 px-3 py-3 rounded-md text-center bg-[var(--color-brand)] text-[var(--color-brand-fg)] font-medium"
-                >Sign in</a
+                >Dashboard →</a
               >
             </nav>
           </details>
