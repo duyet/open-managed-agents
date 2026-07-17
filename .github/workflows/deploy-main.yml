@@ -56,6 +56,26 @@ jobs:
       - name: Build Console UI
         run: pnpm --filter managed-agents-console build
 
+      # Schema before code. This step exists because it didn't: between the
+      # initial setup (2026-07-04) and #262, deploys shipped code to prod
+      # while migrations only ever ran from scripts/setup-cf.sh by hand, so
+      # prod sat 11 migrations behind and /usage 500'd on a column that
+      # existed in the schema but not in the database.
+      #
+      # `--env production` is load-bearing: the top-level d1_databases entry
+      # in wrangler.jsonc carries a <set-by-setup-cf-sh> placeholder id, and
+      # only env.production has the real one.
+      #
+      # Applying is idempotent (wrangler tracks applied filenames in the
+      # d1_migrations table), so re-running a deploy is a no-op here.
+      - name: Apply D1 migrations (oma-auth)
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/main
+          command: d1 migrations apply oma-auth --remote --env production
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v4
         with:
