@@ -82,13 +82,15 @@ The bridge pairs a machine you own (laptop, workstation, homelab box) with your 
 
 ```bash
 npx @getoma/cli bridge setup        # pair this machine + install the daemon service
-npx @getoma/cli bridge status       # show creds + probe server reachability
+npx @getoma/cli bridge status       # daemon liveness + authorized workspaces + server probe
 npx @getoma/cli bridge refresh      # reconcile authorized tenants + reload daemon
 npx @getoma/cli bridge agents refresh   # re-detect local agents + offer wrapper installs
 npx @getoma/cli bridge uninstall    # stop service + remove creds
 ```
 
 Once paired, the machine appears on the Console's **Sandbox Runtime** page and can be revoked there or with `runtime rm`.
+
+`bridge status` reports the local daemon's health alongside the server probe: whether the background process is running and currently connected, how fresh its last heartbeat is, its uptime, and the workspaces it's authorized to run agents for. The daemon keeps its connection alive with a 25s heartbeat, drops and reconnects (with jittered backoff) if the server stops responding, and survives transient network loss without killing in-flight conversations.
 
 ## Environment variables
 

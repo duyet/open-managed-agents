@@ -22,6 +22,8 @@ import { SessionManager } from "../lib/session-manager.js";
 import { detectLocalSkills } from "../lib/local-skills.js";
 import { printBanner, log, c } from "../lib/style.js";
 import { PKG_VERSION } from "../lib/version.js";
+import { nextBackoff } from "../lib/reconnect.js";
+import { writeDaemonState, type DaemonState } from "../lib/daemon-state.js";
 import WebSocket from "ws";
 
 // CF Workers WS connections to *.workers.dev (lane URLs) idle out fast —
@@ -31,6 +33,12 @@ import WebSocket from "ws";
 const HEARTBEAT_INTERVAL_MS = 25 * 1000;
 const RECONNECT_BACKOFF_MIN_MS = 1000;
 const RECONNECT_BACKOFF_MAX_MS = 60 * 1000;
+// If the server hasn't sent ANY frame (pong / welcome / session.*) within
+// this window, the socket is presumed half-open — the OS hasn't surfaced the
+// TCP break yet, but the daemon is effectively deaf. We proactively terminate
+// so the reconnect loop can re-establish a live connection instead of silently
+// sitting on a dead socket for minutes. Tuned to ~2.5 missed heartbeats.
+const LIVENESS_TIMEOUT_MS = 70 * 1000;
 
 
 export async function runDaemon(): Promise<void> {
@@ -60,7 +68,20 @@ export async function runDaemon(): Promise<void> {
   const wsBase = creds.serverUrl.replace(/^http(s?):\/\//, "ws$1://").replace(/\/$/, "");
   const wsUrl = `${wsBase}/agents/runtime/_attach`;
 
-  let backoffMs = RECONNECT_BACKOFF_MIN_MS;
+  let backoffBaseMs = 0;
+
+  // Live snapshot of daemon health, flushed to daemon-state.json so
+  // `oma bridge status` (a separate process) can report connectivity +
+  // heartbeat freshness. Best-effort; never gates the session loop.
+  const state: DaemonState = {
+    pid: process.pid,
+    startedAt: Date.now(),
+    attachedAt: null,
+    lastHeartbeatAt: null,
+    connected: false,
+    tenantCount: creds.tenants.length,
+  };
+  const flushState = () => writeDaemonState(state);
 
   // Graceful shutdown: drain in-flight turns up to 10s, then dispose
   // (which keeps spawn cwds so ACP recovery via session/load works on
@@ -80,6 +101,7 @@ export async function runDaemon(): Promise<void> {
       log.warn(`${sig} again — abandoning drain, exiting now`);
       stopping = true;
       try { unlinkSync(join(paths().configDir, "daemon.pid")); } catch { /* missing */ }
+      try { unlinkSync(join(paths().configDir, "daemon-state.json")); } catch { /* missing */ }
       void sessions.disposeAll();
       if (currentWs) {
         try { currentWs.close(1000, "shutdown"); } catch { /* already closing */ }
@@ -89,6 +111,7 @@ export async function runDaemon(): Promise<void> {
     draining = true;
     log.step(`${sig} received, draining (${DRAIN_DEADLINE_MS / 1000}s deadline; sessions recover via session/load on reconnect)`);
     try { unlinkSync(join(paths().configDir, "daemon.pid")); } catch { /* missing or perms */ }
+    try { unlinkSync(join(paths().configDir, "daemon-state.json")); } catch { /* missing or perms */ }
     void (async () => {
       const r = await sessions.drain(DRAIN_DEADLINE_MS, {
         onProgress: (active, msLeft) => {
@@ -127,6 +150,7 @@ export async function runDaemon(): Promise<void> {
   } catch (e) {
     process.stderr.write(`! pid file write failed (non-fatal): ${(e as Error).message}\n`);
   }
+  flushState();
 
   // SIGHUP — `oma bridge agents refresh` AND `oma bridge refresh`. Both
   // are side-channel reloads: do NOT touch the WS, do NOT restart
@@ -150,6 +174,8 @@ export async function runDaemon(): Promise<void> {
         const freshCreds = await readCreds();
         if (freshCreds) {
           sessions.setTenantKeys(freshCreds.tenants);
+          state.tenantCount = freshCreds.tenants.length;
+          flushState();
           log.ok(`re-loaded credentials  (${freshCreds.tenants.length} tenants)`);
         } else {
           log.warn("credentials file disappeared mid-SIGHUP; tenant keys unchanged");
@@ -210,8 +236,16 @@ export async function runDaemon(): Promise<void> {
       currentWs = ws;
 
       await waitOpen(ws);
-      backoffMs = RECONNECT_BACKOFF_MIN_MS;
+      backoffBaseMs = 0;
       log.ok(`attached to ${c.cyan(wsBase)}`);
+
+      // Track the last frame we heard from the server. Any inbound message
+      // (pong / welcome / session.*) counts as proof the socket is live;
+      // the watchdog below terminates it if this goes stale.
+      let lastServerActivityAt = Date.now();
+      state.attachedAt = Date.now();
+      state.connected = true;
+      flushState();
 
       const agents = (await detectAll()).map((a) => ({
         id: a.id,
@@ -241,9 +275,20 @@ export async function runDaemon(): Promise<void> {
       sessions.announceAll();
 
       const heartbeat = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: "ping" }));
+        if (ws.readyState !== WebSocket.OPEN) return;
+        // Half-open detection: the server pongs every ping, so a silent
+        // gap wider than LIVENESS_TIMEOUT_MS means the connection is dead
+        // even though the OS hasn't RST'd it yet. Force a close to kick
+        // the reconnect loop rather than keep a deaf socket alive.
+        const silentMs = Date.now() - lastServerActivityAt;
+        if (silentMs > LIVENESS_TIMEOUT_MS) {
+          log.warn(`no server traffic for ${Math.round(silentMs / 1000)}s — connection stale, forcing reconnect`);
+          try { ws.terminate(); } catch { /* already gone */ }
+          return;
         }
+        ws.send(JSON.stringify({ type: "ping" }));
+        state.lastHeartbeatAt = Date.now();
+        flushState();
       }, HEARTBEAT_INTERVAL_MS);
 
       // Re-point SessionManager at the new socket. Sessions from the prior
@@ -255,6 +300,9 @@ export async function runDaemon(): Promise<void> {
       });
 
       ws.on("message", (data: Buffer) => {
+        // Any frame from the server proves the socket is alive — refresh
+        // the liveness clock before we even parse it.
+        lastServerActivityAt = Date.now();
         let msg: { type?: string; [k: string]: unknown };
         try { msg = JSON.parse(data.toString()); } catch { return; }
         process.stderr.write(`← server: ${msg.type ?? "?"}\n`);
@@ -284,6 +332,8 @@ export async function runDaemon(): Promise<void> {
       await new Promise<void>((resolve) => {
         ws.once("close", (code, reason) => {
           clearInterval(heartbeat);
+          state.connected = false;
+          flushState();
           log.step(`WS closed  ${c.dim(`code=${code} reason=${reason?.toString() || "—"}`)}`);
           resolve();
         });
@@ -297,9 +347,13 @@ export async function runDaemon(): Promise<void> {
     }
 
     if (stopping) break;
-    log.step(`reconnecting in ${backoffMs}ms`);
-    await sleep(backoffMs);
-    backoffMs = Math.min(backoffMs * 2, RECONNECT_BACKOFF_MAX_MS);
+    const { delayMs, baseMs } = nextBackoff(backoffBaseMs, {
+      minMs: RECONNECT_BACKOFF_MIN_MS,
+      maxMs: RECONNECT_BACKOFF_MAX_MS,
+    });
+    backoffBaseMs = baseMs;
+    log.step(`reconnecting in ${delayMs}ms`);
+    await sleep(delayMs);
   }
 
   log.step("daemon exited");

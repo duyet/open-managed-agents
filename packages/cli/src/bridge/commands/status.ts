@@ -16,6 +16,7 @@ import { detectServiceKind } from "../lib/service-manager.js";
 import { printBanner, log, c, sym } from "../lib/style.js";
 import { PKG_VERSION } from "../lib/version.js";
 import { probeRuntimeToken } from "../lib/probe.js";
+import { readDaemonState, isPidAlive, formatAge } from "../lib/daemon-state.js";
 
 export async function runStatus(): Promise<void> {
   const profile = currentProfile();
@@ -40,6 +41,36 @@ export async function runStatus(): Promise<void> {
   row("creds file", c.dim(p.credsFile));
   row("log file",   c.dim(p.logFile));
   row("service",    c.dim(`${kind}${p.serviceFile ? ` → ${p.serviceFile}` : ""}`));
+
+  // Authorized workspaces — the daemon can spawn ACP children for any of
+  // these. Empty (or a lone `__unknown__` stub from an offline v1→v2
+  // migration) means the user should run `oma bridge refresh`.
+  if (creds.tenants.length > 0) {
+    const names = creds.tenants
+      .map((t) => (t.id === "__unknown__" ? c.yellow(`${t.name} (unresolved)`) : t.name))
+      .join(", ");
+    row("workspaces", `${creds.tenants.length}  ${c.dim(names)}`);
+  } else {
+    row("workspaces", c.yellow("none — run `oma bridge refresh`"));
+  }
+
+  // Local daemon liveness, read from the daemon-state file it flushes on
+  // start / attach / heartbeat. This answers "is the background process
+  // actually running and connected right now" without shelling out to
+  // launchctl / systemctl.
+  const dstate = readDaemonState();
+  if (!dstate) {
+    row("daemon", c.yellow("not running (no state file — start via `oma bridge setup` or `oma bridge daemon`)"));
+  } else if (!isPidAlive(dstate.pid)) {
+    row("daemon", c.yellow(`stale (pid ${dstate.pid} not alive — service may be restarting)`));
+  } else {
+    const conn = dstate.connected ? c.green("connected") : c.yellow("disconnected");
+    const hb = dstate.lastHeartbeatAt
+      ? `heartbeat ${formatAge(Date.now() - dstate.lastHeartbeatAt)}`
+      : "no heartbeat yet";
+    const up = `up ${formatAge(Date.now() - dstate.startedAt).replace(/ ago$/, "")}`;
+    row("daemon", `${conn}  ${c.dim(`pid ${dstate.pid} · ${hb} · ${up}`)}`);
+  }
 
   process.stderr.write("\n");
   log.step("probing server");
