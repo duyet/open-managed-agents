@@ -33,7 +33,7 @@ Environments — the reusable configurations defining package managers, system p
 | `daytona` | Daytona VM | VM hosting on Daytona. Requires `DAYTONA_API_KEY`. |
 | `litebox` | BoxLite Local | Local Firecracker micro-VM for local hardware isolation. |
 | `boxrun` | BoxLite Remote | Remote BoxLite HTTP control plane for micro-VM orchestration. |
-| `openshell` | NVIDIA OpenShell | Policy-enforced, isolated agent sandboxes driven by an OpenShell gateway (gRPC). Requires `OPENSHELL_GATEWAY_ENDPOINT`. |
+| `openshell` | NVIDIA OpenShell | Policy-enforced, isolated agent sandboxes driven by an OpenShell gateway (gRPC). Requires `OPENSHELL_GATEWAY_ENDPOINT`. Self-host Node speaks gRPC directly; the Cloudflare deployment reaches it over `fetch` via the k8s-bridge OpenShell backend (`OPENSHELL_BRIDGE_URL`). |
 
 ### API Endpoints
 * **List hosting types**: `GET /v1/hosting_types` returns all registered local and BYOK providers. Each provider's `health` now carries an optional `capacity` (`cpu` / `memory` / `pods` used-vs-total) surfaced best-effort from the adapter — the console Runtimes page renders these as live gauges with 30s auto-refresh.

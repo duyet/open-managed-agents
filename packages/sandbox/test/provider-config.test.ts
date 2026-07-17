@@ -29,7 +29,7 @@ describe("classifyCfSandboxProvider", () => {
     expect(classifyCfSandboxProvider("totally-unknown-provider")).toEqual({ kind: "cloudflare" });
   });
 
-  it.each(["boxrun", "daytona", "e2b", "k8s-remote"])(
+  it.each(["boxrun", "daytona", "e2b", "k8s-remote", "openshell"])(
     "classifies remote HTTP-API adapter %s as remote",
     (type) => {
       expect(classifyCfSandboxProvider(type)).toEqual({ kind: "remote", type });
@@ -64,14 +64,14 @@ describe("classifyCfSandboxProvider", () => {
       "docker-compose": false,
       "github-actions": true,
       "remote-agent": true,
-      openshell: false,
+      openshell: true,
     });
   });
 
-  it("classifies openshell as Node-only (cfCompatible: false)", () => {
-    expect(classifyCfSandboxProvider("openshell")).toEqual({ kind: "unavailable", type: "openshell" });
+  it("classifies openshell as remote (reachable on CF via the k8s-bridge OpenShell backend)", () => {
+    expect(classifyCfSandboxProvider("openshell")).toEqual({ kind: "remote", type: "openshell" });
     // case-insensitive
-    expect(classifyCfSandboxProvider("OpenShell")).toEqual({ kind: "unavailable", type: "openshell" });
+    expect(classifyCfSandboxProvider("OpenShell")).toEqual({ kind: "remote", type: "openshell" });
   });
 });
 

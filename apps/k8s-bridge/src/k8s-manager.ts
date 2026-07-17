@@ -1,3 +1,5 @@
+import type { BridgeBackend } from "./backend";
+
 interface KubernetesSandboxOptions {
   sessionId: string;
   namespace?: string;
@@ -182,7 +184,7 @@ type CoreV1ApiInstance = {
 
 // ─── K8sManager ─────────────────────────────────────────────────────
 
-export class K8sManager {
+export class K8sManager implements BridgeBackend {
   private boxes = new Map<string, ManagedBox>();
   private clientPromise: Promise<CoreV1ApiInstance> | null = null;
   private namespace: string;

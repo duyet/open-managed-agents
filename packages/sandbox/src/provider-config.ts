@@ -199,10 +199,12 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
   {
     type: "openshell",
     label: "NVIDIA OpenShell",
-    description: "NVIDIA OpenShell gateway (gRPC) — policy-enforced, isolated agent sandboxes with credential + network governance.",
+    description:
+      "NVIDIA OpenShell gateway (gRPC) — policy-enforced, isolated agent sandboxes with credential + network governance. " +
+      "Self-host Node talks gRPC directly; the Cloudflare deployment reaches it over plain fetch via the k8s-bridge OpenShell backend (OPENSHELL_BRIDGE_URL).",
     envKeys: ["OPENSHELL_GATEWAY_ENDPOINT"],
     factoryPath: "@duyet/oma-sandbox/adapters/openshell",
-    cfCompatible: false,
+    cfCompatible: true,
     capabilities: ["exec", "files"],
   },
 ];

@@ -723,6 +723,8 @@ function cfProviderEnv(env: Env): Record<string, string | undefined> {
     K8S_BRIDGE_TOKEN: e.K8S_BRIDGE_TOKEN,
     K8S_CPU: e.K8S_CPU,
     K8S_MEMORY: e.K8S_MEMORY,
+    OPENSHELL_BRIDGE_URL: e.OPENSHELL_BRIDGE_URL,
+    OPENSHELL_BRIDGE_TOKEN: e.OPENSHELL_BRIDGE_TOKEN,
   };
 }
 
@@ -785,6 +787,27 @@ function createRemoteSandbox(type: string, env: Env, sessionId: string): Sandbox
         image: e.SANDBOX_IMAGE,
         cpu: e.K8S_CPU ? Number(e.K8S_CPU) : undefined,
         memory: e.K8S_MEMORY ? Number(e.K8S_MEMORY) : undefined,
+      });
+    }
+    case "openshell": {
+      // The OpenShell gateway is gRPC-only, which a Worker cannot speak. On
+      // CF we instead talk to the k8s-bridge running its OpenShell backend
+      // (BRIDGE_BACKEND=openshell) — same boxrun-shaped HTTP surface as any
+      // other k8s-bridge, so we reuse K8sBridgeSandbox pointed at
+      // OPENSHELL_BRIDGE_URL. The bridge holds the gRPC client; the Worker
+      // stays pure fetch. Self-host Node keeps its direct-gRPC adapter.
+      if (!e.OPENSHELL_BRIDGE_URL) {
+        throw new SandboxProviderUnavailableError(
+          `provider "openshell" requires OPENSHELL_BRIDGE_URL to be set on this Cloudflare deployment ` +
+            `(wrangler secret put OPENSHELL_BRIDGE_URL) — pointing at a k8s-bridge running its OpenShell ` +
+            `backend (BRIDGE_BACKEND=openshell). Self-host Node speaks gRPC to the gateway directly.`,
+        );
+      }
+      return new K8sBridgeSandbox({
+        baseUrl: `${e.OPENSHELL_BRIDGE_URL.replace(/\/$/, "")}/api/v1`,
+        bearerToken: e.OPENSHELL_BRIDGE_TOKEN ?? "",
+        sessionId,
+        image: e.SANDBOX_IMAGE,
       });
     }
     default:

@@ -10,6 +10,7 @@ import { describe, it, expect } from "vitest";
 import type { Env } from "@duyet/oma-shared";
 import { BoxRunSandbox } from "@duyet/oma-sandbox/adapters/boxrun";
 import { KubernetesRemoteSandbox } from "@duyet/oma-sandbox/adapters/kubernetes-remote";
+import { K8sBridgeSandbox } from "@duyet/oma-sandbox/adapters/k8s-bridge";
 import {
   CloudflareSandbox,
   createSandbox,
@@ -77,6 +78,21 @@ describe("resolveCfSandbox", () => {
   it("throws SandboxProviderUnavailableError for k8s-remote without K8S_SANDBOX_GATEWAY_URL configured", () => {
     expect(() =>
       resolveCfSandbox(baseEnv, "sess_1", { sandbox_provider: "k8s-remote" }),
+    ).toThrow(SandboxProviderUnavailableError);
+  });
+
+  it("resolves openshell to a K8sBridgeSandbox pointed at OPENSHELL_BRIDGE_URL", () => {
+    const env = {
+      ...baseEnv,
+      OPENSHELL_BRIDGE_URL: "https://openshell-bridge.oma.internal",
+    } as unknown as Env;
+    const sandbox = resolveCfSandbox(env, "sess_1", { sandbox_provider: "openshell" });
+    expect(sandbox).toBeInstanceOf(K8sBridgeSandbox);
+  });
+
+  it("throws SandboxProviderUnavailableError for openshell without OPENSHELL_BRIDGE_URL configured", () => {
+    expect(() =>
+      resolveCfSandbox(baseEnv, "sess_1", { sandbox_provider: "openshell" }),
     ).toThrow(SandboxProviderUnavailableError);
   });
 

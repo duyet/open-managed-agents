@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import { K8sManager } from "./k8s-manager";
+import type { BridgeBackend } from "./backend";
 import type { SlackNotifier } from "./slack-notifier";
 
-export function createRouter(manager: K8sManager, notifier?: SlackNotifier): Hono {
+export function createRouter(manager: BridgeBackend, notifier?: SlackNotifier): Hono {
   const router = new Hono();
 
   // Health check

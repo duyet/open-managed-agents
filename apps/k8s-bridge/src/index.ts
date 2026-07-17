@@ -1,8 +1,10 @@
 import "dotenv/config";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import type { BridgeBackend } from "./backend";
 import { authMiddleware } from "./auth";
 import { K8sManager } from "./k8s-manager";
+import { OpenShellManager } from "./openshell-manager";
 import { createRouter } from "./router";
 import { SandboxMonitor } from "./sandbox-monitor";
 import { SlackNotifier } from "./slack-notifier";
@@ -28,12 +30,19 @@ const notifier = process.env.SLACK_WEBHOOK_URL
   : undefined;
 
 const app = new Hono();
-const manager = new K8sManager();
+
+// Backend selection. Default is the Kubernetes backend; setting
+// BRIDGE_BACKEND=openshell fronts NVIDIA OpenShell sandboxes over the same
+// HTTP surface (the bridge holds the gRPC client the CF Worker can't run).
+const backendKind = (process.env.BRIDGE_BACKEND ?? "").toLowerCase();
+const manager: BridgeBackend =
+  backendKind === "openshell" ? new OpenShellManager() : new K8sManager();
 
 // Background poller for sandbox-level events (OOM, crash loops, stuck
 // pending, low cluster capacity) that aren't triggered by a bridge API
-// call — only runs when Slack notifications are configured.
-if (notifier) {
+// call — only runs when Slack notifications are configured. Kubernetes-only:
+// the OpenShell backend owns no cluster to poll.
+if (notifier && manager instanceof K8sManager) {
   new SandboxMonitor(manager, notifier).start();
 }
 

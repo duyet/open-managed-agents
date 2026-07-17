@@ -444,7 +444,7 @@ provider available:
 | `LiteBoxSandbox` | Local hardware isolation without docker | Host needs `/dev/kvm` (Linux) or Apple Silicon (macOS). Optional `LITEBOX_MEMORY_MIB`, `LITEBOX_CPUS`, `SANDBOX_IMAGE`. BoxLite ships its own Firecracker runtime (no daemon). |
 | `E2BSandbox` | Firecracker microVM SaaS | `E2B_API_KEY=...`, optional `SANDBOX_IMAGE` (template id). Memory via `MEMORY_S3_*` env vars (same s3fs setup as Daytona). Outbound vault CA upload requires a template that allows `sudo` writes to `/etc/ssl/`. |
 | `BoxRunSandbox` | Remote BoxLite REST endpoint (no KVM on the OMA host) | `BOXRUN_URL=http://host:8100/v1/default`, optional `BOXRUN_TOKEN`. No mount primitive — bake a custom image with s3fs preinstalled if you need `/mnt/memory`. |
-| `OpenShellSandbox` | NVIDIA OpenShell gateway (gRPC) | `OPENSHELL_GATEWAY_ENDPOINT=host:port`, optional `OPENSHELL_TOKEN` (bearer). Policy-enforced, isolated agent sandboxes. `OPENSHELL_GATEWAY_TLS=1` + `OPENSHELL_GATEWAY_CA_PATH` (and `..._CERT_PATH`/`..._KEY_PATH` for mTLS) enable TLS. Self-host Node only — not CF-compatible. |
+| `OpenShellSandbox` | NVIDIA OpenShell gateway (gRPC) | `OPENSHELL_GATEWAY_ENDPOINT=host:port`, optional `OPENSHELL_TOKEN` (bearer). Policy-enforced, isolated agent sandboxes. `OPENSHELL_GATEWAY_TLS=1` + `OPENSHELL_GATEWAY_CA_PATH` (and `..._CERT_PATH`/`..._KEY_PATH` for mTLS) enable TLS. Self-host Node speaks gRPC directly; the Cloudflare deployment reaches it over `fetch` via the k8s-bridge OpenShell backend (`OPENSHELL_BRIDGE_URL`). |
 | `CloudflareSandbox` | If you happen to deploy on CF Workers + Containers | Use the regular `apps/agent` worker, not main-node. |
 
 **The old `SANDBOX_PROVIDER` env var still works** as the fallback default
@@ -510,8 +510,20 @@ OPENSHELL_GATEWAY_CA_PATH=/etc/openshell/ca.crt
 Upstream marks the Kubernetes path "under active development — expect
 rough edges"; the local Docker/Podman path is the stable one. Either way,
 selection is per-environment (`config.sandbox_provider: "openshell"`) or
-via the auto-detected default described above. Not available on the
-Cloudflare deployment (gRPC needs Node — `cfCompatible: false`).
+via the auto-detected default described above.
+
+**On the Cloudflare deployment**, a Worker cannot speak gRPC, so it reaches
+OpenShell through the **k8s-bridge** running its OpenShell backend. Start the
+bridge (`apps/k8s-bridge`) as a Node process next to the gateway with
+`BRIDGE_BACKEND=openshell` plus the same `OPENSHELL_*` env vars above (it
+holds the gRPC client), then point the Worker at it with `wrangler secret put
+OPENSHELL_BRIDGE_URL` (and `OPENSHELL_BRIDGE_TOKEN` matching the bridge's
+`K8S_BRIDGE_TOKEN`). A session with `config.sandbox_provider: "openshell"`
+then resolves to a pure-`fetch` client against the bridge — the Worker never
+touches gRPC. A missing `OPENSHELL_BRIDGE_URL` fails loudly with a
+`session.error` (parity with boxrun's missing `BOXRUN_URL`). Limitation:
+memory-store / session-outputs mounts aren't available over the bridge's HTTP
+API, same as boxrun and k8s-remote.
 
 ### BYOK (bring your own key)
 

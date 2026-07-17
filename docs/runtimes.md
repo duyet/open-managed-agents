@@ -126,8 +126,9 @@ layers on the freshly-built base.
 ### Selecting it
 
 Image selection is deployment-wide via the `SANDBOX_IMAGE` env var, which every
-remote adapter reads (`boxrun`, `k8s-remote`, `k8s-bridge`, `daytona`, `e2b`,
-`k8s`, `subprocess`, `docker-compose`). Point it at the coding image:
+remote adapter reads (`boxrun`, `k8s-remote`, `k8s-bridge`, `openshell`,
+`daytona`, `e2b`, `k8s`, `subprocess`, `docker-compose`). Point it at the
+coding image:
 
 ```bash
 # Cloudflare (remote providers)
@@ -140,8 +141,8 @@ SANDBOX_IMAGE=ghcr.io/duyet/sandbox-coding:latest
 The plain Cloudflare Containers path (`cloud` provider) is **fixed** to
 `sandbox-base` — it doesn't read `SANDBOX_IMAGE` (it uses the container image
 declared in `wrangler.toml`), so to run coding CLIs on Cloudflare you route the
-environment through a remote provider (`boxrun` / `k8s-remote` / `k8s-bridge`)
-pointed at `sandbox-coding`.
+environment through a remote provider (`boxrun` / `k8s-remote` / `k8s-bridge`
+/ `openshell`) pointed at `sandbox-coding`.
 
 **Gap (per-environment image):** today `SANDBOX_IMAGE` is a single
 deployment-wide value — `environment.config.image` is **not** plumbed into the
