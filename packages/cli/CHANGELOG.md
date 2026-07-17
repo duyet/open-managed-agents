@@ -1,5 +1,17 @@
 # @getoma/cli
 
+## 0.1.3
+
+### Patch Changes
+
+- New bridge banner: a suspension-bridge mark replaces the old brackets logo.
+
+## 0.1.2
+
+### Patch Changes
+
+- Bridge daemon hardening: liveness watchdog terminates and reconnects on a silent server (~70s without frames), reconnects use jittered exponential backoff, and the daemon flushes a state snapshot for observability. `bridge status` now reports daemon liveness (connected, pid, heartbeat age, uptime) and authorized workspaces.
+
 ## 0.1.1
 
 ### Patch Changes

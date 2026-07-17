@@ -36,14 +36,18 @@ export const c = {
  * non-truecolor terminals show it monochrome.
  */
 export function logo(): string {
+  // The oma brand mark (see apps/console Logo.tsx / apps/web Logo.astro),
+  // drawn in braille cells: a rounded-square frame (the sandbox) with an
+  // edge running in from the top-left corner into a solid node at the
+  // center (the managed agent a request lands on). Keep in sync with the
+  // SVG mark if it changes.
   const lines = [
-    "           ⠦         ",
-    "   ⣶⡶⠆          ⠰⢶⣶  ",
-    "   ⣿⡇      ⣀     ⢸⣿  ",
-    "   ⣿⡇      ⠉     ⢸⣿  ",
-    "   ⣿⡇            ⢸⣿  ",
-    "   ⣿⣇⡀          ⢀⣸⣿  ",
-    "   ⠉⠉⠁          ⠈⠉⠉  ",
+    "⢀⣴⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⣦⡀",
+    "⣿⠈⠢⡀           ⣿",
+    "⣿   ⠈⠢⡀        ⣿",
+    "⣿      ⢠⣾⣷⡄    ⣿",
+    "⣿      ⠈⠻⠟⠁    ⣿",
+    "⠈⠻⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠟⠁",
   ];
   return lines.map((l) => c.brand(c.bold(l))).join("\n");
 }
