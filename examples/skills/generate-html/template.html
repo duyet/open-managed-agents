@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>REPLACE ME — a title that states the takeaway</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1a1a1a; --muted: #5c5c5c;
+    --border: #e5e5e5; --card: #fafafa; --accent: #0072b2;
+    --space: 8px; --radius: 8px; --maxw: 1100px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111214; --fg: #e8e8e8; --muted: #9aa0a6;
+      --border: #2a2c30; --card: #17181b; --accent: #4aa3df;
+    }
+  }
+  /* explicit toggle wins over the OS media query */
+  :root[data-theme="light"] { --bg:#fff; --fg:#1a1a1a; --border:#e5e5e5; --card:#fafafa; }
+  :root[data-theme="dark"]  { --bg:#111214; --fg:#e8e8e8; --border:#2a2c30; --card:#17181b; }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.6 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  }
+  main { max-width: var(--maxw); margin-inline: auto; padding: calc(var(--space)*4) calc(var(--space)*3); }
+  h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 var(--space); }
+  h2 { font-size: 1.3rem; margin: calc(var(--space)*4) 0 var(--space); }
+  p.summary { color: var(--muted); margin-top: 0; }
+  .grid { display: grid; gap: calc(var(--space)*2); grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: calc(var(--space)*2); }
+  .card .value { font-size: 2rem; font-variant-numeric: tabular-nums; }
+  .card .label { color: var(--muted); font-size: 0.85rem; }
+  .scroll-x { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { padding: calc(var(--space)) calc(var(--space)*1.5); border-bottom: 1px solid var(--border); text-align: left; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr:nth-child(even) { background: color-mix(in srgb, var(--card) 60%, transparent); }
+  a { color: var(--accent); }
+  footer { color: var(--muted); font-size: 0.85rem; margin-top: calc(var(--space)*5); border-top: 1px solid var(--border); padding-top: calc(var(--space)*2); }
+  button.theme { float: right; background: var(--card); color: var(--fg); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 10px; cursor: pointer; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <button class="theme" onclick="toggleTheme()" aria-label="Toggle theme">◐ theme</button>
+    <h1>REPLACE ME — a title that states the takeaway</h1>
+    <p class="summary">One line of context · date · source.</p>
+  </header>
+
+  <section class="grid" aria-label="Key metrics">
+    <div class="card"><div class="value">—</div><div class="label">Metric A</div></div>
+    <div class="card"><div class="value">—</div><div class="label">Metric B</div></div>
+  </section>
+
+  <section>
+    <h2>Details</h2>
+    <div class="scroll-x">
+      <table>
+        <thead><tr><th>Item</th><th class="num">Value</th></tr></thead>
+        <tbody><tr><td>Example</td><td class="num">0</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>Generated REPLACE_DATE · REPLACE_SOURCE</footer>
+</main>
+<script>
+  function toggleTheme() {
+    const el = document.documentElement;
+    const now = el.getAttribute('data-theme')
+      || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    el.setAttribute('data-theme', now === 'dark' ? 'light' : 'dark');
+  }
+</script>
+</body>
+</html>

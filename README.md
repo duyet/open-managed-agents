@@ -544,6 +544,8 @@ and the files appear at `/home/user/.skills/invoice-parser/SKILL.md` etc.
 
 Four built-in skills ship ready to attach (no upload): `xlsx`, `pdf`, `docx`, `pptx`. Reference them with `{"skill_id":"builtin_pdf","type":"anthropic"}`.
 
+Six more prompt-fragment skills ship as ready-to-seed folders in [`examples/skills/`](examples/skills/) — `data-viz`, `generate-html`, `query-sql`, `github`, `git-commit`, `spreadsheet-xlsx`. Load them into a deployment with `./scripts/seed-skills.sh` (add `SEED_ANTHROPIC=1` to also import Anthropic's public catalog), then attach with `{"skill_id":"<id>","type":"custom"}`.
+
 ---
 
 ## Vaults & outbound credentials

@@ -73,3 +73,33 @@ These don't get a Docker image: they run against the platform's default
 sandbox base image (`apps/agent/Dockerfile`) plus whichever
 `environment.config.packages` you attach at session time — there's no
 separate build step to publish.
+
+## Built-in skills (`examples/skills/`)
+
+Ready-to-seed skill folders — each a SKILL.md (`name` + `description`
+frontmatter + an actionable body) plus supporting files where useful. They're
+the default set uploaded by [`scripts/seed-skills.sh`](../scripts/seed-skills.sh),
+so a fresh deployment exposes them under `GET /v1/skills` without any extra
+downloads. Attach one to an agent with `{ "skill_id": "<id>", "type": "custom" }`.
+
+| Folder | Skill | What it gives an agent |
+|---|---|---|
+| `examples/skills/data-viz/` | `data-viz` | Chart-type heuristics, colorblind-safe palette, self-contained HTML output |
+| `examples/skills/generate-html/` | `generate-html` | Self-contained HTML reports/artifacts — inline CSS/JS, dark/light theme, responsive; ships a `template.html` |
+| `examples/skills/query-sql/` | `query-sql` | Schema discovery first, `LIMIT` while exploring, reading query plans, dialect gotchas |
+| `examples/skills/github/` | `github` | Using the `gh` CLI for issues/PRs/reviews/checks; never force-pushes or bypasses required checks |
+| `examples/skills/git-commit/` | `git-commit` | Conventional Commits, small atomic commits, no push/amend unless asked |
+| `examples/skills/spreadsheet-xlsx/` | `spreadsheet-xlsx` | Real `.xlsx` workbooks via openpyxl — typed cells, number formats, a `snippets.py` helper |
+
+```bash
+# Seed the built-in skills into a running instance
+BASE=$BASE KEY=$KEY ./scripts/seed-skills.sh
+
+# Also pull in Anthropic's public skills catalog
+SEED_ANTHROPIC=1 BASE=$BASE KEY=$KEY ./scripts/seed-skills.sh
+```
+
+Editing a folder here and re-running the script uploads a new custom skill;
+these are prompt-fragment skills (the SKILL.md body is inlined into the agent's
+system prompt and the files mounted at `/home/user/.skills/<name>/`), distinct
+from the no-upload Anthropic catalog skills (`xlsx`, `pdf`, `docx`, `pptx`).
