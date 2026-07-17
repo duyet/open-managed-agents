@@ -19,6 +19,7 @@ import { readCreds } from "../lib/config.js";
 import { osTag, currentProfile, paths } from "../lib/platform.js";
 import { detectAll, loadRegistry } from "@duyet/oma-acp-runtime/registry";
 import { SessionManager } from "../lib/session-manager.js";
+import { BridgeSandboxManager } from "../lib/bridge-sandbox.js";
 import { detectLocalSkills } from "../lib/local-skills.js";
 import { printBanner, log, c } from "../lib/style.js";
 import { PKG_VERSION } from "../lib/version.js";
@@ -103,6 +104,7 @@ export async function runDaemon(): Promise<void> {
       try { unlinkSync(join(paths().configDir, "daemon.pid")); } catch { /* missing */ }
       try { unlinkSync(join(paths().configDir, "daemon-state.json")); } catch { /* missing */ }
       void sessions.disposeAll();
+      sandboxes.destroyAll();
       if (currentWs) {
         try { currentWs.close(1000, "shutdown"); } catch { /* already closing */ }
       }
@@ -132,6 +134,7 @@ export async function runDaemon(): Promise<void> {
         `drained ${r.sessions} session(s) (${naturallyCompleted}/${r.initialTurns} turns completed cleanly)`,
       );
       stopping = true;
+      sandboxes.destroyAll();
       if (currentWs) {
         try { currentWs.close(1000, "shutdown"); } catch { /* already closing */ }
       }
@@ -228,6 +231,13 @@ export async function runDaemon(): Promise<void> {
   });
   sessions.setTenantKeys(creds.tenants);
 
+  // Relayed sandbox ops for cloud agents with a *local* environment. Like
+  // SessionManager it survives WS drops (per-session workdirs persist); each
+  // attach re-points its sender at the new socket via setSend().
+  const sandboxes = new BridgeSandboxManager(() => {
+    /* placeholder — replaced on first attach via setSend */
+  });
+
   while (!stopping) {
     try {
       const ws = new WebSocket(wsUrl, {
@@ -298,6 +308,9 @@ export async function runDaemon(): Promise<void> {
       sessions.setSender((msg) => {
         if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
       });
+      sandboxes.setSend((msg) => {
+        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+      });
 
       ws.on("message", (data: Buffer) => {
         // Any frame from the server proves the socket is alive — refresh
@@ -322,6 +335,9 @@ export async function runDaemon(): Promise<void> {
             return;
           case "session.dispose":
             void sessions.dispose(msg.session_id as string);
+            return;
+          case "sandbox.op":
+            void sandboxes.handle(msg as never);
             return;
           default:
             process.stderr.write(`! unhandled server message: ${msg.type ?? "?"}\n`);

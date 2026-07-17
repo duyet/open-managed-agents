@@ -16,6 +16,7 @@
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --banner:js=\"#!/usr/bin/env node\nimport { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\"",
     "dev": "tsx src/index.ts",
+    "test": "vitest run --config vitest.config.ts",
     "prepublishOnly": "npm run build"
   },
   "publishConfig": {

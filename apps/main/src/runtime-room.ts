@@ -45,7 +45,7 @@ import { DurableObject } from "cloudflare:workers";
 import type { Env } from "@duyet/oma-shared";
 import { log, logWarn, logError } from "@duyet/oma-shared";
 
-type Side = "daemon" | "harness";
+type Side = "daemon" | "harness" | "sandbox";
 
 const HARNESS_TAG_PREFIX = "harness:";
 function harnessTag(sid: string): string {
@@ -53,6 +53,17 @@ function harnessTag(sid: string): string {
 }
 function sessionFromTag(tag: string): string | null {
   return tag.startsWith(HARNESS_TAG_PREFIX) ? tag.slice(HARNESS_TAG_PREFIX.length) : null;
+}
+
+// Sandbox-relay WS (BridgeRelaySandbox on the agent worker) — tagged
+// separately from the ACP harness so `sandbox.*` frames never cross-talk with
+// `session.*` frames even if the same sid were reused.
+const SANDBOX_TAG_PREFIX = "sandbox:";
+function sandboxTag(sid: string): string {
+  return `${SANDBOX_TAG_PREFIX}${sid}`;
+}
+function sessionFromSandboxTag(tag: string): string | null {
+  return tag.startsWith(SANDBOX_TAG_PREFIX) ? tag.slice(SANDBOX_TAG_PREFIX.length) : null;
 }
 
 export class RuntimeRoom extends DurableObject<Env> {
@@ -87,9 +98,10 @@ export class RuntimeRoom extends DurableObject<Env> {
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("WebSocket only", { status: 400 });
     }
-    const role = request.headers.get("x-attach-role"); // "daemon" | "harness"
+    const role = request.headers.get("x-attach-role"); // "daemon" | "harness" | "sandbox"
     if (role === "daemon") return this.attachDaemon(request);
     if (role === "harness") return this.attachHarness(request);
+    if (role === "sandbox") return this.attachSandbox(request);
     return new Response("missing or invalid x-attach-role", { status: 400 });
   }
 
@@ -168,6 +180,32 @@ export class RuntimeRoom extends DurableObject<Env> {
     return new Response(null, { status: 101, webSocket: client });
   }
 
+  /**
+   * Attach a sandbox-relay WS (BridgeRelaySandbox on the agent worker). Mirrors
+   * attachHarness but tags the socket `sandbox:<sid>` and carries no
+   * late-attach replay — sandbox ops are strictly request/response, correlated
+   * by `request_id`, with nothing to replay.
+   */
+  private async attachSandbox(request: Request): Promise<Response> {
+    const sid = request.headers.get("x-session-id") ?? "";
+    if (!sid) return new Response("missing x-session-id", { status: 400 });
+    const harnessTenant = request.headers.get("x-harness-tenant");
+    if (harnessTenant) this.#sessionTenant.set(sid, harnessTenant);
+
+    await this.ensureIdentity();
+
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+    this.ctx.acceptWebSocket(server, [sandboxTag(sid)]);
+
+    const daemonUp = this.ctx.getWebSockets("daemon").length > 0;
+    try {
+      server.send(JSON.stringify({ type: "attached", daemon_online: daemonUp }));
+    } catch { /* race: relay already closed */ }
+
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
   private sessionStateKey(sid: string): string {
     return `session_state:${sid}`;
   }
@@ -194,10 +232,16 @@ export class RuntimeRoom extends DurableObject<Env> {
 
     if (isDaemon) {
       await this.onDaemonMessage(ws, parsed);
-    } else {
-      const sid = tags.map(sessionFromTag).find((s): s is string => !!s);
-      if (!sid) return;
-      await this.onHarnessMessage(sid, parsed);
+      return;
+    }
+    const harnessSid = tags.map(sessionFromTag).find((s): s is string => !!s);
+    if (harnessSid) {
+      await this.onHarnessMessage(harnessSid, parsed);
+      return;
+    }
+    const sandboxSid = tags.map(sessionFromSandboxTag).find((s): s is string => !!s);
+    if (sandboxSid) {
+      await this.onSandboxMessage(sandboxSid, parsed);
     }
   }
 
@@ -241,6 +285,30 @@ export class RuntimeRoom extends DurableObject<Env> {
         logError({ op: "runtime_room.ping_db", err: String(e), runtime_id: this.runtimeId }, "ping DB update failed");
       }
       try { ws.send(JSON.stringify({ type: "pong" })); } catch { /* */ }
+      return;
+    }
+
+    // Sandbox-relay results — fan out to the sandbox-relay WS for that sid.
+    //   sandbox.result { session_id, request_id, ok, result?, error?, tenant_id? }
+    if (parsed.type === "sandbox.result") {
+      const sid = parsed.session_id as string | undefined;
+      if (!sid) {
+        logWarn({ op: "runtime_room.sandbox_result_no_sid" }, "sandbox.result missing session_id");
+        return;
+      }
+      // Tenant guard mirrors the session path: when the daemon echoes a
+      // tenant_id, it must be authorized for this runtime and match the
+      // session's pin. A failure drops the result (the relay op then times
+      // out) rather than leaking a result across tenants.
+      const reportedTenant = typeof parsed.tenant_id === "string" ? parsed.tenant_id : null;
+      if (reportedTenant !== null && !(await this.isTenantAllowedForSession(sid, reportedTenant))) {
+        logWarn(
+          { op: "runtime_room.sandbox_tenant_mismatch", session_id: sid, reported_tenant: reportedTenant },
+          "sandbox.result tenant not authorized / mismatched — dropping",
+        );
+        return;
+      }
+      this.broadcastToSandbox(sid, parsed);
       return;
     }
 
@@ -383,6 +451,71 @@ export class RuntimeRoom extends DurableObject<Env> {
     }
   }
 
+  /**
+   * Forward a sandbox-relay op frame to the daemon. Mirrors onHarnessMessage's
+   * tenant injection so v2-aware daemons pick the right per-tenant key, but
+   * without the ACP resume/acp_session bookkeeping (sandbox ops are stateless
+   * request/response). The daemon executes the op locally and replies with a
+   * `sandbox.result` carrying the same `request_id`.
+   */
+  private async onSandboxMessage(sid: string, parsed: { type?: string; [k: string]: unknown }): Promise<void> {
+    const daemon = this.ctx.getWebSockets("daemon")[0];
+    if (!daemon) {
+      this.broadcastToSandbox(sid, {
+        type: "sandbox.result",
+        session_id: sid,
+        request_id: parsed.request_id,
+        ok: false,
+        error: "runtime daemon offline",
+      });
+      return;
+    }
+    const out: { [k: string]: unknown } = { ...parsed, session_id: sid };
+    if (out.tenant_id === undefined) {
+      const pinned = this.#sessionTenant.get(sid);
+      if (pinned) out.tenant_id = pinned;
+    }
+    try {
+      daemon.send(JSON.stringify(out));
+    } catch (e) {
+      logWarn({ op: "runtime_room.forward_sandbox_failed", err: String(e), session_id: sid }, "forward sandbox op to daemon failed");
+      this.broadcastToSandbox(sid, {
+        type: "sandbox.result",
+        session_id: sid,
+        request_id: parsed.request_id,
+        ok: false,
+        error: "failed to forward op to daemon",
+      });
+    }
+  }
+
+  /** Send a message to all sandbox-relay WSs subscribed to one session. */
+  private broadcastToSandbox(sid: string, msg: Record<string, unknown>): void {
+    const payload = JSON.stringify(msg);
+    for (const ws of this.ctx.getWebSockets(sandboxTag(sid))) {
+      try { ws.send(payload); } catch { /* dead relay; will close soon */ }
+    }
+  }
+
+  /**
+   * True when `tenant` is authorized for this runtime AND matches the session's
+   * pin (when pinned). Shared by the sandbox-result guard; the session path
+   * inlines the equivalent checks for its richer logging.
+   */
+  private async isTenantAllowedForSession(sid: string, tenant: string): Promise<boolean> {
+    try {
+      await this.ensureAuthorizedTenants();
+    } catch {
+      // Transient DB failure — allow, matching the additive-validation stance
+      // used on the session path.
+      return true;
+    }
+    if (this.#authorizedTenants && !this.#authorizedTenants.has(tenant)) return false;
+    const pinned = this.#sessionTenant.get(sid);
+    if (pinned && pinned !== tenant) return false;
+    return true;
+  }
+
   /** Tell the daemon to dispose a session. Called from internal route. */
   async sendToDaemon(msg: Record<string, unknown>): Promise<boolean> {
     await this.ensureIdentity();
@@ -407,6 +540,12 @@ export class RuntimeRoom extends DurableObject<Env> {
       // the header. Authorized-tenants cache stays put; it's runtime-scoped.
       this.#sessionTenant.delete(sid);
       log({ op: "runtime_room.harness_close", session_id: sid, code }, "harness closed");
+      return;
+    }
+    const sbxSid = tags.map(sessionFromSandboxTag).find((s): s is string => !!s);
+    if (sbxSid) {
+      this.#sessionTenant.delete(sbxSid);
+      log({ op: "runtime_room.sandbox_close", session_id: sbxSid, code }, "sandbox relay closed");
     }
   }
 

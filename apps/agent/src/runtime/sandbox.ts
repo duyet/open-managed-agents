@@ -21,6 +21,12 @@ import { BoxRunSandbox } from "@duyet/oma-sandbox/adapters/boxrun";
 // lazy `import(factoryPath)` can't bundle here (see the comment above).
 import { KubernetesRemoteSandbox } from "@duyet/oma-sandbox/adapters/kubernetes-remote";
 import { K8sBridgeSandbox } from "@duyet/oma-sandbox/adapters/k8s-bridge";
+// Relay-backed executor for local (subprocess) environments on the CF
+// deployment — forwards sandbox ops to a user-paired `oma bridge daemon`
+// over the RuntimeRoom DO. Imported lazily-at-construction (not at module
+// eval) so the SandboxProviderUnavailableError circular reference below is
+// safe. See bridge-relay.ts.
+import { BridgeRelaySandbox } from "./bridge-relay";
 // Pure mapping module (no gRPC / Node builtins) — bundles cleanly into the
 // Worker. Turns OMA's environment networking/packages config into an OpenShell
 // egress SandboxPolicy carried through to the bridge's OpenShell backend.
@@ -867,12 +873,18 @@ export function resolveCfSandbox(
   env: Env,
   sessionId: string,
   envConfig: CfEnvConfig | null | undefined,
+  tenantId?: string,
 ): SandboxExecutor {
   const providerId = envConfig?.sandbox_provider || envConfig?.type;
   const resolution = classifyCfSandboxProvider(providerId);
 
   if (resolution.kind === "cloudflare") return new CloudflareSandbox(env, sessionId);
   if (resolution.kind === "remote") return createRemoteSandbox(resolution.type, env, sessionId, envConfig);
+  // Local (subprocess) environment → relay to a paired bridge runtime. The
+  // executor connects lazily on first op; if no runtime is online it throws
+  // SandboxProviderUnavailableError with a "run bridge setup" message, which
+  // surfaces as a session.error via the normal turn-processing error path.
+  if (resolution.kind === "bridge") return new BridgeRelaySandbox(env, sessionId, tenantId);
 
   throw new SandboxProviderUnavailableError(
     `provider "${resolution.type}" is not available on the Cloudflare deployment; ` +
@@ -884,6 +896,7 @@ export function createSandbox(
   env: Env,
   sessionId: string,
   envConfig?: CfEnvConfig | null,
+  tenantId?: string,
 ): SandboxExecutor {
-  return resolveCfSandbox(env, sessionId, envConfig);
+  return resolveCfSandbox(env, sessionId, envConfig, tenantId);
 }

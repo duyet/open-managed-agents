@@ -38,10 +38,17 @@ describe("classifyCfSandboxProvider", () => {
     },
   );
 
-  it.each(["subprocess", "litebox", "k8s"])(
+  it.each(["litebox", "k8s", "docker-compose"])(
     "classifies Node-only adapter %s as unavailable",
     (type) => {
       expect(classifyCfSandboxProvider(type)).toEqual({ kind: "unavailable", type });
+    },
+  );
+
+  it.each(["subprocess", "local", "SUBPROCESS", " Local "])(
+    "classifies local/subprocess provider %s as bridge-relayed",
+    (id) => {
+      expect(classifyCfSandboxProvider(id)).toEqual({ kind: "bridge", type: "subprocess" });
     },
   );
 

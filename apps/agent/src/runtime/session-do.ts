@@ -2817,7 +2817,7 @@ export class SessionDO extends DurableObject<Env> {
       // CloudflareSandbox). Throws SandboxProviderUnavailableError for a
       // provider this deployment can't serve; that propagates through the
       // normal turn-processing error path and surfaces as session.error.
-      this.sandbox = createSandbox(this.env, sandboxId, this.state.environment_snapshot?.config);
+      this.sandbox = createSandbox(this.env, sandboxId, this.state.environment_snapshot?.config, this.state.tenant_id);
       this.wrappedSandbox = this.wrapSandboxWithLazyWarmup(this.sandbox);
     }
   }

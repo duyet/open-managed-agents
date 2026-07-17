@@ -150,6 +150,22 @@ app.get("/health", (c) => c.json({ status: "ok" }));
 //     The Console shows a "Set up" affordance for these.
 // `health.reason` carries a human-readable explanation for unhealthy /
 // not_configured states so the UI can tell the user *why*.
+// True when at least one bridge runtime has heartbeated within the online
+// window. Used to flip the public `subprocess` health to "healthy" once a
+// paired `oma bridge daemon` is connected. Best-effort — any error → false.
+async function hasOnlineRuntime(env: { MAIN_DB?: D1Database }): Promise<boolean> {
+  if (!env.MAIN_DB) return false;
+  const row = await env.MAIN_DB
+    .prepare(
+      `SELECT 1 AS one FROM "runtimes"
+       WHERE status = 'online' AND last_heartbeat IS NOT NULL
+         AND last_heartbeat > (unixepoch() - 120)
+       LIMIT 1`,
+    )
+    .first<{ one: number }>();
+  return !!row;
+}
+
 app.get("/v1/hosting_types", async (c) => {
   const registry = new SandboxProviderRegistry();
   registry.seedFromEnv(c.env as unknown as Record<string, string | undefined>);
@@ -172,12 +188,25 @@ app.get("/v1/hosting_types", async (c) => {
       // is connected. With no daemon it reports not_configured so the UI
       // can offer a connect dialog instead of a confusing "unhealthy".
       if (p.type === "subprocess" && !desc?.envKeys.some((k) => env[k])) {
-        healthResults.set(p.id, {
-          status: "not_configured",
-          latency_ms: 0,
-          last_checked: new Date().toISOString(),
-          reason: "No local runtime connected. Start the oma bridge daemon on this machine to enable it.",
-        });
+        // On the Cloudflare deployment a "local" (subprocess) environment runs
+        // by relaying its sandbox ops to a paired `oma bridge daemon` (see
+        // apps/agent/src/runtime/bridge-relay.ts). Report "healthy" once any
+        // runtime is online — this route is public/un-tenant-scoped, so it can
+        // only check global online-runtime presence, not per-tenant.
+        const online = await hasOnlineRuntime(c.env as unknown as { MAIN_DB?: D1Database }).catch(() => false);
+        healthResults.set(p.id, online
+          ? {
+              status: "healthy",
+              latency_ms: 0,
+              last_checked: new Date().toISOString(),
+              reason: undefined,
+            }
+          : {
+              status: "not_configured",
+              latency_ms: 0,
+              last_checked: new Date().toISOString(),
+              reason: "No local runtime connected. Run `npx @getoma/cli bridge setup` and start the oma bridge daemon on this machine to enable it.",
+            });
         continue;
       }
       const h = await registry.checkHealth(p.id).catch(() => null);

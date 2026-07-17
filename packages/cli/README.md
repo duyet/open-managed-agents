@@ -80,6 +80,8 @@ Run `npx @getoma/cli --help` for flags and details on every command.
 
 The bridge pairs a machine you own (laptop, workstation, homelab box) with your OMA deployment so agents can run against its local runtimes. It relays securely outbound — no inbound ports needed.
 
+Two things run over the same relay: local **ACP agents** (Claude Code and friends), and **local environments** — an agent on the cloud deployment whose environment is `sandbox_provider: "subprocess"` (or `"local"`) has its sandbox ops (exec, file read/write, …) executed on this paired machine. So `bridge setup` is all you need to make cloud agents run against your own box.
+
 ```bash
 npx @getoma/cli bridge setup        # pair this machine + install the daemon service
 npx @getoma/cli bridge status       # daemon liveness + authorized workspaces + server probe

@@ -17,6 +17,7 @@ import {
   resolveCfSandbox,
   SandboxProviderUnavailableError,
 } from "./sandbox";
+import { BridgeRelaySandbox } from "./bridge-relay";
 
 // @cloudflare/sandbox is aliased to test/sandbox-stub.ts in vitest.config.ts
 // — getSandbox() there ignores its arguments, so any object satisfies the
@@ -96,7 +97,7 @@ describe("resolveCfSandbox", () => {
     ).toThrow(SandboxProviderUnavailableError);
   });
 
-  it.each(["subprocess", "litebox", "k8s"])(
+  it.each(["litebox", "k8s", "docker-compose"])(
     "throws SandboxProviderUnavailableError for the Node-only provider %s",
     (type) => {
       expect(() => resolveCfSandbox(baseEnv, "sess_1", { sandbox_provider: type })).toThrow(
@@ -116,14 +117,22 @@ describe("resolveCfSandbox", () => {
 
   it("error message names the deployment and the offending provider", () => {
     try {
-      resolveCfSandbox(baseEnv, "sess_1", { sandbox_provider: "subprocess" });
+      resolveCfSandbox(baseEnv, "sess_1", { sandbox_provider: "litebox" });
       expect.unreachable();
     } catch (err) {
       expect(err).toBeInstanceOf(SandboxProviderUnavailableError);
-      expect((err as Error).message).toContain("subprocess");
+      expect((err as Error).message).toContain("litebox");
       expect((err as Error).message).toContain("Cloudflare deployment");
     }
   });
+
+  it.each(["subprocess", "local"])(
+    "resolves the local provider %s to a BridgeRelaySandbox (relayed, not a hard failure)",
+    (id) => {
+      const sandbox = resolveCfSandbox(baseEnv, "sess_1", { sandbox_provider: id }, "tenant_1");
+      expect(sandbox).toBeInstanceOf(BridgeRelaySandbox);
+    },
+  );
 });
 
 describe("createSandbox", () => {

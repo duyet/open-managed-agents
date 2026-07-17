@@ -224,6 +224,7 @@ export const SYSTEM_PROVIDERS: SystemProviderDescriptor[] = [
 export type CfSandboxResolution =
   | { kind: "cloudflare" }
   | { kind: "remote"; type: string }
+  | { kind: "bridge"; type: string }
   | { kind: "unavailable"; type: string };
 
 /**
@@ -235,15 +236,24 @@ export type CfSandboxResolution =
  *    `{ kind: "cloudflare" }` — degrade to the existing CloudflareSandbox
  *    default rather than hard-failing a misconfigured/unknown id (mirrors
  *    apps/main-node's `resolveEnvProvider` "unknown → fall back" behavior).
+ *  - `"subprocess"` (or its alias `"local"`) → `{ kind: "bridge", type:
+ *    "subprocess" }`. A Worker can't spawn `child_process`, but on the
+ *    Cloudflare deployment we relay these ops to a user-paired local machine
+ *    (the `oma bridge daemon`) via the RuntimeRoom DO — see
+ *    apps/agent/src/runtime/bridge-relay.ts. Resolution still fails loud (a
+ *    clear session.error) when no runtime is online.
  *  - a known id with `cfCompatible: true` → `{ kind: "remote", type }`.
  *  - a known id with `cfCompatible: false` → `{ kind: "unavailable", type }`
- *    (subprocess / litebox / k8s — Node-only, cannot run in a Worker at all).
+ *    (litebox / k8s / docker-compose — Node-only, cannot run in a Worker at
+ *    all, and no relay path).
  */
 export function classifyCfSandboxProvider(
   providerId: string | undefined | null,
 ): CfSandboxResolution {
   const id = (providerId ?? "").trim().toLowerCase();
   if (!id || id === "cloud") return { kind: "cloudflare" };
+  // Local subprocess environments relay to a paired bridge runtime.
+  if (id === "subprocess" || id === "local") return { kind: "bridge", type: "subprocess" };
   const desc = SYSTEM_PROVIDERS.find((p) => p.type === id);
   if (!desc) return { kind: "cloudflare" };
   return desc.cfCompatible ? { kind: "remote", type: id } : { kind: "unavailable", type: id };

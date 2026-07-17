@@ -184,6 +184,48 @@ registry-pushed tag of it) instead of the bare `node:22-slim` default to
 get git/gh/ripgrep/python3 pre-installed instead of cold-installing them
 per session.
 
+### Local (`subprocess`) environments on the Cloudflare deployment — the bridge relay
+
+`sandbox_provider: "subprocess"` (alias `"local"`) means "run this
+environment's sandbox on my own machine." On **self-host Node** it's the
+`LocalSubprocessSandbox` running in-process. On the **Cloudflare
+deployment** a Worker can't spawn `child_process`, so instead of failing,
+OMA relays each sandbox op to a machine you paired with `oma bridge setup`:
+
+```
+[agent DO, CF]                       [your machine]
+  BridgeRelaySandbox ── sandbox.op ──►  oma bridge daemon
+   (exec/read/write/…)   over the        BridgeSandboxManager
+                         RuntimeRoom DO   (child_process, per-session workdir
+   sandbox.result ◄────  WebSocket        under ~/.local/share/oma/sandboxes/<sid>)
+```
+
+Enable it end-to-end:
+
+1. On the machine that should execute the work:
+   `npx @getoma/cli bridge setup` (pairs the machine, installs + starts the
+   daemon service), then confirm `oma bridge status` shows *connected*.
+2. Create an environment with `{"config": {"sandbox_provider": "subprocess"}}`
+   (or `"local"`), and an agent/session that uses it. That's it — no
+   `wrangler secret`.
+
+When a session runs, the relay picks the tenant's most-recently-heartbeated
+online runtime, opens a `sandbox:<sid>`-tagged WebSocket to that runtime's
+`RuntimeRoom` Durable Object, and forwards ops correlated by `request_id`.
+If **no** runtime is online, the first sandbox op fails loudly with a
+`session.error`: *"no bridge runtime connected — run `npx @getoma/cli bridge
+setup`…"* — it never silently substitutes a different sandbox.
+`GET /v1/hosting_types` reports `subprocess` as `healthy` once any runtime is
+online, `not_configured` otherwise.
+
+**Limitations of the relay path (vs. self-host `LocalSubprocessSandbox`):**
+there is no outbound vault-credential MITM proxy on your machine, so the
+agent's outbound HTTP from the local box is **not** vault-injected; and
+memory-store / session-outputs mounts aren't wired. Standard file tools,
+`bash`, git, etc. all work against the per-session workdir. Because the box
+runs on your own hardware with zero isolation, only pair machines you trust
+the agent to run on.
+
 ## Cross-sandbox sub-agents
 
 **Current behavior: a parent and its `callable_agents` children share the
