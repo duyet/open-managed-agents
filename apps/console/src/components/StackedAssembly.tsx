@@ -26,6 +26,8 @@ import { friendlyHostingDescription } from "../lib/hostingTypes";
 import {
   AgentIcon,
   ApiKeysIcon,
+  FilesIcon,
+  MemoryIcon,
   ModelCardsIcon,
   SessionsIcon,
   SkillsIcon,
@@ -74,6 +76,14 @@ interface ApiKeyEntry {
 }
 interface SessionEntry {
   id: string;
+}
+interface MemoryStoreEntry {
+  id: string;
+  name: string;
+}
+interface FileEntry {
+  id: string;
+  filename: string;
 }
 interface Page<T> {
   data: T[];
@@ -191,6 +201,48 @@ function TypeCardView({ card, nav }: { card: TypeCard; nav: (to: string) => void
       ) : (
         <InstanceBadges names={card.badges} />
       )}
+    </div>
+  );
+}
+
+/** The composition rule, stated outright.
+ *
+ *  The flow below shows the ORDER you do things; it can't show what is made
+ *  of what — and that's exactly what trips people up ("is Vaults MCP?").
+ *  These two lines say it in the one place someone reads when confused:
+ *  MCP belongs to the agent (it has no page of its own, so it gets no card),
+ *  and env + vaults belong to the session, not the agent.
+ *
+ *  Kept as text, not cards: it's a definition, not a destination. */
+function CompositionFormula() {
+  const rows: Array<{ lhs: string; parts: string[] }> = [
+    { lhs: "agent", parts: ["model", "skills", "mcp"] },
+    { lhs: "session", parts: ["agent", "env", "vaults"] },
+  ];
+  return (
+    <div className="mb-5 rounded-md border border-border bg-bg-surface/40 px-3.5 py-2.5">
+      <div className="flex flex-col gap-1 font-mono text-[12px] leading-relaxed">
+        {rows.map((r) => (
+          <div
+            key={r.lhs}
+            data-testid={`formula-${r.lhs}`}
+            className="flex items-baseline gap-1.5"
+          >
+            <span className="w-[3.75rem] shrink-0 font-semibold text-brand">
+              {r.lhs}
+            </span>
+            <span className="text-fg-subtle">=</span>
+            <span className="text-fg-muted">
+              {r.parts.map((p, i) => (
+                <Fragment key={p}>
+                  {i > 0 && <span className="text-fg-subtle"> + </span>}
+                  <span className="text-fg">{p}</span>
+                </Fragment>
+              ))}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -323,6 +375,8 @@ export function StackedAssembly() {
   const pubsQ = useApiQuery<Page<PublicationEntry>>("/v1/publications", { limit: "10" });
   const apiKeysQ = useApiQuery<Page<ApiKeyEntry>>("/v1/api_keys", { limit: "10" });
   const sessionsQ = useApiQuery<Page<SessionEntry>>("/v1/sessions", { limit: "10" });
+  const memoryQ = useApiQuery<Page<MemoryStoreEntry>>("/v1/memory_stores", { limit: "10" });
+  const filesQ = useApiQuery<Page<FileEntry>>("/v1/files", { limit: "10" });
 
   // Channels: reuse the same live-installation counts the Integrations Hub
   // already computes (issue #92) rather than inventing a new endpoint.
@@ -353,6 +407,8 @@ export function StackedAssembly() {
   const channels = chatQ.data ?? [];
   const apiKeys = apiKeysQ.data?.data ?? [];
   const sessions = sessionsQ.data?.data ?? [];
+  const memoryStores = memoryQ.data?.data ?? [];
+  const files = filesQ.data?.data ?? [];
 
   const envAttention = envs.some((e) => e.status === "building" || e.status === "error");
   const envStatus: CardStatus =
@@ -395,6 +451,37 @@ export function StackedAssembly() {
         badges: envs.map((e) => e.name),
         emptyCta: "+ Create a sandbox environment",
       },
+      {
+        key: "vaults",
+        icon: <VaultIcon className="w-4 h-4" />,
+        title: "Keys (Vault)",
+        to: "/vaults",
+        status: countStatus(vaults.length),
+        badges: vaults.map((v) => v.name),
+        emptyCta: "+ Secrets it calls out with",
+      },
+      // Optional resources a session can mount. They live here because this is
+      // where you *create* them; the formula above says who *uses* them.
+      [
+        {
+          key: "memory",
+          icon: <MemoryIcon className="w-4 h-4" />,
+          title: "Memory",
+          to: "/memory",
+          status: countStatus(memoryStores.length),
+          badges: memoryStores.map((m) => m.name),
+          emptyCta: "+ Notes it keeps",
+        },
+        {
+          key: "files",
+          icon: <FilesIcon className="w-4 h-4" />,
+          title: "Files",
+          to: "/files",
+          status: countStatus(files.length),
+          badges: files.map((f) => f.filename),
+          emptyCta: "+ Data to mount",
+        },
+      ],
     ],
   };
 
@@ -415,34 +502,21 @@ export function StackedAssembly() {
         badges: agents.map((a) => a.name),
         emptyCta: "+ Create your first agent — it composes everything in step 1",
       },
-      // Skills and Vaults hang off the agent rather than the foundation:
-      // optional extras it draws on, each with its own page. They sit as one
-      // row directly beneath the hero instead of in step 1's required stack.
-      //
-      // No MCP card here on purpose: MCP servers aren't a separately-managed
-      // resource, they're a field inside the agent (the "MCP Servers" tab of
-      // the agent form). A card for them would link back to the very agent
-      // shown above it.
-      [
-        {
-          key: "skills",
-          icon: <SkillsIcon className="w-4 h-4" />,
-          title: "Skills",
-          to: "/skills",
-          status: countStatus(skills.length),
-          badges: skills.map((s) => s.name),
-          emptyCta: "+ Prompts & know-how",
-        },
-        {
-          key: "vaults",
-          icon: <VaultIcon className="w-4 h-4" />,
-          title: "Keys (Vault)",
-          to: "/vaults",
-          status: countStatus(vaults.length),
-          badges: vaults.map((v) => v.name),
-          emptyCta: "+ Secrets it calls out with",
-        },
-      ],
+      // Skills is the only piece of `agent = model + skills + mcp` that is
+      // also a resource with its own page, so it's the only one that earns a
+      // card inside the agent's box. Model lives in step 1 (you create a model
+      // card), and MCP has no page at all — it's a tab inside the agent form,
+      // so a card for it would link back to the very agent above it. The
+      // formula states both relations instead.
+      {
+        key: "skills",
+        icon: <SkillsIcon className="w-4 h-4" />,
+        title: "Skills",
+        to: "/skills",
+        status: countStatus(skills.length),
+        badges: skills.map((s) => s.name),
+        emptyCta: "+ Prompts & know-how",
+      },
     ],
   };
 
@@ -519,11 +593,13 @@ export function StackedAssembly() {
           {requiredDone} of 2 required steps complete
         </span>
       </div>
-      <p className="mt-1 mb-5 text-[13px] text-fg-muted">
+      <p className="mt-1 mb-3 text-[13px] text-fg-muted">
         Configure the pieces, compose them into an agent, and every conversation
         runs as a session inside a sandbox. Reach is optional. Click any card to
         manage that piece.
       </p>
+
+      <CompositionFormula />
 
       {/* The flow. Pointers sit between panels as their own flex children, so
           the row reflows to a vertical stack (with ↓ pointers) under lg. */}

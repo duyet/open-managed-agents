@@ -19,6 +19,8 @@ const LIST_PATHS = [
   "/v1/publications",
   "/v1/api_keys",
   "/v1/sessions",
+  "/v1/memory_stores",
+  "/v1/files",
 ];
 
 function mockLists(overrides: Record<string, unknown[]> = {}) {
@@ -76,6 +78,8 @@ describe("<StackedAssembly />", () => {
       "Model card",
       "Environment",
       "Keys (Vault)",
+      "Memory",
+      "Files",
       "Skills",
       "Agent",
       "Session",
@@ -87,33 +91,60 @@ describe("<StackedAssembly />", () => {
     }
   });
 
-  it("puts Skills and Vaults together in one row under the Agent, not in Configure", async () => {
+  it("states the composition rule the flow can't show", async () => {
     mockLists();
     renderAssembly();
 
-    // They attach to the agent, so they belong to step 2.
+    // The whole point of the formula: MCP belongs to the agent, and env +
+    // vaults belong to the session — neither of which the left-to-right flow
+    // can express. Assert the operands, not just the presence of a box.
+    //
+    // Scoped by testid rather than text: "agent" legitimately appears twice —
+    // as row 1's subject and as an operand of row 2 — so a text lookup is
+    // ambiguous by construction.
+    expect((await screen.findByTestId("formula-agent")).textContent).toBe(
+      "agent=model + skills + mcp",
+    );
+    expect(screen.getByTestId("formula-session").textContent).toBe(
+      "session=agent + env + vaults",
+    );
+  });
+
+  it("keeps Skills with the Agent and Vaults in Configure, per the formula", async () => {
+    mockLists();
+    renderAssembly();
+
     const compose = (await screen.findByText("2 · Compose")).parentElement
       ?.parentElement;
+    const configure = screen.getByText("1 · Configure").parentElement
+      ?.parentElement;
     expect(compose).toBeTruthy();
+    expect(configure).toBeTruthy();
 
-    // getByText throws here if either is still in step 1.
-    const skillsCard = within(compose!).getByText("Skills").closest('[role="link"]');
-    const vaultCard = within(compose!)
-      .getByText("Keys (Vault)")
-      .closest('[role="link"]');
-    expect(skillsCard).not.toBeNull();
-    expect(vaultCard).not.toBeNull();
+    // `agent = model + skills + mcp` — Skills is agent config, so it sits in
+    // step 2. getByText throws if it drifts back to step 1.
+    expect(within(compose!).getByText("Skills")).toBeInTheDocument();
+    expect(within(compose!).queryByText("Keys (Vault)")).toBeNull();
 
-    // …and share one row wrapper. Asserting a non-null shared ancestor (rather
-    // than comparing two parent chains) keeps this from passing vacuously when
-    // the lookups miss.
-    const row = skillsCard!.closest(".items-stretch");
+    // Vaults is session-scoped (`vault_ids` on SessionMeta), never agent
+    // config — it must not sit inside the agent's box.
+    expect(within(configure!).getByText("Keys (Vault)")).toBeInTheDocument();
+  });
+
+  it("pairs Memory and Files in one row", async () => {
+    mockLists();
+    renderAssembly();
+
+    const memoryCard = (await screen.findByText("Memory")).closest('[role="link"]');
+    const filesCard = screen.getByText("Files").closest('[role="link"]');
+    expect(memoryCard).not.toBeNull();
+    expect(filesCard).not.toBeNull();
+
+    // Asserting a non-null shared row ancestor (rather than comparing two
+    // parent chains) keeps this from passing vacuously when lookups miss.
+    const row = memoryCard!.closest(".items-stretch");
     expect(row).not.toBeNull();
-    expect(vaultCard!.closest(".items-stretch")).toBe(row);
-
-    // The agent sits above them, outside that row.
-    expect(within(compose!).getByText("Agent")).toBeInTheDocument();
-    expect(row!.contains(within(compose!).getByText("Agent"))).toBe(false);
+    expect(filesCard!.closest(".items-stretch")).toBe(row);
   });
 
   it("has no MCP card — MCP is a field inside the agent, not its own resource", async () => {
