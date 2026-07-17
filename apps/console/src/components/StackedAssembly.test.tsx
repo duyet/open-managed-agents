@@ -13,7 +13,6 @@ import { StackedAssembly } from "./StackedAssembly";
 const LIST_PATHS = [
   "/v1/agents",
   "/v1/model_cards",
-  "/v1/mcp_servers",
   "/v1/skills",
   "/v1/environments",
   "/v1/vaults",
@@ -78,7 +77,6 @@ describe("<StackedAssembly />", () => {
       "Environment",
       "Keys (Vault)",
       "Skills",
-      "MCP",
       "Agent",
       "Session",
       "Sandbox",
@@ -89,32 +87,43 @@ describe("<StackedAssembly />", () => {
     }
   });
 
-  it("puts Skills and MCP together in one row under the Agent, not in Configure", async () => {
+  it("puts Skills and Vaults together in one row under the Agent, not in Configure", async () => {
     mockLists();
     renderAssembly();
 
-    // They attach to the agent, so they belong to step 2 — and they share a
-    // single row, so they must have the same parent element.
+    // They attach to the agent, so they belong to step 2.
     const compose = (await screen.findByText("2 · Compose")).parentElement
       ?.parentElement;
     expect(compose).toBeTruthy();
 
-    // Both live in step 2 — getByText throws here if either is still in step 1.
+    // getByText throws here if either is still in step 1.
     const skillsCard = within(compose!).getByText("Skills").closest('[role="link"]');
-    const mcpCard = within(compose!).getByText("MCP").closest('[role="link"]');
+    const vaultCard = within(compose!)
+      .getByText("Keys (Vault)")
+      .closest('[role="link"]');
     expect(skillsCard).not.toBeNull();
-    expect(mcpCard).not.toBeNull();
+    expect(vaultCard).not.toBeNull();
 
     // …and share one row wrapper. Asserting a non-null shared ancestor (rather
     // than comparing two parent chains) keeps this from passing vacuously when
     // the lookups miss.
     const row = skillsCard!.closest(".items-stretch");
     expect(row).not.toBeNull();
-    expect(mcpCard!.closest(".items-stretch")).toBe(row);
+    expect(vaultCard!.closest(".items-stretch")).toBe(row);
 
     // The agent sits above them, outside that row.
     expect(within(compose!).getByText("Agent")).toBeInTheDocument();
     expect(row!.contains(within(compose!).getByText("Agent"))).toBe(false);
+  });
+
+  it("has no MCP card — MCP is a field inside the agent, not its own resource", async () => {
+    mockLists();
+    renderAssembly();
+
+    // Wait for real content before asserting an absence, or this passes
+    // against a still-loading tree.
+    expect(await screen.findByText("Agent")).toBeInTheDocument();
+    expect(screen.queryByText(/MCP/)).not.toBeInTheDocument();
   });
 
   it("shows live instance names as badges once resources exist", async () => {

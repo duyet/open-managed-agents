@@ -17,7 +17,6 @@ function mockAssemblyDeps() {
     ...[
       "/v1/agents",
       "/v1/model_cards",
-      "/v1/mcp_servers",
       "/v1/skills",
       "/v1/environments",
       "/v1/vaults",

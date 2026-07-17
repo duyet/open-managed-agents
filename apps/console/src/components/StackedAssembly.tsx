@@ -34,7 +34,6 @@ import {
   RuntimesIcon,
 } from "./icons";
 import {
-  PlugIcon,
   MessageCircleIcon,
   GlobeIcon,
   CheckIcon,
@@ -49,10 +48,6 @@ interface AgentRecord {
 interface ModelCard {
   id: string;
   model_id: string;
-}
-interface McpServerEntry {
-  id: string;
-  name: string;
 }
 interface SkillEntry {
   id: string;
@@ -217,7 +212,7 @@ function FlowPointer() {
 }
 
 /** A step's contents, top to bottom. A nested array is one ROW — cards that
- *  sit side by side because they're peers of each other (Skills + MCP both
+ *  sit side by side because they're peers of each other (Skills + Vaults both
  *  attach to the agent above them). */
 type StepRow = TypeCard | TypeCard[];
 
@@ -322,7 +317,6 @@ export function StackedAssembly() {
 
   const agentsQ = useApiQuery<Page<AgentRecord>>("/v1/agents", { limit: "10" });
   const modelCardsQ = useApiQuery<Page<ModelCard>>("/v1/model_cards", { limit: "10" });
-  const mcpQ = useApiQuery<Page<McpServerEntry>>("/v1/mcp_servers", { limit: "10" });
   const skillsQ = useApiQuery<Page<SkillEntry>>("/v1/skills", { limit: "10" });
   const envQ = useApiQuery<Page<EnvEntry>>("/v1/environments", { limit: "10" });
   const vaultsQ = useApiQuery<Page<VaultEntry>>("/v1/vaults", { limit: "10" });
@@ -355,7 +349,6 @@ export function StackedAssembly() {
   const envs = envQ.data?.data ?? [];
   const vaults = vaultsQ.data?.data ?? [];
   const skills = skillsQ.data?.data ?? [];
-  const mcps = mcpQ.data?.data ?? [];
   const pubs = pubsQ.data?.data ?? [];
   const channels = chatQ.data ?? [];
   const apiKeys = apiKeysQ.data?.data ?? [];
@@ -369,7 +362,6 @@ export function StackedAssembly() {
   const countStatus = (n: number): CardStatus => (n > 0 ? "ready" : "empty");
 
   const agentReady = agents.length > 0;
-  const firstAgent = agents[0];
 
   const configure: Step = {
     number: "1",
@@ -403,15 +395,6 @@ export function StackedAssembly() {
         badges: envs.map((e) => e.name),
         emptyCta: "+ Create a sandbox environment",
       },
-      {
-        key: "vaults",
-        icon: <VaultIcon className="w-4 h-4" />,
-        title: "Keys (Vault)",
-        to: "/vaults",
-        status: countStatus(vaults.length),
-        badges: vaults.map((v) => v.name),
-        emptyCta: "+ Store an API key or credential",
-      },
     ],
   };
 
@@ -432,9 +415,14 @@ export function StackedAssembly() {
         badges: agents.map((a) => a.name),
         emptyCta: "+ Create your first agent — it composes everything in step 1",
       },
-      // Skills and MCP hang off the agent rather than the foundation: they're
-      // optional extras you attach to it, so they sit as one row directly
-      // beneath the hero instead of in step 1's required stack.
+      // Skills and Vaults hang off the agent rather than the foundation:
+      // optional extras it draws on, each with its own page. They sit as one
+      // row directly beneath the hero instead of in step 1's required stack.
+      //
+      // No MCP card here on purpose: MCP servers aren't a separately-managed
+      // resource, they're a field inside the agent (the "MCP Servers" tab of
+      // the agent form). A card for them would link back to the very agent
+      // shown above it.
       [
         {
           key: "skills",
@@ -446,15 +434,13 @@ export function StackedAssembly() {
           emptyCta: "+ Prompts & know-how",
         },
         {
-          key: "mcp",
-          icon: <PlugIcon className="w-4 h-4" />,
-          title: "MCP",
-          // MCP servers are configured on the agent itself — deep-link to the
-          // agent (or its creation flow) rather than the bare list.
-          to: firstAgent ? `/agents/${firstAgent.id}` : "/agents/new",
-          status: countStatus(mcps.length),
-          badges: mcps.map((m) => m.name),
-          emptyCta: "+ Connect a tool or API",
+          key: "vaults",
+          icon: <VaultIcon className="w-4 h-4" />,
+          title: "Keys (Vault)",
+          to: "/vaults",
+          status: countStatus(vaults.length),
+          badges: vaults.map((v) => v.name),
+          emptyCta: "+ Secrets it calls out with",
         },
       ],
     ],
