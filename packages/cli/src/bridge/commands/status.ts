@@ -17,6 +17,7 @@ import { printBanner, log, c, sym } from "../lib/style.js";
 import { PKG_VERSION } from "../lib/version.js";
 import { probeRuntimeToken } from "../lib/probe.js";
 import { readDaemonState, isPidAlive, formatAge } from "../lib/daemon-state.js";
+import { fetchRuntimeSessions, renderSessionsTable } from "../lib/sessions-probe.js";
 
 export async function runStatus(): Promise<void> {
   const profile = currentProfile();
@@ -86,6 +87,23 @@ export async function runStatus(): Promise<void> {
   } else {
     process.stderr.write(`  ${sym.err()} ${c.red(`probe failed: ${probe.detail}`)}\n`);
     process.exit(1);
+  }
+  process.stderr.write("\n");
+
+  // Running sessions on this machine's runtime. Best-effort: reconstructed
+  // client-side (no server-side runtime filter) by listing each authorized
+  // workspace's agents bound to this runtime, then its running sessions.
+  // Any unreachable/unauthorized workspace is skipped with a dim note — it
+  // must never turn a healthy `status` into a failure.
+  log.step("running sessions");
+  const sessions = await fetchRuntimeSessions(creds);
+  if (!sessions.ok) {
+    log.hint(sessions.note ?? "unavailable");
+  } else {
+    if (sessions.note) log.hint(sessions.note);
+    for (const line of renderSessionsTable(sessions.rows, { baseUrl: creds.serverUrl })) {
+      process.stderr.write(`${line}\n`);
+    }
   }
   process.stderr.write("\n");
 }

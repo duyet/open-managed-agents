@@ -90,7 +90,7 @@ npx @getoma/cli bridge uninstall    # stop service + remove creds
 
 Once paired, the machine appears on the Console's **Sandbox Runtime** page and can be revoked there or with `runtime rm`.
 
-`bridge status` reports the local daemon's health alongside the server probe: whether the background process is running and currently connected, how fresh its last heartbeat is, its uptime, and the workspaces it's authorized to run agents for. The daemon keeps its connection alive with a 25s heartbeat, drops and reconnects (with jittered backoff) if the server stops responding, and survives transient network loss without killing in-flight conversations.
+`bridge status` reports the local daemon's health alongside the server probe: whether the background process is running and currently connected, how fresh its last heartbeat is, its uptime, and the workspaces it's authorized to run agents for. It also lists the **running sessions** on this machine's runtime — session id, agent name, status, and started/last-activity age — with a clickable dashboard link (`<server>/sessions/<id>`) and an `oma sessions tail <id>` hint per row. The daemon keeps its connection alive with a 25s heartbeat, drops and reconnects (with jittered backoff) if the server stops responding, and survives transient network loss without killing in-flight conversations.
 
 ## Environment variables
 
