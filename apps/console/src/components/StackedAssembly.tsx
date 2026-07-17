@@ -3,8 +3,9 @@
 // pieces are the thing you read first:
 //
 //   1 · CONFIGURE  →  2 · COMPOSE  →  3 · RUN  →  4 · REACH
-//   (the pieces)      (the agent)     (session    (channels &
-//                                      ↓ sandbox)  publications)
+//   (the pieces)      (the agent)     (env+vaults  (channels &
+//                                      ↓ session    publications)
+//                                      ↓ sandbox)
 //
 // The flow mirrors the page's own header copy — "configure the pieces, compose
 // them into an agent, and every conversation runs as a session inside a
@@ -207,11 +208,10 @@ function TypeCardView({ card, nav }: { card: TypeCard; nav: (to: string) => void
 
 /** The composition rule, stated outright.
  *
- *  The flow below shows the ORDER you do things; it can't show what is made
- *  of what — and that's exactly what trips people up ("is Vaults MCP?").
- *  These two lines say it in the one place someone reads when confused:
- *  MCP belongs to the agent (it has no page of its own, so it gets no card),
- *  and env + vaults belong to the session, not the agent.
+ *  The flow below now mirrors both lines — Skills sits under the Agent in
+ *  COMPOSE, and Env + Vaults sit above the Session in RUN — but the formula
+ *  still earns its place: MCP belongs to the agent yet has no page of its
+ *  own (so no card), and only the formula names every operand in one glance.
  *
  *  Kept as text, not cards: it's a definition, not a destination. */
 function CompositionFormula() {
@@ -264,8 +264,8 @@ function FlowPointer() {
 }
 
 /** A step's contents, top to bottom. A nested array is one ROW — cards that
- *  sit side by side because they're peers of each other (Skills + Vaults both
- *  attach to the agent above them). */
+ *  sit side by side because they're peers of each other (Environment + Vaults
+ *  both feed the session below them). */
 type StepRow = TypeCard | TypeCard[];
 
 interface Step {
@@ -422,7 +422,7 @@ export function StackedAssembly() {
   const configure: Step = {
     number: "1",
     name: "Configure",
-    done: modelCards.length > 0 && envStatus === "ready",
+    done: modelCards.length > 0,
     cards: [
       {
         key: "api-key",
@@ -441,24 +441,6 @@ export function StackedAssembly() {
         status: countStatus(modelCards.length),
         badges: modelCards.map((m) => m.model_id),
         emptyCta: "+ Add a model card — the AI brain",
-      },
-      {
-        key: "env",
-        icon: <EnvIcon className="w-4 h-4" />,
-        title: "Environment",
-        to: "/environments",
-        status: envStatus,
-        badges: envs.map((e) => e.name),
-        emptyCta: "+ Create a sandbox environment",
-      },
-      {
-        key: "vaults",
-        icon: <VaultIcon className="w-4 h-4" />,
-        title: "Keys (Vault)",
-        to: "/vaults",
-        status: countStatus(vaults.length),
-        badges: vaults.map((v) => v.name),
-        emptyCta: "+ Secrets it calls out with",
       },
       // Optional resources a session can mount. They live here because this is
       // where you *create* them; the formula above says who *uses* them.
@@ -526,6 +508,29 @@ export function StackedAssembly() {
     done: sessions.length > 0,
     chain: true,
     cards: [
+      // `session = agent + env + vaults` — the agent arrives from step 2's
+      // pointer; env + vaults are the session-scoped pieces, so they sit
+      // here as the chain's inputs, mirroring Skills-under-Agent in COMPOSE.
+      [
+        {
+          key: "env",
+          icon: <EnvIcon className="w-4 h-4" />,
+          title: "Environment",
+          to: "/environments",
+          status: envStatus,
+          badges: envs.map((e) => e.name),
+          emptyCta: "+ Create a sandbox environment",
+        },
+        {
+          key: "vaults",
+          icon: <VaultIcon className="w-4 h-4" />,
+          title: "Keys (Vault)",
+          to: "/vaults",
+          status: countStatus(vaults.length),
+          badges: vaults.map((v) => v.name),
+          emptyCta: "+ Secrets it calls out with",
+        },
+      ],
       {
         key: "session",
         icon: <SessionsIcon className="w-4 h-4" />,

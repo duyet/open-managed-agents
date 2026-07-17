@@ -110,25 +110,40 @@ describe("<StackedAssembly />", () => {
     );
   });
 
-  it("keeps Skills with the Agent and Vaults in Configure, per the formula", async () => {
+  it("keeps Skills with the Agent and Env + Vaults in Run, per the formula", async () => {
     mockLists();
     renderAssembly();
 
     const compose = (await screen.findByText("2 · Compose")).parentElement
       ?.parentElement;
-    const configure = screen.getByText("1 · Configure").parentElement
-      ?.parentElement;
+    const run = screen.getByText("3 · Run").parentElement?.parentElement;
     expect(compose).toBeTruthy();
-    expect(configure).toBeTruthy();
+    expect(run).toBeTruthy();
 
     // `agent = model + skills + mcp` — Skills is agent config, so it sits in
     // step 2. getByText throws if it drifts back to step 1.
     expect(within(compose!).getByText("Skills")).toBeInTheDocument();
     expect(within(compose!).queryByText("Keys (Vault)")).toBeNull();
 
-    // Vaults is session-scoped (`vault_ids` on SessionMeta), never agent
-    // config — it must not sit inside the agent's box.
-    expect(within(configure!).getByText("Keys (Vault)")).toBeInTheDocument();
+    // `session = agent + env + vaults` — Environment and Vaults are
+    // session-scoped (`environment_id` / `vault_ids` on SessionMeta), so both
+    // sit in step 3 with the Session, not back in Configure.
+    expect(within(run!).getByText("Environment")).toBeInTheDocument();
+    expect(within(run!).getByText("Keys (Vault)")).toBeInTheDocument();
+  });
+
+  it("pairs Environment and Vaults in one row above the Session", async () => {
+    mockLists();
+    renderAssembly();
+
+    const envCard = (await screen.findByText("Environment")).closest('[role="link"]');
+    const vaultCard = screen.getByText("Keys (Vault)").closest('[role="link"]');
+    expect(envCard).not.toBeNull();
+    expect(vaultCard).not.toBeNull();
+
+    const row = envCard!.closest(".items-stretch");
+    expect(row).not.toBeNull();
+    expect(vaultCard!.closest(".items-stretch")).toBe(row);
   });
 
   it("pairs Memory and Files in one row", async () => {
