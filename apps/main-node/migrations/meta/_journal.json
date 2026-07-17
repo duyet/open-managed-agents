@@ -29,6 +29,13 @@
       "when": 1784419200000,
       "tag": "0003_consumer_public_surface",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784505600000,
+      "tag": "0004_agent_publication",
+      "breakpoints": true
     }
   ]
 }
