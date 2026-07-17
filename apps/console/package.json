@@ -15,6 +15,7 @@
     "@ai-sdk/react": "^3.0.184",
     "@duyet/oma-acp-runtime": "workspace:*",
     "@duyet/oma-api-types": "workspace:*",
+    "@duyet/oma-fit-diagram": "workspace:*",
     "@duyet/oma-integrations-core": "workspace:*",
     "@fontsource-variable/geist": "^5.2.8",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",

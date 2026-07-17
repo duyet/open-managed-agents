@@ -138,8 +138,8 @@ describe("<StackedAssembly />", () => {
     mockLists();
     renderAssembly();
 
-    const envCard = (await screen.findByText("Environment")).closest('[role="link"]');
-    const vaultCard = screen.getByText("Keys (Vault)").closest('[role="link"]');
+    const envCard = (await screen.findByText("Environment")).closest("button");
+    const vaultCard = screen.getByText("Keys (Vault)").closest("button");
     expect(envCard).not.toBeNull();
     expect(vaultCard).not.toBeNull();
 
@@ -152,8 +152,8 @@ describe("<StackedAssembly />", () => {
     mockLists();
     renderAssembly();
 
-    const memoryCard = (await screen.findByText("Memory")).closest('[role="link"]');
-    const filesCard = screen.getByText("Files").closest('[role="link"]');
+    const memoryCard = (await screen.findByText("Memory")).closest("button");
+    const filesCard = screen.getByText("Files").closest("button");
     expect(memoryCard).not.toBeNull();
     expect(filesCard).not.toBeNull();
 
