@@ -6,7 +6,20 @@ image:
 replicaCount: 2
 
 secret:
+  # Bearer token for /api/v1/* auth (see apps/k8s-bridge/src/auth.ts).
+  # Generate with `openssl rand -base64 32`. NEVER commit a real value here
+  # — leave this empty and either pass `--set secret.token=$TOKEN` at
+  # install time, or (preferred for production) create the Secret
+  # out-of-band and point `existingSecret` at it instead.
   token: ""
+  # Name of a pre-existing Secret to source K8S_BRIDGE_TOKEN from (e.g.
+  # created via `kubectl create secret generic` or external-secrets).
+  # When set, the chart does not render its own Secret and `secret.token`
+  # is ignored.
+  existingSecret: ""
+  # Key inside `existingSecret` (or the chart-managed Secret) holding the
+  # token value.
+  tokenKey: K8S_BRIDGE_TOKEN
 
 config:
   namespace: sandboxes
@@ -42,6 +55,12 @@ hpa:
 
 rbac:
   create: true
+  # Namespace the Role/RoleBinding (sandbox pod lifecycle) is created in —
+  # must match where sandbox pods actually run. Falls back to
+  # config.namespace when unset. The ClusterRole/ClusterRoleBinding
+  # (nodes + metrics + cross-namespace pod listing) is unaffected by this
+  # — those grants are inherently cluster-scoped. See templates/rbac.yaml.
+  targetNamespace: ""
 
 serviceAccount:
   create: true
