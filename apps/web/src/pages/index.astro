@@ -4,6 +4,7 @@ import { softwareApplicationSchema } from "../lib/seo";
 import FeatureCard from "../components/FeatureCard.astro";
 import Logo from "../components/Logo.astro";
 import HowItFits from "../components/HowItFits.astro";
+import WiredFlows from "../components/WiredFlows.tsx";
 import ManagedAgentsSection from "../components/ManagedAgentsSection.astro";
 import FeaturesSection from "../components/FeaturesSection.astro";
 import UseCasesSection from "../components/UseCasesSection.astro";
@@ -121,42 +122,8 @@ const lifecycle = [
   },
 ];
 
-// Hero use-case diagrams — each real agent template drawn as a small
-// pipeline: what triggers it → the agent → what it produces. Reads as a
-// diagram of the work, not a list of names. `every` marks scheduled runs.
-const heroFlows: {
-  name: string;
-  trigger: string;
-  outputs: string[];
-  every?: string;
-}[] = [
-  {
-    name: "Support",
-    trigger: "customer asks",
-    outputs: ["docs lookup", "slack reply"],
-  },
-  {
-    name: "Incident response",
-    trigger: "sentry alert",
-    outputs: ["linear ticket", "slack room"],
-  },
-  {
-    name: "Sprint retro",
-    trigger: "sprint closes",
-    outputs: ["retro doc"],
-    every: "weekly",
-  },
-  {
-    name: "Bug triage",
-    trigger: "intercom thread",
-    outputs: ["repro", "jira issue"],
-  },
-  {
-    name: "Data analysis",
-    trigger: "dataset",
-    outputs: ["charts", "report"],
-  },
-];
+// Hero use-case flows moved into WiredFlows.tsx (tabbed React island with
+// per-use-case terminal demos, incl. local bridge relay + K8s).
 
 // Sandbox-provider marks for the fleet band. Rendered monochrome via
 // currentColor so they sit quietly in the zinc palette and pick up the iris
@@ -307,43 +274,10 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
   <section class="border-b border-[var(--color-border)]">
     <div class="max-w-5xl mx-auto px-4 py-12 md:py-14">
         <div class="hero-visual hero-visual-band">
-          <div class="hero-flows-panel">
-            <p class="hero-flows-head">
-              <span>One agent, wired to your stack</span>
-              <span class="hero-flows-legend" aria-hidden="true">trigger → agent → result</span>
-            </p>
-            <ul class="hero-flows">
-              {heroFlows.map((f) => (
-                <li class="hero-flow">
-                  <div class="hero-flow-name">
-                    <span>{f.name}</span>
-                    {f.every && <span class="hero-flow-every">↻ {f.every}</span>}
-                  </div>
-                  <div class="hero-flow-pipe">
-                    <span class="flow-node flow-trigger">{f.trigger}</span>
-                    <span class="flow-step">
-                      <svg class="flow-arrow" width="20" height="8" viewBox="0 0 20 8" aria-hidden="true">
-                        <path d="M0 4h16M13 1l4 3-4 3" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                      <span class="flow-node flow-agent">
-                        <span class="flow-agent-mark" aria-hidden="true"></span>agent
-                      </span>
-                    </span>
-                    <span class="flow-step">
-                      <svg class="flow-arrow" width="20" height="8" viewBox="0 0 20 8" aria-hidden="true">
-                        <path d="M0 4h16M13 1l4 3-4 3" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                      <span class="flow-out">
-                        {f.outputs.map((o) => (
-                          <span class="flow-node">{o}</span>
-                        ))}
-                      </span>
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <!-- Tabbed use-case demos (React island): pick a use case, see its
+               trigger → agent → result pipeline plus a terminal demo of how
+               to wire it — including the local bridge relay and K8s. -->
+          <WiredFlows client:load />
         </div>
     </div>
   </section>
