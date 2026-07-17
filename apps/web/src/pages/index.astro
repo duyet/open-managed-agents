@@ -18,25 +18,25 @@ const concepts = [
     name: "Agent",
     badge: "config",
     accent: "orange" as const,
-    body: "A versioned configuration: model, system prompt, tools, skills, MCP servers, and harness. Sessions bind to a specific agent version at creation — updates never rewrite live runs.",
+    body: "A versioned config — model, prompt, tools, skills, MCP, harness. Sessions pin a version at creation; updates never rewrite live runs.",
   },
   {
     name: "Session",
     badge: "runtime",
     accent: "blue" as const,
-    body: "A running conversation with an append-only event log. Streaming, crash recovery, and idle/running lifecycle all hang off this unit of durable state.",
+    body: "A conversation backed by an append-only event log. Streaming, crash recovery, and lifecycle all hang off this durable state.",
   },
   {
     name: "Environment",
     badge: "sandbox",
     accent: "green" as const,
-    body: "The execution sandbox — packages, networking policy, and container image. Reusable across agents so fleets share a known runtime shape.",
+    body: "The execution sandbox — packages, network policy, container image. Reusable across agents so a fleet shares one runtime shape.",
   },
   {
     name: "Vault",
     badge: "secrets",
     accent: "orange" as const,
-    body: "Credential store that never enters the sandbox. Tokens are injected by an outbound proxy at the network layer when requests match a credential URL.",
+    body: "A credential store that never enters the sandbox. An outbound proxy injects tokens at the network layer, per matching URL.",
   },
 ];
 
@@ -120,41 +120,40 @@ const lifecycle = [
   },
 ];
 
-// Hero template gallery — real agent templates, shown as a quiet list.
-// Chips name the integrations each template wires up (via MCP / vault
-// credentials); "recurring" marks templates that run on an agent schedule.
-const heroTemplates: { name: string; desc: string; chips: string[]; recurring?: boolean }[] = [
+// Hero use-case diagrams — each real agent template drawn as a small
+// pipeline: what triggers it → the agent → what it produces. Reads as a
+// diagram of the work, not a list of names. `every` marks scheduled runs.
+const heroFlows: {
+  name: string;
+  trigger: string;
+  outputs: string[];
+  every?: string;
+}[] = [
   {
-    name: "Support agent",
-    desc: "Answers customer questions from your docs and knowledge base, escalates when needed.",
-    chips: ["notion", "slack"],
+    name: "Support",
+    trigger: "customer asks",
+    outputs: ["docs lookup", "slack reply"],
   },
   {
-    name: "Incident commander",
-    desc: "Triages a Sentry alert, opens a Linear incident ticket, and runs the Slack war room.",
-    chips: ["sentry", "linear", "slack", "github"],
+    name: "Incident response",
+    trigger: "sentry alert",
+    outputs: ["linear ticket", "slack room"],
   },
   {
-    name: "Topic brief writer",
-    desc: "Follows a topic and writes a weekly what-changed brief.",
-    chips: ["notion"],
-    recurring: true,
+    name: "Sprint retro",
+    trigger: "sprint closes",
+    outputs: ["retro doc"],
+    every: "weekly",
   },
   {
-    name: "Sprint retro facilitator",
-    desc: "Pulls a closed sprint from Linear, synthesizes themes, and writes the retro doc before the meeting.",
-    chips: ["linear", "slack", "docx"],
-    recurring: true,
+    name: "Bug triage",
+    trigger: "intercom thread",
+    outputs: ["repro", "jira issue"],
   },
   {
-    name: "Support-to-eng escalator",
-    desc: "Reads an Intercom conversation, reproduces the bug, and files a linked Jira issue with repro steps.",
-    chips: ["intercom", "atlassian", "slack"],
-  },
-  {
-    name: "Data analyst",
-    desc: "Loads, explores, and visualizes data; builds reports and answers questions from datasets.",
-    chips: ["python"],
+    name: "Data analysis",
+    trigger: "dataset",
+    outputs: ["charts", "report"],
   },
 ];
 
@@ -241,17 +240,10 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
               >any <span class="tw-rot">LLM provider</span><span class="typewriter-caret" aria-hidden="true"></span></span
             >
           </h1>
-          <p class="mt-5 text-lg md:text-xl text-[var(--color-fg-muted)] leading-relaxed font-medium max-w-xl line-clamp-2">
+          <p class="mt-5 text-lg md:text-xl text-[var(--color-fg-muted)] leading-relaxed font-medium max-w-xl">
             Run your own agents on <strong class="text-[var(--color-fg)] font-semibold">any model</strong>,
             in <strong class="text-[var(--color-fg)] font-semibold">any sandbox</strong> — on Cloudflare or with
             <code class="font-mono text-base md:text-lg">docker compose up</code>.
-          </p>
-          <p
-            class="mt-3 text-base md:text-lg text-[var(--color-fg-muted)] leading-relaxed max-w-xl line-clamp-2"
-          >
-            An open-source meta-harness: the platform owns state, security, and sandboxes;
-            a harness owns the model loop. Durable sessions, vault-backed credentials, MCP —
-            and Bring Your Own Key for both the model provider and the compute it runs on.
           </p>
 
           <!-- Primary CTAs: repo (brand) + docs (hairline). Mirror the
@@ -280,43 +272,39 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
           </ul>
         </div>
 
-        <!-- Hallmark · component: template-gallery · genre: modern-minimal · theme: site tokens (preserved)
-             Right: start from a template. Real agent templates as a quiet
-             hairline-separated list — name, one-line job, lowercase mono
-             integration chips. No cards-in-cards, no accents, no animation. -->
+        <!-- Right: each use case drawn as a pipeline diagram —
+             trigger → agent → outputs. Shows what the agent does, not just
+             a name. Hairline-separated, one flow per row, no card chrome. -->
         <div class="hero-visual">
-          <div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)]">
-            <p class="flex items-center justify-between gap-2 px-4 pt-3.5 pb-0 m-0 font-mono text-[11px] uppercase tracking-widest text-[var(--color-fg-subtle)]">
-              Start from a template
+          <div class="hero-flows-panel">
+            <p class="hero-flows-head">
+              <span>One agent, wired to your stack</span>
+              <span class="hero-flows-legend" aria-hidden="true">trigger → agent → result</span>
             </p>
-            <ul class="list-none m-0 p-0 divide-y divide-[var(--color-border)]">
-              {heroTemplates.map((t) => (
-                <li class="m-0">
-                  <a
-                    href="https://github.com/duyet/oma/tree/main/examples"
-                    class="group block px-4 py-3 no-underline hover:no-underline hover:bg-[var(--color-bg-surface)] transition-colors"
-                  >
-                    <span class="flex items-baseline justify-between gap-3">
-                      <span class="font-display text-[14px] font-semibold tracking-tight text-[var(--color-fg)]">
-                        {t.name}
-                      </span>
-                      {t.recurring && (
-                        <span class="font-mono text-[10px] uppercase tracking-widest text-[var(--color-fg-subtle)] shrink-0">
-                          recurring
-                        </span>
-                      )}
+            <ul class="hero-flows">
+              {heroFlows.map((f) => (
+                <li class="hero-flow">
+                  <div class="hero-flow-name">
+                    <span>{f.name}</span>
+                    {f.every && <span class="hero-flow-every">↻ {f.every}</span>}
+                  </div>
+                  <div class="hero-flow-pipe">
+                    <span class="flow-node flow-trigger">{f.trigger}</span>
+                    <svg class="flow-arrow" width="20" height="8" viewBox="0 0 20 8" aria-hidden="true">
+                      <path d="M0 4h16M13 1l4 3-4 3" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <span class="flow-node flow-agent">
+                      <span class="flow-agent-mark" aria-hidden="true"></span>agent
                     </span>
-                    <span class="mt-0.5 block text-[12.5px] leading-snug text-[var(--color-fg-muted)]">
-                      {t.desc}
-                    </span>
-                    <span class="mt-1.5 flex flex-wrap gap-1.5">
-                      {t.chips.map((c) => (
-                        <span class="font-mono text-[10.5px] lowercase rounded border border-[var(--color-border)] px-1.5 py-px text-[var(--color-fg-subtle)]">
-                          {c}
-                        </span>
+                    <svg class="flow-arrow" width="20" height="8" viewBox="0 0 20 8" aria-hidden="true">
+                      <path d="M0 4h16M13 1l4 3-4 3" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <span class="flow-out">
+                      {f.outputs.map((o) => (
+                        <span class="flow-node">{o}</span>
                       ))}
                     </span>
-                  </a>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -335,9 +323,8 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
       What Open Managed Agents is
     </h2>
     <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed">
-      A self-hostable reimplementation of the Claude Managed Agents API shape —
-      sessions, agents, tools, streams — with every layer inspectable and yours to fork.
-      Not a single chat UI: a platform for running agent fleets.
+      A platform for running agent fleets, not a chat UI. Four primitives,
+      every layer inspectable and yours to fork.
     </p>
     <div class="grid sm:grid-cols-2 gap-5">
       {
@@ -384,10 +371,9 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
         How it is designed
       </h2>
       <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed">
-        OMA is a <strong class="text-[var(--color-fg)] font-semibold">meta-harness</strong>:
-        the platform prepares <em>what</em> an agent has (tools, skills, history, sandbox, credentials);
-        a harness decides <em>how</em> to drive the model loop. Same business logic on Cloudflare
-        Workers + Durable Objects or self-hosted Node + Docker.
+        A <strong class="text-[var(--color-fg)] font-semibold">meta-harness</strong>: the platform owns
+        <em>what</em> an agent has; a harness owns <em>how</em> the model loop runs. Same logic on
+        Cloudflare or self-hosted Docker.
       </p>
 
       <div class="meta-harness-split mb-14">
@@ -423,9 +409,8 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
         System architecture layers
       </h3>
       <p class="text-sm text-[var(--color-fg-muted)] mb-8 max-w-2xl leading-relaxed">
-        Request path from client to isolated execution. Each layer has a hard boundary —
-        state stays in the Durable Object; secrets stay outside the sandbox; the harness
-        is swappable without rewriting the platform.
+        Client to isolated execution, four hard boundaries: state stays in the Durable
+        Object, secrets stay outside the sandbox, the harness stays swappable.
       </p>
 
       <div class="arch-stack" role="list" aria-label="System architecture layers">
@@ -460,8 +445,8 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
       Durable lifecycle loop
     </h2>
     <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed">
-      Every turn is events first: persist, then broadcast. That ordering is why
-      crashes lose no work and a new process can resume mid-run.
+      Every turn is events-first: persist, then broadcast. That ordering is why a
+      crash loses no work and a new process resumes mid-run.
     </p>
     <div class="lifecycle-track" role="list" aria-label="Durable session lifecycle steps">
       {
@@ -495,9 +480,8 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
       </p>
       <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">Why Open Managed Agents</h2>
       <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed">
-        The same shape of platform you'd get from a closed vendor — sessions,
-        sandboxes, tool dispatch, crash recovery, security controls — but every layer is
-        inspectable, swappable, and yours to fork.
+        The platform a closed vendor gives you — sessions, sandboxes, crash recovery,
+        security — but every layer is inspectable, swappable, and yours to fork.
       </p>
       <div class="grid md:grid-cols-3 gap-6">
         <FeatureCard title="Drop-in compatible" accent>
@@ -528,28 +512,24 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
     <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 tracking-tight">
       Drop-in compatible with the Claude Managed Agents API
     </h2>
-    <p class="text-[var(--color-fg-muted)] leading-relaxed mb-4">
-      We track the public surface of the Claude Managed Agents API one-to-one.
-      Resources, request shapes, response shapes, the SSE event stream — all
-      the same. If your client code already speaks Managed Agents, point it at
-      <code class="font-mono text-sm">https://oma.duyet.net</code> (hosted) or
-      <code class="font-mono text-sm">http://localhost:8787</code> (self-host)
-      and it works.
+    <p class="text-[var(--color-fg-muted)] leading-relaxed mb-8 max-w-2xl">
+      Same resources, request and response shapes, and SSE event stream — one-to-one.
+      Migrate by swapping the base URL; the harness layer is the part you get to
+      rewrite. <a href="/blog/claude-managed-agents-vs-open-managed-agents/">Read the technical comparison</a>.
     </p>
-    <p class="text-[var(--color-fg-muted)] leading-relaxed mb-4">
-      What you get on top: every resource definition, every state-machine
-      transition, every retry rule is in source code you can read. No black
-      box. When something behaves unexpectedly, you can <em>see</em> why and
-      fix it — and your fix can ship as a PR.
-    </p>
-    <p class="text-[var(--color-fg-muted)] leading-relaxed">
-      Where the open implementation goes further: the harness layer is
-      explicit and replaceable. The hosted Claude Managed Agents version owns
-      the agent loop; here you can write your own. We ship a sensible default
-      harness, and you swap in custom context engineering, caching, compaction,
-      or tool-delivery logic without touching the platform. Read more in
-      <a href="/blog/claude-managed-agents-vs-open-managed-agents/">the technical comparison</a>.
-    </p>
+
+    <!-- Base-URL swap diagram — the whole migration in one line. -->
+    <div class="url-swap" role="img" aria-label="Point your existing client at your own base URL">
+      <span class="url-swap-client">your client</span>
+      <svg class="url-swap-arrow" width="26" height="10" viewBox="0 0 26 10" aria-hidden="true">
+        <path d="M0 5h21M18 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <span class="url-swap-stack">
+        <span class="url-swap-old">api.anthropic.com</span>
+        <span class="url-swap-new">oma.duyet.net <span class="url-swap-tag">hosted</span></span>
+        <span class="url-swap-new">localhost:8787 <span class="url-swap-tag">self-host</span></span>
+      </span>
+    </div>
   </section>
 
   <!-- Fleet operations -->
@@ -559,49 +539,41 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
         <Icon name="server" size={14} class="text-[var(--color-brand)]" /> Fleets
       </p>
       <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 tracking-tight">Built for multi-agent fleets</h2>
-      <p class="text-[var(--color-fg-muted)] leading-relaxed mb-10 max-w-3xl mx-auto">
-        Concurrent sub-agent delegation, structured liveness heartbeats for long-running
-        runs, and native webhook notifications (GitHub, Slack, Matrix).
+      <p class="text-[var(--color-fg-muted)] leading-relaxed mb-10 max-w-2xl mx-auto">
+        Concurrent sub-agent delegation, liveness heartbeats, and native webhook
+        notifications — GitHub, Slack, Matrix.
       </p>
       <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10 text-left">
         <article data-lift class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 hover:border-[var(--color-border-strong)]">
           <span class="arch-badge arch-badge-green mb-3">any sandbox</span>
-          <h3 class="font-display text-base font-semibold mb-2 tracking-tight flex items-center gap-2">
-            <span class="pixel-bullet" aria-hidden="true">[▪]</span> Run on any sandbox
-          </h3>
+          <h3 class="font-display text-base font-semibold mb-2 tracking-tight">Run on any sandbox</h3>
           <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
-            Cloudflare Containers, subprocess, E2B, Daytona, or Kubernetes — pick a
-            provider per environment, bring your own account, swap without touching agents.
+            Cloudflare, subprocess, E2B, Daytona, or Kubernetes — one per environment,
+            swappable without touching agents.
           </p>
         </article>
         <article data-lift class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 hover:border-[var(--color-border-strong)]">
           <span class="arch-badge arch-badge-orange mb-3">cost control</span>
-          <h3 class="font-display text-base font-semibold mb-2 tracking-tight flex items-center gap-2">
-            <span class="pixel-bullet" aria-hidden="true">[▪]</span> Pause &amp; resume
-          </h3>
+          <h3 class="font-display text-base font-semibold mb-2 tracking-tight">Pause &amp; resume</h3>
           <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
             Snapshot the workspace and stop the container between turns; resume restores
-            it exactly where it left off. Idle agents cost nothing.
+            it exactly. Idle agents cost nothing.
           </p>
         </article>
         <article data-lift class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 hover:border-[var(--color-border-strong)]">
           <span class="arch-badge arch-badge-blue mb-3">coding agents</span>
-          <h3 class="font-display text-base font-semibold mb-2 tracking-tight flex items-center gap-2">
-            <span class="pixel-bullet" aria-hidden="true">[▪]</span> Coding agents inside
-          </h3>
+          <h3 class="font-display text-base font-semibold mb-2 tracking-tight">Coding agents inside</h3>
           <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
-            Run Claude Agent SDK (the default runtime), Grok, or any OpenAI-compatible
-            coding agent in the sandbox — one Docker image per runtime kind.
+            Run Claude Agent SDK, Grok, or any OpenAI-compatible coding agent in the
+            sandbox — one Docker image per runtime.
           </p>
         </article>
         <article data-lift class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 hover:border-[var(--color-border-strong)]">
           <span class="arch-badge arch-badge-green mb-3">delegation</span>
-          <h3 class="font-display text-base font-semibold mb-2 tracking-tight flex items-center gap-2">
-            <span class="pixel-bullet" aria-hidden="true">[▪]</span> Cross-sandbox sub-agents
-          </h3>
+          <h3 class="font-display text-base font-semibold mb-2 tracking-tight">Cross-sandbox sub-agents</h3>
           <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
-            Parent and child agents run in separate sandboxes — even on different
-            providers — with parallel fan-out and per-call result aggregation.
+            Parent and child run in separate sandboxes — even different providers — with
+            parallel fan-out and result aggregation.
           </p>
         </article>
       </div>
