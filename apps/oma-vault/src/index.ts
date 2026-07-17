@@ -35,6 +35,7 @@ import {
   createPostgresSqlClient,
   type SqlClient,
 } from "@duyet/oma-sql-client";
+import { buildCredentialCrypto } from "@duyet/oma-shared";
 import type { CredentialAuth } from "@duyet/oma-shared";
 import { createNodeLogger } from "@duyet/oma-observability/logger/node";
 import { setRootLogger, type Logger } from "@duyet/oma-observability";
@@ -59,6 +60,25 @@ const port = Number(process.env.OMA_VAULT_PORT ?? 14322);
 // for multi-user prod deploys, since cross-tenant matching can leak a
 // credential between tenants when both register the same host.
 const scopeTenantId = process.env.OMA_TENANT ?? "*";
+
+// credentials.auth is encrypted at rest under PLATFORM_ROOT_SECRET (issue
+// #187) — main-node writes ciphertext, so this proxy must hold the same
+// root secret to decrypt rows for header injection. Fail closed at boot:
+// without the secret every encrypted credential would silently stop
+// injecting, which is far harder to debug than a refused start. (Legacy
+// plaintext rows written by pre-#187 installs still decrypt fine — the
+// helper passes them through.)
+const platformRootSecret = process.env.PLATFORM_ROOT_SECRET;
+if (!platformRootSecret) {
+  logger.error(
+    { op: "oma_vault.missing_root_secret" },
+    "Refusing to start: PLATFORM_ROOT_SECRET is not set. It is required to " +
+      "decrypt vault credentials (encrypted at rest by oma-server) for " +
+      "outbound header injection. Set the SAME value oma-server uses.",
+  );
+  process.exit(1);
+}
+const credCrypto = buildCredentialCrypto(platformRootSecret);
 
 mkdirSync(resolve(caDir), { recursive: true });
 
@@ -228,8 +248,20 @@ async function findCredentialForUrl(url: string): Promise<MatchedCred | null> {
     .bind(scopeTenantId, scopeTenantId)
     .all<Row>();
   for (const row of result.results ?? []) {
+    // Decrypt (or pass through a legacy plaintext row), then parse. A row
+    // that fails both is skipped — e.g. written under a different
+    // PLATFORM_ROOT_SECRET — and logged so the operator can tell why a
+    // credential stopped injecting.
     let auth: CredentialAuth;
-    try { auth = JSON.parse(row.auth) as CredentialAuth; } catch { continue; }
+    try {
+      auth = JSON.parse(await credCrypto.decrypt(row.auth)) as CredentialAuth;
+    } catch (err) {
+      logger.warn(
+        { op: "oma_vault.credential_undecryptable", credential_id: row.id },
+        `skipping credential ${row.id}: cannot decrypt/parse auth (is PLATFORM_ROOT_SECRET the same value oma-server uses?): ${(err as Error).message}`,
+      );
+      continue;
+    }
     if (!auth.mcp_server_url) continue;
     let credHost: string;
     try { credHost = new URL(auth.mcp_server_url).host; } catch { continue; }

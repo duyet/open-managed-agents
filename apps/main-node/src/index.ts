@@ -124,7 +124,7 @@ import {
   buildNodeProvidersForRequest,
 } from "./lib/node-install-bridge.js";
 import { OmaVaultResolver } from "@duyet/oma-cap-adapter";
-import { buildCredentialCrypto } from "./lib/credential-crypto.js";
+import { buildCredentialCrypto } from "@duyet/oma-shared";
 import { NodeSessionRouter } from "./lib/node-session-router.js";
 import { nodeOutputsAdapter } from "./lib/node-outputs-adapter.js";
 import { nodeSessionLifecycle } from "./lib/node-session-lifecycle.js";
@@ -410,7 +410,8 @@ const vaultService = createSqliteVaultService({ db: drizzleDb });
 // At-rest encryption for the credentials.auth column (issue #187) — same
 // AES-GCM + "credentials.auth" label as the CF deployment's mintCrypto,
 // with a read-side tolerance for legacy plaintext rows written before this
-// wiring existed (see lib/credential-crypto.ts).
+// wiring existed (see packages/shared/src/credential-crypto.ts; apps/
+// oma-vault decrypts the same column with the same helper).
 const credentialService = createSqliteCredentialService(
   { db: drizzleDb },
   { crypto: buildCredentialCrypto(platformRootSecret) },
