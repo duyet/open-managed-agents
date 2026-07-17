@@ -333,6 +333,14 @@ const rows = (step: FitStep): FitCard[][] =>
     outline-offset: 1px;
   }
   .fits-dialog {
+    /* The global reset zeroes margins, which wipes out the UA's
+       `margin: auto` dialog centering — restore it explicitly. */
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    height: fit-content;
+    max-height: calc(100dvh - 3rem);
+    overflow-y: auto;
     max-width: 26rem;
     width: calc(100vw - 2.5rem);
     border: 1px solid var(--color-border);
