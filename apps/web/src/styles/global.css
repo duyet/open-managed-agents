@@ -54,6 +54,11 @@
   --color-blue-subtle: #eaf2f8;
   --color-green: #788c5d;
   --color-green-subtle: #eef1ea;
+
+  /* Status dot colors for the shared @duyet/oma-fit-diagram component —
+     mirrors console's --color-success/--color-warning tokens. */
+  --color-success: #22c55e;
+  --color-warning: #d97706;
 }
 
 .dark {
@@ -77,6 +82,9 @@
   --color-accent-subtle: #2d1a15;
   --color-blue-subtle: #16232f;
   --color-green-subtle: #1a2016;
+
+  --color-success: #4ade80;
+  --color-warning: #f59e0b;
 }
 
 html {
