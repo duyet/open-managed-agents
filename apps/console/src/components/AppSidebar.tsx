@@ -86,7 +86,6 @@ const navGroups: NavGroup[] = [
       },
       { to: "/sessions", label: "Sessions", icon: SessionsIcon },
       { to: "/kanban", label: "Kanban Board", icon: SquareKanbanIcon },
-      { to: "/evals", label: "Eval Runs", icon: CircleCheckBigIcon },
       { to: "/usage", label: "Usage", icon: ChartColumnIcon },
     ],
   },
@@ -109,6 +108,10 @@ const navGroups: NavGroup[] = [
       { to: "/integrations/github", label: "GitHub", icon: GitHubIcon },
       { to: "/integrations/slack", label: "Slack", icon: SlackIcon },
     ],
+  },
+  {
+    label: "Advanced",
+    items: [{ to: "/evals", label: "Eval Runs", icon: CircleCheckBigIcon }],
   },
   {
     label: "Settings",

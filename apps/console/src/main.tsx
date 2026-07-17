@@ -97,13 +97,15 @@ import { consolePlugins } from "./plugins/registry";
  * absolute paths so each hub's `<HubLayout>` works regardless of the base
  * path its children mount under (the layout routes below are pathless).
  */
+// Sessions hub — the two views of "what my agents are doing right now":
+// the list and the cost of it. Kanban is its own destination (a board, not
+// a view of this list) and Eval Runs moved under Advanced, so neither
+// belongs in this strip any more.
 const SESSIONS_HUB: HubConfig = {
   title: "Sessions",
-  description: "Trace, debug, organize, and monitor your agents' sessions.",
+  description: "Trace, debug, and monitor your agents' sessions.",
   tabs: [
     { label: "Sessions", path: "/sessions" },
-    { label: "Kanban Board", path: "/kanban" },
-    { label: "Eval Runs", path: "/evals" },
     { label: "Usage", path: "/usage" },
   ],
 };
@@ -194,27 +196,30 @@ const protectedRoutes: RouteObject[] = [
     ],
   },
 
-  // ── Sessions hub ── Sessions list / Kanban / Eval Runs share a tab
-  // strip (pathless HubLayout keeps each tab's own top-level URL). Session
-  // detail stays full-page (chat shell) so it lives OUTSIDE the hub.
+  // ── Sessions hub ── the list and its cost share a tab strip (pathless
+  // HubLayout keeps each tab's own top-level URL). Session detail stays
+  // full-page (chat shell) so it lives OUTSIDE the hub.
   {
     element: <HubLayout {...SESSIONS_HUB} />,
     children: [
       { path: "sessions", element: <SessionsList />, handle: { crumb: "Sessions" } },
-      { path: "kanban", element: <KanbanBoard />, handle: { crumb: "Kanban Board" } },
-      {
-        path: "evals",
-        handle: { crumb: "Eval Runs" },
-        children: [
-          { index: true, element: <EvalRunsList /> },
-          {
-            path: ":id",
-            element: <EvalRunDetail />,
-            handle: { crumb: (m: UIMatch) => (m.params.id as string | undefined) ?? "Eval Run" },
-          },
-        ],
-      },
       { path: "usage", element: <Usage />, handle: { crumb: "Usage" } },
+    ],
+  },
+  // Kanban — a standalone board, not a view of the sessions list, so it
+  // gets its own destination rather than a seat in the Sessions strip.
+  { path: "kanban", element: <KanbanBoard />, handle: { crumb: "Kanban Board" } },
+  // Eval Runs — filed under Advanced in the sidebar; standalone page.
+  {
+    path: "evals",
+    handle: { crumb: "Eval Runs" },
+    children: [
+      { index: true, element: <EvalRunsList /> },
+      {
+        path: ":id",
+        element: <EvalRunDetail />,
+        handle: { crumb: (m: UIMatch) => (m.params.id as string | undefined) ?? "Eval Run" },
+      },
     ],
   },
   // Session detail — full-page, no hub tabs. Pathless parent carries the
