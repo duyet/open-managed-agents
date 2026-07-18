@@ -25,9 +25,8 @@
 
 import { existsSync, statSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
-import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
-import { ensureSessionCwd } from "./session-cwd.js";
+import { dirNameFor, ensureSessionCwd } from "./session-cwd.js";
 import { paths } from "./platform.js";
 
 /** Run a git command with the given args in `cwd`. Must reject (with the
@@ -57,13 +56,9 @@ function sanitizeBranch(name: string): string {
   return trimmed;
 }
 
-/** Short, deterministic, filesystem-safe worktree dir name for a session id
- *  — same scheme as session-cwd.ts's dirNameFor so worktree paths look
- *  consistent with synthetic session dirs. */
-function worktreeDirName(sessionId: string): string {
-  if (/^[a-f0-9]{1,12}$/i.test(sessionId)) return sessionId.toLowerCase();
-  return createHash("sha256").update(sessionId).digest("hex").slice(0, 12);
-}
+// Worktree dir names share session-cwd's dirNameFor scheme so worktree
+// paths look consistent with synthetic session dirs.
+const worktreeDirName = dirNameFor;
 
 export async function resolveSpawnCwd(params: ResolveSpawnCwdParams): Promise<string> {
   const { sessionId, workingDir, branch, worktree, runGit } = params;

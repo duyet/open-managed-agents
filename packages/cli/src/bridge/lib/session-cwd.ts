@@ -41,7 +41,7 @@ const DIR_NAME_LEN = 12;
  * have enough entropy to avoid practical collisions. Deterministic so
  * the same session_id always maps to the same dir (resume / cleanup work).
  */
-function dirNameFor(sessionId: string): string {
+export function dirNameFor(sessionId: string): string {
   if (/^[a-f0-9]{1,12}$/i.test(sessionId)) return sessionId.toLowerCase();
   return createHash("sha256").update(sessionId).digest("hex").slice(0, DIR_NAME_LEN);
 }

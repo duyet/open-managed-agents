@@ -133,7 +133,7 @@ export function buildTelemetryRoutes(deps: TelemetryRoutesDeps) {
     );
     const agentsActive = await safeFirst<{ n: number }>(
       `SELECT COUNT(*) AS n FROM agents WHERE archived_at IS NULL`,
-      { n: agentsTotal.n },
+      { n: 0 },
     );
     const sessionsTotal = await safeFirst<{ n: number }>(
       `SELECT COUNT(*) AS n FROM sessions`,
@@ -141,6 +141,16 @@ export function buildTelemetryRoutes(deps: TelemetryRoutesDeps) {
     );
     const sessionsRunning = await safeFirst<{ n: number }>(
       `SELECT COUNT(*) AS n FROM sessions WHERE status = 'running'`,
+      { n: 0 },
+    );
+    // "Tasks" = recurring work configured on the platform: deployments +
+    // agent schedules (there is no dedicated tasks table).
+    const deploymentsTotal = await safeFirst<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM deployments`,
+      { n: 0 },
+    );
+    const schedulesTotal = await safeFirst<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM agent_schedules`,
       { n: 0 },
     );
     const totalCommands = await safeFirst<{ n: number }>(
@@ -159,7 +169,7 @@ export function buildTelemetryRoutes(deps: TelemetryRoutesDeps) {
     return c.json({
       agents: { total: agentsTotal.n, active: agentsActive.n },
       sessions: { total: sessionsTotal.n, running: sessionsRunning.n },
-      tasks: { total: 0 },
+      tasks: { total: deploymentsTotal.n + schedulesTotal.n, deployments: deploymentsTotal.n, schedules: schedulesTotal.n },
       cli: {
         total_commands: totalCommands.n,
         by_command: byCommand,
