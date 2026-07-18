@@ -7,11 +7,13 @@ import { http, HttpResponse } from "msw";
 import { server } from "../mocks/server";
 import {
   EnvironmentDetail,
+  applyPackagePreset,
   isValidMetadataKey,
   packagesToRows,
   rowsToPackages,
   type PackageRow,
 } from "./EnvironmentDetail";
+import { PACKAGE_PRESETS, getProviderGuidance } from "../lib/environmentPresets";
 
 // =================================================================
 // Pure helper tests — packages editor serialization
@@ -58,6 +60,76 @@ describe("packages editor serialization", () => {
   it("packagesToRows joins each manager's array with spaces", () => {
     const rows = packagesToRows({ cargo: ["ripgrep", "bat==0.24"] });
     expect(rows).toEqual([{ manager: "cargo", packages: "ripgrep bat==0.24" }]);
+  });
+});
+
+// =================================================================
+// Pure helper tests — package preset merging
+// =================================================================
+
+describe("applyPackagePreset", () => {
+  const dataScience = PACKAGE_PRESETS.find((p) => p.id === "data-science")!;
+  const rustCli = PACKAGE_PRESETS.find((p) => p.id === "rust-cli")!;
+
+  it("adds a new row per manager the preset touches when none exists", () => {
+    expect(applyPackagePreset([], dataScience)).toEqual([
+      { manager: "pip", packages: "numpy pandas matplotlib scikit-learn" },
+    ]);
+  });
+
+  it("adds a row for each manager a multi-manager preset touches", () => {
+    const rows = applyPackagePreset([], rustCli);
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        { manager: "cargo", packages: "ripgrep fd-find bat" },
+        { manager: "apt", packages: "jq" },
+      ]),
+    );
+    expect(rows).toHaveLength(2);
+  });
+
+  it("appends into an existing row for the same manager instead of duplicating it", () => {
+    const rows: PackageRow[] = [{ manager: "pip", packages: "requests" }];
+    expect(applyPackagePreset(rows, dataScience)).toEqual([
+      { manager: "pip", packages: "requests numpy pandas matplotlib scikit-learn" },
+    ]);
+  });
+
+  it("dedupes packages already present in the row", () => {
+    const rows: PackageRow[] = [{ manager: "pip", packages: "numpy" }];
+    expect(applyPackagePreset(rows, dataScience)).toEqual([
+      { manager: "pip", packages: "numpy pandas matplotlib scikit-learn" },
+    ]);
+  });
+
+  it("leaves unrelated rows untouched", () => {
+    const rows: PackageRow[] = [{ manager: "npm", packages: "lodash" }];
+    expect(applyPackagePreset(rows, dataScience)).toEqual([
+      { manager: "npm", packages: "lodash" },
+      { manager: "pip", packages: "numpy pandas matplotlib scikit-learn" },
+    ]);
+  });
+});
+
+// =================================================================
+// Pure helper tests — provider guidance lookup
+// =================================================================
+
+describe("getProviderGuidance", () => {
+  it("resolves a known provider id", () => {
+    expect(getProviderGuidance("boxrun")?.requiredSecret).toBe("BOXRUN_URL");
+  });
+
+  it("resolves the 'local' alias to 'subprocess' guidance", () => {
+    expect(getProviderGuidance("local")).toEqual(getProviderGuidance("subprocess"));
+  });
+
+  it("defaults to 'cloud' guidance when no provider id is given", () => {
+    expect(getProviderGuidance(undefined)?.cf.status).toBe("default");
+  });
+
+  it("returns undefined (fail-soft) for an unrecognized provider id", () => {
+    expect(getProviderGuidance("some-custom-byok-provider")).toBeUndefined();
   });
 });
 
@@ -164,6 +236,73 @@ describe("<EnvironmentDetail /> metadata validation", () => {
         team: "platform",
       }),
     );
+  });
+});
+
+describe("<EnvironmentDetail /> package presets", () => {
+  it("clicking a preset button populates the packages editor and saves it on the wire", async () => {
+    const user = userEvent.setup();
+    let putBody: unknown;
+    server.use(
+      http.get("/v1/environments/env_1", () => HttpResponse.json(baseEnv)),
+      http.get("/v1/hosting_types", () => HttpResponse.json({ data: [] })),
+      http.put("/v1/environments/env_1", async ({ request }) => {
+        putBody = await request.json();
+        return HttpResponse.json(baseEnv);
+      }),
+    );
+    renderPage();
+
+    await waitFor(() => expect(screen.getByDisplayValue("My Environment")).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "+ Data science" }));
+    expect(screen.getByDisplayValue("numpy pandas matplotlib scikit-learn")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      const config = (putBody as { config?: { packages?: Record<string, string[]> } }).config;
+      expect(config?.packages?.pip).toEqual(["numpy", "pandas", "matplotlib", "scikit-learn"]);
+    });
+  });
+});
+
+describe("<EnvironmentDetail /> provider guidance panel", () => {
+  it("shows required-secret and availability guidance for a known provider", async () => {
+    server.use(
+      http.get("/v1/environments/env_1", () =>
+        HttpResponse.json({
+          ...baseEnv,
+          config: { ...baseEnv.config, type: "boxrun" },
+        }),
+      ),
+      http.get("/v1/hosting_types", () => HttpResponse.json({ data: [] })),
+    );
+    renderPage();
+
+    await waitFor(() => expect(screen.getByDisplayValue("My Environment")).toBeInTheDocument());
+
+    expect(screen.getByText("Sandbox provider guidance")).toBeInTheDocument();
+    expect(screen.getByText("BOXRUN_URL")).toBeInTheDocument();
+    expect(screen.getByText("Cloudflare deployment")).toBeInTheDocument();
+    expect(screen.getByText("Self-host Node")).toBeInTheDocument();
+  });
+
+  it("fails soft with a generic message for an unrecognized provider id", async () => {
+    server.use(
+      http.get("/v1/environments/env_1", () =>
+        HttpResponse.json({
+          ...baseEnv,
+          config: { ...baseEnv.config, type: "some-custom-byok-provider" },
+        }),
+      ),
+      http.get("/v1/hosting_types", () => HttpResponse.json({ data: [] })),
+    );
+    renderPage();
+
+    await waitFor(() => expect(screen.getByDisplayValue("My Environment")).toBeInTheDocument());
+
+    expect(screen.getByText(/No specific guidance for/)).toBeInTheDocument();
   });
 });
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { useApi } from "../lib/api";
 import { useApiQuery } from "../lib/useApiQuery";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,13 @@ import { toast } from "sonner";
 import { Page } from "../components/Page";
 import { Field } from "../components/Field";
 import { friendlyHostingDescription, type HostingTypeLike } from "../lib/hostingTypes";
+import {
+  PACKAGE_PRESETS,
+  getProviderGuidance,
+  type CfAvailability,
+  type PackagePreset,
+} from "../lib/environmentPresets";
+import { ProviderMark } from "../components/ProviderMark";
 import {
   EnvVarsEditor,
   envVarsToRows,
@@ -72,6 +79,11 @@ function instanceTypesForProvider(provider: string): { id: string; label: string
 
 interface EnvConfigBlock {
   type: string;
+  /** Preferred over `type` when set — see AGENTS.md "Environments" and
+   *  packages/sandbox/src/provider-config.ts. Read-only here; the create
+   *  dialog (EnvironmentsList) only ever sets `type`, so this is populated
+   *  by API/CLI-created environments. */
+  sandbox_provider?: string;
   packages?: Partial<Record<AnyManager, string[]>>;
   networking?: NetworkingConfig;
   dockerfile?: string;
@@ -262,6 +274,9 @@ export function EnvironmentDetail() {
   );
 
   const typeId = env.config.type || "cloud";
+  // `sandbox_provider` takes precedence over the legacy `type` field when
+  // both are present (mirrors RuntimeInfo.tsx / StackedAssembly.tsx).
+  const providerId = env.config.sandbox_provider ?? typeId;
   const providerInfo = hostingTypes.find((t) => t.id === typeId);
   const providerLabel = providerInfo?.label ?? (typeId === "cloud" ? "Cloudflare Sandbox" : typeId);
   const providerDescription = providerInfo
@@ -315,6 +330,12 @@ export function EnvironmentDetail() {
             />
           </div>
         </section>
+
+        {/* Provider-aware guidance — required secrets, CF vs self-host
+            availability, and networking notes for the provider already
+            selected at creation time (badge above). Fail-soft for
+            unrecognized/custom BYOK provider ids. */}
+        <ProviderGuidancePanel providerId={providerId} />
 
         {/* Section cards — single column on small screens, two-column
             grid on xl so the page uses wide viewports instead of one
@@ -444,6 +465,21 @@ export function EnvironmentDetail() {
             </IconButton>
           }
         >
+          <div className="flex flex-wrap gap-1.5 mb-3 pb-3 border-b border-border">
+            {PACKAGE_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                title={preset.description}
+                onClick={() =>
+                  setPackageRows((rows) => applyPackagePreset(rows, preset))
+                }
+                className="text-[11px] px-2.5 py-1 rounded-full border border-border bg-bg-surface text-fg-muted hover:text-fg hover:border-border-strong transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] min-h-11 sm:min-h-0"
+              >
+                + {preset.label}
+              </button>
+            ))}
+          </div>
           {packageRows.length === 0 ? (
             <p className="text-[13px] text-fg-subtle italic">
               No packages configured.
@@ -639,6 +675,112 @@ function SectionCard({
   );
 }
 
+const CF_STATUS_STYLE: Record<CfAvailability, { dot: string; label: string }> = {
+  default: { dot: "bg-success", label: "Default" },
+  available: { dot: "bg-success", label: "Available" },
+  relay: { dot: "bg-brand", label: "Bridge relay" },
+  unavailable: { dot: "bg-danger", label: "Unavailable" },
+};
+
+/** Concise, provider-specific callout: required secrets, Cloudflare vs
+ *  self-host availability, and networking notes — derived from the
+ *  AGENTS.md sandbox-provider table (see lib/environmentPresets.ts).
+ *  Fails soft (generic message, no error) for a provider id it doesn't
+ *  recognize, e.g. a custom BYOK provider. */
+function ProviderGuidancePanel({ providerId }: { providerId: string }) {
+  const guidance = getProviderGuidance(providerId);
+
+  return (
+    <SectionCard
+      title="Sandbox provider guidance"
+      subtitle="Required secrets, Cloudflare vs. self-host availability, and networking notes for this environment's provider."
+    >
+      <div className="flex items-start gap-3">
+        <ProviderMark id={providerId} colored className="size-5 shrink-0 mt-0.5 text-fg-subtle" />
+        <div className="flex-1 min-w-0 space-y-3">
+          {!guidance ? (
+            <p className="text-[13px] text-fg-muted">
+              No specific guidance for{" "}
+              <code className="font-mono text-xs bg-bg-surface px-1 rounded">{providerId}</code>.
+              This looks like a custom or newly registered provider — check its live health on
+              the{" "}
+              <Link to="/runtimes" className="underline hover:text-fg">
+                Runtimes
+              </Link>{" "}
+              page.
+            </p>
+          ) : (
+            <>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <GuidanceRow
+                  title="Cloudflare deployment"
+                  status={guidance.cf.status}
+                  note={guidance.cf.note}
+                />
+                <GuidanceRow title="Self-host Node" status="available" note={guidance.selfHost.note} />
+              </div>
+              {(guidance.requiredSecret || guidance.optionalSecret) && (
+                <div className="text-[12px] text-fg-muted space-y-0.5">
+                  {guidance.requiredSecret && (
+                    <div>
+                      <span className="text-fg-subtle">Required secret:</span>{" "}
+                      <code className="font-mono text-xs bg-bg-surface px-1 rounded text-fg">
+                        {guidance.requiredSecret}
+                      </code>
+                    </div>
+                  )}
+                  {guidance.optionalSecret && (
+                    <div>
+                      <span className="text-fg-subtle">Optional:</span>{" "}
+                      <code className="font-mono text-xs bg-bg-surface px-1 rounded text-fg">
+                        {guidance.optionalSecret}
+                      </code>
+                    </div>
+                  )}
+                </div>
+              )}
+              {guidance.networking && (
+                <p className="text-[12px] text-fg-muted">
+                  <span className="text-fg-subtle">Networking:</span> {guidance.networking}
+                </p>
+              )}
+              {guidance.limitations && guidance.limitations.length > 0 && (
+                <ul className="text-[12px] text-fg-subtle list-disc ml-4 space-y-0.5">
+                  {guidance.limitations.map((limitation) => (
+                    <li key={limitation}>{limitation}</li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+function GuidanceRow({
+  title,
+  status,
+  note,
+}: {
+  title: string;
+  status: CfAvailability;
+  note: string;
+}) {
+  const style = CF_STATUS_STYLE[status];
+  return (
+    <div className="rounded-md border border-border bg-bg-surface/30 px-3 py-2">
+      <div className="flex items-center gap-1.5 text-[12px] font-medium text-fg">
+        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${style.dot}`} aria-hidden="true" />
+        {title}
+        <span className="text-fg-subtle font-normal">· {style.label}</span>
+      </div>
+      <p className="text-[12px] text-fg-muted mt-1 leading-relaxed">{note}</p>
+    </div>
+  );
+}
+
 function Toggle({
   label,
   checked,
@@ -764,6 +906,36 @@ export function rowsToPackages(
     out.gem = preservedGem;
   }
   return out;
+}
+
+/** Merge a package preset into the current editor rows. For each manager
+ *  the preset touches: appends to that manager's existing row (deduping
+ *  exact spec matches) if one exists, otherwise adds a new row. Presets
+ *  never remove or overwrite user-entered packages. */
+export function applyPackagePreset(
+  rows: PackageRow[],
+  preset: PackagePreset,
+): PackageRow[] {
+  const next = [...rows];
+  for (const manager of MANAGERS) {
+    const specs = preset.packages[manager];
+    if (!specs || specs.length === 0) continue;
+    const idx = next.findIndex((r) => r.manager === manager);
+    if (idx === -1) {
+      next.push({ manager, packages: specs.join(" ") });
+      continue;
+    }
+    const existing = next[idx].packages
+      .split(/\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const merged = [...existing];
+    for (const spec of specs) {
+      if (!merged.includes(spec)) merged.push(spec);
+    }
+    next[idx] = { ...next[idx], packages: merged.join(" ") };
+  }
+  return next;
 }
 
 export function metadataToRows(
