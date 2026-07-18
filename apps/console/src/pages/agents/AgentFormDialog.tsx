@@ -407,53 +407,66 @@ export const INITIAL_FORM = {
   enableGeneralSubagent: false,
 };
 
-export interface AgentFormDialogProps {
+/** Runtime roster shape the form's Local-runtime pickers consume. */
+export type FormRuntime = {
+  id: string;
+  hostname: string;
+  status: string;
+  agents: Array<{ id: string }>;
+  local_skills?: Record<
+    string,
+    Array<{ id: string; name?: string; description?: string; source?: string; source_label?: string }>
+  >;
+};
+
+/** Data sets shared by every host of the create form (dialog + page). */
+export interface AgentCreateFormData {
+  allAgents: Agent[];
+  customSkills: Array<{ id: string; name: string; description: string }>;
+  modelCards: ModelCard[];
+  runtimes: FormRuntime[];
+}
+
+export interface AgentFormDialogProps extends AgentCreateFormData {
   open: boolean;
   onClose: () => void;
   /** Called after the agent is created successfully. Parent uses this
    *  to refresh the list. The dialog handles its own navigation to the
    *  new agent's detail page. */
   onCreated?: () => void;
-  /** Data sets the form's pickers pull from. The parent fetches these
-   *  on mount (loadAux) and passes them down so the dialog doesn't have
-   *  to re-fetch on every open. */
-  allAgents: Agent[];
-  customSkills: Array<{ id: string; name: string; description: string }>;
-  modelCards: ModelCard[];
-  runtimes: Array<{
-    id: string;
-    hostname: string;
-    status: string;
-    agents: Array<{ id: string }>;
-    local_skills?: Record<
-      string,
-      Array<{ id: string; name?: string; description?: string; source?: string; source_label?: string }>
-    >;
-  }>;
+}
+
+interface AgentCreateFormProps extends AgentCreateFormData {
+  /** "dialog" wraps the flow in the modal box chrome; "page" renders it
+   *  bare for the full-page `/agents/new` route. The two share every bit
+   *  of state and markup below — only the outer container differs. */
+  variant: "dialog" | "page";
+  /** Cancel affordance — closes the dialog / navigates away from the page. */
+  onCancel: () => void;
+  onCreated?: () => void;
+  /** Forwarded onto the form's root element so the dialog host can run its
+   *  focus trap against it. Unused by the page host. */
+  rootRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 /**
- * Create-agent dialog. Multi-step (template → form) with three editor
- * modes (form / yaml / json). Owns all of its own state — `form`,
- * `createStep`, `createMode`, etc. — so the parent `AgentsList` just
- * mounts it and forwards data lists + an `onCreated` hook for the
- * post-save refresh.
- *
- * Stays hand-rolled rather than wrapping `Modal` because the
- * template→form/yaml/json multi-step header doesn't fit the standard
- * Modal layout. Focus trap, scroll lock, focus restore, and Escape
- * handling are reimplemented inline (mirroring `components/Modal.tsx`
- * behavior) so keyboard + screen-reader users get the same affordances.
+ * The New Agent create flow — multi-step (template → form) with three
+ * editor modes (form / yaml / json). Owns all of its own state — `form`,
+ * `createStep`, `createMode`, etc. — and is rendered in two places from a
+ * single implementation: inside `AgentFormDialog` (modal) and on the
+ * `/agents/new` full page (`AgentBuilder`). The `variant` prop only swaps
+ * the outer container so the two stay byte-identical everywhere else.
  */
-export function AgentFormDialog({
-  open,
-  onClose,
+export function AgentCreateForm({
+  variant,
+  onCancel,
   onCreated,
+  rootRef,
   allAgents,
   customSkills,
   modelCards,
   runtimes,
-}: AgentFormDialogProps) {
+}: AgentCreateFormProps) {
   const { api } = useApi();
   const nav = useNavigate();
 
@@ -466,8 +479,8 @@ export function AgentFormDialog({
   const [codeValue, setCodeValue] = useState("");
   const [showMcpPicker, setShowMcpPicker] = useState(false);
 
-  const createDialogRef = useRef<HTMLDivElement>(null);
   const createPreviousFocus = useRef<HTMLElement | null>(null);
+  const isDialog = variant === "dialog";
 
   // Pre-select default model card when entering the form step. (tenant_id,
   // model_id) is UNIQUE in DB, so picking a card uniquely determines the
@@ -492,21 +505,22 @@ export function AgentFormDialog({
     setCreateError("");
     setCreateMode("form");
     setCodeValue("");
-    onClose();
+    onCancel();
   };
 
   // Dialog a11y — focus trap + Escape, scroll lock, focus restore on close.
   // Mirrors components/Modal.tsx behavior so this hand-rolled multi-step
-  // dialog is keyboard-equivalent.
+  // dialog is keyboard-equivalent. Page variant skips all of this (it's a
+  // normal route, not a modal).
   useEffect(() => {
-    if (!open) return;
+    if (!isDialog) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         closeCreate();
         return;
       }
       if (e.key !== "Tab") return;
-      const el = createDialogRef.current;
+      const el = rootRef?.current;
       if (!el) return;
       const f = el.querySelectorAll<HTMLElement>(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
@@ -527,12 +541,12 @@ export function AgentFormDialog({
     // closeCreate is stable enough — deps kept tight to avoid re-binding
     // on every keystroke.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [isDialog]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!isDialog) return;
     createPreviousFocus.current = document.activeElement as HTMLElement;
-    const el = createDialogRef.current;
+    const el = rootRef?.current;
     el?.querySelector<HTMLElement>(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
     )?.focus();
@@ -542,7 +556,7 @@ export function AgentFormDialog({
       document.body.style.overflow = prev;
       createPreviousFocus.current?.focus();
     };
-  }, [open]);
+  }, [isDialog]);
 
   const create = async () => {
     setCreateError("");
@@ -746,29 +760,26 @@ export function AgentFormDialog({
   const selectedCardId =
     form.modelCardId || modelCards.find((mc) => mc.model_id === form.model)?.id || "";
 
-  if (!open) {
-    // Render the MCP picker anyway? No — it only makes sense while the
-    // form dialog is mounted.
-    return null;
-  }
+  // Outer box classes. Dialog = the modal card (width driven by step);
+  // page = a plain full-width column (the route provides max-width + padding).
+  const boxCls = isDialog
+    ? `bg-bg rounded-lg shadow-xl w-full max-h-[85vh] flex flex-col ${
+        createStep === "template"
+          ? "max-w-2xl md:max-w-3xl xl:max-w-5xl"
+          : "max-w-2xl"
+      }`
+    : "w-full flex flex-col";
 
   return (
     <>
-      <div
-        className="fixed inset-0 bg-bg-overlay flex items-center justify-center z-50"
-        onClick={closeCreate}
-      >
+      <MaybeOverlay isDialog={isDialog} onBackdrop={closeCreate}>
         <div
-          ref={createDialogRef}
-          role="dialog"
-          aria-modal="true"
-          aria-label="New Agent"
-          className={`bg-bg rounded-lg shadow-xl w-full max-h-[85vh] flex flex-col ${
-            createStep === "template"
-              ? "max-w-2xl md:max-w-3xl xl:max-w-5xl"
-              : "max-w-2xl"
-          }`}
-          onClick={(e) => e.stopPropagation()}
+          ref={rootRef}
+          role={isDialog ? "dialog" : undefined}
+          aria-modal={isDialog ? true : undefined}
+          aria-label={isDialog ? "New Agent" : undefined}
+          className={boxCls}
+          onClick={isDialog ? (e) => e.stopPropagation() : undefined}
         >
           {/* Template selection step */}
           {createStep === "template" && (
@@ -1053,7 +1064,7 @@ export function AgentFormDialog({
             </>
           )}
         </div>
-      </div>
+      </MaybeOverlay>
 
       {/* MCP server registry picker — same MCP_REGISTRY the vault page uses */}
       <McpServerPickerModal
@@ -1063,6 +1074,59 @@ export function AgentFormDialog({
         onPick={addMcpFromRegistry}
       />
     </>
+  );
+}
+
+/** Wraps the create flow in the modal backdrop for the dialog variant; a
+ *  pass-through for the page variant. */
+function MaybeOverlay({
+  isDialog,
+  onBackdrop,
+  children,
+}: {
+  isDialog: boolean;
+  onBackdrop: () => void;
+  children: React.ReactNode;
+}) {
+  if (!isDialog) return <>{children}</>;
+  return (
+    <div
+      className="fixed inset-0 bg-bg-overlay flex items-center justify-center z-50"
+      onClick={onBackdrop}
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Create-agent dialog. A thin modal host around `AgentCreateForm` — mounts
+ * it only while `open`, so the form's internal state resets cleanly on every
+ * open. `AgentBuilder` renders the same `AgentCreateForm` with
+ * `variant="page"` for the `/agents/new` full-page route.
+ */
+export function AgentFormDialog({
+  open,
+  onClose,
+  onCreated,
+  allAgents,
+  customSkills,
+  modelCards,
+  runtimes,
+}: AgentFormDialogProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  if (!open) return null;
+  return (
+    <AgentCreateForm
+      variant="dialog"
+      onCancel={onClose}
+      onCreated={onCreated}
+      rootRef={rootRef}
+      allAgents={allAgents}
+      customSkills={customSkills}
+      modelCards={modelCards}
+      runtimes={runtimes}
+    />
   );
 }
 
@@ -1088,13 +1152,49 @@ export function BasicTab({
   runtimes,
   selectedCardId,
 }: BasicTabProps) {
+  // Cloud vs Local. The *binding* is derived from whether a runtime is set
+  // (a bound runtime implies harness "acp-proxy"); but the toggle needs its
+  // own intent so that picking "Local" with no runtimes registered still
+  // reveals the connect-a-machine empty-state instead of silently no-oping.
+  const [runtimeMode, setRuntimeMode] = useState<"cloud" | "local">(
+    form.runtimeId ? "local" : "cloud",
+  );
+  const isLocal = runtimeMode === "local";
+  const onlineRuntimes = runtimes.filter((r) => r.status === "online");
+
+  const selectCloud = () => {
+    setRuntimeMode("cloud");
+    // Clearing the runtime binding drops back to the cloud loop. The acp*
+    // overrides stay in state harmlessly — they're only serialized by
+    // formToConfig when a runtime is bound.
+    setForm({ ...form, runtimeId: "" });
+  };
+  const selectLocal = () => {
+    setRuntimeMode("local");
+    // Auto-bind the first online runtime + its first detected ACP agent so
+    // the common case is one click. If none are registered, still flip to
+    // Local and show the connect-a-machine empty-state below.
+    const rt = onlineRuntimes[0] ?? runtimes[0];
+    if (rt) {
+      setForm({ ...form, runtimeId: rt.id, acpAgentId: rt.agents?.[0]?.id ?? form.acpAgentId });
+    }
+  };
+
+  const segCls = (active: boolean) =>
+    `flex-1 inline-flex flex-col items-start gap-0.5 px-3 py-2 min-h-11 text-sm rounded-md border transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] ${
+      active
+        ? "border-brand bg-brand/5 text-fg"
+        : "border-border text-fg-muted hover:border-border-strong"
+    }`;
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {createError && (
         <div className="text-sm text-danger bg-danger-subtle border border-danger/30 rounded-lg px-3 py-2">
           {createError}
         </div>
       )}
+      {/* ── Identity first: name, description, system prompt ─────────────── */}
       <div>
         <label htmlFor="agent-name" className="text-sm text-fg-muted block mb-1">
           Name *
@@ -1107,60 +1207,6 @@ export function BasicTab({
           placeholder="Coding Assistant"
         />
       </div>
-      {/* Model picker — see comments at the original call site. */}
-      {!form.runtimeId &&
-        (modelCards.length === 0 ? (
-          <p className="text-xs text-fg-subtle bg-bg-surface px-3 py-2 rounded-lg">
-            No model cards configured. Cloud agents need at least one card to provide LLM
-            credentials.{" "}
-            <a
-              href="/model-cards"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-fg-muted"
-            >
-              Add one
-            </a>{" "}
-            (opens in a new tab — your draft here is kept).
-          </p>
-        ) : (
-          <div>
-            <label className="text-sm text-fg-muted block mb-1">Model</label>
-            <Combobox<ModelCard>
-              value={selectedCardId}
-              onValueChange={(v, item) => {
-                setForm({ ...form, modelCardId: v, model: item?.model_id ?? v });
-              }}
-              endpoint="/v1/model_cards"
-              getValue={(mc) => mc.id}
-              getLabel={(mc) => (
-                <span>
-                  {mc.is_default ? "★ " : ""}
-                  {mc.model_id}
-                  {mc.model !== mc.model_id && (
-                    <span className="text-fg-subtle text-[12px]"> ({mc.model})</span>
-                  )}
-                </span>
-              )}
-              getTextLabel={(mc) =>
-                `${mc.is_default ? "★ " : ""}${mc.model_id}${
-                  mc.model !== mc.model_id ? ` (${mc.model})` : ""
-                }`
-              }
-              placeholder={
-                !selectedCardId && form.model
-                  ? `⚠ ${form.model} — no matching card, pick one`
-                  : "Select a model card..."
-              }
-            />
-          </div>
-        ))}
-      {form.runtimeId && (
-        <p className="text-xs text-fg-subtle bg-bg-surface px-3 py-2 rounded-lg">
-          Model is determined by the ACP child on the runtime ({form.acpAgentId || "—"}) — it
-          uses its own LLM credentials.
-        </p>
-      )}
       <div>
         <label htmlFor="agent-description" className="text-sm text-fg-muted block mb-1">
           Description
@@ -1190,100 +1236,165 @@ export function BasicTab({
           placeholder="You are a helpful assistant..."
         />
       </div>
-      {/* Agent runtime (harness) — which loop implementation drives this
-          agent's turns. Plain-language options map to the `harness` wire
-          values; a bound Local Runtime always implies "acp-proxy" and
-          takes over this field entirely (shown locked below). */}
-      <div>
-        <label className="text-sm text-fg-muted block mb-1">Agent runtime</label>
-        {form.runtimeId ? (
-          <>
-            <Select value="acp-proxy" onValueChange={() => {}} disabled>
-              <SelectOption value="acp-proxy">Local runtime (ACP)</SelectOption>
-            </Select>
-            <p className="text-xs text-fg-subtle mt-1">
-              Determined by the Local Runtime binding below — clear it to pick a cloud
-              runtime instead.
-            </p>
-          </>
-        ) : (
-          <>
-            <Select
-              value={form.harness}
-              onValueChange={(v) => setForm({ ...form, harness: v as typeof form.harness })}
-            >
-              <SelectOption value="default">Standard (recommended)</SelectOption>
-              <SelectOption value="claude-agent-sdk">
-                Claude Agent SDK — full Claude Code experience (self-host)
-              </SelectOption>
-              <SelectOption value="long-running">
-                Long-running — progress heartbeats
-              </SelectOption>
-            </Select>
-            <p className="text-xs text-fg-subtle mt-1">
-              {form.harness === "claude-agent-sdk"
-                ? "Runs the agent through the Claude Agent SDK CLI — the same loop Claude Code uses. Self-hosted deployments only."
-                : form.harness === "long-running"
-                  ? "Emits periodic progress updates on a fixed cadence — good for tasks that run for a long time unattended."
-                  : "The default loop. Works everywhere and is the right choice for most agents."}
-            </p>
-          </>
-        )}
-      </div>
-      {/* Local Runtime — bind agent's loop to a user-registered machine
-          instead of OMA's cloud SessionDO. The "no runtime" option is the
-          default cloud agent. */}
-      <div>
-        <label className="text-sm text-fg-muted block mb-1">
-          Local Runtime
-          <span className="ml-1 text-xs text-fg-subtle">(optional)</span>
-        </label>
-        {runtimes.length === 0 ? (
-          <p className="text-xs text-fg-subtle bg-bg-surface px-3 py-2 rounded-lg">
-            No runtimes registered.{" "}
-            <a
-              href="/runtimes"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-fg-muted"
-            >
-              Connect a machine
-            </a>{" "}
-            (opens in a new tab — your draft here is kept) to delegate this agent's loop to
-            your own Claude Code (or other ACP) child.
-          </p>
-        ) : (
-          <>
-            <Select
-              value={form.runtimeId || "__cloud__"}
-              onValueChange={(v) => {
-                const rid = v === "__cloud__" ? "" : v;
-                // Auto-pick the first detected ACP agent on the chosen runtime —
-                // user doesn't have to know what strings the daemon emits.
-                const first = runtimes.find((r) => r.id === rid)?.agents?.[0]?.id;
-                setForm({
-                  ...form,
-                  runtimeId: rid,
-                  acpAgentId: rid && first ? first : form.acpAgentId,
-                });
-              }}
-              placeholder="— Cloud (run on OMA) —"
-            >
-              <SelectOption value="__cloud__">— Cloud (run on OMA) —</SelectOption>
-              {runtimes.map((r) => (
-                <SelectOption key={r.id} value={r.id} disabled={r.status !== "online"}>
-                  {r.hostname} ({r.status}
-                  {r.status === "online" && r.agents.length
-                    ? ` · ${r.agents.length} agents`
-                    : ""}
-                  )
-                </SelectOption>
-              ))}
-            </Select>
-            {form.runtimeId && (
-              <AcpAgentPicker form={form} setForm={setForm} runtimes={runtimes} />
+
+      {/* ── Agent runtime: Cloud vs Local ───────────────────────────────── */}
+      <div className="pt-1 border-t border-border">
+        <label className="text-sm font-medium text-fg block mb-1 mt-3">Agent runtime</label>
+        <p className="text-xs text-fg-subtle mb-2">
+          Where this agent's loop runs. Cloud uses a model backed by one of your keys;
+          Local delegates each turn to a coding agent on a machine you've paired.
+        </p>
+        <div className="flex gap-2" role="radiogroup" aria-label="Agent runtime">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={!isLocal}
+            onClick={selectCloud}
+            className={segCls(!isLocal)}
+          >
+            <span className="font-medium">☁ Cloud</span>
+            <span className="text-xs text-fg-subtle">Runs on OMA with a model card</span>
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={isLocal}
+            onClick={selectLocal}
+            className={segCls(isLocal)}
+          >
+            <span className="font-medium">💻 Local</span>
+            <span className="text-xs text-fg-subtle">Coding agent on your machine</span>
+          </button>
+        </div>
+
+        {/* Cloud: model card + optional advanced harness. */}
+        {!isLocal && (
+          <div className="mt-3 space-y-3">
+            {modelCards.length === 0 ? (
+              <p className="text-xs text-fg-subtle bg-bg-surface px-3 py-2 rounded-lg">
+                No model cards configured. Cloud agents need at least one card to provide LLM
+                credentials.{" "}
+                <a
+                  href="/model-cards"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-fg-muted"
+                >
+                  Add one
+                </a>{" "}
+                (opens in a new tab — your draft here is kept).
+              </p>
+            ) : (
+              <div>
+                <label className="text-sm text-fg-muted block mb-1">Model</label>
+                <Combobox<ModelCard>
+                  value={selectedCardId}
+                  onValueChange={(v, item) => {
+                    setForm({ ...form, modelCardId: v, model: item?.model_id ?? v });
+                  }}
+                  endpoint="/v1/model_cards"
+                  getValue={(mc) => mc.id}
+                  getLabel={(mc) => (
+                    <span>
+                      {mc.is_default ? "★ " : ""}
+                      {mc.model_id}
+                      {mc.model !== mc.model_id && (
+                        <span className="text-fg-subtle text-[12px]"> ({mc.model})</span>
+                      )}
+                    </span>
+                  )}
+                  getTextLabel={(mc) =>
+                    `${mc.is_default ? "★ " : ""}${mc.model_id}${
+                      mc.model !== mc.model_id ? ` (${mc.model})` : ""
+                    }`
+                  }
+                  placeholder={
+                    !selectedCardId && form.model
+                      ? `⚠ ${form.model} — no matching card, pick one`
+                      : "Select a model card..."
+                  }
+                />
+              </div>
             )}
-          </>
+            {/* Advanced: swap the cloud loop implementation. */}
+            <div>
+              <label className="text-sm text-fg-muted block mb-1">Harness</label>
+              <Select
+                value={form.harness}
+                onValueChange={(v) => setForm({ ...form, harness: v as typeof form.harness })}
+              >
+                <SelectOption value="default">Standard (recommended)</SelectOption>
+                <SelectOption value="claude-agent-sdk">
+                  Claude Agent SDK — full Claude Code experience (self-host)
+                </SelectOption>
+                <SelectOption value="long-running">
+                  Long-running — progress heartbeats
+                </SelectOption>
+              </Select>
+              <p className="text-xs text-fg-subtle mt-1">
+                {form.harness === "claude-agent-sdk"
+                  ? "Runs the agent through the Claude Agent SDK CLI — the same loop Claude Code uses. Self-hosted deployments only."
+                  : form.harness === "long-running"
+                    ? "Emits periodic progress updates on a fixed cadence — good for tasks that run for a long time unattended."
+                    : "The default loop. Works everywhere and is the right choice for most agents."}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Local: pick the paired machine, then the coding agent + overrides. */}
+        {isLocal && (
+          <div className="mt-3 space-y-2">
+            {runtimes.length === 0 ? (
+              <p className="text-xs text-fg-subtle bg-bg-surface px-3 py-2 rounded-lg">
+                No runtimes registered.{" "}
+                <a
+                  href="/runtimes"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-fg-muted"
+                >
+                  Connect a machine
+                </a>{" "}
+                (opens in a new tab — your draft here is kept) to delegate this agent's loop
+                to your own Claude Code (or other ACP) child.
+              </p>
+            ) : (
+              <>
+                <div>
+                  <label className="text-sm text-fg-muted block mb-1">Machine</label>
+                  <Select
+                    value={form.runtimeId}
+                    onValueChange={(v) => {
+                      // Auto-pick the first detected ACP agent on the chosen
+                      // runtime — user doesn't have to know what strings the
+                      // daemon emits.
+                      const first = runtimes.find((r) => r.id === v)?.agents?.[0]?.id;
+                      setForm({
+                        ...form,
+                        runtimeId: v,
+                        acpAgentId: first ?? form.acpAgentId,
+                      });
+                    }}
+                    placeholder="Select a machine..."
+                  >
+                    {runtimes.map((r) => (
+                      <SelectOption key={r.id} value={r.id} disabled={r.status !== "online"}>
+                        {r.hostname} ({r.status}
+                        {r.status === "online" && r.agents.length
+                          ? ` · ${r.agents.length} agents`
+                          : ""}
+                        )
+                      </SelectOption>
+                    ))}
+                  </Select>
+                </div>
+                {form.runtimeId && (
+                  <AcpAgentPicker form={form} setForm={setForm} runtimes={runtimes} />
+                )}
+              </>
+            )}
+          </div>
         )}
       </div>
     </div>
