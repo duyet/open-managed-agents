@@ -30,32 +30,74 @@ type BuilderFormState = FormState & {
   selectedPreset: string;
 };
 
-const SYSTEM_PROMPT_PRESETS = [
+/** Preset metadata drives the tag / integration filter rows above the
+ *  template grid. `tags` are broad categories; `integrations` name the
+ *  external services the preset is written to work against. "Custom" has
+ *  neither and is always shown so a filtered view never dead-ends. */
+const SYSTEM_PROMPT_PRESETS: {
+  label: string;
+  prompt: string;
+  tags: string[];
+  integrations: string[];
+}[] = [
   {
     label: "Friendly assistant",
     prompt: "You are a helpful, friendly assistant. Be concise and clear in your responses.",
+    tags: ["general"],
+    integrations: [],
   },
   {
     label: "Code reviewer",
     prompt: "You are an expert code reviewer. Analyze code for bugs, security issues, performance problems, and style violations. Provide actionable feedback.",
+    tags: ["engineering"],
+    integrations: ["github"],
+  },
+  {
+    label: "Bug triage",
+    prompt: "You are a bug-triage engineer. When mentioned on an issue, reproduce the bug in your sandbox, check out a branch, commit a fix, open a pull request, and post your findings back as an issue comment.",
+    tags: ["engineering", "automation"],
+    integrations: ["github"],
+  },
+  {
+    label: "Support agent",
+    prompt: "You are a support agent. Answer customer questions from the team's documentation, reply in the thread where the question was asked, and escalate to a human when unsure.",
+    tags: ["support"],
+    integrations: ["slack"],
+  },
+  {
+    label: "Incident responder",
+    prompt: "You are an incident responder. When an alert fires, triage it: identify the failing service, file a tracking ticket with your findings, and open a war room with a summary of impact and next steps.",
+    tags: ["operations", "automation"],
+    integrations: ["sentry", "linear", "slack"],
   },
   {
     label: "Data analyst",
     prompt: "You are a data analyst. Help users understand their data through analysis, visualization, and clear explanations. Use Python for data work.",
+    tags: ["data"],
+    integrations: [],
   },
   {
     label: "DevOps engineer",
     prompt: "You are a DevOps engineer. Help with infrastructure, deployment, CI/CD, and monitoring. Prefer bash and infrastructure-as-code approaches.",
+    tags: ["engineering", "operations"],
+    integrations: ["github"],
   },
   {
     label: "Technical writer",
     prompt: "You are a technical writer. Help write clear, well-structured documentation. Focus on accuracy, readability, and completeness.",
+    tags: ["writing"],
+    integrations: [],
   },
   {
     label: "Custom",
     prompt: "",
+    tags: [],
+    integrations: [],
   },
 ];
+
+const PRESET_TAGS = [...new Set(SYSTEM_PROMPT_PRESETS.flatMap((p) => p.tags))];
+const PRESET_INTEGRATIONS = [...new Set(SYSTEM_PROMPT_PRESETS.flatMap((p) => p.integrations))];
 
 const AVAILABLE_TOOLS = [
   { id: "bash", label: "Bash", description: "Execute shell commands" },
@@ -87,6 +129,8 @@ export function AgentBuilder() {
   const [modelCards, setModelCards] = useState<ModelCard[]>([]);
   const [showMcpPicker, setShowMcpPicker] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [presetTag, setPresetTag] = useState<string | null>(null);
+  const [presetIntegration, setPresetIntegration] = useState<string | null>(null);
 
   useEffect(() => {
     api<{ data: Skill[] }>("/v1/skills?limit=200")
@@ -208,8 +252,46 @@ export function AgentBuilder() {
         <div className="space-y-4">
           <div>
             <label className="text-sm text-fg-muted block mb-1">Template</label>
+            {/* Tag + integration filter rows. Single-select toggles; "Custom"
+                is exempt from filtering so the grid never goes empty. */}
+            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+              {PRESET_TAGS.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setPresetTag(presetTag === tag ? null : tag)}
+                  className={`px-2 py-0.5 rounded-full border text-xs transition-colors ${
+                    presetTag === tag
+                      ? "border-brand bg-brand/10 text-brand"
+                      : "border-border text-fg-muted hover:border-border-strong"
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+              <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
+              {PRESET_INTEGRATIONS.map((integration) => (
+                <button
+                  key={integration}
+                  onClick={() =>
+                    setPresetIntegration(presetIntegration === integration ? null : integration)
+                  }
+                  className={`px-2 py-0.5 rounded-full border text-xs font-mono transition-colors ${
+                    presetIntegration === integration
+                      ? "border-brand bg-brand/10 text-brand"
+                      : "border-border text-fg-muted hover:border-border-strong"
+                  }`}
+                >
+                  {integration}
+                </button>
+              ))}
+            </div>
             <div className="grid grid-cols-2 gap-2">
-              {SYSTEM_PROMPT_PRESETS.map((preset) => (
+              {SYSTEM_PROMPT_PRESETS.filter(
+                (preset) =>
+                  preset.label === "Custom" ||
+                  ((!presetTag || preset.tags.includes(presetTag)) &&
+                    (!presetIntegration || preset.integrations.includes(presetIntegration))),
+              ).map((preset) => (
                 <button
                   key={preset.label}
                   onClick={() => update({ selectedPreset: preset.label, system: preset.prompt })}
@@ -219,7 +301,12 @@ export function AgentBuilder() {
                       : "border-border text-fg-muted hover:border-border-strong"
                   }`}
                 >
-                  {preset.label}
+                  <span className="block">{preset.label}</span>
+                  {(preset.tags.length > 0 || preset.integrations.length > 0) && (
+                    <span className="block mt-0.5 text-xs text-fg-subtle">
+                      {[...preset.tags, ...preset.integrations].join(" · ")}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
