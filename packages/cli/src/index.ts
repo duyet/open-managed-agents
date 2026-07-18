@@ -7,6 +7,8 @@ import { mkdirSync, readFileSync, writeFileSync, unlinkSync, existsSync, chmodSy
 import { randomBytes } from "node:crypto";
 import type { AgentConfig, ModelCard, SessionMeta } from "@duyet/oma-api-types";
 import { currentProfile } from "./bridge/lib/platform.js";
+import { recordCommand, telemetryStatus, setTelemetryEnabled } from "./telemetry.js";
+import { bumpCommand } from "./counters.js";
 
 // ─── Config ───
 
@@ -2279,6 +2281,34 @@ const commands: Cmd[] = [
       console.log(`Deleted schedule: ${scheduleId}`);
     },
   },
+
+  // Telemetry (local, opt-out)
+  {
+    group: "Telemetry", match: ["telemetry", "status"],
+    usage: "oma telemetry status", desc: "Show anonymous-telemetry state and how to change it",
+    http: "(local — no network)",
+    run(config) {
+      const s = telemetryStatus();
+      if (config.json) { console.log(JSON.stringify(s, null, 2)); return; }
+      console.log(`Telemetry : ${s.enabled ? "enabled" : "disabled"}`);
+      console.log(`Reason    : ${s.reason}`);
+      console.log(`Config    : ${s.configFile}`);
+      console.log(`\nCollected: command name, CLI version, OS/arch, anonymous machine id.`);
+      console.log(`Never collected: arguments, paths, ids, tokens, or any PII.`);
+    },
+  },
+  {
+    group: "Telemetry", match: ["telemetry", "enable"],
+    usage: "oma telemetry enable", desc: "Enable anonymous usage telemetry",
+    http: "(local — no network)",
+    run() { setTelemetryEnabled(true); console.log("Telemetry enabled. Disable any time with: oma telemetry disable"); },
+  },
+  {
+    group: "Telemetry", match: ["telemetry", "disable"],
+    usage: "oma telemetry disable", desc: "Disable anonymous usage telemetry",
+    http: "(local — no network)",
+    run() { setTelemetryEnabled(false); console.log("Telemetry disabled."); },
+  },
 ];
 
 // ─── API Endpoints not covered by CLI commands ───
@@ -2424,7 +2454,25 @@ function apiRef(resource?: string) {
 
 // ─── Usage (derived from commands) ───
 
+/** Small ASCII "oma" wordmark for the welcome/help banner. Shown only on an
+ *  interactive stdout (TTY) with color allowed; piped or NO_COLOR output stays
+ *  plain so `oma --help | less` and scripts see clean text. */
+function banner(): string {
+  if (!process.stdout.isTTY || process.env.NO_COLOR) return "";
+  const O = "\x1b[38;2;255;107;80m"; // brand orange (#FF6B50)
+  const R = "\x1b[0m";
+  const art = [
+    "  ___  _ __ ___   __ _ ",
+    " / _ \\| '_ ` _ \\ / _` |",
+    "| (_) | | | | | | (_| |",
+    " \\___/|_| |_| |_|\\__,_|",
+  ].join("\n");
+  return `${O}${art}${R}\n`;
+}
+
 function usage() {
+  const b = banner();
+  if (b) console.log(b);
   console.log(`\noma — Open Managed Agents CLI\n\nUsage:`);
   let lastGroup = "";
   for (const c of commands) {
@@ -2456,10 +2504,32 @@ Stored credentials live at ~/.config/oma/credentials.json (created by
 
 // ─── Main ───
 
+/** Cheap base-URL resolution for the public (unauthenticated) telemetry
+ *  endpoint — env override, else stored creds, else the prod default. */
+function telemetryBase(): string {
+  return (process.env.OMA_BASE_URL || readCredentials()?.base_url || "https://app.oma.duyet.net").replace(/\/+$/, "");
+}
+
 async function main() {
   let args = process.argv.slice(2);
-  if (!args.length || ["-h", "--help", "help"].includes(args[0])) { usage(); process.exit(0); }
-  if (args[0] === "api") { apiRef(args[1]); return; }
+  if (["-h", "--help", "help"].includes(args[0])) { usage(); process.exit(0); }
+
+  // Bare invocation: interactive menu on a real terminal, plain help
+  // otherwise (piped / non-TTY / CI). The menu just resolves to an argv
+  // that flows through the normal dispatch below — no duplicated logic.
+  if (!args.length) {
+    if (!process.stdout.isTTY || !process.stdin.isTTY) { usage(); process.exit(0); }
+    const { runInteractive } = await import("./interactive.js");
+    const chosen = await runInteractive();
+    if (!chosen || chosen.length === 0) process.exit(0);
+    args = chosen;
+    process.argv = [process.argv[0], process.argv[1], ...chosen];
+  }
+
+  // Local command counter (surfaced by `oma bridge status`). Best-effort.
+  bumpCommand();
+
+  if (args[0] === "api") { recordCommand(telemetryBase(), "api"); apiRef(args[1]); return; }
 
   // Global --profile <name> flag: must be parsed BEFORE bridge dispatch
   // and BEFORE any code that reads paths()/credentialsPath(), since both
@@ -2498,6 +2568,7 @@ async function main() {
   // argv parsing. Dispatch early to keep the main commands array unaware.
   if (args[0] === "bridge") {
     const sub = args[1] ?? "";
+    recordCommand(telemetryBase(), `bridge.${sub || "help"}`);
     process.argv.splice(2, 2); // strip "bridge" + subname so commands' parseArgs sees flags only
     switch (sub) {
       case "setup": {
@@ -2584,7 +2655,10 @@ async function main() {
   // `auth logout` is a local file delete and shouldn't error if logged out.
   // Both bypass the strict loadConfig that exits on missing key.
   const isPreAuth =
-    (args[0] === "auth" && (args[1] === "login" || args[1] === "logout"));
+    (args[0] === "auth" && (args[1] === "login" || args[1] === "logout")) ||
+    // Telemetry subcommands are purely local (config file read/write) and
+    // must work before login.
+    args[0] === "telemetry";
   const config = isPreAuth ? loadConfigOptional() : loadConfig();
   config.json = wantJson;
 
@@ -2599,6 +2673,7 @@ async function main() {
       continue;
     }
     const rest = args.slice(c.match.length);
+    recordCommand(config.baseUrl, c.match.join("."));
     return c.run(config, rest);
   }
 
