@@ -887,6 +887,41 @@ independently: `ANTHROPIC_API_KEY`, or `CLAUDE_CODE_OAUTH_TOKEN` (minted via
 `claude setup-token`) when that's unset — the CI/CD alternative for
 non-interactive deploys.
 
+### Connecting AnyRouter (one-click, no pasted key)
+
+Instead of the static `ANYROUTER_API_KEY` env fallback, the Console can
+provision a per-tenant AnyRouter key over OAuth — no `sk-ar-…` copy-paste.
+On the **Model Cards** page, **Connect to AnyRouter** runs AnyRouter's MCP
+OAuth 2.1 flow (Dynamic Client Registration + PKCE-S256; the browser carries
+the operator's AnyRouter session through the consent screen), and the minted
+`sk-ar-v1-…` key is stored **encrypted twice**: as a `static_bearer` vault
+credential (`provider: "anyrouter"`, the connection source of truth) and,
+mirrored into the auto-upserted `model_cards` row `model_id: "anyrouter"`
+(the only store the agent-run path reads). Any agent with
+`{"model": "anyrouter"}` then routes through the gateway with zero further
+setup. Reconnect rotates the key in place; disconnect deletes the card and
+archives the credential.
+
+Once connected, the panel also offers:
+
+- a **model + preset picker** that retargets the `anyrouter` card against
+  AnyRouter's live catalog (`GET /api/v1/models`, `provider/model` ids) and
+  saved account presets, plus a live **credit balance**;
+- **Create starter agents** — one click provisions two sibling model cards
+  sharing the same connected key (`anyrouter-strong` →
+  `anthropic/claude-sonnet-4-6`, `anyrouter-fast` →
+  `anthropic/claude-haiku-4-5`) and creates two agents wired to them (a
+  general assistant on the strong model, a summarizer on the fast one). The
+  sibling cards appear in the agent form's model picker like any other card.
+
+Backend routes live under `/v1/providers/anyrouter/*`
+(`packages/http-routes/src/providers/anyrouter.ts`): `connect` / `callback`
+/ `status` / `disconnect` / `models` / `credits` / `presets`. The pure OAuth
+protocol logic is in `packages/anyrouter`. **Cloudflare only** for the
+model-card bind + presets — self-host Node has no D1 model-cards store, so
+those endpoints no-op (`presets` returns `model_cards_unavailable`) and the
+process-global env-var provider is hot-swapped on connect instead.
+
 ---
 
 ## Session Resources
