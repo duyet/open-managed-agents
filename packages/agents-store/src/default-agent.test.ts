@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  DEFAULT_AGENT_INPUT,
-  SENIOR_ENGINEER_AGENT_INPUT,
-  seedDefaultAgent,
-} from "./default-agent";
+import { DEFAULT_AGENT_INPUT, seedDefaultAgent } from "./default-agent";
 import { createInMemoryAgentService } from "./test-fakes";
 
 describe("seedDefaultAgent", () => {
@@ -41,22 +37,9 @@ describe("seedDefaultAgent", () => {
     expect(fromOtherTenant).toBeNull();
 
     const tenantAAgents = await service.list({ tenantId: "tn_a" });
-    expect(tenantAAgents).toHaveLength(2);
+    expect(tenantAAgents).toHaveLength(1);
     const tenantBAgents = await service.list({ tenantId: "tn_b" });
-    expect(tenantBAgents).toHaveLength(2);
-  });
-
-  it("also seeds the Senior Engineer implementation agent", async () => {
-    const { service } = createInMemoryAgentService();
-
-    await seedDefaultAgent(service, "tn_se");
-    const all = await service.list({ tenantId: "tn_se" });
-
-    expect(all.map((a) => a.name).sort()).toEqual(["General", "Senior Engineer"]);
-    const se = all.find((a) => a.name === "Senior Engineer")!;
-    expect(se.model).toBe(SENIOR_ENGINEER_AGENT_INPUT.model);
-    expect(se.tools).toEqual([{ type: "agent_toolset_20260401" }]);
-    expect(se.system).toContain("implementation engineer");
+    expect(tenantBAgents).toHaveLength(1);
   });
 
   it("uses the shared DEFAULT_AGENT_INPUT for every seed call", async () => {
