@@ -18,6 +18,7 @@ import { FilterChip, CreatedFilterChip } from "../components/FilterChip";
 import { TextInput, SecretInput } from "../components/Input";
 import { toast } from "sonner";
 import type { ModelCard } from "@duyet/oma-api-types";
+import { INITIAL_FORM, formToConfig } from "./agents/AgentFormDialog";
 
 // ─── AnyRouter — "Connect to AnyRouter" OAuth (PKCE) button ────────────
 //
@@ -189,6 +190,62 @@ function AnyRouterConnectCard({ onStatus }: { onStatus?: (s: AnyRouterStatus) =>
     }
   };
 
+  // One-click starter agents. The backend provisions the sibling model cards
+  // (anyrouter-strong / anyrouter-fast, sharing the connected key) and returns
+  // their handles; we build the actual agents through the same formToConfig
+  // machinery the agent form uses, so there's a single source of truth for the
+  // agent payload shape. Each spec maps to a card role.
+  const createStarterAgents = async () => {
+    setBusy(true);
+    try {
+      const res = await api<{
+        cards: { model_id: string; model: string; role: string; label: string }[];
+      }>("/v1/providers/anyrouter/presets", { method: "POST" });
+      const byRole = Object.fromEntries((res.cards ?? []).map((card) => [card.role, card]));
+      const specs = [
+        {
+          role: "strong",
+          name: "AnyRouter Assistant",
+          system:
+            "You are a helpful, capable general-purpose assistant. Think step by step and give clear, accurate answers.",
+        },
+        {
+          role: "fast",
+          name: "AnyRouter Summarizer",
+          system:
+            "You summarize text concisely and faithfully. Given any input, return a tight, accurate summary that preserves the key points.",
+        },
+      ];
+      let created = 0;
+      for (const spec of specs) {
+        const card = byRole[spec.role];
+        if (!card) continue;
+        const config = formToConfig({
+          ...INITIAL_FORM,
+          name: spec.name,
+          system: spec.system,
+          model: card.model_id,
+        });
+        try {
+          await api("/v1/agents", { method: "POST", body: JSON.stringify(config) });
+          created += 1;
+        } catch {
+          // Most likely a name collision from a prior run — skip this one but
+          // keep going so the other starter agent still lands.
+        }
+      }
+      if (created > 0) {
+        toast.success(`Created ${created} starter agent${created === 1 ? "" : "s"} wired to AnyRouter.`);
+      } else {
+        toast.error("Starter agents already exist (or couldn't be created).");
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to create starter agents");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (status === null) return null;
 
   return (
@@ -286,6 +343,9 @@ function AnyRouterConnectCard({ onStatus }: { onStatus?: (s: AnyRouterStatus) =>
             )}
             <Button variant="ghost" size="sm" onClick={setAsDefault} disabled={busy}>
               Set as default
+            </Button>
+            <Button variant="ghost" size="sm" onClick={createStarterAgents} disabled={busy}>
+              Create starter agents
             </Button>
           </div>
         );
