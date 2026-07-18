@@ -208,6 +208,14 @@ export default defineConfig({
       "apps/console/**",
       "apps/k8s-bridge/test/**",
       "apps/main-node/**",
+      // The CLI (bridge daemon) is a plain Node process, not a Worker — it has
+      // its own node-pool config (packages/cli/vitest.config.ts, pool:threads)
+      // and already runs via `pnpm --filter @getoma/cli test` in
+      // `test:packages`. Its bridge tests load child_process-based code that
+      // SEGFAULTS workerd at pool teardown — crashing the whole run with 2
+      // unhandled `_WebSocket.emitUnexpectedExit` errors even though every test
+      // passes. Keep them out of the Workers pool.
+      "packages/cli/**",
       "packages/browser-harness/test/**",
       "packages/cap/test/**",
       "packages/integrations-adapters-node/**",
