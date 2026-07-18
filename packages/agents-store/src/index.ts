@@ -22,3 +22,5 @@ export {
   createSqliteAgentService,
   SqlAgentRepo,
 } from "./adapters";
+
+export { DEFAULT_AGENT_INPUT, seedDefaultAgent } from "./default-agent";

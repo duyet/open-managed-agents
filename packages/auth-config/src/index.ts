@@ -199,6 +199,14 @@ export async function ensureTenantSqlite(
   userId: string,
   userName: string | null | undefined,
   userEmail: string | null | undefined,
+  /** Invoked exactly once, right after a brand-new tenant row is inserted
+   *  (never on the early-return "tenant already exists" path above) — used
+   *  by callers to seed per-tenant defaults (e.g. the default "General"
+   *  agent, see @duyet/oma-agents-store's seedDefaultAgent). Errors are
+   *  swallowed (logged to stderr) so a seeding hiccup never turns into a
+   *  failed sign-up or a broken self-heal / trusted-proxy resolve — every
+   *  caller of ensureTenantSqlite relies on its return value synchronously. */
+  onTenantCreated?: (tenantId: string) => Promise<void>,
 ): Promise<string> {
   const existing = await sql
     .prepare(
@@ -228,6 +236,17 @@ export async function ensureTenantSqlite(
     )
     .bind(userId, tenantId, now)
     .run();
+
+  if (onTenantCreated) {
+    try {
+      await onTenantCreated(tenantId);
+    } catch (err) {
+      console.error("[auth-config] ensureTenantSqlite: onTenantCreated failed:", {
+        tenant_id: tenantId,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   // Re-read in case a concurrent caller raced.
   const final = await sql

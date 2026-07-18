@@ -32,7 +32,7 @@ import {
   createPostgresSqlClient,
   type SqlClient,
 } from "@duyet/oma-sql-client";
-import { createSqliteAgentService } from "@duyet/oma-agents-store";
+import { createSqliteAgentService, seedDefaultAgent } from "@duyet/oma-agents-store";
 import {
   createSqliteMemoryStoreService,
   SqlMemoryRepo,
@@ -326,7 +326,10 @@ if (!authDisabled) {
       githubClientSecret: process.env.GITHUB_CLIENT_SECRET,
       requireEmailVerify: process.env.AUTH_REQUIRE_EMAIL_VERIFY === "1",
       cookieDomain: process.env.AUTH_COOKIE_DOMAIN,
-      ensureTenant: (u) => ensureTenantSqlite(sql, u.id, u.name, u.email),
+      ensureTenant: (u) =>
+        ensureTenantSqlite(sql, u.id, u.name, u.email, async (tenantId) => {
+          await seedDefaultAgent(agentsService, tenantId);
+        }),
     });
     authShutdown = async () => {
       await pgPool.end();
@@ -360,7 +363,10 @@ if (!authDisabled) {
       githubClientSecret: process.env.GITHUB_CLIENT_SECRET,
       requireEmailVerify: process.env.AUTH_REQUIRE_EMAIL_VERIFY === "1",
       cookieDomain: process.env.AUTH_COOKIE_DOMAIN,
-      ensureTenant: (u) => ensureTenantSqlite(sql, u.id, u.name, u.email),
+      ensureTenant: (u) =>
+        ensureTenantSqlite(sql, u.id, u.name, u.email, async (tenantId) => {
+          await seedDefaultAgent(agentsService, tenantId);
+        }),
     });
     authShutdown = async () => {
       authDb.close();
@@ -1192,7 +1198,10 @@ const authMw = buildAuthMw({
       .first<{ one: number }>();
     return row !== null;
   },
-  ensureTenantForUser: (s) => ensureTenantSqlite(sql, s.userId, s.name, s.email),
+  ensureTenantForUser: (s) =>
+    ensureTenantSqlite(sql, s.userId, s.name, s.email, async (tenantId) => {
+      await seedDefaultAgent(agentsService, tenantId);
+    }),
   ...(trustedProxyConfig && authUserSql
     ? {
         trustedProxy: {

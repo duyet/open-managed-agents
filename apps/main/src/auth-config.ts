@@ -7,6 +7,8 @@ import {
   createCfShardPoolService,
   createCfTenantShardDirectoryService,
 } from "@duyet/oma-tenant-dbs-store";
+import { seedDefaultAgent } from "@duyet/oma-agents-store";
+import { getCfServicesForTenant } from "@duyet/oma-services";
 import * as schema from "./db/schema";
 
 /** Narrower than the full Env so callers (e.g. routes/consumer-auth.ts) that
@@ -326,6 +328,23 @@ export async function ensureTenant(
     )
     .bind(userId, tenantId, now)
     .run();
+
+  // Seed a default "General" agent so the new workspace isn't empty. Only
+  // reached once — this whole branch is skipped by the `if (existing) return`
+  // above on every subsequent call for this user/tenant. Failures are
+  // swallowed (logged only): this function's return value is also used by
+  // auth.ts's self-heal path for an ALREADY-authenticated request, and a
+  // seeding hiccup must never turn into a 401 for an otherwise-valid session.
+  try {
+    const services = await getCfServicesForTenant(env, tenantId);
+    await seedDefaultAgent(services.agents, tenantId);
+  } catch (err) {
+    console.error("ensureTenant: seedDefaultAgent failed", {
+      tenant_id: tenantId,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   // Re-read in case a concurrent caller won the race — UPDATE's WHERE clause
   // ensures we never overwrite an existing tenantId with our orphan.
   const final = await getTenantId(db, userId);
