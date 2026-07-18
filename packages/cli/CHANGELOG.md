@@ -1,5 +1,18 @@
 # @getoma/cli
 
+## 0.1.7
+
+### Patch Changes
+
+- ed4b9d9: Bridge daemon now reports each detected ACP agent's self-reported version
+  (best-effort `--version` probe of the wrapped upstream binary) in the runtime
+  `hello` manifest, so the Console can show "claude-acp (claude) v1.9.0". Probes
+  run in parallel with a short timeout and fail soft — an unknown version just
+  omits the field, never blocks the heartbeat.
+- e527657: Add an ASCII "oma" banner to help + interactive mode, a bare-invocation
+  interactive action menu, richer `oma bridge status` (local relay/command
+  counters), and anonymous opt-out CLI telemetry (`oma telemetry status|enable|disable`, `OMA_TELEMETRY=0`).
+
 ## 0.1.6
 
 ### Patch Changes
