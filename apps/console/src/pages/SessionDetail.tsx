@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, Link } from "react-router";
 import { useApi, ApiError } from "../lib/api";
 import { toast } from "sonner";
@@ -106,6 +106,12 @@ export function SessionDetail() {
     agentSnapshot?: { id?: string; name?: string; model?: string | { id: string }; description?: string; version?: number };
     envSnapshot?: { id?: string; name?: string; description?: string };
   }>({});
+  /** Best-effort `runtime_binding.reasoning_effort` for the session's agent.
+   *  Stripped from the session's own `agent` snapshot (snapshotToSessionAgent
+   *  drops runtime_binding), so it's fetched separately via GET /v1/agents/:id
+   *  once the agent id is known. Undefined = not set or fetch failed/pending
+   *  — the context strip simply omits the badge in that case. */
+  const [reasoningEffort, setReasoningEffort] = useState<string | undefined>(undefined);
   const [resourcePanel, setResourcePanel] = useState<
     | { kind: "agent"; id: string }
     | { kind: "environment"; id: string }
@@ -478,6 +484,7 @@ export function SessionDetail() {
     setPendingByEventId(new Map());
     setLocalPending(null);
     setSandboxStatus(undefined);
+    setReasoningEffort(undefined);
 
     // Load session info
     api<{
@@ -519,6 +526,18 @@ export function SessionDetail() {
                 .catch(() => ({ id: vid })),
             ),
           ).then((vaults) => setSessionMeta((prev) => ({ ...prev, vaults })));
+        }
+        // reasoning_effort lives on the agent's runtime_binding, which
+        // snapshotToSessionAgent strips from the session's own `agent`
+        // field. GET /v1/agents/:id nests it under `_oma.runtime_binding`
+        // (formatAgent's OMA-extension convention) — fetch the live agent
+        // record separately. Best-effort: a 404/5xx (deleted agent,
+        // permission edge case) just leaves the context strip without the
+        // reasoning-effort badge.
+        if (s.agent?.id) {
+          api<{ _oma?: { runtime_binding?: { reasoning_effort?: string } } }>(`/v1/agents/${s.agent.id}`)
+            .then((full) => setReasoningEffort(full._oma?.runtime_binding?.reasoning_effort))
+            .catch(() => {});
         }
         const linearMeta = s.metadata?.linear as
           | { issueId?: string; issueIdentifier?: string; workspaceId?: string }
@@ -1062,6 +1081,14 @@ export function SessionDetail() {
                 6) in-flight assistant text streams
                 7) typing dots when only the agent is "thinking" with
                    nothing else streaming yet */}
+          {/* Compact model/tokens/cost/duration strip — collapsed by
+              default, expandable for the per-turn vs cumulative token
+              breakdown. */}
+          <ContextInfoStrip
+            events={events}
+            agentModel={sessionMeta.agentSnapshot?.model}
+            reasoningEffort={reasoningEffort}
+          />
           {/* Latest structured progress report (long-running harness). */}
           <LatestAgentStatus events={events} />
           <Conversation className="flex-1 min-h-0">
@@ -1611,6 +1638,211 @@ function LatestAgentStatus({ events }: { events: Event[] }) {
           <span className="shrink-0 text-xs text-warning" title="Blocked on">
             blocked on: {s.blocked_on}
           </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Rough USD-per-million-token pricing, keyed by substring match against
+ *  the (lowercased) model id. Not exhaustive — an unrecognized model id
+ *  (custom model card, future release) simply hides the cost figure
+ *  rather than showing a wrong number. Mirrors the Sonnet-class rate
+ *  already assumed by apps/main/src/routes/agent-stats.ts (3 in / 15 out),
+ *  extended with rough Opus/Haiku tiers for this per-session estimate. */
+const MODEL_PRICING_USD_PER_MTOK: Array<{
+  match: (modelId: string) => boolean;
+  inputPerMtok: number;
+  outputPerMtok: number;
+}> = [
+  { match: (id) => id.includes("opus"), inputPerMtok: 15, outputPerMtok: 75 },
+  { match: (id) => id.includes("haiku"), inputPerMtok: 0.8, outputPerMtok: 4 },
+  { match: (id) => id.includes("sonnet"), inputPerMtok: 3, outputPerMtok: 15 },
+];
+
+/** Estimate USD cost for a token count against the pricing table above.
+ *  Returns undefined when the model is unset or matches no known tier —
+ *  callers must hide the cost figure entirely in that case rather than
+ *  imply a number for an unrecognized/custom model. */
+function estimateCostUsd(
+  model: string | undefined,
+  inputTokens: number,
+  outputTokens: number,
+): number | undefined {
+  if (!model) return undefined;
+  const id = model.toLowerCase();
+  const pricing = MODEL_PRICING_USD_PER_MTOK.find((p) => p.match(id));
+  if (!pricing) return undefined;
+  return (inputTokens / 1e6) * pricing.inputPerMtok + (outputTokens / 1e6) * pricing.outputPerMtok;
+}
+
+/** Cost display with a few significant figures for small per-session
+ *  amounts — `formatUsd` in lib/format.ts rounds to 2 decimals, which
+ *  would show "$0.00" for the common case of a cheap short session. */
+function formatEstCostUsd(n: number): string {
+  if (n <= 0) return "$0.00";
+  return n < 1 ? `$${n.toFixed(4)}` : `$${n.toFixed(2)}`;
+}
+
+/** Aggregates derived from the event log for the context-info strip:
+ *  the latest model call's duration + token counts, and cumulative
+ *  input/output tokens across every span.model_request_end seen so far.
+ *  Pairs span.model_request_start ↔ span.model_request_end via
+ *  model_request_start_id (both wire shapes: top-level or nested under
+ *  `.data`, matching the defensive access already used for the inline
+ *  per-turn token line at EventRender's span.model_request_end case). */
+function useModelUsageAggregates(events: Event[]): {
+  latestModel?: string;
+  latestDurationMs?: number;
+  latestInputTokens?: number;
+  latestOutputTokens?: number;
+  cumulativeInputTokens: number;
+  cumulativeOutputTokens: number;
+} {
+  return useMemo(() => {
+    const startTsById = new Map<string, number>();
+    let cumulativeInputTokens = 0;
+    let cumulativeOutputTokens = 0;
+    let latestModel: string | undefined;
+    let latestDurationMs: number | undefined;
+    let latestInputTokens: number | undefined;
+    let latestOutputTokens: number | undefined;
+
+    for (const e of events) {
+      if (e.type === "span.model_request_start") {
+        const id = (e as { id?: string }).id;
+        const ts = (e as { ts?: string }).ts;
+        if (id && ts) {
+          const t = new Date(ts).getTime();
+          if (Number.isFinite(t)) startTsById.set(id, t);
+        }
+        continue;
+      }
+      if (e.type !== "span.model_request_end") continue;
+
+      const raw = e as {
+        data?: {
+          model?: string;
+          model_usage?: { input_tokens?: number; output_tokens?: number };
+          model_request_start_id?: string;
+        };
+        model?: string;
+        model_usage?: { input_tokens?: number; output_tokens?: number };
+        model_request_start_id?: string;
+        ts?: string;
+      };
+      const model = raw.data?.model ?? raw.model;
+      const usage = raw.data?.model_usage ?? raw.model_usage;
+      const startId = raw.data?.model_request_start_id ?? raw.model_request_start_id;
+      const inputTokens = usage?.input_tokens ?? 0;
+      const outputTokens = usage?.output_tokens ?? 0;
+      cumulativeInputTokens += inputTokens;
+      cumulativeOutputTokens += outputTokens;
+
+      // Events arrive in chronological order, so the last end event seen
+      // wins as "latest" — no separate max-ts comparison needed.
+      latestModel = model ?? latestModel;
+      latestInputTokens = inputTokens;
+      latestOutputTokens = outputTokens;
+      const endTs = raw.ts ? new Date(raw.ts).getTime() : undefined;
+      const startTs = startId ? startTsById.get(startId) : undefined;
+      latestDurationMs =
+        endTs !== undefined && Number.isFinite(endTs) && startTs !== undefined
+          ? endTs - startTs
+          : undefined;
+    }
+
+    return {
+      latestModel,
+      latestDurationMs,
+      latestInputTokens,
+      latestOutputTokens,
+      cumulativeInputTokens,
+      cumulativeOutputTokens,
+    };
+  }, [events]);
+}
+
+/**
+ * Compact context strip above the conversation surface: model name,
+ * reasoning effort (if the agent's ACP runtime_binding sets one), the
+ * latest turn's duration, and an estimated cumulative session cost.
+ * Collapsed by default; expanding reveals the latest-turn vs
+ * cumulative-session input/output token breakdown. Renders nothing until
+ * at least one span.model_request_end has landed (nothing to show yet).
+ */
+function ContextInfoStrip({
+  events,
+  agentModel,
+  reasoningEffort,
+}: {
+  events: Event[];
+  agentModel?: string | { id: string };
+  reasoningEffort?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const agg = useModelUsageAggregates(events);
+
+  // Prefer the model actually reported by the latest model call over the
+  // agent snapshot's configured model — the snapshot can lag a mid-flight
+  // model-card change, while span.model_request_end reflects what the
+  // provider actually ran.
+  const fallbackModel = typeof agentModel === "string" ? agentModel : agentModel?.id;
+  const model = agg.latestModel ?? fallbackModel;
+
+  // Nothing to show yet (no model calls have completed and no configured
+  // model to fall back on) — don't render an empty strip.
+  if (!model) return null;
+
+  const cost = estimateCostUsd(model, agg.cumulativeInputTokens, agg.cumulativeOutputTokens);
+
+  return (
+    <div className="px-3 pt-3">
+      <div className="rounded-lg border border-border text-sm">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="w-full flex items-center gap-2 px-3 py-2 text-left rounded-lg hover:bg-bg-surface/60 transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)]"
+        >
+          <span className="font-mono text-xs text-fg-muted truncate" title="Model">
+            {model}
+          </span>
+          {reasoningEffort && (
+            <span
+              className="shrink-0 text-[11px] px-1.5 py-0.5 rounded-full bg-bg-surface text-fg-muted font-medium"
+              title="Reasoning effort override"
+            >
+              reasoning: {reasoningEffort}
+            </span>
+          )}
+          {agg.latestDurationMs !== undefined && (
+            <span className="shrink-0 text-xs text-fg-subtle" title="Latest turn duration">
+              turn {formatDuration(agg.latestDurationMs)}
+            </span>
+          )}
+          {cost !== undefined && (
+            <span className="ml-auto shrink-0 text-xs font-mono text-fg-muted" title="Estimated cumulative session cost">
+              {formatEstCostUsd(cost)}
+            </span>
+          )}
+          <span className={`shrink-0 text-fg-subtle text-xs ${cost === undefined ? "ml-auto" : ""}`} aria-hidden>
+            {expanded ? "▲" : "▼"}
+          </span>
+        </button>
+        {expanded && (
+          <div className="px-3 pb-2 pt-1 border-t border-border grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-fg-muted">
+            <div>
+              Latest turn: {agg.latestInputTokens !== undefined ? agg.latestInputTokens.toLocaleString() : "—"} in
+              {" / "}
+              {agg.latestOutputTokens !== undefined ? agg.latestOutputTokens.toLocaleString() : "—"} out
+            </div>
+            <div>
+              Session total: {agg.cumulativeInputTokens.toLocaleString()} in
+              {" / "}
+              {agg.cumulativeOutputTokens.toLocaleString()} out
+            </div>
+          </div>
         )}
       </div>
     </div>
