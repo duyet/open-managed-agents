@@ -2,6 +2,7 @@
 import "../styles/global.css";
 import Logo from "../components/Logo.astro";
 import Icon from "../components/Icon.astro";
+import Footer from "../components/Footer.astro";
 import { organizationSchema, websiteSchema } from "../lib/seo";
 
 export interface Props {
@@ -156,6 +157,45 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
 
         <!-- Desktop nav -->
         <nav class="hidden md:flex items-center gap-0.5 text-sm" aria-label="Primary">
+          <!-- Platform dropdown — the deep-dive pages split off the landing
+               page (how it works, features, use cases, infrastructure). Same
+               JS-free hover/focus pattern as the Features menu below. -->
+          <div class="relative group">
+            <a
+              href="/how-it-works/"
+              aria-haspopup="true"
+              class="inline-flex items-center gap-1 px-3 py-2 rounded-md text-[var(--color-fg-muted)] dark:text-[var(--color-fg)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-surface)] transition-colors"
+            >
+              Platform
+              <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+              </svg>
+            </a>
+            <div class="absolute left-0 top-full pt-2 hidden group-hover:block group-focus-within:block z-40">
+              <nav
+                class="min-w-[280px] py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-md shadow-lg flex flex-col"
+                aria-label="Platform"
+              >
+                <a href="/how-it-works/" class="block px-4 py-2.5 hover:bg-[var(--color-bg-surface)]">
+                  <span class="block font-medium text-[var(--color-fg)]">How it works</span>
+                  <span class="block text-xs text-[var(--color-fg-muted)] mt-0.5">Meta-harness design, architecture &amp; lifecycle</span>
+                </a>
+                <a href="/features/" class="block px-4 py-2.5 hover:bg-[var(--color-bg-surface)]">
+                  <span class="block font-medium text-[var(--color-fg)]">Features</span>
+                  <span class="block text-xs text-[var(--color-fg-muted)] mt-0.5">Everything the platform gives you, and why</span>
+                </a>
+                <a href="/use-cases/" class="block px-4 py-2.5 hover:bg-[var(--color-bg-surface)]">
+                  <span class="block font-medium text-[var(--color-fg)]">Use cases</span>
+                  <span class="block text-xs text-[var(--color-fg-muted)] mt-0.5">Real workflows the platform is built for</span>
+                </a>
+                <a href="/infrastructure/" class="block px-4 py-2.5 hover:bg-[var(--color-bg-surface)]">
+                  <span class="block font-medium text-[var(--color-fg)]">Infrastructure</span>
+                  <span class="block text-xs text-[var(--color-fg-muted)] mt-0.5">Fleets, any sandbox, bridge your own machine</span>
+                </a>
+              </nav>
+            </div>
+          </div>
+
           <!-- Features dropdown — JS-free: opens on hover and on keyboard
                focus (group-focus-within), matching the site's no-JS nav
                philosophy. The pt-2 spacer keeps the hover unbroken between
@@ -288,6 +328,12 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
               class="absolute right-0 top-full mt-2 min-w-[180px] py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-md shadow-lg flex flex-col text-sm z-40"
               aria-label="Mobile primary"
             >
+              <span class="px-4 pt-2 pb-1 text-[10px] font-mono uppercase tracking-widest text-[var(--color-fg-subtle)]">Platform</span>
+              <a href="/how-it-works/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">How it works</a>
+              <a href="/features/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Features</a>
+              <a href="/use-cases/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Use cases</a>
+              <a href="/infrastructure/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Infrastructure</a>
+              <div class="my-1 border-t border-[var(--color-border)]"></div>
               <span class="px-4 pt-2 pb-1 text-[10px] font-mono uppercase tracking-widest text-[var(--color-fg-subtle)]">Features</span>
               <a href="/features/agent-sandbox/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Agent Sandbox</a>
               <a href="/features/local-machine/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Local Machine</a>
@@ -318,34 +364,7 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
       <slot />
     </main>
 
-    <footer class="border-t border-[var(--color-border)] mt-20">
-      <div class="max-w-5xl mx-auto px-4 py-8 text-sm text-[var(--color-fg-muted)] flex flex-wrap gap-x-8 gap-y-2 justify-between">
-        <div class="flex items-center gap-2">
-          <Logo size={18} class="text-[var(--color-brand)]" />
-          <span>© {new Date().getFullYear()} Open Managed Agents. Apache 2.0 licensed.</span>
-        </div>
-        <nav class="flex flex-wrap gap-x-3 gap-y-1" aria-label="Footer">
-          <a href="/features/agent-sandbox/" class="py-2 px-2 -mx-2 rounded hover:bg-[var(--color-bg-surface)]">Agent Sandbox</a>
-          <a href="/features/local-machine/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Local Machine</a>
-          <a href="/features/coding-agents/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Coding Agents</a>
-          <a href="/open-tag/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Open Tag</a>
-          <a href="/claude-tag-open-source/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Open Source Tag</a>
-          <a href="/self-hosted-claude-tag/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Self-hosted Tag</a>
-          <a href="/blog/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Blog</a>
-          <a href="/stats/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Stats</a>
-          <a href="/brand/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Brand</a>
-          <a href="https://docs.oma.duyet.net" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Docs</a>
-          <a
-            href="https://github.com/duyet/oma"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]"
-            >GitHub</a
-          >
-          <a href="/blog/rss.xml" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">RSS</a>
-        </nav>
-      </div>
-    </footer>
+    <Footer />
 
     <!-- Theme toggle: writes localStorage and flips .dark on <html>.
          Pairs with the FOUC-free bootstrap script in <head>. Also closes
