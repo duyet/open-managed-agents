@@ -775,7 +775,9 @@ interface Cmd {
   run: (config: Config, args: string[]) => Promise<void> | void;
 }
 
-const commands: Cmd[] = [
+// Exported so command handlers can be unit-tested (looked up by `match`) with
+// a stubbed `fetch` — see index.test.ts. The array is otherwise internal.
+export const commands: Cmd[] = [
   // Auth
   {
     group: "Auth", match: ["auth", "login"],
@@ -2686,4 +2688,8 @@ async function main() {
   process.exit(1);
 }
 
-main().catch((err: any) => { console.error(err.message); process.exit(1); });
+// Skip auto-exec under Vitest so tests can import `commands` without the CLI
+// dispatching on argv. Never set in the published binary.
+if (!process.env.VITEST) {
+  main().catch((err: any) => { console.error(err.message); process.exit(1); });
+}
