@@ -194,9 +194,8 @@ code, pre, kbd, samp,
     color: inherit;
     text-decoration: none;
   }
-  a:hover {
-    text-decoration: underline;
-  }
+  /* No hover underline — nav/footer/CTA links signal hover via color
+     transitions instead; prose links are always-underlined below. */
 }
 
 /* Inline body links: text inherits fg (passes AA-normal at 14:1+), brand
