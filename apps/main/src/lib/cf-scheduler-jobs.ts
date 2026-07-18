@@ -99,12 +99,9 @@ export function buildCfScheduler(env: Env): CfScheduler {
   // schedule's tenant shard to actually create the session. Only registered
   // when MAIN_DB is bound.
   //
-  // TODO(node): apps/main-node has no agent_schedules table yet
-  // (packages/db-schema has no schedules dialect) and no schedules CRUD
-  // route, so there is nothing to fire on the Node deployment. When those
-  // land, register the same scheduledAgentRunsTick in node-scheduler-jobs.ts
-  // with a SqlClientScheduledRunsStore over the Node control-plane DB and a
-  // launcher over the Node session-create path.
+  // The Node deployment fires the same schedules via the shared
+  // scheduledAgentRunsTick + SqlClientScheduledRunsStore, wired in
+  // apps/main-node/src/lib/node-scheduler-jobs.ts (issue #262).
   if (env.MAIN_DB) {
     const scheduledRunsCron = envCron(env, "SCHEDULED_AGENT_RUNS_CRON", "* * * * *");
     const launcher: ScheduledRunLauncher = {

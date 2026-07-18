@@ -1,4 +1,4 @@
-/** Agent schedule wire shape — mirrors `apps/main/src/routes/schedules.ts`. */
+/** Agent schedule wire shape — mirrors `packages/http-routes/src/schedules/index.ts`. */
 
 export interface AgentSchedule {
   id: string;

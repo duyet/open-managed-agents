@@ -1229,6 +1229,9 @@ importers:
       '@duyet/oma-quotas':
         specifier: workspace:*
         version: link:../quotas
+      '@duyet/oma-scheduler':
+        specifier: workspace:*
+        version: link:../scheduler
       '@duyet/oma-session-runtime':
         specifier: workspace:*
         version: link:../session-runtime

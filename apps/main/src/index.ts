@@ -16,6 +16,7 @@ import {
   buildOmaMcpRoutes,
   buildAnalyticsRoutes,
   buildTelemetryRoutes,
+  buildScheduleRoutes,
   mintApiKeyOnStorage,
   type RouteServices,
 } from "@duyet/oma-http-routes";
@@ -75,7 +76,7 @@ import paymentsWebhookRoutes, {
   enforcePaywall as enforcePaywallImpl,
   createD1PaymentsStore,
 } from "./routes/payments";
-import schedulesRoutes from "./routes/schedules";
+import { CfD1SqlClient } from "@duyet/oma-sql-client/adapters/cf-d1";
 import deploymentsRoutes, { deploymentHooksRoutes } from "./routes/deployments";
 import mcpProxyRoutes, {
   resolveProxyTargetByTenant,
@@ -692,7 +693,10 @@ app.route("/v1/sandbox_providers", sandboxProvidersRoutes);
 app.route("/v1/webhooks", webhookRoutes);
 app.route("/v1/stats", statsRoutes);
 app.route("/v1/usage", usageRoutes);
-app.route("/v1/agents", schedulesRoutes);
+app.route(
+  "/v1/agents",
+  buildScheduleRoutes({ db: (c) => new CfD1SqlClient((c.env as Env).MAIN_DB) }),
+);
 app.route("/v1/deployments", deploymentsRoutes);
 // Webhook trigger for deployments — bypasses x-api-key auth (see auth.ts);
 // the opaque hook_token authorizes the run.

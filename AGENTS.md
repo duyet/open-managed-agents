@@ -1092,7 +1092,26 @@ ticks or replicas never double-fire. Each firing records
 `last_run_at` / `last_run_status` / `last_run_error` / `last_session_id`; a
 failing run is fail-open (logged, next occurrence still scheduled). An
 unparseable cron leaves `next_run_at` null and the schedule never fires.
-**Cloudflare only** — the self-host Node runtime does not yet fire schedules.
+
+Fires on **both runtimes** (issue #262). Cloudflare evaluates the tick via
+the per-minute cron in `apps/main/src/lib/cf-scheduler-jobs.ts`; the self-host
+Node runtime runs the same shared tick + store (`scheduledAgentRunsTick` +
+`SqlClientScheduledRunsStore`) on a `setInterval` cadence wired in
+`apps/main-node/src/lib/node-scheduler-jobs.ts`, launching over the Node
+session-create path. The two are separate deployments with separate
+`agent_schedules` tables, so there's no cross-runtime double-fire; the
+per-row compare-and-set on `next_run_at` guards replicas of the *same*
+runtime. The CRUD routes are one shared implementation
+(`packages/http-routes/src/schedules/index.ts`).
+
+**Deployment topology:** Cloudflare fires the tick from wrangler
+`triggers.crons` (the platform invokes `scheduled()` per minute). The self-host
+Node runtime (`docker compose` or k8s) fires **in-process** on a `setInterval`
+cadence started at server boot — no external k8s `CronJob` resource is needed.
+Running **multiple Node replicas is safe**: the schedule jobs claim each due
+row with an atomic compare-and-set on `next_run_at`, so exactly one replica
+wins each occurrence and the losers no-op — the same guard that protects
+overlapping Cloudflare cron invocations.
 
 (Distinct from the in-sandbox `schedule` / `cancel_schedule` / `list_schedules`
 tools, which let a *running* agent set its own wakeups — those wake the same
@@ -1180,9 +1199,12 @@ carries an environment + prompt. A deployment (`dep_*`, top-level) is a
 reusable bundle that also carries vaults, memory stores, and a pinned agent
 version, and can be triggered three ways (manual API call, webhook, or cron).
 The schedule cron path is its own job (`scheduled-deployment-runs`) so the two
-never interfere. **Cloudflare only** — like agent schedules, the self-host
-Node runtime does not yet fire deployment schedules (manual/webhook likewise
-follow the CF-only route surface today).
+never interfere. The **schedule** cron path is wired on **both runtimes**
+(issue #262) — the self-host Node runtime registers the same
+`scheduledDeploymentRunsTick` in `node-scheduler-jobs.ts`. Deployment **CRUD
+routes** (create/list/run/webhook) remain **Cloudflare only**, so in practice
+no deployment rows exist on Node yet to fire; the tick is wired for parity and
+forward-compat.
 
 ---
 

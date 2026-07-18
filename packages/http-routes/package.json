@@ -25,6 +25,7 @@
     "@duyet/oma-observability": "workspace:*",
     "@duyet/oma-publications-store": "workspace:*",
     "@duyet/oma-quotas": "workspace:*",
+    "@duyet/oma-scheduler": "workspace:*",
     "@duyet/oma-session-runtime": "workspace:*",
     "@duyet/oma-sessions-store": "workspace:*",
     "@duyet/oma-shared": "workspace:*",
