@@ -8,6 +8,14 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+// os.homedir() is cached per-process and ignores later HOME changes, so the
+// only reliable way to redirect the config path to a temp dir per test is to
+// mock it to read the current HOME at call time.
+vi.mock("node:os", async (orig) => {
+  const actual = (await orig()) as typeof import("node:os");
+  return { ...actual, homedir: () => process.env.HOME ?? actual.homedir() };
+});
+
 let home: string;
 let seq = 0;
 const CI_VARS = [
