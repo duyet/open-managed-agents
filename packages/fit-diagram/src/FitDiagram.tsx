@@ -197,7 +197,8 @@ function StepHeader({ step, onCollapse }: { step: FitStep; onCollapse?: () => vo
 
 function ExpandedStepPanel({ step, onCollapse }: { step: FitStep; onCollapse?: () => void }) {
   return (
-    <div className={cn("flex min-w-0 flex-1 flex-col rounded-lg border border-dashed border-border/70 bg-bg-surface p-3", step.wide && "flex-[1.2]")}>
+    // Open panels get a solid border; only collapsed rails stay dashed.
+    <div className={cn("flex min-w-0 flex-1 flex-col rounded-lg border border-border bg-bg-surface p-3", step.wide && "flex-[1.2]")}>
       <StepHeader step={step} onCollapse={onCollapse} />
       <div className={cn("flex flex-1 flex-col justify-center", step.chain ? "gap-0" : "gap-2")}>
         {step.cards.map((row, i) => (
