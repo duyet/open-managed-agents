@@ -1,0 +1,39 @@
+---
+import Base from "../layouts/Base.astro";
+import Icon from "../components/Icon.astro";
+import UseCasesSection from "../components/UseCasesSection.astro";
+import { breadcrumbSchema } from "../lib/seo";
+
+const schemas = [
+  breadcrumbSchema([
+    { name: "Home", path: "/" },
+    { name: "Use cases", path: "/use-cases/" },
+  ]),
+];
+---
+
+<Base
+  title="Use cases | Open Managed Agents"
+  description="Real workflows Open Managed Agents is built for: ship code, run production, answer customers, work a Slack thread — durable, sandboxed agents wired to your tools."
+  canonical="/use-cases/"
+  keywords="ai agent use cases, coding agent workflow, production ops agent, customer support agent, slack agent workflow"
+  schemas={schemas}
+>
+  <!-- Page hero -->
+  <section class="border-b border-[var(--color-border)]">
+    <div class="max-w-5xl mx-auto px-4 py-14 md:py-16">
+      <p class="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+        <Icon name="workflow" size={14} class="text-[var(--color-brand)]" /> Use cases
+      </p>
+      <h1 class="font-display text-4xl md:text-5xl font-bold mb-4 tracking-tight">
+        Built for real workflows
+      </h1>
+      <p class="text-lg text-[var(--color-fg-muted)] max-w-2xl leading-relaxed">
+        Ship code, run production, answer customers, work a Slack thread. Pick a
+        workflow to watch it run.
+      </p>
+    </div>
+  </section>
+
+  <UseCasesSection />
+</Base>
