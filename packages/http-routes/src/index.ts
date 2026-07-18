@@ -19,6 +19,9 @@ export type { AgentRoutesDeps } from "./agents";
 export { buildAnalyticsRoutes, parseAnalyticsRange } from "./analytics";
 export type { AnalyticsRoutesDeps } from "./analytics";
 
+export { buildTelemetryRoutes } from "./telemetry";
+export type { TelemetryRoutesDeps } from "./telemetry";
+
 export { buildVaultRoutes } from "./vaults";
 export type { VaultRoutesDeps } from "./vaults";
 

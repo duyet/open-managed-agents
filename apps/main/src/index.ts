@@ -14,6 +14,7 @@ import {
   buildDeviceRoutes,
   buildMcpServerRoutes,
   buildAnalyticsRoutes,
+  buildTelemetryRoutes,
   mintApiKeyOnStorage,
   type RouteServices,
 } from "@duyet/oma-http-routes";
@@ -381,6 +382,15 @@ const analyticsRoutes = new Hono<{ Bindings: Env; Variables: { tenant_id: string
   return invokePackage(c, app);
 });
 
+// Public, unauthenticated CLI telemetry (POST /events, GET /stats). No
+// `rateLimit` dep needed — /v1/* already runs rateLimitMiddleware (see the
+// app.use("/v1/*", ...) below).
+const telemetryRoutes = new Hono<{ Bindings: Env; Variables: { tenant_id: string } }>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  const app = buildTelemetryRoutes({ services: () => cfRouteServicesFromCtx(ctx) });
+  return invokePackage(c, app);
+});
+
 const apiKeysRoutes = new Hono<{
   Bindings: Env;
   Variables: { tenant_id: string; user_id?: string };
@@ -657,6 +667,7 @@ app.route("/v1/skills", skillsRoutes);
 app.route("/v1/model_cards", modelCardsRoutes);
 app.route("/v1/mcp_servers", mcpServersRoutes);
 app.route("/v1/analytics", analyticsRoutes);
+app.route("/v1/telemetry", telemetryRoutes);
 app.route("/v1/models", modelsRoutes);
 app.route("/v1/clawhub", clawhubRoutes);
 app.route("/v1/api_keys", apiKeysRoutes);

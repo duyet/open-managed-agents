@@ -83,6 +83,7 @@ import {
   buildVaultRoutes,
   buildMcpServerRoutes,
   buildAnalyticsRoutes,
+  buildTelemetryRoutes,
   buildEnvironmentRoutes,
   buildSessionRoutes,
   buildMemoryRoutes,
@@ -1165,7 +1166,10 @@ const authMw = buildAuthMw({
     path === "/v1/device/code" ||
     path === "/v1/device/token" ||
     path === "/v1/oma/device/code" ||
-    path === "/v1/oma/device/token",
+    path === "/v1/oma/device/token" ||
+    // CLI telemetry — public, unauthenticated, IP-rate-limited (buildTelemetryRoutes).
+    path === "/v1/telemetry/events" ||
+    path === "/v1/telemetry/stats",
   resolveSession: async (headers) => {
     if (!auth) return null;
     const session = (await auth.api.getSession({ headers })) as
@@ -1222,6 +1226,11 @@ const v1 = new Hono<{
 }>();
 v1.use("*", authMw);
 
+// CLI telemetry — public rate limiting bucket (issue #269 item 5). Separate
+// gates instance from publicSessionCapGates/consumerRateLimitGates (defined
+// later in this file) since this is needed at mount time, above.
+const telemetryGates = buildMemoryGates();
+
 // Mount route bundles. Same paths CF uses; behavior preserved.
 v1.route("/agents", buildAgentRoutes({ services }));
 // Published-agent management API (issue #72) — tenant-authed CRUD backing
@@ -1255,6 +1264,18 @@ v1.route("/sessions", buildSessionRoutes({
 v1.route("/vaults", buildVaultRoutes({ services }));
 v1.route("/mcp_servers", buildMcpServerRoutes({ services }));
 v1.route("/analytics", buildAnalyticsRoutes({ services }));
+v1.route(
+  "/telemetry",
+  buildTelemetryRoutes({
+    services,
+    rateLimit: async (c) => {
+      const ip =
+        c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "anonymous";
+      const r = await telemetryGates.apiWrite.consume(`tel:${ip}`);
+      return !r.ok;
+    },
+  }),
+);
 v1.route("/memory_stores", buildMemoryRoutes({ services }));
 v1.route("/dreams", buildDreamRoutes({
   services,

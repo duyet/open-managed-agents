@@ -43,6 +43,8 @@
   "devDependencies": {
     "@agentclientprotocol/sdk": "^0.20.0",
     "@inquirer/checkbox": "^5.1.4",
+    "@inquirer/input": "^4.1.4",
+    "@inquirer/select": "^4.1.4",
     "@duyet/oma-acp-runtime": "workspace:*",
     "@duyet/oma-api-types": "workspace:*",
     "@types/node": "^22.0.0",
