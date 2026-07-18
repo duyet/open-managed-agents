@@ -51,7 +51,6 @@ async function createAgent(overrides?: Record<string, unknown>) {
     model: "claude-sonnet-4-6",
     system: "You are helpful.",
     tools: [{ type: "agent_toolset_20260401" }],
-    harness: "constraint-test",
     ...overrides,
   });
   return (await res.json()) as any;
@@ -60,7 +59,7 @@ async function createAgent(overrides?: Record<string, unknown>) {
 async function createEnv(overrides?: Record<string, unknown>) {
   const res = await post("/v1/environments", {
     name: "constraint-env",
-    config: { type: "cloud" },
+    config: { type: "cloud", harness: "constraint-test" },
     ...overrides,
   });
   return (await res.json()) as any;

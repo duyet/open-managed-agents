@@ -62,9 +62,9 @@ async function collectReplayedEvents(sessionId: string, waitMs = 50): Promise<an
 // ============================================================
 describe("Agent + Session snapshot", () => {
   it("session with vault_ids includes them in GET response", async () => {
-    const a = await post("/v1/agents", { name: "VaultAgent", model: "claude-sonnet-4-6", harness: "cross-noop" });
+    const a = await post("/v1/agents", { name: "VaultAgent", model: "claude-sonnet-4-6" });
     const agent = (await a.json()) as any;
-    const e = await post("/v1/environments", { name: "vlt-env", config: { type: "cloud" } });
+    const e = await post("/v1/environments", { name: "vlt-env", config: { type: "cloud", harness: "cross-noop" } });
     const envObj = (await e.json()) as any;
 
     const v1 = await post("/v1/vaults", { name: "snap-vault-1" });
@@ -88,10 +88,10 @@ describe("Agent + Session snapshot", () => {
 
   it("agent update after session creation does not change session snapshot", async () => {
     const a = await post("/v1/agents", {
-      name: "SnapAgent", model: "claude-sonnet-4-6", system: "snap-v1", harness: "cross-noop",
+      name: "SnapAgent", model: "claude-sonnet-4-6", system: "snap-v1",
     });
     const agent = (await a.json()) as any;
-    const e = await post("/v1/environments", { name: "snap-env", config: { type: "cloud" } });
+    const e = await post("/v1/environments", { name: "snap-env", config: { type: "cloud", harness: "cross-noop" } });
     const envObj = (await e.json()) as any;
 
     const s = await post("/v1/sessions", { agent: agent.id, environment_id: envObj.id });
@@ -107,9 +107,9 @@ describe("Agent + Session snapshot", () => {
   });
 
   it("archived agent does not prevent session access", async () => {
-    const a = await post("/v1/agents", { name: "ArchiveSnapAgent", model: "claude-sonnet-4-6", harness: "cross-noop" });
+    const a = await post("/v1/agents", { name: "ArchiveSnapAgent", model: "claude-sonnet-4-6" });
     const agent = (await a.json()) as any;
-    const e = await post("/v1/environments", { name: "archsnap-env", config: { type: "cloud" } });
+    const e = await post("/v1/environments", { name: "archsnap-env", config: { type: "cloud", harness: "cross-noop" } });
     const envObj = (await e.json()) as any;
 
     const s = await post("/v1/sessions", { agent: agent.id, environment_id: envObj.id });
@@ -124,9 +124,9 @@ describe("Agent + Session snapshot", () => {
   });
 
   it("cannot delete agent with active session, archive first", async () => {
-    const a = await post("/v1/agents", { name: "DelSnapAgent", model: "claude-sonnet-4-6", harness: "cross-noop" });
+    const a = await post("/v1/agents", { name: "DelSnapAgent", model: "claude-sonnet-4-6" });
     const agent = (await a.json()) as any;
-    const e = await post("/v1/environments", { name: "delsnap-env", config: { type: "cloud" } });
+    const e = await post("/v1/environments", { name: "delsnap-env", config: { type: "cloud", harness: "cross-noop" } });
     const envObj = (await e.json()) as any;
 
     const s = await post("/v1/sessions", { agent: agent.id, environment_id: envObj.id });
@@ -150,10 +150,10 @@ describe("Agent + Session snapshot", () => {
 
   it("two sessions from same agent with update between have independent snapshots", async () => {
     const a = await post("/v1/agents", {
-      name: "DualSnap", model: "claude-sonnet-4-6", system: "dual-v1", harness: "cross-noop",
+      name: "DualSnap", model: "claude-sonnet-4-6", system: "dual-v1",
     });
     const agent = (await a.json()) as any;
-    const e = await post("/v1/environments", { name: "dualsnap-env", config: { type: "cloud" } });
+    const e = await post("/v1/environments", { name: "dualsnap-env", config: { type: "cloud", harness: "cross-noop" } });
     const envObj = (await e.json()) as any;
 
     const s1 = await post("/v1/sessions", { agent: agent.id, environment_id: envObj.id });
@@ -181,7 +181,6 @@ describe("Agent + Session snapshot", () => {
       model: "claude-sonnet-4-6",
       system: "full system",
       tools: [{ type: "agent_toolset_20260401" }],
-      harness: "cross-noop",
       description: "A fully configured agent",
       metadata: { team: "platform", tier: "premium" },
       skills: [{ skill_id: "web_research" }],
@@ -189,7 +188,7 @@ describe("Agent + Session snapshot", () => {
     expect(a.status).toBe(201);
     const agent = (await a.json()) as any;
 
-    const e = await post("/v1/environments", { name: "fullopt-env", config: { type: "cloud" } });
+    const e = await post("/v1/environments", { name: "fullopt-env", config: { type: "cloud", harness: "cross-noop" } });
     const envObj = (await e.json()) as any;
 
     const s = await post("/v1/sessions", { agent: agent.id, environment_id: envObj.id });
@@ -206,9 +205,9 @@ describe("File + Session resource", () => {
   let envId: string;
 
   beforeAll(async () => {
-    const a = await post("/v1/agents", { name: "FileResAgent", model: "claude-sonnet-4-6", harness: "cross-noop" });
+    const a = await post("/v1/agents", { name: "FileResAgent", model: "claude-sonnet-4-6" });
     agentId = ((await a.json()) as any).id;
-    const e = await post("/v1/environments", { name: "fileres-env", config: { type: "cloud" } });
+    const e = await post("/v1/environments", { name: "fileres-env", config: { type: "cloud", harness: "cross-noop" } });
     envId = ((await e.json()) as any).id;
     const s = await post("/v1/sessions", { agent: agentId, environment_id: envId });
     sessionId = ((await s.json()) as any).id;
@@ -330,9 +329,9 @@ describe("Memory + Session", () => {
   let envId: string;
 
   beforeAll(async () => {
-    const a = await post("/v1/agents", { name: "MemSessAgent", model: "claude-sonnet-4-6", harness: "cross-noop" });
+    const a = await post("/v1/agents", { name: "MemSessAgent", model: "claude-sonnet-4-6" });
     agentId = ((await a.json()) as any).id;
-    const e = await post("/v1/environments", { name: "memsess-env", config: { type: "cloud" } });
+    const e = await post("/v1/environments", { name: "memsess-env", config: { type: "cloud", harness: "cross-noop" } });
     envId = ((await e.json()) as any).id;
   });
 
@@ -541,13 +540,12 @@ describe("Cross-entity lifecycle", () => {
       name: "FullFlowAgent",
       model: "claude-sonnet-4-6",
       system: "full flow test",
-      harness: "cross-echo",
     });
     expect(aRes.status).toBe(201);
     const agent = (await aRes.json()) as any;
 
     // Environment
-    const eRes = await post("/v1/environments", { name: "fullflow-env", config: { type: "cloud" } });
+    const eRes = await post("/v1/environments", { name: "fullflow-env", config: { type: "cloud", harness: "cross-echo" } });
     expect(eRes.status).toBe(201);
     const envObj = (await eRes.json()) as any;
 
@@ -582,9 +580,9 @@ describe("Cross-entity lifecycle", () => {
   });
 
   it("delete env blocked by active session -> archive session -> delete succeeds", async () => {
-    const aRes = await post("/v1/agents", { name: "EnvBlockAgent", model: "claude-sonnet-4-6", harness: "cross-noop" });
+    const aRes = await post("/v1/agents", { name: "EnvBlockAgent", model: "claude-sonnet-4-6" });
     const agent = (await aRes.json()) as any;
-    const eRes = await post("/v1/environments", { name: "envblock-env", config: { type: "cloud" } });
+    const eRes = await post("/v1/environments", { name: "envblock-env", config: { type: "cloud", harness: "cross-noop" } });
     const envObj = (await eRes.json()) as any;
 
     const sRes = await post("/v1/sessions", { agent: agent.id, environment_id: envObj.id });
@@ -604,7 +602,7 @@ describe("Cross-entity lifecycle", () => {
 
   it("agent version history across 3 updates saves 2 versions", async () => {
     const aRes = await post("/v1/agents", {
-      name: "VersionChain", model: "claude-sonnet-4-6", system: "ver-1", harness: "cross-noop",
+      name: "VersionChain", model: "claude-sonnet-4-6", system: "ver-1",
     });
     const agent = (await aRes.json()) as any;
     expect(agent.version).toBe(1);
@@ -627,9 +625,9 @@ describe("Cross-entity lifecycle", () => {
   });
 
   it("create all entities then archive all and verify archived_at", async () => {
-    const aRes = await post("/v1/agents", { name: "ArchAll", model: "claude-sonnet-4-6", harness: "cross-noop" });
+    const aRes = await post("/v1/agents", { name: "ArchAll", model: "claude-sonnet-4-6" });
     const agent = (await aRes.json()) as any;
-    const eRes = await post("/v1/environments", { name: "archall-env", config: { type: "cloud" } });
+    const eRes = await post("/v1/environments", { name: "archall-env", config: { type: "cloud", harness: "cross-noop" } });
     const envObj = (await eRes.json()) as any;
     const sRes = await post("/v1/sessions", { agent: agent.id, environment_id: envObj.id });
     const session = (await sRes.json()) as any;
@@ -664,9 +662,9 @@ describe("Event type combinations", () => {
   let envId: string;
 
   beforeAll(async () => {
-    const a = await post("/v1/agents", { name: "EvtCombo", model: "claude-sonnet-4-6", harness: "cross-noop" });
+    const a = await post("/v1/agents", { name: "EvtCombo", model: "claude-sonnet-4-6" });
     agentId = ((await a.json()) as any).id;
-    const e = await post("/v1/environments", { name: "evtcombo-env", config: { type: "cloud" } });
+    const e = await post("/v1/environments", { name: "evtcombo-env", config: { type: "cloud", harness: "cross-noop" } });
     envId = ((await e.json()) as any).id;
   });
 
@@ -805,8 +803,8 @@ describe("Session metadata operations", () => {
   let sessionId: string;
 
   beforeAll(async () => {
-    const a = await post("/v1/agents", { name: "MetaAgent", model: "claude-sonnet-4-6", harness: "cross-noop" });
-    const e = await post("/v1/environments", { name: "meta-env", config: { type: "cloud" } });
+    const a = await post("/v1/agents", { name: "MetaAgent", model: "claude-sonnet-4-6" });
+    const e = await post("/v1/environments", { name: "meta-env", config: { type: "cloud", harness: "cross-noop" } });
     const s = await post("/v1/sessions", {
       agent: ((await a.json()) as any).id,
       environment_id: ((await e.json()) as any).id,
@@ -877,9 +875,9 @@ describe("GitHub Repository + Env Secret resources", () => {
   let envId: string;
 
   beforeAll(async () => {
-    const a = await post("/v1/agents", { name: "GitResAgent", model: "claude-sonnet-4-6", harness: "cross-noop" });
+    const a = await post("/v1/agents", { name: "GitResAgent", model: "claude-sonnet-4-6" });
     agentId = ((await a.json()) as any).id;
-    const e = await post("/v1/environments", { name: "gitres-env", config: { type: "cloud" } });
+    const e = await post("/v1/environments", { name: "gitres-env", config: { type: "cloud", harness: "cross-noop" } });
     envId = ((await e.json()) as any).id;
   });
 

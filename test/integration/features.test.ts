@@ -43,7 +43,6 @@ describe("Agent update (PUT)", () => {
       name: "Updatable",
       model: "claude-sonnet-4-6",
       system: "original system",
-      harness: "noop-test",
     });
     agentId = ((await res.json()) as any).id;
   });
@@ -94,7 +93,7 @@ describe("Agent update (PUT)", () => {
 // ============================================================
 describe("Agent delete (DELETE)", () => {
   it("deletes an agent", async () => {
-    const createRes = await post("/v1/agents", { name: "ToDelete", model: "claude-sonnet-4-6", harness: "noop-test" });
+    const createRes = await post("/v1/agents", { name: "ToDelete", model: "claude-sonnet-4-6" });
     const agent = (await createRes.json()) as any;
 
     const delRes = await del(`/v1/agents/${agent.id}`);
@@ -117,7 +116,7 @@ describe("Agent delete (DELETE)", () => {
 // ============================================================
 describe("Agent archive", () => {
   it("archives an agent", async () => {
-    const createRes = await post("/v1/agents", { name: "ToArchive", model: "claude-sonnet-4-6", harness: "noop-test" });
+    const createRes = await post("/v1/agents", { name: "ToArchive", model: "claude-sonnet-4-6" });
     const agent = (await createRes.json()) as any;
     expect(agent.archived_at).toBeFalsy();
 
@@ -145,7 +144,7 @@ describe("Agent version history", () => {
   let agentId: string;
 
   beforeAll(async () => {
-    const res = await post("/v1/agents", { name: "Versioned", model: "claude-sonnet-4-6", system: "v1", harness: "noop-test" });
+    const res = await post("/v1/agents", { name: "Versioned", model: "claude-sonnet-4-6", system: "v1" });
     agentId = ((await res.json()) as any).id;
     // Create 3 versions
     await put(`/v1/agents/${agentId}`, { system: "v2" });
@@ -189,7 +188,7 @@ describe("Agent list filters", () => {
   beforeAll(async () => {
     // Create a few agents
     for (let i = 0; i < 3; i++) {
-      await post("/v1/agents", { name: `ListTest-${i}`, model: "claude-sonnet-4-6", harness: "noop-test" });
+      await post("/v1/agents", { name: `ListTest-${i}`, model: "claude-sonnet-4-6" });
     }
   });
 
@@ -278,9 +277,9 @@ describe("Session update/delete/archive", () => {
   let envId: string;
 
   beforeAll(async () => {
-    const a = await post("/v1/agents", { name: "SA", model: "claude-sonnet-4-6", harness: "noop-test" });
+    const a = await post("/v1/agents", { name: "SA", model: "claude-sonnet-4-6" });
     agentId = ((await a.json()) as any).id;
-    const e = await post("/v1/environments", { name: "se", config: { type: "cloud" } });
+    const e = await post("/v1/environments", { name: "se", config: { type: "cloud", harness: "noop-test" } });
     envId = ((await e.json()) as any).id;
     const s = await post("/v1/sessions", { agent: agentId, environment_id: envId, title: "Original" });
     sessionId = ((await s.json()) as any).id;
@@ -343,11 +342,11 @@ describe("Session list filters", () => {
   let envId: string;
 
   beforeAll(async () => {
-    const a1 = await post("/v1/agents", { name: "Filter1", model: "claude-sonnet-4-6", harness: "noop-test" });
+    const a1 = await post("/v1/agents", { name: "Filter1", model: "claude-sonnet-4-6" });
     agentId1 = ((await a1.json()) as any).id;
-    const a2 = await post("/v1/agents", { name: "Filter2", model: "claude-sonnet-4-6", harness: "noop-test" });
+    const a2 = await post("/v1/agents", { name: "Filter2", model: "claude-sonnet-4-6" });
     agentId2 = ((await a2.json()) as any).id;
-    const e = await post("/v1/environments", { name: "filt-env", config: { type: "cloud" } });
+    const e = await post("/v1/environments", { name: "filt-env", config: { type: "cloud", harness: "noop-test" } });
     envId = ((await e.json()) as any).id;
 
     // Create 2 sessions for agent1, 1 for agent2
@@ -394,8 +393,8 @@ describe("New event types", () => {
   let sessionId: string;
 
   beforeAll(async () => {
-    const a = await post("/v1/agents", { name: "Evt", model: "claude-sonnet-4-6", harness: "echo-test" });
-    const e = await post("/v1/environments", { name: "evt-env", config: { type: "cloud" } });
+    const a = await post("/v1/agents", { name: "Evt", model: "claude-sonnet-4-6" });
+    const e = await post("/v1/environments", { name: "evt-env", config: { type: "cloud", harness: "echo-test" } });
     const s = await post("/v1/sessions", {
       agent: ((await a.json()) as any).id,
       environment_id: ((await e.json()) as any).id,
@@ -471,8 +470,8 @@ describe("Events pagination", () => {
   let sessionId: string;
 
   beforeAll(async () => {
-    const a = await post("/v1/agents", { name: "Pag", model: "claude-sonnet-4-6", harness: "noop-test" });
-    const e = await post("/v1/environments", { name: "pag-env", config: { type: "cloud" } });
+    const a = await post("/v1/agents", { name: "Pag", model: "claude-sonnet-4-6" });
+    const e = await post("/v1/environments", { name: "pag-env", config: { type: "cloud", harness: "noop-test" } });
     const s = await post("/v1/sessions", {
       agent: ((await a.json()) as any).id,
       environment_id: ((await e.json()) as any).id,
@@ -539,10 +538,9 @@ describe("Session agent snapshot", () => {
       name: "Snapshot Agent",
       model: "claude-sonnet-4-6",
       system: "snapshot v1",
-      harness: "noop-test",
     });
     const agent = (await a.json()) as any;
-    const e = await post("/v1/environments", { name: "snap-env", config: { type: "cloud" } });
+    const e = await post("/v1/environments", { name: "snap-env", config: { type: "cloud", harness: "noop-test" } });
     const envObj = (await e.json()) as any;
 
     const s = await post("/v1/sessions", { agent: agent.id, environment_id: envObj.id });
@@ -565,8 +563,8 @@ describe("Session agent snapshot", () => {
 // ============================================================
 describe("Session harness status flow", () => {
   it("emits running → idle events during processing", async () => {
-    const a = await post("/v1/agents", { name: "Status", model: "claude-sonnet-4-6", harness: "echo-test" });
-    const e = await post("/v1/environments", { name: "stat-env", config: { type: "cloud" } });
+    const a = await post("/v1/agents", { name: "Status", model: "claude-sonnet-4-6" });
+    const e = await post("/v1/environments", { name: "stat-env", config: { type: "cloud", harness: "echo-test" } });
     const s = await post("/v1/sessions", {
       agent: ((await a.json()) as any).id,
       environment_id: ((await e.json()) as any).id,
@@ -605,8 +603,8 @@ describe("Session harness status flow", () => {
   });
 
   it("idle event has stop_reason", async () => {
-    const a = await post("/v1/agents", { name: "StopR", model: "claude-sonnet-4-6", harness: "echo-test" });
-    const e = await post("/v1/environments", { name: "stop-env", config: { type: "cloud" } });
+    const a = await post("/v1/agents", { name: "StopR", model: "claude-sonnet-4-6" });
+    const e = await post("/v1/environments", { name: "stop-env", config: { type: "cloud", harness: "echo-test" } });
     const s = await post("/v1/sessions", {
       agent: ((await a.json()) as any).id,
       environment_id: ((await e.json()) as any).id,
@@ -646,8 +644,8 @@ describe("Harness crash recovery", () => {
       async run() { throw new Error("boom v2"); },
     }));
 
-    const a = await post("/v1/agents", { name: "Crash", model: "claude-sonnet-4-6", harness: "crash-v2" });
-    const e = await post("/v1/environments", { name: "crash-env", config: { type: "cloud" } });
+    const a = await post("/v1/agents", { name: "Crash", model: "claude-sonnet-4-6" });
+    const e = await post("/v1/environments", { name: "crash-env", config: { type: "cloud", harness: "crash-v2" } });
     const s = await post("/v1/sessions", {
       agent: ((await a.json()) as any).id,
       environment_id: ((await e.json()) as any).id,

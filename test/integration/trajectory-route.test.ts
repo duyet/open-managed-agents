@@ -46,7 +46,6 @@ async function setup() {
       model: "claude-sonnet-4-6",
       system: "you are helpful",
       tools: [{ type: "agent_toolset_20260401" }],
-      harness: "trajectory-test",
     }),
   });
   const agent = (await agentRes.json()) as any;
@@ -54,7 +53,7 @@ async function setup() {
   const envRes = await api("/v1/environments", {
     method: "POST",
     headers: HEADERS,
-    body: JSON.stringify({ name: "test-env", config: { type: "cloud" } }),
+    body: JSON.stringify({ name: "test-env", config: { type: "cloud", harness: "trajectory-test" } }),
   });
   const environment = (await envRes.json()) as any;
 

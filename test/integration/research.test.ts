@@ -452,13 +452,12 @@ describe("Outcomes", () => {
     const agentRes = await post("/v1/agents", {
       name: "OutcomeTestAgent",
       model: "claude-sonnet-4-6",
-      harness: "outcome-test",
     });
     agentId = ((await agentRes.json()) as any).id;
 
     const envRes = await post("/v1/environments", {
       name: "outcome-test-env",
-      config: { type: "cloud" },
+      config: { type: "cloud", harness: "outcome-test" },
     });
     envId = ((await envRes.json()) as any).id;
   });
