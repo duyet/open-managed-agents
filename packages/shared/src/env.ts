@@ -1,5 +1,40 @@
+/** Config object returned to `WorkerLoader.get()`'s callback — describes the
+ *  ephemeral Worker to spin up (Cloudflare Dynamic Workers). Typed locally
+ *  rather than pulled from @cloudflare/workers-types so the shape is stable
+ *  across type versions and Workers-pool tests can pass a fake binding. */
+export interface DynamicWorkerCode {
+  compatibilityDate: string;
+  mainModule: string;
+  modules: Record<string, string>;
+  /** `null` blocks all egress; a WorkerEntrypoint gateway intercepts+injects.
+   *  Omit to inherit the parent worker's default (un-injected) egress. */
+  globalOutbound?: unknown | null;
+  compatibilityFlags?: string[];
+  limits?: { cpuMs?: number; subRequests?: number };
+}
+
+/** Loaded ephemeral Worker handle returned by `WorkerLoader.get()`. */
+export interface LoadedDynamicWorker {
+  getEntrypoint(): { fetch(request: Request): Promise<Response> };
+}
+
+/** Cloudflare Worker Loader binding (Dynamic Workers). Bound only on the CF
+ *  agent worker when `worker_loaders` is declared in wrangler.jsonc. Powers
+ *  the opt-in `run_dynamic_worker` ("Code Mode") tool. */
+export interface WorkerLoader {
+  get(
+    id: string,
+    callback: () => DynamicWorkerCode | Promise<DynamicWorkerCode>,
+  ): LoadedDynamicWorker;
+}
+
 export interface Env {
   CONFIG_KV: KVNamespace;
+  /** Cloudflare Worker Loader binding (Dynamic Workers) — only bound on the
+   *  agent worker when `worker_loaders` is declared in wrangler.jsonc. Absent
+   *  on Node self-host and on CF deployments without the binding, in which
+   *  case the opt-in `run_dynamic_worker` tool is omitted from buildTools(). */
+  LOADER?: WorkerLoader;
   /** @deprecated Pre-shard binding. Equivalent to AUTH_DB_00 (the original
    *  openma-auth database) for back-compat during the shard rollout. New
    *  code MUST use `getShardForTenant(env, tenantId)` from
