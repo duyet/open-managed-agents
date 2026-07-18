@@ -24,6 +24,13 @@ export const authMiddleware = createMiddleware<{
   if (c.req.path.startsWith("/v1/mcp-proxy/")) {
     return next();
   }
+  // OMA's own MCP server (issue #199): a single streamable-HTTP endpoint that
+  // accepts the tenant API key as a Bearer token (what MCP clients send) as
+  // well as x-api-key. It resolves the tenant itself by forwarding the key on
+  // internal subrequests, so it must bypass this x-api-key-only gate.
+  if (c.req.path === "/v1/mcp") {
+    return next();
+  }
   // Public chat surface for published agents (issue #72): /p/:slug/* and
   // /p/:slug resolve the owning tenant from the publication row itself, so
   // they must bypass x-api-key auth. Guardrails (visibility/status, per-slug

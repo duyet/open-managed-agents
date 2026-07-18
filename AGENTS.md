@@ -557,6 +557,59 @@ so a spent budget silently degrades that server back to the presence-only
 
 ---
 
+## OMA as an MCP Server
+
+The platform ships its **own** MCP server so OMA can be driven from Claude
+Desktop, Claude Code, Cursor, or VS Code — no bespoke SDK. It's a single
+streamable-HTTP endpoint at `POST /v1/mcp` (JSON mode of MCP Streamable
+HTTP), mounted on both runtimes (`apps/main` Cloudflare Worker and
+`apps/main-node` self-host).
+
+**Auth:** the tenant API key, accepted as either `Authorization: Bearer
+<key>` (what MCP clients send) or `x-api-key: <key>`. Every tool call
+re-enters the platform's own HTTP API with that key, so tools run through the
+exact same auth + business logic as a direct REST call — no logic is
+duplicated in the MCP layer (`packages/http-routes/src/mcp/`).
+
+**Tools exposed:**
+
+| Tool | Maps to | Purpose |
+|---|---|---|
+| `list_agents` | `GET /v1/agents` | List the tenant's agents |
+| `create_agent` | `POST /v1/agents` | Create an agent (name, model, system prompt; default toolset) |
+| `create_session` | `POST /v1/sessions` | Start a session for an agent (optional `environment_id`) |
+| `send_message` | `POST /v1/sessions/:id/events` | Send a `user.message` (async — poll for the reply) |
+| `get_events` | `GET /v1/sessions/:id/events` | Read the session event log (supports `after_seq` paging) |
+
+`send_message` is non-blocking: it appends the user message and returns
+immediately; call `get_events` (paging with `after_seq`) to read the agent's
+response and tool activity.
+
+### Client config
+
+Claude Desktop / Cursor / VS Code (streamable HTTP, Bearer auth):
+
+```json
+{
+  "mcpServers": {
+    "oma": {
+      "type": "http",
+      "url": "https://<your-instance>/v1/mcp",
+      "headers": { "Authorization": "Bearer <YOUR_TENANT_API_KEY>" }
+    }
+  }
+}
+```
+
+Claude Code:
+
+```bash
+claude mcp add oma --transport http https://<your-instance>/v1/mcp \
+  --header "Authorization: Bearer <YOUR_TENANT_API_KEY>"
+```
+
+---
+
 ## Memory Stores
 
 Memory stores provide persistent storage for agents across sessions, aligned
