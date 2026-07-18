@@ -2,10 +2,10 @@ import type { Event } from "../../lib/events";
 
 /**
  * Layout constants — kept here as the single source of truth so that
- * Tailwind utility classes (`w-56`, `w-20`) and pixel arithmetic
- * (`224 + chartPx + 80`) stay in sync. Change here, change both.
+ * Tailwind utility classes (`w-64`, `w-20`) and pixel arithmetic
+ * (`256 + chartPx + 80`) stay in sync. Change here, change both.
  */
-export const LABEL_COL_W = 224; // === w-56
+export const LABEL_COL_W = 256; // === w-64
 export const DURATION_COL_W = 80; // === w-20
 export const SIDE_PANEL_W = 420;
 
@@ -92,6 +92,78 @@ export const FAMILY_BAR: Record<SpanFamily, string> = {
   marker: "bg-fg-subtle/40",
 };
 
+/** Short, human-readable name for the event-kind chip in each span row's
+ *  label column and in the color legend. Deliberately terse (fits a
+ *  pill) — the full label text next to it carries the specifics. */
+export const FAMILY_LABEL: Record<SpanFamily, string> = {
+  model: "Model",
+  tool: "Tool",
+  mcp: "MCP",
+  custom_tool: "Custom",
+  user: "User",
+  agent: "Agent",
+  system: "System",
+  warn: "Warning",
+  error: "Error",
+  schedule: "Wait",
+  wakeup: "Wakeup",
+  compaction: "Compact",
+  outcome: "Outcome",
+  thread: "Thread",
+  aux: "Aux",
+  thinking: "Thinking",
+  marker: "Event",
+};
+
+/** Pill background+text classes for the event-kind chip. Families with a
+ *  dedicated semantic color (success/danger/warning/info/violet/brand)
+ *  use their `-subtle` background; families without one fall back to a
+ *  neutral chip that still reads clearly against a turn card's tinted
+ *  background. */
+export const FAMILY_CHIP: Record<SpanFamily, string> = {
+  model: "bg-info-subtle text-info",
+  tool: "bg-success-subtle text-success",
+  mcp: "bg-accent-violet-subtle text-accent-violet",
+  custom_tool: "bg-warning-subtle text-warning",
+  user: "bg-brand-subtle text-brand",
+  agent: "bg-bg text-fg-muted",
+  system: "bg-bg text-fg-subtle",
+  warn: "bg-warning-subtle text-warning",
+  error: "bg-danger-subtle text-danger",
+  schedule: "bg-info-subtle text-info",
+  wakeup: "bg-info-subtle text-info",
+  compaction: "bg-accent-violet-subtle text-accent-violet",
+  outcome: "bg-success-subtle text-success",
+  thread: "bg-bg text-fg-muted",
+  aux: "bg-bg text-fg-subtle",
+  thinking: "bg-bg text-fg-subtle",
+  marker: "bg-bg text-fg-subtle",
+};
+
+/** Canonical display order for the legend — most-common-first rather than
+ *  the SpanFamily union's declaration order, so the legend reads like a
+ *  narrative (who spoke, then what work happened) instead of an
+ *  alphabetized dump. */
+export const FAMILY_ORDER: SpanFamily[] = [
+  "user",
+  "agent",
+  "thinking",
+  "model",
+  "tool",
+  "mcp",
+  "custom_tool",
+  "wakeup",
+  "schedule",
+  "compaction",
+  "outcome",
+  "thread",
+  "aux",
+  "system",
+  "warn",
+  "error",
+  "marker",
+];
+
 /**
  * A "turn" is the unit of agent work between a user trigger event
  * (user.message / user.tool_confirmation / user.custom_tool_result) and
@@ -139,11 +211,12 @@ export const TRIGGER_DOT: Record<TurnTriggerKind, string> = {
   init: "bg-fg-subtle",
 };
 
-export const STATUS_TEXT: Record<TurnStatus, string> = {
-  completed: "text-fg-subtle",
-  running: "text-info",
-  errored: "text-danger",
-  terminated: "text-danger",
+/** Pill background+text classes for the turn-header status badge. */
+export const STATUS_BADGE: Record<TurnStatus, string> = {
+  completed: "bg-success-subtle text-success",
+  running: "bg-info-subtle text-info",
+  errored: "bg-danger-subtle text-danger",
+  terminated: "bg-danger-subtle text-danger",
 };
 
 /**

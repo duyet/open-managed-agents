@@ -7,25 +7,55 @@ import { bucketIntoTurns, deriveSpans } from "./derive";
 import {
   DURATION_COL_W,
   FAMILY_BAR,
+  FAMILY_CHIP,
   FAMILY_DOT,
+  FAMILY_LABEL,
+  FAMILY_ORDER,
   LABEL_COL_W,
   SIDE_PANEL_W,
-  STATUS_TEXT,
+  STATUS_BADGE,
   TRIGGER_DOT,
   TRIGGER_LABEL,
   type Span,
+  type SpanFamily,
   type TimelineSelection,
   type Turn,
   type TurnTriggerKind,
 } from "./types";
 
+// Chart-area sizing. MIN_CHART_PX keeps a very short/sparse turn from
+// rendering an unreadably narrow bar strip; CHART_RIGHT_PADDING leaves
+// room so the last tick label + bar don't collide with the duration
+// column.
+const MIN_CHART_PX = 200;
+const CHART_RIGHT_PADDING = 64;
+
 /**
  * Top-level timeline orchestrator. Buckets events into turns, renders one
  * TurnCard per turn with idle dividers between, and hosts the shared
  * right-side detail panel that any span click in any card populates.
+ *
+ * Each turn auto-fits its own span chart to the available width (see
+ * TurnCard) — there's deliberately no per-card zoom control. A session's
+ * turns rarely share a natural timescale (a 200ms tool round-trip and a
+ * 1-hour scheduled wait don't belong on the same axis), so a single
+ * shared zoom control would either be useless for most cards or force
+ * users to keep re-zooming per card anyway. Auto-fit removes that
+ * friction entirely instead of just relocating it.
  */
 export function TimelineView({ events }: { events: Event[] }) {
   const turns = useMemo(() => bucketIntoTurns(events), [events]);
+  // Single pass over the full event stream purely to know which span
+  // families actually occur, for the legend. Cheap (linear) and doesn't
+  // touch derive.ts — the per-turn chart data is still derived
+  // independently inside each TurnCard from turn-relative timestamps.
+  const presentFamilies = useMemo(() => {
+    const { spans } = deriveSpans(events);
+    const seen = new Set<SpanFamily>();
+    for (const s of spans) seen.add(s.family);
+    return FAMILY_ORDER.filter((f) => seen.has(f));
+  }, [events]);
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [selection, setSelection] = useState<TimelineSelection | null>(null);
 
@@ -49,46 +79,68 @@ export function TimelineView({ events }: { events: Event[] }) {
   }
 
   return (
-    <div className="flex-1 flex min-h-0">
-      <div ref={containerRef} className="flex-1 min-w-0 overflow-y-auto px-4 sm:px-8 py-6 space-y-3">
-        {turns.map((turn, i) => {
-          const prev = i > 0 ? turns[i - 1] : null;
-          const idleMs =
-            prev && prev.endedAt && turn.triggerTs && turn.triggerTs > prev.endedAt
-              ? turn.triggerTs - prev.endedAt
-              : 0;
-          return (
-            <Fragment key={turn.id}>
-              {idleMs > 0 && <IdleDivider ms={idleMs} nextKind={turn.triggerKind} />}
-              <TurnCard
-                turn={turn}
-                selection={selection}
-                onSelectSpan={(span) =>
-                  setSelection((cur) =>
-                    cur?.spanKey === span.key
-                      ? null
-                      : { spanKey: span.key, spanLabel: span.label, events: span.events },
-                  )
-                }
-              />
-            </Fragment>
-          );
-        })}
+    <div className="flex-1 flex min-h-0 flex-col">
+      <Legend families={presentFamilies} />
+      <div className="flex-1 flex min-h-0">
+        <div ref={containerRef} className="flex-1 min-w-0 overflow-y-auto px-4 sm:px-8 py-6 space-y-4">
+          {turns.map((turn, i) => {
+            const prev = i > 0 ? turns[i - 1] : null;
+            const idleMs =
+              prev && prev.endedAt && turn.triggerTs && turn.triggerTs > prev.endedAt
+                ? turn.triggerTs - prev.endedAt
+                : 0;
+            return (
+              <Fragment key={turn.id}>
+                {idleMs > 0 && <IdleDivider ms={idleMs} nextKind={turn.triggerKind} />}
+                <TurnCard
+                  turn={turn}
+                  selection={selection}
+                  onSelectSpan={(span) =>
+                    setSelection((cur) =>
+                      cur?.spanKey === span.key
+                        ? null
+                        : { spanKey: span.key, spanLabel: span.label, events: span.events },
+                    )
+                  }
+                />
+              </Fragment>
+            );
+          })}
+        </div>
+        {selection && <DetailPanel selection={selection} onClose={() => setSelection(null)} />}
       </div>
-      {selection && <DetailPanel selection={selection} onClose={() => setSelection(null)} />}
+    </div>
+  );
+}
+
+/**
+ * One-line color key for the span-kind chips used throughout every turn
+ * card. Only lists families actually present in this session's events —
+ * a session with no MCP or schedule activity doesn't need those entries.
+ */
+function Legend({ families }: { families: SpanFamily[] }) {
+  if (families.length === 0) return null;
+  return (
+    <div className="shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 sm:px-8 py-2 border-b border-border/60 text-[11px] text-fg-subtle">
+      {families.map((f) => (
+        <span key={f} className="flex items-center gap-1.5">
+          <span aria-hidden="true" className={`w-2 h-2 rounded-full shrink-0 ${FAMILY_DOT[f]}`} />
+          {FAMILY_LABEL[f]}
+        </span>
+      ))}
     </div>
   );
 }
 
 function IdleDivider({ ms, nextKind }: { ms: number; nextKind: TurnTriggerKind }) {
   return (
-    <div className="flex items-center gap-3 text-xs text-fg-subtle font-mono py-1">
-      <div className="flex-1 border-t border-dashed border-border" />
+    <div className="flex items-center gap-3 text-[11px] text-fg-subtle/80 font-mono py-0.5">
+      <div className="flex-1 border-t border-dashed border-border/60" />
       <span>
         ↓ {formatDuration(ms)} idle
         {nextKind === "wakeup" && " · scheduled wakeup"}
       </span>
-      <div className="flex-1 border-t border-dashed border-border" />
+      <div className="flex-1 border-t border-dashed border-border/60" />
     </div>
   );
 }
@@ -116,6 +168,7 @@ function DetailPanel({
         </div>
         <button
           onClick={onClose}
+          aria-label="Close detail panel"
           className="text-fg-subtle hover:text-fg-muted text-lg leading-none px-2"
           title="Close"
         >
@@ -169,11 +222,11 @@ function TimelineRow({
   rightLabel: ReactNode;
   children: ReactNode;
 }) {
-  const stickyBg = isSelected ? "bg-info-subtle/40" : "bg-bg-surface/30";
+  const stickyBg = isSelected ? "bg-info-subtle/40" : "bg-bg-surface/20";
   return (
     <div style={{ width: LABEL_COL_W + chartPx + DURATION_COL_W }}>
       <div
-        className={`flex items-center py-1 border-b border-border/30 hover:bg-bg/40 group cursor-pointer ${isSelected ? "bg-info-subtle/40" : ""}`}
+        className={`flex items-center py-1.5 border-b border-border/20 hover:bg-bg/40 group cursor-pointer transition-colors ${isSelected ? "bg-info-subtle/40" : ""}`}
         title={title}
         onClick={onClick}
         onKeyDown={rowActivateKeyDown(onClick)}
@@ -181,16 +234,16 @@ function TimelineRow({
         role="button"
       >
         <div
-          className={`shrink-0 sticky left-0 z-20 flex items-center gap-2 text-xs px-4 group-hover:bg-bg/40 ${stickyBg}`}
+          className={`shrink-0 sticky left-0 z-20 flex items-center gap-2 px-4 group-hover:bg-bg/40 ${stickyBg}`}
           style={{ width: LABEL_COL_W }}
         >
           {leftLabel}
         </div>
-        <div className="relative h-5 shrink-0" style={{ width: chartPx }}>
+        <div className="relative h-6 shrink-0" style={{ width: chartPx }}>
           {children}
         </div>
         <div
-          className={`shrink-0 sticky right-0 z-20 text-right text-xs font-mono text-fg-subtle pr-3 group-hover:bg-bg/40 ${stickyBg}`}
+          className={`shrink-0 sticky right-0 z-20 text-right text-[11px] font-mono text-fg-subtle pr-3 group-hover:bg-bg/40 ${stickyBg}`}
           style={{ width: DURATION_COL_W }}
         >
           {rightLabel}
@@ -201,10 +254,37 @@ function TimelineRow({
 }
 
 /**
- * One turn = one card. Header summarizes the trigger (kind, label,
- * duration, token totals, status). Body is a per-turn waterfall with
- * its own pxPerMs density picker — long turns don't impose their
- * scale on short neighbours and vice-versa.
+ * Small colored kind-tag shown at the start of every span row's label
+ * column (and reused nowhere else). Anchors the eye to the same
+ * horizontal position on every row across every turn, so scanning down a
+ * long session reads as "user, model, tool, tool, agent…" at a glance
+ * instead of requiring the label text itself to be parsed each time.
+ */
+function FamilyChip({ family }: { family: SpanFamily }) {
+  return (
+    <span
+      className={`shrink-0 px-1.5 py-0.5 rounded text-[9.5px] font-medium uppercase tracking-wide ${FAMILY_CHIP[family]}`}
+    >
+      {FAMILY_LABEL[family]}
+    </span>
+  );
+}
+
+function StatusPill({ status, statusLabel }: { status: keyof typeof STATUS_BADGE; statusLabel: string }) {
+  return (
+    <span
+      className={`shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide ${STATUS_BADGE[status]}`}
+    >
+      {statusLabel}
+    </span>
+  );
+}
+
+/**
+ * One turn = one card. Header summarizes the trigger (kind, prompt
+ * snippet, span count, duration, token totals, status pill). Body is a
+ * per-turn waterfall that auto-fits its density to the available width —
+ * see the density-picker effect below for how the scale is chosen.
  */
 function TurnCard({
   turn,
@@ -220,14 +300,15 @@ function TurnCard({
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [pxPerMs, setPxPerMs] = useState<number | null>(null);
-  const [mode, setMode] = useState<"auto" | "manual">("auto");
 
   // Auto-density picker: pick pxPerMs so the median consecutive event
-  // gap is ~25px wide. See memory: the right default scales with event
-  // density, not total duration.
+  // gap is ~25px wide, while never going below the rate that fits the
+  // turn's full duration inside the viewport (so short/sparse turns
+  // never scroll horizontally, and dense turns get spread out enough to
+  // stay legible instead of collapsing into an unreadable cluster).
   useEffect(() => {
-    if (collapsed || mode === "manual" || !scrollRef.current || totalMs <= 0) return;
-    const viewportChartPx = scrollRef.current.clientWidth - LABEL_COL_W - DURATION_COL_W - 64;
+    if (collapsed || !scrollRef.current || totalMs <= 0) return;
+    const viewportChartPx = scrollRef.current.clientWidth - LABEL_COL_W - DURATION_COL_W - CHART_RIGHT_PADDING;
     if (viewportChartPx <= 0) return;
     const times: number[] = [];
     for (const s of spans) {
@@ -250,25 +331,10 @@ function TurnCard({
     }
     const auto = Math.min(5, Math.max(candidate, viewportChartPx / totalMs));
     setPxPerMs(Math.max(auto, viewportChartPx / totalMs));
-  }, [collapsed, mode, spans, totalMs]);
+  }, [collapsed, spans, totalMs]);
 
   const effectivePxPerMs = pxPerMs ?? 0.05;
-  const chartPx = Math.max(200, totalMs * effectivePxPerMs);
-
-  const zoomBy = (factor: number) => {
-    setMode("manual");
-    setPxPerMs((p) => Math.min(50, Math.max(0.0001, (p ?? 0.05) * factor)));
-  };
-  const fitToViewport = () => {
-    if (!scrollRef.current) return;
-    const viewportChartPx = scrollRef.current.clientWidth - LABEL_COL_W - DURATION_COL_W - 64;
-    if (viewportChartPx > 0 && totalMs > 0) setPxPerMs(viewportChartPx / totalMs);
-    setMode("manual");
-  };
-  const resetAuto = () => {
-    setMode("auto");
-    setPxPerMs(null);
-  };
+  const chartPx = Math.max(MIN_CHART_PX, totalMs * effectivePxPerMs);
 
   // Tick spacing: aim for ~120px between labels at the current density.
   // pickTickStep takes a "total span across 6 ticks" arg, so multiply
@@ -317,18 +383,19 @@ function TurnCard({
       : "border-border";
 
   return (
-    <div className={`border ${borderClass} rounded-lg bg-bg-surface/30`}>
+    <div className={`border ${borderClass} rounded-xl bg-bg-surface/30 overflow-hidden`}>
       {/* Header */}
-      <div className="px-4 py-2.5 flex items-center gap-3 text-xs">
+      <div className="px-4 sm:px-5 py-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
         <button
           onClick={() => setCollapsed((c) => !c)}
-          className="text-fg-subtle hover:text-fg-muted font-mono w-4 text-center"
+          aria-label={collapsed ? "Expand turn" : "Collapse turn"}
+          className="text-fg-subtle hover:text-fg-muted font-mono w-4 text-center shrink-0"
           title={collapsed ? "Expand" : "Collapse"}
         >
           {collapsed ? "▸" : "▾"}
         </button>
-        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${TRIGGER_DOT[turn.triggerKind]}`} />
-        <span className="font-mono text-fg-muted">{TRIGGER_LABEL[turn.triggerKind]}</span>
+        <span aria-hidden="true" className={`w-1.5 h-1.5 rounded-full shrink-0 ${TRIGGER_DOT[turn.triggerKind]}`} />
+        <span className="font-medium text-fg">{TRIGGER_LABEL[turn.triggerKind]}</span>
         {triggerTitleText && (
           <span className="text-fg-subtle truncate max-w-md italic">"{triggerTitleText}"</span>
         )}
@@ -341,138 +408,86 @@ function TurnCard({
               {tokens.cacheRead > 0 && ` ⚡${tokens.cacheRead}`}
             </span>
           )}
-          <span className={STATUS_TEXT[turn.status]}>{turn.status}</span>
+          <StatusPill status={turn.status} statusLabel={turn.status} />
         </span>
       </div>
 
       {!collapsed && spans.length > 0 && (
-        <>
-          <ZoomToolbar
-            mode={mode}
-            pxPerMs={effectivePxPerMs}
-            onZoomBy={zoomBy}
-            onFit={fitToViewport}
-            onAuto={resetAuto}
-          />
-          <div ref={scrollRef} className="overflow-x-auto pb-3 border-t border-border/40">
-            {/* Time axis */}
-            <div className="pt-2 sticky top-0 bg-bg-surface/30 z-10" style={{ width: LABEL_COL_W + chartPx + DURATION_COL_W }}>
-              <div className="flex items-center">
-                <div className="shrink-0 sticky left-0 bg-bg-surface/30 z-30" style={{ width: LABEL_COL_W }} />
-                <div className="relative h-5 border-b border-border" style={{ width: chartPx }}>
-                  {ticks.map((t) => (
-                    <div
-                      key={t}
-                      className="absolute top-0 h-full flex flex-col items-start text-[10px] text-fg-subtle font-mono"
-                      style={{ left: `${t * effectivePxPerMs}px` }}
-                    >
-                      <span className="-translate-x-1/2 px-1">{formatDuration(t)}</span>
-                      <div className="w-px flex-1 bg-border" />
-                    </div>
-                  ))}
-                </div>
-                <div className="shrink-0 sticky right-0 bg-bg-surface/30 z-30" style={{ width: DURATION_COL_W }} />
+        <div ref={scrollRef} className="overflow-x-auto pb-3 border-t border-border/40">
+          {/* Time axis */}
+          <div className="pt-2 sticky top-0 bg-bg-surface/95 backdrop-blur-sm z-10" style={{ width: LABEL_COL_W + chartPx + DURATION_COL_W }}>
+            <div className="flex items-center">
+              <div className="shrink-0 sticky left-0 bg-bg-surface/95 z-30" style={{ width: LABEL_COL_W }} />
+              <div className="relative h-5 border-b border-border/60" style={{ width: chartPx }}>
+                {ticks.map((t) => (
+                  <div
+                    key={t}
+                    className="absolute top-0 h-full flex flex-col items-start text-[10px] text-fg-subtle font-mono"
+                    style={{ left: `${t * effectivePxPerMs}px` }}
+                  >
+                    <span className="-translate-x-1/2 px-1">{formatDuration(t)}</span>
+                    <div className="w-px flex-1 bg-border/40" />
+                  </div>
+                ))}
               </div>
+              <div className="shrink-0 sticky right-0 bg-bg-surface/95 z-30" style={{ width: DURATION_COL_W }} />
             </div>
-
-            {/* Rows */}
-            {spans.map((s) => {
-              const left = s.startMs * effectivePxPerMs;
-              const width = s.durationMs > 0 ? Math.max(2, s.durationMs * effectivePxPerMs) : 0;
-              const isSelected = selection?.spanKey === s.key;
-              const title = s.detail
-                ? `${s.label} — ${formatDuration(s.durationMs)} — ${s.detail}`
-                : `${s.label} — ${formatDuration(s.durationMs)}`;
-              return (
-                <TimelineRow
-                  key={s.key}
-                  isSelected={isSelected}
-                  onClick={() => onSelectSpan(s)}
-                  title={title}
-                  chartPx={chartPx}
-                  leftLabel={
-                    <>
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${FAMILY_DOT[s.family]}`} />
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-fg-muted font-mono">{s.label}</div>
-                        {s.detail && (
-                          <div className="truncate text-fg-subtle font-mono text-[10px]">{s.detail}</div>
-                        )}
-                      </div>
-                    </>
-                  }
-                  rightLabel={s.durationMs > 0 ? formatDuration(s.durationMs) : "·"}
-                >
-                  {width > 0 ? (
-                    <>
-                      <div
-                        className={`absolute h-3 top-1 rounded-sm ${FAMILY_BAR[s.family]} group-hover:opacity-100 opacity-90`}
-                        style={{ left: `${left}px`, width: `${width}px` }}
-                      />
-                      {typeof s.ttftMs === "number" && s.durationMs > 0 && (
-                        <div
-                          className="absolute h-3 top-1 w-px bg-bg-surface"
-                          style={{ left: `${left + s.ttftMs * effectivePxPerMs}px` }}
-                          title={`TTFT ${formatDuration(s.ttftMs)}`}
-                        />
-                      )}
-                    </>
-                  ) : (
-                    <div
-                      className={`absolute top-0 bottom-0 w-px ${FAMILY_DOT[s.family]}`}
-                      style={{ left: `${left}px` }}
-                    />
-                  )}
-                </TimelineRow>
-              );
-            })}
           </div>
-        </>
-      )}
-    </div>
-  );
-}
 
-function ZoomToolbar({
-  mode,
-  pxPerMs,
-  onZoomBy,
-  onFit,
-  onAuto,
-}: {
-  mode: "auto" | "manual";
-  pxPerMs: number;
-  onZoomBy: (factor: number) => void;
-  onFit: () => void;
-  onAuto: () => void;
-}) {
-  const fmtRate = (ppms: number) => {
-    const pps = ppms * 1000;
-    if (pps >= 100) return `${Math.round(pps)} px/s`;
-    if (pps >= 1) return `${pps.toFixed(1)} px/s`;
-    return `${pps.toFixed(2)} px/s`;
-  };
-  const btn = "px-2 py-0.5 rounded border hover:bg-bg-surface";
-  return (
-    <div className="px-4 pb-2 flex items-center gap-1 text-xs">
-      <button onClick={() => onZoomBy(0.5)} aria-label="Zoom out" className={`${btn} border-border text-fg-muted`} title="Zoom out">
-        −
-      </button>
-      <button
-        onClick={onAuto}
-        aria-label="Auto-pick scale by event density"
-        className={`${btn} ${mode === "auto" ? "border-info text-info" : "border-border text-fg-muted"}`}
-        title="Auto-pick scale by event density"
-      >
-        auto
-      </button>
-      <button onClick={onFit} aria-label="Fit turn duration to viewport" className={`${btn} border-border text-fg-muted`} title="Fit turn duration to viewport">
-        fit
-      </button>
-      <button onClick={() => onZoomBy(2)} aria-label="Zoom in" className={`${btn} border-border text-fg-muted`} title="Zoom in">
-        +
-      </button>
-      <span className="ml-2 font-mono text-fg-subtle">{fmtRate(pxPerMs)}</span>
+          {/* Rows */}
+          {spans.map((s) => {
+            const left = s.startMs * effectivePxPerMs;
+            const width = s.durationMs > 0 ? Math.max(3, s.durationMs * effectivePxPerMs) : 0;
+            const isSelected = selection?.spanKey === s.key;
+            const title = s.detail
+              ? `${s.label} — ${formatDuration(s.durationMs)} — ${s.detail}`
+              : `${s.label} — ${formatDuration(s.durationMs)}`;
+            return (
+              <TimelineRow
+                key={s.key}
+                isSelected={isSelected}
+                onClick={() => onSelectSpan(s)}
+                title={title}
+                chartPx={chartPx}
+                leftLabel={
+                  <>
+                    <FamilyChip family={s.family} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[12.5px] text-fg-muted">{s.label}</div>
+                      {s.detail && (
+                        <div className="truncate text-fg-subtle font-mono text-[10px]">{s.detail}</div>
+                      )}
+                    </div>
+                  </>
+                }
+                rightLabel={s.durationMs > 0 ? formatDuration(s.durationMs) : "—"}
+              >
+                {width > 0 ? (
+                  <>
+                    <div
+                      className={`absolute h-3.5 top-1/2 -translate-y-1/2 rounded-sm ${FAMILY_BAR[s.family]} group-hover:opacity-100 opacity-90 transition-opacity`}
+                      style={{ left: `${left}px`, width: `${width}px` }}
+                    />
+                    {typeof s.ttftMs === "number" && s.durationMs > 0 && (
+                      <div
+                        className="absolute h-3.5 top-1/2 -translate-y-1/2 w-px bg-bg-surface"
+                        style={{ left: `${left + s.ttftMs * effectivePxPerMs}px` }}
+                        title={`TTFT ${formatDuration(s.ttftMs)}`}
+                      />
+                    )}
+                  </>
+                ) : (
+                  <div
+                    aria-hidden="true"
+                    className={`absolute top-1/2 -translate-y-1/2 rounded-full ring-2 ring-bg-surface/60 group-hover:scale-125 transition-transform ${FAMILY_DOT[s.family]}`}
+                    style={{ left: `${left - 3}px`, width: 6, height: 6 }}
+                  />
+                )}
+              </TimelineRow>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
