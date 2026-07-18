@@ -43,6 +43,13 @@
       "when": 1784592000000,
       "tag": "0005_telemetry_events",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784678400000,
+      "tag": "0006_agent_publication_slug_unique",
+      "breakpoints": true
     }
   ]
 }

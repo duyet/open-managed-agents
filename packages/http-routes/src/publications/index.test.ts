@@ -196,3 +196,28 @@ describe("agent-scoped publish + patch — environment_id (issue #225)", () => {
     expect(((await res.json()) as { environment_id: string | null }).environment_id).toBeNull();
   });
 });
+
+describe("POST /v1/publications — slug uniqueness (issue #268)", () => {
+  it("409s when a second tenant publishes with an already-claimed slug", async () => {
+    const { services, agents } = makeServices();
+    const agentA = await agents.create({ tenantId: TENANT, input: { name: "A", model: "claude-sonnet-4-6" } });
+    const agentB = await agents.create({
+      tenantId: OTHER_TENANT,
+      input: { name: "B", model: "claude-sonnet-4-6" },
+    });
+    const appA = withTenant(buildPublicationRoutes({ services }), TENANT);
+    const appB = withTenant(buildPublicationRoutes({ services }), OTHER_TENANT);
+
+    const first = await appA.request(
+      "/",
+      json({ agent_id: agentA.id, slug: "duyetbot", title: "Duyetbot" }),
+    );
+    expect(first.status).toBe(201);
+
+    const second = await appB.request(
+      "/",
+      json({ agent_id: agentB.id, slug: "duyetbot", title: "Someone else's bot" }),
+    );
+    expect(second.status).toBe(409);
+  });
+});
