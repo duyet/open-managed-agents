@@ -15,7 +15,7 @@ import type { RouteServices } from "../types";
 // @ts-expect-error ?raw is a Vite string import, no type decl
 import telemetryMigration from "../../../../apps/main/migrations/0029_telemetry_events.sql?raw";
 // @ts-expect-error ?raw is a Vite string import, no type decl
-import installsMigration from "../../../../apps/main/migrations/0030_telemetry_installs.sql?raw";
+import installsMigration from "../../../../apps/main/migrations/0032_telemetry_installs.sql?raw";
 
 function d1(): D1Database {
   return (env as unknown as { MAIN_DB: D1Database }).MAIN_DB;

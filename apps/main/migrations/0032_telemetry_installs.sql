@@ -1,4 +1,4 @@
--- 0030_telemetry_installs.sql — anonymous server-side install / deployment
+-- 0032_telemetry_installs.sql — anonymous server-side install / deployment
 -- phone-home telemetry (public, unauthenticated ingest via
 -- POST /v1/telemetry/ingest).
 --
