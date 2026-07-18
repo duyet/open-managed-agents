@@ -90,10 +90,10 @@ const SYSTEM_PROVIDER_ENVS = [
 ];
 
 // Command to bring an offline machine back — shown on offline machine cards
-// and their detail dialog. `bridge setup` is idempotent: it re-pairs, reinstalls
-// the service, and starts the daemon, so it's the one reliable "reconnect" verb
-// the CLI exposes today (there is no dedicated `start`/`connect`).
-const RECONNECT_CMD = "npx @getoma/cli bridge setup";
+// and their detail dialog. `bridge restart` restarts the installed daemon
+// service; if the machine was never set up it prints a hint to run
+// `bridge setup` instead.
+const RECONNECT_CMD = "npx @getoma/cli bridge restart";
 
 function formatHeartbeat(unixSeconds: number): string {
   const ago = Math.floor(Date.now() / 1000) - unixSeconds;
@@ -607,8 +607,8 @@ function MachineDetailDialog({
             <div className="text-sm font-medium text-fg">Reconnect this machine</div>
             <p className="text-xs text-fg-muted leading-relaxed">
               The daemon isn't attached right now. On{" "}
-              <span className="text-fg">{r.hostname}</span>, run this to re-pair and restart it —
-              it's idempotent, so it's safe to run again:
+              <span className="text-fg">{r.hostname}</span>, run this to restart it (if it was
+              never set up, it'll point you to <code className="bg-bg-surface px-1 rounded font-mono text-[11px]">bridge setup</code>):
             </p>
             <CopyBlock id={`reconnect-detail-${r.id}`} text={RECONNECT_CMD} copied={copied} onCopy={onCopy} />
           </div>
