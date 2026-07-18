@@ -254,6 +254,12 @@ export function formToConfig(form: FormState) {
           : {}),
         ...(form.acpModel ? { model: form.acpModel } : {}),
         ...(form.acpReasoningEffort ? { reasoning_effort: form.acpReasoningEffort } : {}),
+        ...(form.workingDir ? { working_dir: form.workingDir } : {}),
+        ...(form.worktreeBranch
+          ? { worktree: { branch: form.worktreeBranch } }
+          : form.branch
+            ? { branch: form.branch }
+            : {}),
       },
     };
   } else if (form.harness !== "default") {
@@ -278,6 +284,9 @@ export function configToForm(parsed: Record<string, unknown>): FormState {
           local_skill_blocklist?: string[];
           model?: string;
           reasoning_effort?: string;
+          working_dir?: string;
+          branch?: string;
+          worktree?: { branch: string };
         };
       }
     | undefined;
@@ -332,6 +341,9 @@ export function configToForm(parsed: Record<string, unknown>): FormState {
       : [],
     acpModel: rb?.model ?? "",
     acpReasoningEffort: rb?.reasoning_effort ?? "",
+    workingDir: rb?.working_dir ?? "",
+    branch: rb?.branch ?? "",
+    worktreeBranch: rb?.worktree?.branch ?? "",
     toolDefaultEnabled: dc.enabled ?? true,
     toolDefaultPermission:
       dc.permission_policy?.type === "always_ask" ? "always_ask" : "always_allow",
@@ -371,6 +383,18 @@ export const INITIAL_FORM = {
    *  runtime_binding.reasoning_effort. Same best-effort caveat as
    *  acpModel, via ACP's session/set_config_option ("thought_level"). */
   acpReasoningEffort: "",
+  /** Optional: absolute path to a project on the paired machine, forwarded
+   *  in runtime_binding.working_dir. Empty = the daemon's synthetic
+   *  per-session directory (default, unchanged behavior). */
+  workingDir: "",
+  /** Optional: git branch to check out in workingDir before spawning,
+   *  forwarded in runtime_binding.branch. Mutually exclusive with
+   *  worktreeBranch (worktreeBranch wins if both are set). */
+  branch: "",
+  /** Optional: instead of checking out branch in place, create a git
+   *  worktree from this branch and use it as cwd, forwarded in
+   *  runtime_binding.worktree.branch. Takes precedence over branch. */
+  worktreeBranch: "",
   // Built-in tool policy. `agent_toolset_20260401` toolset's
   // `default_config` controls fallback enabled/permission for any
   // tool without a specific override. `toolOverrides` is a per-tool
@@ -554,6 +578,12 @@ export function AgentFormDialog({
               : {}),
             ...(form.acpModel ? { model: form.acpModel } : {}),
             ...(form.acpReasoningEffort ? { reasoning_effort: form.acpReasoningEffort } : {}),
+            ...(form.workingDir ? { working_dir: form.workingDir } : {}),
+            ...(form.worktreeBranch
+              ? { worktree: { branch: form.worktreeBranch } }
+              : form.branch
+                ? { branch: form.branch }
+                : {}),
           },
         };
       } else if (form.harness !== "default") {
@@ -1375,6 +1405,51 @@ function AcpAgentPicker({
         </a>
         ).
       </p>
+
+      {/* Local-agent-binding (advanced, optional): run the ACP child in a
+          real project directory on the paired machine instead of the
+          daemon's synthetic per-session cwd. Forwarded as
+          runtime_binding.working_dir / .branch / .worktree.branch. */}
+      <div className="mt-3 space-y-2">
+        <div>
+          <label className="text-xs text-fg-subtle block mb-1">
+            Working directory (path on paired machine)
+          </label>
+          <input
+            value={form.workingDir}
+            onChange={(e) => setForm({ ...form, workingDir: e.target.value })}
+            className={inputCls}
+            placeholder="/Users/you/projects/my-repo"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-xs text-fg-subtle block mb-1">Branch to check out</label>
+            <input
+              value={form.branch}
+              onChange={(e) => setForm({ ...form, branch: e.target.value })}
+              className={inputCls}
+              placeholder="main"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-fg-subtle block mb-1">
+              Or: create worktree from branch
+            </label>
+            <input
+              value={form.worktreeBranch}
+              onChange={(e) => setForm({ ...form, worktreeBranch: e.target.value })}
+              className={inputCls}
+              placeholder="feature/my-branch"
+            />
+          </div>
+        </div>
+        <p className="text-xs text-fg-muted">
+          Optional — only used for local runtimes. Leave blank to keep the daemon's default
+          per-session working directory. Worktree branch takes precedence over the plain
+          branch field when both are set.
+        </p>
+      </div>
 
       {/* Local-skill blocklist — multi-select fed by what the daemon
           reported in hello.local_skills[acpAgentId]. */}
