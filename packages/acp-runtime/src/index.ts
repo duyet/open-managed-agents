@@ -4,6 +4,7 @@ export type {
   Spawner,
   AcpSession,
   AcpRuntime,
+  OverrideOutcome,
   RestartPolicy,
   SessionOptions,
 } from "./types.js";

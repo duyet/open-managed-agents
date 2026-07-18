@@ -156,7 +156,9 @@ const ACP_MODEL_OPTIONS = [
 // Reasoning-effort override for local ACP agents. No canonical "reasoning"
 // field exists elsewhere in OMA today — this mirrors the OpenAI/Codex
 // reasoning_effort convention (codex-acp is the ACP agent most likely to
-// honor it). Harness/daemon don't consume this yet — see
+// honor it). Applied best-effort by the daemon via ACP's experimental
+// session/set_config_option method, matched against whatever
+// "thought_level" option the spawned ACP agent itself advertises — see
 // https://github.com/duyet/oma/issues/269.
 const ACP_REASONING_OPTIONS = [
   { value: "minimal", label: "Minimal" },
@@ -361,11 +363,13 @@ export const INITIAL_FORM = {
   localSkillBlocklist: [] as string[],
   /** Optional model override forwarded in runtime_binding.model. Empty =
    *  inherit whatever the daemon-fetched bundle / ACP child's own config
-   *  resolves. NOTE: not yet consumed end-to-end by the harness/daemon —
-   *  see https://github.com/duyet/oma/issues/269. */
+   *  resolves. Applied best-effort by the daemon via ACP's experimental
+   *  session/set_model method — no-op for ACP agents that don't advertise
+   *  model selection. See https://github.com/duyet/oma/issues/269. */
   acpModel: "",
   /** Optional reasoning-effort override forwarded in
-   *  runtime_binding.reasoning_effort. Same "not yet consumed" caveat. */
+   *  runtime_binding.reasoning_effort. Same best-effort caveat as
+   *  acpModel, via ACP's session/set_config_option ("thought_level"). */
   acpReasoningEffort: "",
   // Built-in tool policy. `agent_toolset_20260401` toolset's
   // `default_config` controls fallback enabled/permission for any
@@ -1318,9 +1322,9 @@ function AcpAgentPicker({
       </p>
 
       {/* Optional per-agent overrides forwarded in runtime_binding. The
-          daemon fetches its own bundle (model + skills) per session.start
-          today, so these are captured on the agent config for the harness
-          to honor once it's wired end-to-end — see the linked issue. */}
+          harness sends these on session.start and the daemon applies them
+          best-effort against the spawned ACP child (see the linked issue
+          for exactly which ACP methods and their support caveats). */}
       <div className="mt-3 grid grid-cols-2 gap-2">
         <div>
           <label className="text-xs text-fg-subtle block mb-1">Model override</label>
@@ -1357,8 +1361,10 @@ function AcpAgentPicker({
       </div>
       <p className="text-[10px] text-fg-subtle mt-1">
         Optional overrides sent as <span className="font-mono">runtime_binding.model</span> /{" "}
-        <span className="font-mono">runtime_binding.reasoning_effort</span>. Not yet consumed
-        by the harness or daemon (tracked in{" "}
+        <span className="font-mono">runtime_binding.reasoning_effort</span>. Applied
+        best-effort against the spawned ACP child via ACP's experimental
+        model/config-option selection methods — most ACP agents don't advertise support
+        for either yet, in which case the child silently keeps its own local default (see{" "}
         <a
           href="https://github.com/duyet/oma/issues/269"
           target="_blank"
@@ -1367,7 +1373,7 @@ function AcpAgentPicker({
         >
           #269
         </a>
-        ) — left as default, the ACP child uses its own local config.
+        ).
       </p>
 
       {/* Local-skill blocklist — multi-select fed by what the daemon

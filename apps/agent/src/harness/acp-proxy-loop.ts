@@ -106,9 +106,16 @@ export class AcpProxyHarness implements HarnessInterface {
 
       // Idempotent session.start — daemon spawns ACP child on first call,
       // short-circuits to session.ready on subsequent calls for the same sid.
+      // model / reasoning_effort are optional per-agent overrides (issue
+      // #269) — the daemon applies them best-effort via ACP's experimental
+      // session/set_model + session/set_config_option methods once the
+      // child is live; omitted here when unset so older daemons see the
+      // exact same frame shape as before.
       ws.send(JSON.stringify({
         type: "session.start",
         agent_id: binding.acp_agent_id,
+        ...(binding.model ? { model: binding.model } : {}),
+        ...(binding.reasoning_effort ? { reasoning_effort: binding.reasoning_effort } : {}),
       }));
       await waitForFrame(ws, (m) => m.type === "session.ready" || m.type === "session.error", 60_000)
         .then((m) => {

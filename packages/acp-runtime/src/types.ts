@@ -145,6 +145,43 @@ export interface SessionOptions {
    * configured MCP servers (e.g. claude-code's user-level config).
    */
   mcpServers?: unknown[];
+  /**
+   * Model id to select on the spawned ACP child once the session is
+   * live, via ACP's still-experimental `session/set_model` method (see
+   * `unstable_setSessionModel` in @agentclientprotocol/sdk). Best-effort:
+   * only sent when the session's `session/new` (or `session/load`)
+   * response actually lists this id in `models.availableModels` — most
+   * ACP agents don't advertise `models` at all as of this writing, in
+   * which case the override is silently skipped. Outcome recorded on
+   * `AcpSession.modelOverrideOutcome` once `init()` resolves.
+   */
+  modelOverride?: string;
+  /**
+   * Reasoning-effort value id to select via ACP's
+   * `session/set_config_option`, matched (case-insensitively, by value
+   * id or display name) against whichever entry in the session's
+   * `configOptions` advertises `category: "thought_level"`. Best-effort
+   * — same caveats as `modelOverride`; no ACP-canonical value set exists
+   * for reasoning effort, so this is passed through verbatim and matched
+   * against whatever the agent itself advertises. Outcome recorded on
+   * `AcpSession.reasoningEffortOverrideOutcome` once `init()` resolves.
+   */
+  reasoningEffortOverride?: string;
+}
+
+/**
+ * Result of attempting a best-effort session override (model or
+ * reasoning-effort). `applied: false` is not an error — it means the
+ * spawned ACP agent doesn't support (or didn't accept) the request;
+ * callers should surface `reason` as a warning, not fail the turn.
+ */
+export interface OverrideOutcome {
+  /** The value the caller asked for (`modelOverride` / `reasoningEffortOverride`). */
+  requested: string;
+  /** Whether the ACP child confirmed the override. */
+  applied: boolean;
+  /** Set when `applied` is false — why the override was skipped or rejected. */
+  reason?: string;
 }
 
 /**
@@ -162,6 +199,10 @@ export interface AcpSession {
   readonly acpSessionId: string;
   /** Read-only snapshot of how this session was started. */
   readonly options: SessionOptions;
+  /** Result of `options.modelOverride`, if one was requested. Set once `init()` resolves. */
+  readonly modelOverrideOutcome?: OverrideOutcome;
+  /** Result of `options.reasoningEffortOverride`, if one was requested. Set once `init()` resolves. */
+  readonly reasoningEffortOverrideOutcome?: OverrideOutcome;
 
   /**
    * Send one user prompt and stream back ACP events until the agent

@@ -182,6 +182,25 @@ export interface AgentConfig {
      * blocked dir into spawn cwd's CLAUDE_CONFIG_DIR.
      */
     local_skill_blocklist?: string[];
+    /**
+     * Model id override for the spawned ACP child (e.g. "claude-sonnet-4-6").
+     * Forwarded to the daemon on `session.start` and applied best-effort via
+     * ACP's experimental `session/set_model` method once the child is live —
+     * only takes effect when the ACP agent advertises the id as selectable.
+     * Agents that don't support model selection at all (e.g. plain
+     * claude-acp today) silently keep their own default. See AGENTS.md
+     * "Custom Harness" / issue #269.
+     */
+    model?: string;
+    /**
+     * Reasoning-effort override. No OMA-canonical value set exists yet —
+     * this mirrors the OpenAI/Codex `minimal | low | medium | high`
+     * convention and is matched (case-insensitively) against whatever
+     * "thought_level" config option the spawned ACP agent itself
+     * advertises via `session/set_config_option`. Best-effort: agents
+     * without a thought_level option silently keep their default.
+     */
+    reasoning_effort?: string;
   };
   description?: string;
   metadata?: Record<string, unknown>;

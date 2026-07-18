@@ -21,8 +21,12 @@ import {
   ndJsonStream,
   type Agent,
   type Client,
+  type SessionConfigOption,
+  type SessionConfigSelectGroup,
+  type SessionConfigSelectOption,
+  type SessionModelState,
 } from "@agentclientprotocol/sdk";
-import type { AcpSession, ChildHandle, SessionOptions } from "./types.js";
+import type { AcpSession, ChildHandle, OverrideOutcome, SessionOptions } from "./types.js";
 
 interface ConstructDeps {
   /** Whatever the spawner produced — owned by this session, killed on dispose. */
@@ -42,10 +46,22 @@ export class AcpSessionImpl implements AcpSession {
     return this.#sessionId ?? "";
   }
 
+  /** Result of `options.modelOverride`, if one was requested. See init(). */
+  get modelOverrideOutcome(): OverrideOutcome | undefined {
+    return this.#modelOverrideOutcome;
+  }
+
+  /** Result of `options.reasoningEffortOverride`, if one was requested. See init(). */
+  get reasoningEffortOverrideOutcome(): OverrideOutcome | undefined {
+    return this.#reasoningEffortOverrideOutcome;
+  }
+
   #child: ChildHandle;
   #agent!: Agent;                  // initialized in init()
   #sessionId!: string;              // ACP-side session id (different from this.id)
   #disposed = false;
+  #modelOverrideOutcome?: OverrideOutcome;
+  #reasoningEffortOverrideOutcome?: OverrideOutcome;
   /**
    * Notifications from the agent that arrived while a prompt was in flight.
    * The Client handler we pass into ClientSideConnection pushes here; the
@@ -105,12 +121,16 @@ export class AcpSessionImpl implements AcpSession {
 
     if (wantsResume && supportsLoad) {
       try {
-        await (this.#agent as unknown as { loadSession?: (p: unknown) => Promise<unknown> }).loadSession?.({
+        const loaded = await (
+          this.#agent as unknown as { loadSession?: (p: unknown) => Promise<unknown> }
+        ).loadSession?.({
           sessionId: wantsResume,
           cwd: this.options.agent.cwd ?? process.cwd(),
           mcpServers: this.options.mcpServers ?? [],
         });
         this.#sessionId = wantsResume;
+        const resp = loaded as { models?: SessionModelState | null; configOptions?: SessionConfigOption[] | null } | undefined;
+        await this.#applyOverrides(resp?.models, resp?.configOptions);
         return;
       } catch (e) {
         // Resume failed (e.g. on-disk transcript was deleted) — fall
@@ -124,7 +144,119 @@ export class AcpSessionImpl implements AcpSession {
       cwd: this.options.agent.cwd ?? process.cwd(),
       mcpServers: this.options.mcpServers ?? [],
     } as never);
-    this.#sessionId = (newSession as { sessionId: string }).sessionId;
+    const resp = newSession as {
+      sessionId: string;
+      models?: SessionModelState | null;
+      configOptions?: SessionConfigOption[] | null;
+    };
+    this.#sessionId = resp.sessionId;
+    await this.#applyOverrides(resp.models, resp.configOptions);
+  }
+
+  /**
+   * Best-effort application of `options.modelOverride` /
+   * `options.reasoningEffortOverride` once the session is live. Never
+   * throws — a rejected or unsupported override is recorded on
+   * `#modelOverrideOutcome` / `#reasoningEffortOverrideOutcome` for the
+   * caller to inspect (and log/warn on) rather than failing the turn.
+   * Both ACP methods involved (`session/set_model`,
+   * `session/set_config_option`) are still experimental / optional —
+   * most ACP agents as of writing don't implement either.
+   */
+  async #applyOverrides(
+    models: SessionModelState | null | undefined,
+    configOptions: SessionConfigOption[] | null | undefined,
+  ): Promise<void> {
+    if (this.options.modelOverride) {
+      this.#modelOverrideOutcome = await this.#applyModelOverride(
+        this.options.modelOverride,
+        models,
+      );
+    }
+    if (this.options.reasoningEffortOverride) {
+      this.#reasoningEffortOverrideOutcome = await this.#applyReasoningEffortOverride(
+        this.options.reasoningEffortOverride,
+        configOptions,
+      );
+    }
+  }
+
+  async #applyModelOverride(
+    requested: string,
+    models: SessionModelState | null | undefined,
+  ): Promise<OverrideOutcome> {
+    const available = models?.availableModels ?? [];
+    if (!available.some((m) => m.modelId === requested)) {
+      return {
+        requested,
+        applied: false,
+        reason: "agent does not advertise this model id as selectable (no models.availableModels, or id not in the list)",
+      };
+    }
+    // `unstable_setSessionModel` is optional on the `Agent` interface — the
+    // real ClientSideConnection always implements it (as a JSON-RPC proxy
+    // that errors if the remote agent doesn't), but guard anyway so any
+    // future/test Agent shape without it degrades to a clean outcome
+    // instead of a TypeError.
+    if (!this.#agent.unstable_setSessionModel) {
+      return { requested, applied: false, reason: "ACP client connection has no session/set_model support" };
+    }
+    try {
+      await this.#agent.unstable_setSessionModel({
+        sessionId: this.#sessionId,
+        modelId: requested,
+      } as never);
+      return { requested, applied: true };
+    } catch (e) {
+      return { requested, applied: false, reason: `session/set_model rejected: ${String(e)}` };
+    }
+  }
+
+  async #applyReasoningEffortOverride(
+    requested: string,
+    configOptions: SessionConfigOption[] | null | undefined,
+  ): Promise<OverrideOutcome> {
+    const thoughtLevelOption = (configOptions ?? []).find(
+      (c) => c.category === "thought_level" && c.type === "select",
+    ) as (SessionConfigOption & { type: "select" }) | undefined;
+    if (!thoughtLevelOption) {
+      return {
+        requested,
+        applied: false,
+        reason: "agent does not advertise a thought_level (reasoning-effort) config option",
+      };
+    }
+    const flat = flattenSelectOptions(thoughtLevelOption.options);
+    const match = flat.find(
+      (o) =>
+        o.value.toLowerCase() === requested.toLowerCase() ||
+        o.name.toLowerCase() === requested.toLowerCase(),
+    );
+    if (!match) {
+      return {
+        requested,
+        applied: false,
+        reason: `agent's thought_level option has no value matching "${requested}" (available: ${flat.map((o) => o.value).join(", ") || "none"})`,
+      };
+    }
+    // Same optional-method guard as unstable_setSessionModel above.
+    if (!this.#agent.setSessionConfigOption) {
+      return { requested, applied: false, reason: "ACP client connection has no session/set_config_option support" };
+    }
+    try {
+      await this.#agent.setSessionConfigOption({
+        sessionId: this.#sessionId,
+        configId: thoughtLevelOption.id,
+        value: match.value,
+      } as never);
+      return { requested, applied: true };
+    } catch (e) {
+      return {
+        requested,
+        applied: false,
+        reason: `session/set_config_option rejected: ${String(e)}`,
+      };
+    }
   }
 
   prompt(text: string, opts?: { abortSignal?: AbortSignal }): AsyncIterable<unknown> {
@@ -234,4 +366,21 @@ export class AcpSessionImpl implements AcpSession {
       this.#waiters.shift()!({ value: undefined, done: true });
     }
   }
+}
+
+/**
+ * `SessionConfigSelect.options` is either a flat list of selectable
+ * values or a list of named groups of values (see ACP's
+ * `SessionConfigSelectOptions` union) — flatten to a single list so
+ * reasoning-effort matching doesn't need to care which shape the agent
+ * chose to send.
+ */
+function flattenSelectOptions(
+  options: SessionConfigSelectOption[] | SessionConfigSelectGroup[],
+): SessionConfigSelectOption[] {
+  if (options.length === 0) return [];
+  if ("group" in options[0]) {
+    return (options as SessionConfigSelectGroup[]).flatMap((g) => g.options);
+  }
+  return options as SessionConfigSelectOption[];
 }

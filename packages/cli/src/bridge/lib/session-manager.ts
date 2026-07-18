@@ -6,7 +6,11 @@
  * Wire protocol (over the daemon ↔ control-plane WS, see daemon.ts):
  *
  *   Server → Daemon
- *     session.start    { session_id, agent_id, cwd?, resume? }
+ *     session.start    { session_id, agent_id, cwd?, resume?, model?, reasoning_effort? }
+ *                        model/reasoning_effort (issue #269) are optional per-agent
+ *                        overrides from AgentConfig.runtime_binding, applied best-effort
+ *                        against the spawned ACP child once it's live — see
+ *                        AcpSessionImpl#applyOverrides in @duyet/oma-acp-runtime.
  *     session.prompt   { session_id, turn_id, text }
  *     session.cancel   { session_id, turn_id }
  *     session.dispose  { session_id }
@@ -36,7 +40,7 @@ import { spawn as childSpawn } from "node:child_process";
 import { AcpRuntimeImpl } from "@duyet/oma-acp-runtime";
 import { NodeSpawner } from "@duyet/oma-acp-runtime/node-spawner";
 import { resolveKnownAgent } from "@duyet/oma-acp-runtime/registry";
-import type { AcpSession } from "@duyet/oma-acp-runtime";
+import type { AcpSession, OverrideOutcome } from "@duyet/oma-acp-runtime";
 import { ensureSessionCwd, removeSessionCwd, writeBundle } from "./session-cwd.js";
 import { setupClaudeConfigDir } from "./claude-config-dir.js";
 
@@ -51,6 +55,17 @@ export interface SessionStartParams {
   tenant_id?: string;
   cwd?: string;
   resume?: { acp_session_id: string };
+  /**
+   * Optional per-agent overrides forwarded from `AgentConfig.runtime_binding`
+   * (issue #269). Applied best-effort against the spawned ACP child via
+   * `AcpRuntime.start({ modelOverride, reasoningEffortOverride })` — see
+   * `SessionOptions` in `@duyet/oma-acp-runtime`. An agent that doesn't
+   * support either override (most ACP agents as of writing) just keeps its
+   * default; the outcome is logged to daemon stderr, never surfaced as a
+   * session.error.
+   */
+  model?: string;
+  reasoning_effort?: string;
 }
 
 export interface SessionPromptParams {
@@ -367,6 +382,8 @@ export class SessionManager {
         (blocklist.length ? ` blocklist=${blocklist.length}` : "") +
         (mcpServersForAcp.length ? ` mcp=${mcpServersForAcp.length}` : "") +
         (bundleEnv.length ? ` env=${bundleEnv.length}` : "") +
+        (p.model ? ` model=${p.model}` : "") +
+        (p.reasoning_effort ? ` reasoning_effort=${p.reasoning_effort}` : "") +
         // Intentionally NOT logging env names or values — these come from
         // user-supplied session resources and may be sensitive even if not
         // formally encrypted. Only the count is observable.
@@ -382,7 +399,11 @@ export class SessionManager {
         },
         mcpServers: mcpServersForAcp,
         resumeAcpSessionId: p.resume?.acp_session_id,
+        modelOverride: p.model,
+        reasoningEffortOverride: p.reasoning_effort,
       });
+      this.#logOverrideOutcome("model", session.modelOverrideOutcome);
+      this.#logOverrideOutcome("reasoning_effort", session.reasoningEffortOverrideOutcome);
       this.#sessions.set(p.session_id, {
         acp: session,
         acpSessionId: session.acpSessionId,
@@ -402,6 +423,22 @@ export class SessionManager {
         tenant_id: tenantId,
         message: e instanceof Error ? e.message : String(e),
       });
+    }
+  }
+
+  /**
+   * Best-effort override outcomes (issue #269) never fail session.start —
+   * they're diagnostic only. Logged to daemon stderr so an operator can
+   * confirm whether a picked model/reasoning-effort actually took, without
+   * needing a dedicated wire message or UI surface for what's still an
+   * experimental ACP capability most agents don't implement yet.
+   */
+  #logOverrideOutcome(kind: "model" | "reasoning_effort", outcome: OverrideOutcome | undefined): void {
+    if (!outcome) return;
+    if (outcome.applied) {
+      process.stderr.write(`  ✓ ${kind} override applied: ${outcome.requested}\n`);
+    } else {
+      process.stderr.write(`  ! ${kind} override "${outcome.requested}" not applied: ${outcome.reason}\n`);
     }
   }
 

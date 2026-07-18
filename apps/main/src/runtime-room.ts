@@ -393,7 +393,10 @@ export class RuntimeRoom extends DurableObject<Env> {
   private async onHarnessMessage(sid: string, parsed: { type?: string; [k: string]: unknown }): Promise<void> {
     // Harness side speaks the canonical clash protocol verbatim — daemon
     // doesn't need a translation step.
-    //   { type: "session.start", agent_id, cwd?, resume? }   → forwards as-is
+    //   { type: "session.start", agent_id, cwd?, resume?, model?, reasoning_effort? }
+    //                                                        → forwards as-is (issue #269:
+    //                                                          optional per-agent overrides,
+    //                                                          applied best-effort daemon-side)
     //   { type: "session.prompt", turn_id, text }            → forwards as-is
     //   { type: "session.cancel", turn_id }                  → forwards as-is
     //   { type: "session.dispose" }                          → forwards as-is

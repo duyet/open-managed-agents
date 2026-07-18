@@ -756,6 +756,39 @@ Use it:
 
 The platform handles everything else — tool construction, skill mounting, sandbox lifecycle, event persistence, crash recovery, and WebSocket broadcasting.
 
+### Local ACP Runtime (`harness: "acp-proxy"`)
+
+Instead of running in OMA's cloud sandbox, an agent can delegate its whole
+loop to an ACP-compatible child (Claude Code, Codex, …) running on a user's
+own machine via `oma bridge daemon`. Set `harness: "acp-proxy"` and
+`runtime_binding`:
+
+```json
+{
+  "harness": "acp-proxy",
+  "runtime_binding": {
+    "runtime_id": "rt_xxx",
+    "acp_agent_id": "claude-acp",
+    "model": "claude-sonnet-4-6",
+    "reasoning_effort": "high"
+  }
+}
+```
+
+`AcpProxyHarness` forwards `model` / `reasoning_effort` on `session.start` to
+the daemon, which applies them **best-effort** against the spawned ACP child
+once its session is live — via ACP's still-experimental `session/set_model`
+(model) and `session/set_config_option` matched against a `thought_level`
+config option (reasoning effort). Neither is a guaranteed capability: most
+ACP agents don't advertise support for either as of this writing, in which
+case the override is a silent no-op and the child keeps its own default —
+outcome is logged to daemon stderr, never surfaced as a `session.error`.
+There is no OMA-canonical reasoning-effort value set; `minimal | low |
+medium | high` (the OpenAI/Codex convention) is passed through verbatim and
+matched case-insensitively against whatever the agent itself advertises.
+See `AcpSessionImpl#applyOverrides` (`packages/acp-runtime/src/session.ts`)
+and issue [#269](https://github.com/duyet/oma/issues/269).
+
 ---
 
 ## Skills
