@@ -30,6 +30,12 @@ import {
   type EvalRunnerServices,
   type SandboxFetcher,
 } from "@duyet/oma-evals-runner";
+import {
+  collectInstallReport,
+  sendInstallReport,
+  resolveInstanceId,
+  telemetryDisabled,
+} from "@duyet/oma-http-routes";
 
 export interface NodeSchedulerDeps {
   evalServices: EvalRunnerServices;
@@ -41,6 +47,11 @@ export interface NodeSchedulerDeps {
    *  in-process LinearProvider is available. Skip when null — most
    *  self-host deployments don't run the Linear gateway side yet. */
   linearSweeper?: (() => Promise<LinearDispatchSweeper | null>) | null;
+  /** Control-plane SqlClient, used by the anonymous install phone-home job to
+   *  aggregate local counts. Pass null to skip registering that job. */
+  controlPlaneSql?: SqlClient | null;
+  /** OMA version string reported by the install phone-home job. */
+  omaVersion?: string;
   /** Override defaults via env so an operator can quiet noisy crons
    *  during a maintenance window without a code change. */
   env?: NodeJS.ProcessEnv;
@@ -110,6 +121,38 @@ export function buildNodeScheduler(deps: NodeSchedulerDeps) {
       name: "linear-dispatch",
       cron: cron("LINEAR_DISPATCH_CRON", "* * * * *"),
       handler: withHealthchecks(hcEnv, "linear-dispatch", linearDispatchTick({ resolveSweeper })),
+    });
+  }
+
+  // Anonymous install / deployment phone-home (every 6h by default). Opt-out
+  // via OMA_TELEMETRY_DISABLED / OMA_TELEMETRY=0 / DO_NOT_TRACK. Only
+  // registered when a control-plane SqlClient is wired. Fully self-contained
+  // + wrapped in try/catch — never throws into the scheduler.
+  if (deps.controlPlaneSql) {
+    const controlSql = deps.controlPlaneSql;
+    scheduler.register({
+      name: "telemetry-phone-home",
+      cron: cron("TELEMETRY_PHONEHOME_CRON", "0 */6 * * *"),
+      handler: async () => {
+        try {
+          if (telemetryDisabled(env)) return;
+          const instanceId = await resolveInstanceId();
+          const deploymentKind = env.OMA_DEPLOYMENT_KIND || "node-docker";
+          const omaVersion = env.OMA_VERSION || deps.omaVersion;
+          const endpoint = env.OMA_TELEMETRY_ENDPOINT || "https://app.oma.duyet.net";
+          const report = await collectInstallReport(controlSql, {
+            instanceId,
+            omaVersion,
+            deploymentKind,
+          });
+          await sendInstallReport(report, { endpoint });
+        } catch (err) {
+          log.warn(
+            { err, op: "scheduler.telemetry_phone_home.failed" },
+            "telemetry-phone-home failed",
+          );
+        }
+      },
     });
   }
 
