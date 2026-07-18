@@ -78,9 +78,62 @@ const schemas = [
       </div>
 
       <!-- Platform breakdown -->
-      <div>
+      <div class="mb-14">
         <h2 class="font-display text-2xl font-bold mb-5">Platform breakdown</h2>
         <div id="stats-by-platform" class="space-y-2"></div>
+      </div>
+
+      <!-- Self-hosted installs (anonymous server-side phone-home) -->
+      <div>
+        <h2 class="font-display text-2xl font-bold mb-5">Self-hosted installs</h2>
+        <p class="text-sm text-[var(--color-fg-muted)] mb-6 max-w-2xl">
+          Anonymous, opt-out aggregates reported by running OMA control planes — no names, ids, or content.
+        </p>
+
+        <div class="relative overflow-hidden rounded-2xl p-4 md:p-6 mb-10">
+          <div
+            class="pointer-events-none absolute inset-0"
+            aria-hidden="true"
+            style="background: url('/hero-tint.jpg') center / cover no-repeat;"
+          ></div>
+          <div class="relative grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            <div class="stat-tile">
+              <div class="font-mono text-3xl md:text-4xl font-bold tabular-nums" data-stat="installs-total">—</div>
+              <div class="stat-label">Installs</div>
+              <div class="stat-sub"><span data-stat="installs-active">—</span> active (7d)</div>
+            </div>
+            <div class="stat-tile">
+              <div class="font-mono text-3xl md:text-4xl font-bold tabular-nums" data-stat="installs-sessions">—</div>
+              <div class="stat-label">Sessions reported</div>
+              <div class="stat-sub">across all installs</div>
+            </div>
+            <div class="stat-tile">
+              <div class="font-mono text-3xl md:text-4xl font-bold tabular-nums" data-stat="installs-duration">—</div>
+              <div class="stat-label">Avg session</div>
+              <div class="stat-sub">mean duration</div>
+            </div>
+            <div class="stat-tile">
+              <div class="font-mono text-3xl md:text-4xl font-bold tabular-nums" data-stat="installs-deployments">—</div>
+              <div class="stat-label">Deployment kinds</div>
+              <div class="stat-sub">mostly <span data-stat="installs-deployments-top">—</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-10">
+          <h3 class="font-display text-xl font-bold mb-5">Sandbox launches by kind</h3>
+          <div id="stats-sandbox-launches" class="space-y-2"></div>
+        </div>
+
+        <div class="mb-10">
+          <h3 class="font-display text-xl font-bold mb-5">Model mix</h3>
+          <div id="stats-model-mix" class="space-y-2"></div>
+        </div>
+
+        <div>
+          <h3 class="font-display text-xl font-bold mb-5">Deployment kind</h3>
+          <div id="stats-by-deployment-kind" class="space-y-2"></div>
+        </div>
       </div>
     </div>
   </section>
@@ -159,7 +212,19 @@ const schemas = [
       if (el) el.textContent = typeof value === "number" ? value.toLocaleString() : value;
     }
 
-    function renderBars(containerId: string, rows: Array<{ name?: string; platform?: string; count: number }>, key: "name" | "platform") {
+    function formatDuration(ms: number): string {
+      if (!ms || ms <= 0) return "—";
+      const totalSec = Math.round(ms / 1000);
+      if (totalSec < 60) return `${totalSec}s`;
+      const min = Math.floor(totalSec / 60);
+      const sec = totalSec % 60;
+      if (min < 60) return sec ? `${min}m ${sec}s` : `${min}m`;
+      const hr = Math.floor(min / 60);
+      const remMin = min % 60;
+      return remMin ? `${hr}h ${remMin}m` : `${hr}h`;
+    }
+
+    function renderBars(containerId: string, rows: Array<Record<string, unknown> & { count: number }>, key: string) {
       const container = document.getElementById(containerId);
       if (!container) return;
       if (!rows.length) {
@@ -201,6 +266,19 @@ const schemas = [
 
         renderBars("stats-by-command", data.cli?.by_command ?? [], "name");
         renderBars("stats-by-platform", data.cli?.by_platform ?? [], "platform");
+
+        // Install / deployment phone-home aggregates.
+        const installs = data.installs ?? {};
+        setStat("installs-total", installs.total ?? 0);
+        setStat("installs-active", installs.active ?? 0);
+        setStat("installs-sessions", installs.sessions_reported ?? 0);
+        setStat("installs-duration", formatDuration(installs.session_duration_avg_ms ?? 0));
+        const kinds = installs.by_deployment_kind ?? [];
+        setStat("installs-deployments", kinds.length);
+        setStat("installs-deployments-top", kinds[0]?.kind ?? "—");
+        renderBars("stats-sandbox-launches", installs.sandbox_launches ?? [], "kind");
+        renderBars("stats-model-mix", installs.model_mix ?? [], "name");
+        renderBars("stats-by-deployment-kind", kinds, "kind");
 
         const updatedEl = document.getElementById("stats-updated");
         if (updatedEl) {

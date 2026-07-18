@@ -21,6 +21,13 @@ export type { AnalyticsRoutesDeps } from "./analytics";
 
 export { buildTelemetryRoutes } from "./telemetry";
 export type { TelemetryRoutesDeps } from "./telemetry";
+export {
+  collectInstallReport,
+  sendInstallReport,
+  telemetryDisabled,
+  resolveInstanceId,
+} from "./telemetry/phone-home";
+export type { InstallReport } from "./telemetry/phone-home";
 
 export { buildVaultRoutes } from "./vaults";
 export type { VaultRoutesDeps } from "./vaults";

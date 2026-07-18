@@ -67,6 +67,7 @@ export const authMiddleware = createMiddleware<{
   // CLI telemetry — public, unauthenticated, rate-limited (buildTelemetryRoutes).
   if (
     c.req.path === "/v1/telemetry/events" ||
+    c.req.path === "/v1/telemetry/ingest" ||
     c.req.path === "/v1/telemetry/stats"
   ) {
     return next();

@@ -10,6 +10,12 @@ import type { Env } from "@duyet/oma-shared";
 import { log, logError, recordEvent, errFields } from "@duyet/oma-shared";
 import { forEachShardServices, getCfServicesForTenant } from "@duyet/oma-services";
 import { CfD1SqlClient } from "@duyet/oma-sql-client/adapters/cf-d1";
+import type { SqlClient } from "@duyet/oma-sql-client";
+import {
+  collectInstallReport,
+  sendInstallReport,
+  telemetryDisabled,
+} from "@duyet/oma-http-routes";
 import { createCfScheduler, type CfScheduler } from "@duyet/oma-scheduler/cf";
 import { memoryRetentionTick } from "@duyet/oma-scheduler/jobs/memory-retention";
 import { webhookEventsRetentionTick } from "@duyet/oma-scheduler/jobs/webhook-events-retention";
@@ -175,7 +181,60 @@ export function buildCfScheduler(env: Env): CfScheduler {
         }),
       ),
     });
+
+    // Anonymous install / deployment phone-home (every 6h by default —
+    // `0 */6 * * *` is added to wrangler `triggers.crons` so the scheduled()
+    // dispatcher fires it). Opt-out via OMA_TELEMETRY_DISABLED / OMA_TELEMETRY=0
+    // / DO_NOT_TRACK. The stable instance id lives in a single-row MAIN_DB
+    // table (a Worker has no filesystem to persist one). Fully best-effort +
+    // wrapped in try/catch — never throws into the scheduler.
+    const phoneHomeCron = envCron(env, "TELEMETRY_PHONEHOME_CRON", "0 */6 * * *");
+    const mainDb = env.MAIN_DB;
+    scheduler.register({
+      name: "telemetry-phone-home",
+      cron: phoneHomeCron,
+      handler: async () => {
+        try {
+          const envRec = env as unknown as Record<string, string | undefined>;
+          if (telemetryDisabled(envRec)) return;
+          const sql = new CfD1SqlClient(mainDb);
+          const instanceId = await resolveCfInstanceId(sql);
+          const report = await collectInstallReport(sql, {
+            instanceId,
+            omaVersion: envRec.OMA_VERSION || "0.1.0",
+            deploymentKind: envRec.OMA_DEPLOYMENT_KIND || "cloudflare",
+          });
+          await sendInstallReport(report, {
+            endpoint: envRec.OMA_TELEMETRY_ENDPOINT || "https://app.oma.duyet.net",
+          });
+        } catch (err) {
+          logError({ op: "cron.telemetry_phone_home", err }, "telemetry-phone-home failed");
+        }
+      },
+    });
   }
 
   return scheduler;
+}
+
+/** Read (or seed) the Cloudflare deployment's stable anonymous instance id
+ *  from the single-row telemetry_instance table. INSERT OR IGNORE + read-back
+ *  is race-safe across overlapping ticks. */
+async function resolveCfInstanceId(sql: SqlClient): Promise<string> {
+  const existing = await sql
+    .prepare(`SELECT instance_id FROM telemetry_instance LIMIT 1`)
+    .first<{ instance_id: string }>();
+  if (existing?.instance_id) return existing.instance_id;
+  const id = crypto.randomUUID();
+  await sql
+    .prepare(
+      `INSERT OR IGNORE INTO telemetry_instance (id, instance_id, created_at) VALUES (?, ?, ?)`,
+    )
+    .bind("telins_singleton", id, Date.now())
+    .run();
+  const after = await sql
+    .prepare(`SELECT instance_id FROM telemetry_instance WHERE id = ?`)
+    .bind("telins_singleton")
+    .first<{ instance_id: string }>();
+  return after?.instance_id ?? id;
 }

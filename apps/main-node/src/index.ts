@@ -160,7 +160,7 @@ import type { BrowserHarness } from "@duyet/oma-browser-harness";
 import { startMemoryBlobWatcher } from "./lib/memory-blob-watcher.js";
 import { buildNodeScheduler } from "./lib/node-scheduler-jobs.js";
 import { startNodeMemoryQueue } from "./lib/node-memory-queue.js";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, relative } from "node:path";
 import { nanoid } from "nanoid";
 import {
@@ -1174,6 +1174,7 @@ const authMw = buildAuthMw({
     path === "/v1/oma/device/token" ||
     // CLI telemetry — public, unauthenticated, IP-rate-limited (buildTelemetryRoutes).
     path === "/v1/telemetry/events" ||
+    path === "/v1/telemetry/ingest" ||
     path === "/v1/telemetry/stats",
   resolveSession: async (headers) => {
     if (!auth) return null;
@@ -2189,6 +2190,17 @@ serve({ fetch: app.fetch, port, hostname: host }, (info) => {
 // applied) webhook-events retention. Linear dispatch is left un-wired here
 // because main-node doesn't construct a LinearProvider; pass `linearSweeper`
 // when an in-process gateway lands.
+// Best-effort read of our own package.json version for install telemetry.
+function nodeOmaVersion(): string | undefined {
+  try {
+    const raw = readFileSync(new URL("../package.json", import.meta.url).pathname, "utf-8");
+    const v = (JSON.parse(raw) as { version?: unknown }).version;
+    return typeof v === "string" ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const scheduler = buildNodeScheduler({
   evalServices: {
     agents: agentsService,
@@ -2199,6 +2211,8 @@ const scheduler = buildNodeScheduler({
   },
   memory: memoryService,
   integrationsSql: platformRootSecret ? sql : null,
+  controlPlaneSql: sql,
+  omaVersion: nodeOmaVersion(),
 });
 await scheduler.start();
 logger.info({ op: "main-node.scheduler.started" }, "scheduler started");
