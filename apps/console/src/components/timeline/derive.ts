@@ -54,6 +54,11 @@ export function deriveSpans(events: Event[]): { spans: Span[]; totalMs: number }
   // generation (first_token→end). FIFO fallback for events without ids.
   const modelFirstTokensById = new Map<string, { t: number; e: Event }>();
   const modelFirstTokensFifo: { t: number; e: Event }[] = [];
+  // session_thread_id → the thread's idle event. Pairs thread_created →
+  // thread_idle into a ranged bar so parallel sub-agent fan-out
+  // (call_agents_parallel) renders as overlapping spans instead of a
+  // string of zero-width instants.
+  const threadIdles = new Map<string, { t: number; e: Event }>();
   const compactEnds: { t: number; e: Event }[] = [];
   const outcomeEnds: { t: number; e: Event }[] = [];
   // parent_event_id → child {t, event}. Used to pair span.wakeup_scheduled
@@ -78,6 +83,10 @@ export function deriveSpans(events: Event[]): { spans: Span[]; totalMs: number }
       const data = (e.data as { model_request_start_id?: string } | undefined);
       const sid = (e as { model_request_start_id?: string }).model_request_start_id ?? data?.model_request_start_id;
       if (sid) modelFirstTokensById.set(sid, { t, e });
+    }
+    else if (e.type === "session.thread_idle") {
+      const tid = (e as { session_thread_id?: string }).session_thread_id;
+      if (tid && !threadIdles.has(tid)) threadIdles.set(tid, { t, e });
     }
     else if (e.type === "span.compaction_summarize_end") compactEnds.push({ t, e });
     else if (e.type === "span.outcome_evaluation_end") outcomeEnds.push({ t, e });
@@ -238,12 +247,28 @@ export function deriveSpans(events: Event[]): { spans: Span[]; totalMs: number }
       pushSpan({ key: `think-${i}`, family: "thinking", label: "agent.thinking", startMs, durationMs: 0 });
     } else if (e.type === "aux.model_call") {
       pushSpan({ key: `aux-${i}`, family: "aux", label: "aux.model_call", startMs, durationMs: 0 });
+    } else if (e.type === "session.thread_created") {
+      // Ranged sub-agent span: created → idle. A thread that never went
+      // idle (still running, or crashed) renders as an open bar to the
+      // last event — the operator can see it's unfinished at a glance.
+      const tc = e as { session_thread_id?: string; agent_name?: string };
+      const idle = tc.session_thread_id ? threadIdles.get(tc.session_thread_id) : undefined;
+      if (idle) sourceEvents.push(idle.e);
+      const endMs = idle ? idle.t - t0 : tEnd - t0;
+      pushSpan({
+        key: `thread-${tc.session_thread_id ?? i}`,
+        family: "thread",
+        label: `sub-agent: ${tc.agent_name ?? tc.session_thread_id?.slice(0, 12) ?? "?"}`,
+        detail: idle ? "completed" : "running",
+        startMs,
+        durationMs: Math.max(0, endMs - startMs),
+      });
+    } else if (e.type === "session.thread_idle") {
+      continue; // consumed by the thread_created pairing above
     } else if (
       e.type === "agent.thread_message_sent" ||
       e.type === "agent.thread_message_received" ||
-      e.type === "agent.thread_message" ||
-      e.type === "session.thread_created" ||
-      e.type === "session.thread_idle"
+      e.type === "agent.thread_message"
     ) {
       pushSpan({ key: `thread-${i}`, family: "thread", label: e.type.replace(/^.*\./, ""), startMs, durationMs: 0 });
     } else if (e.type === "agent.thread_context_compacted") {
