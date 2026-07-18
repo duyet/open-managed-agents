@@ -2597,6 +2597,13 @@ async function main() {
         await runDaemon();
         return;
       }
+      case "start":
+      case "stop":
+      case "restart": {
+        const { runControl } = await import("./bridge/commands/control.js");
+        await runControl(sub);
+        return;
+      }
       case "status": {
         const { runStatus } = await import("./bridge/commands/status.js");
         await runStatus();
@@ -2635,6 +2642,9 @@ async function main() {
           "  oma bridge setup [--server-url=…] [--no-service] [--force] [--yes]\n" +
           "                                       Pair + install service + start daemon\n" +
           "  oma bridge status                    Creds + service kind + probe server\n" +
+          "  oma bridge start                     Start the installed daemon service\n" +
+          "  oma bridge stop                      Stop the daemon (disconnects the machine)\n" +
+          "  oma bridge restart                   Restart the daemon (reconnect)\n" +
           "  oma bridge refresh                   Reconcile authorized tenants + reload daemon\n" +
           "  oma bridge profiles list             List all installed daemon profiles on this machine\n" +
           "  oma bridge agents refresh [--yes]    Re-scan + offer-install wrappers + reload\n" +

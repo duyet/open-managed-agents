@@ -119,6 +119,35 @@ export async function uninstall(): Promise<UninstallResult> {
   return { kind, removed: false };
 }
 
+export type LifecycleAction = "start" | "stop" | "restart";
+
+export interface LifecycleResult {
+  kind: ServiceKind;
+  /** True when the action ran without throwing. */
+  ok: boolean;
+  /** Error text when the action failed (unit not installed, tool missing, …). */
+  error?: string;
+}
+
+/** Start / stop / restart the installed daemon service on whichever mechanism
+ *  this host uses. A thin dispatcher over the per-platform modules so the
+ *  `oma bridge {start,stop,restart}` command stays platform-unaware. On an
+ *  unsupported platform (or when the action throws) it returns ok:false with a
+ *  message rather than throwing, so the command can print a clean hint. */
+export async function lifecycle(action: LifecycleAction): Promise<LifecycleResult> {
+  const kind = detectServiceKind();
+  const mod = kind === "launchd" ? launchd : kind === "systemd" ? systemd : kind === "windows-task" ? windowsTask : null;
+  if (!mod) {
+    return { kind, ok: false, error: "no service manager on this platform — run `oma bridge daemon` in the foreground instead" };
+  }
+  try {
+    await mod[action]();
+    return { kind, ok: true };
+  } catch (e) {
+    return { kind, ok: false, error: (e as Error).message };
+  }
+}
+
 /** Read the cliEntry path the currently-installed service points at,
  *  or null if no service is installed / unreadable / not supported. */
 export async function readInstalledCliEntry(): Promise<string | null> {

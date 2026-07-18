@@ -104,6 +104,21 @@ export async function uninstall(): Promise<{ removed: boolean; warning?: string 
   }
 }
 
+/** Start / stop / restart the installed user unit. Throws (with systemctl's
+ *  stderr) if the unit isn't installed or the action fails. */
+export async function start(): Promise<void> {
+  if (currentPlatform() !== "linux") throw new Error("systemd control only on Linux");
+  await runSystemctl(["--user", "start", `${paths().serviceLabel}.service`]);
+}
+export async function stop(): Promise<void> {
+  if (currentPlatform() !== "linux") throw new Error("systemd control only on Linux");
+  await runSystemctl(["--user", "stop", `${paths().serviceLabel}.service`]);
+}
+export async function restart(): Promise<void> {
+  if (currentPlatform() !== "linux") throw new Error("systemd control only on Linux");
+  await runSystemctl(["--user", "restart", `${paths().serviceLabel}.service`]);
+}
+
 function runSystemctl(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const p = spawn("systemctl", args, { stdio: ["ignore", "pipe", "pipe"] });

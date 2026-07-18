@@ -71,6 +71,30 @@ export async function uninstall(): Promise<{ removed: boolean }> {
   }
 }
 
+/** Start the already-installed daemon (`launchctl load -w`). Idempotent —
+ *  loading an already-loaded plist is a no-op. Throws if no plist exists. */
+export async function start(): Promise<void> {
+  if (currentPlatform() !== "darwin") throw new Error("launchd control only on macOS");
+  const p = paths();
+  if (!p.serviceFile) throw new Error("no service file on this platform");
+  await runLaunchctl(["load", "-w", p.serviceFile]);
+}
+
+/** Stop the daemon (`launchctl unload`). KeepAlive won't resurrect it while
+ *  unloaded. Idempotent — unloading an unloaded plist is a no-op. */
+export async function stop(): Promise<void> {
+  if (currentPlatform() !== "darwin") throw new Error("launchd control only on macOS");
+  const p = paths();
+  if (!p.serviceFile) throw new Error("no service file on this platform");
+  await runLaunchctl(["unload", p.serviceFile]);
+}
+
+/** Restart = unload (best-effort) then load. */
+export async function restart(): Promise<void> {
+  await stop().catch(() => undefined);
+  await start();
+}
+
 function runLaunchctl(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const p = spawn("launchctl", args, { stdio: ["ignore", "pipe", "pipe"] });

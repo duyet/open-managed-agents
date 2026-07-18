@@ -140,6 +140,21 @@ export async function uninstall(): Promise<{ removed: boolean; warning?: string 
   return { removed, warning };
 }
 
+/** Start / stop / restart the scheduled task. `/run` launches it now, `/end`
+ *  terminates the running instance. Throws (with schtasks output) on failure. */
+export async function start(): Promise<void> {
+  if (currentPlatform() !== "win32") throw new Error("Task Scheduler control only on Windows");
+  await runSchtasks(["/run", "/tn", paths().serviceLabel]);
+}
+export async function stop(): Promise<void> {
+  if (currentPlatform() !== "win32") throw new Error("Task Scheduler control only on Windows");
+  await runSchtasks(["/end", "/tn", paths().serviceLabel]);
+}
+export async function restart(): Promise<void> {
+  await stop().catch(() => undefined);
+  await start();
+}
+
 function runSchtasks(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const p = spawn("schtasks.exe", args, { stdio: ["ignore", "pipe", "pipe"] });
