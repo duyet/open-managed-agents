@@ -209,10 +209,33 @@ async function mountGitRepo(
     5000,
   );
 
+  // Skip-if-exists: a resumed / re-provisioned sandbox may already have the
+  // repo (restored workspace snapshot) — cloning again would fail. And the
+  // default mount (/workspace) can be non-empty without being a repo, where
+  // a bare `git clone` refuses to run; fetch into an init'd repo instead.
+  const probe = await sandbox.exec(
+    `if [ -d ${targetDir}/.git ]; then echo HAS_GIT; ` +
+    `elif [ -d ${targetDir} ] && [ -n "$(ls -A ${targetDir} 2>/dev/null)" ]; then echo NONEMPTY; ` +
+    `else echo EMPTY; fi`,
+    5000,
+  );
+  if (probe.includes("HAS_GIT")) {
+    console.log(`[resource-mounter] ${targetDir} already a git repo — skipping clone`);
+    return;
+  }
+
   // Clone the repo's default branch first. Branch checkout is handled
   // separately below so we can fall back to creating a new local branch
   // when the requested name doesn't exist on the remote.
-  if (sandbox.gitCheckout) {
+  if (probe.includes("NONEMPTY")) {
+    await sandbox.exec(
+      `cd ${targetDir} && git init -q && git remote add origin ${repoUrl} && ` +
+      `git fetch origin 2>&1 && ` +
+      `def=$(git remote show origin | sed -n 's/.*HEAD branch: //p') && ` +
+      `git checkout -f -B "$def" "origin/$def" 2>&1`,
+      120000,
+    );
+  } else if (sandbox.gitCheckout) {
     await sandbox.gitCheckout(repoUrl, { targetDir });
   } else {
     await sandbox.exec(`git clone ${repoUrl} ${targetDir} 2>&1`, 120000);
