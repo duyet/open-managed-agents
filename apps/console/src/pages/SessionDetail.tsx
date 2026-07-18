@@ -49,6 +49,9 @@ import {
   usePromptInputAttachments,
 } from "../components/ai-elements/prompt-input";
 import { CodeBlock } from "../components/ai-elements/code-block";
+import { renderToolCall, getToolTitle } from "../components/ai-elements/tool-renderers";
+import { Attachment, type ContentBlockLike } from "../components/ai-elements/attachment";
+import { CoinsIcon } from "lucide-react";
 
 type View = "chat" | "timeline";
 
@@ -931,6 +934,7 @@ export function SessionDetail() {
           threads={threads}
           activeThreadId={activeThreadId}
           onSelect={setActiveThreadId}
+          events={events}
         />
       )}
 
@@ -1389,11 +1393,18 @@ function ThreadTab({
   active,
   onClick,
   depth = 0,
+  running,
+  count,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
   depth?: number;
+  /** Live status: true while the thread has started but not gone idle.
+   *  undefined = unknown (no created event seen yet) → no dot. */
+  running?: boolean;
+  /** Events attributed to this thread — quick "how busy" signal. */
+  count?: number;
 }) {
   return (
     <button
@@ -1413,7 +1424,21 @@ function ThreadTab({
           Plain text (not a unicode-only flair) so it survives in both
           dark and light themes without needing a separate icon. */}
       {depth > 0 && <span className="text-fg-subtle">└</span>}
+      {running !== undefined && (
+        <span
+          className={`size-1.5 shrink-0 rounded-full ${
+            running ? "bg-success animate-pulse" : "bg-fg-subtle/50"
+          }`}
+          title={running ? "Running" : "Idle"}
+          aria-label={running ? "Running" : "Idle"}
+        />
+      )}
       <span>{label}</span>
+      {typeof count === "number" && count > 0 && (
+        <span className="text-[10px] font-mono text-fg-subtle" title={`${count} events`}>
+          {count}
+        </span>
+      )}
     </button>
   );
 }
@@ -1432,11 +1457,30 @@ function ThreadTree({
   threads,
   activeThreadId,
   onSelect,
+  events,
 }: {
   threads: Array<{ id: string; agent_name?: string; parent_thread_id?: string | null }>;
   activeThreadId: string;
   onSelect: (id: string) => void;
+  events: Event[];
 }) {
+  // Per-thread live monitoring, derived from the same event stream the
+  // views filter on: running = created but not yet idle (last created
+  // wins, so a re-entrant thread shows running again); count = events
+  // attributed to the thread. Main's "running" comes from the session
+  // status chip already in the header, so its dot stays undefined.
+  const statusByThread = new Map<string, boolean>();
+  const countByThread = new Map<string, number>();
+  for (const e of events) {
+    const tid = (e as { session_thread_id?: string }).session_thread_id ?? "sthr_primary";
+    countByThread.set(tid, (countByThread.get(tid) ?? 0) + 1);
+    if (e.type === "session.thread_created") {
+      const created = (e as { session_thread_id?: string }).session_thread_id;
+      if (created) statusByThread.set(created, true);
+    } else if (e.type === "session.thread_idle" && tid !== "sthr_primary") {
+      statusByThread.set(tid, false);
+    }
+  }
   const knownIds = new Set<string>(["sthr_primary", ...threads.map((t) => t.id)]);
   const childrenOf = new Map<string, typeof threads>();
   for (const t of threads) {
@@ -1477,6 +1521,8 @@ function ThreadTree({
           depth={isFlat ? 0 : n.depth}
           active={activeThreadId === n.id}
           onClick={() => onSelect(n.id)}
+          running={n.id === "sthr_primary" ? undefined : statusByThread.get(n.id)}
+          count={countByThread.get(n.id)}
         />
       ))}
     </div>
@@ -1691,7 +1737,13 @@ function EventRender({
       // is the contract: see apps/agent/src/runtime/session-do.ts:onScheduledWakeup.
       const metadata = (event as { metadata?: { harness?: string; kind?: string; scheduled_at?: string } }).metadata;
       const isWakeup = metadata?.harness === "schedule" && metadata?.kind === "wakeup";
-      const text = Array.isArray(event.content) ? event.content[0]?.text ?? "" : "";
+      // Content is an array of Anthropic-shape blocks (text/image/document),
+      // not just a lone text block — a user can attach files alongside a
+      // message. Find the first text block for the bubble body, and pull
+      // out any image/document blocks to render as attachments above it.
+      const contentBlocks = (Array.isArray(event.content) ? event.content : []) as unknown as ContentBlockLike[];
+      const text = contentBlocks.find((b) => b.type === "text")?.text ?? "";
+      const mediaBlocks = contentBlocks.filter((b) => b.type === "image" || b.type === "document");
 
       if (isWakeup) {
         // System-origin: left-aligned via from="system" (Message only
@@ -1739,6 +1791,13 @@ function EventRender({
               <span>{isCancelled ? "Retracted" : "Pending…"}</span>
             </div>
           )}
+          {mediaBlocks.length > 0 && (
+            <div className="flex flex-wrap justify-end gap-2">
+              {mediaBlocks.map((block, i) => (
+                <Attachment key={i} block={block} />
+              ))}
+            </div>
+          )}
           <MessageContent
             className={isCancelled ? cancelledOverride : isPending ? pendingOverride : undefined}
           >
@@ -1780,32 +1839,30 @@ function EventRender({
     case "agent.custom_tool_use":
     case "agent.mcp_tool_use": {
       // All three use-types share the same shape (id + name + input);
-      // MCP additionally carries mcp_server_name which we append to
-      // the title so operators can tell built-in vs MCP at a glance.
+      // MCP additionally carries mcp_server_name, which getToolTitle
+      // appends to the title so operators can tell built-in vs MCP at
+      // a glance, and which routes the body through the generic JSON
+      // renderer (MCP tool shapes aren't part of the built-in catalog).
       const mcpServerName =
         event.type === "agent.mcp_tool_use"
           ? (event as { mcp_server_name?: string }).mcp_server_name
           : undefined;
       const baseName = event.name ?? "tool";
-      const title = mcpServerName ? `${baseName} (mcp · ${mcpServerName})` : baseName;
-      // Result text — Tool's <ToolOutput> takes the raw value and will
-      // either CodeBlock-stringify an object or render a string in a
-      // CodeBlock. We pre-stringify content arrays since they're an
-      // OMA-specific shape, not a JSON-friendly object.
+      const title = getToolTitle(baseName, event.input, mcpServerName);
+      // Raw wire content — string | ContentBlock[] | undefined. Left
+      // un-stringified (unlike the pre-rich-renderer path) so
+      // renderToolCall can detect image/document blocks (e.g. `read`
+      // on a PNG, a computer-use screenshot) and render them as
+      // attachments instead of dumping base64 into a JSON blob.
       const rawContent = pairedResult
         ? (pairedResult as { content?: unknown }).content
         : undefined;
-      const output: unknown = rawContent === undefined
-        ? undefined
-        : typeof rawContent === "string"
-          ? rawContent
-          : JSON.stringify(rawContent, null, 2);
       // is_error is set by the agent runtime when a tool call failed
       // (bash non-zero exit + stderr surfaced, mcp tool returned an
       // error envelope, _finalizeStaleTurns injected an abort placeholder
       // for DO-eviction recovery, etc.). When present we route the same
-      // payload through ToolOutput.errorText so the Tool block renders
-      // in destructive styling, and badge to 'output-error' so the
+      // payload through errorText so the Tool block renders in
+      // destructive styling, and badge to 'output-error' so the
       // header pill shows Failed instead of Completed. Without this,
       // bash returning "Sandbox container failed to start after 10
       // attempts..." looked identical to a successful run.
@@ -1813,7 +1870,7 @@ function EventRender({
         ? Boolean((pairedResult as { is_error?: boolean }).is_error)
         : false;
       const errorText = isError
-        ? (typeof output === "string" ? output : JSON.stringify(output ?? null))
+        ? (typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent ?? null))
         : undefined;
       const state = pairedResult
         ? (isError ? "output-error" : "output-available")
@@ -1822,11 +1879,14 @@ function EventRender({
         <Tool>
           <ToolHeader type="dynamic-tool" toolName={title} state={state} />
           <ToolContent>
-            <ToolInput input={event.input ?? {}} />
-            <ToolOutput
-              output={isError ? undefined : output}
-              errorText={errorText}
-            />
+            {renderToolCall({
+              name: baseName,
+              input: event.input,
+              output: rawContent,
+              errorText,
+              state,
+              mcpServerName,
+            })}
           </ToolContent>
         </Tool>
       );
@@ -1882,6 +1942,37 @@ function EventRender({
           <div>{String(event.message ?? "")}</div>
         </div>
       );
+
+    case "span.model_request_end": {
+      // Per-model-call token usage, emitted once per step by
+      // default-loop.ts: { model, model_usage: { input_tokens,
+      // output_tokens, cache_read_input_tokens,
+      // cache_creation_input_tokens }, finish_reason, is_error }.
+      // Defensive `.data?.x ?? x` dual-path mirrors the session.error
+      // pairing above (same documented shape uncertainty). Purely
+      // observational — render nothing unless it actually carries token
+      // numbers (e.g. the onError/onAbort emits never include model_usage).
+      const raw = event as {
+        data?: { model?: string; model_usage?: Record<string, number> };
+        model?: string;
+        model_usage?: Record<string, number>;
+      };
+      const model = raw.data?.model ?? raw.model;
+      const usage = raw.data?.model_usage ?? raw.model_usage;
+      const inputTokens = usage?.input_tokens;
+      const outputTokens = usage?.output_tokens;
+      if (!usage || (!inputTokens && !outputTokens)) return null;
+      const total = (inputTokens ?? 0) + (outputTokens ?? 0);
+      return (
+        <div className="flex items-center gap-1.5 px-1 text-[11px] font-mono text-fg-subtle">
+          <CoinsIcon className="size-3 shrink-0" />
+          <span>
+            {inputTokens ?? 0} in · {outputTokens ?? 0} out · {total} total
+          </span>
+          {model && <span className="opacity-70">({model})</span>}
+        </div>
+      );
+    }
 
     default:
       return null;
