@@ -235,7 +235,7 @@ for manual re-runs.
 
 [`examples/`](examples/) has copy-paste-ready agent configs for common
 personas (coding assistant, data analyst, research agent) plus full harness
-demos (`claude-agent-sdk`, `flue`, GitHub-repo attach, self-improvement-agent)
+demos (`claude-agent-sdk`, GitHub-repo attach, self-improvement-agent)
 with pre-built Docker images published to GHCR by
 [`build-example-images.yml`](.github/workflows/build-example-images.yml), plus
 a build-it-yourself provider-swap demo (`grok-coding-agent`).

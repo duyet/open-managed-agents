@@ -33,9 +33,6 @@ jobs:
           - name: claude-agent-sdk
             image: oma-example-claude-agent-sdk
             context: examples/claude-agent-sdk
-          - name: flue
-            image: oma-example-flue
-            context: examples/flue
           - name: coding-agent
             image: oma-example-coding-agent
             context: examples/coding-agent

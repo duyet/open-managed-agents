@@ -2,12 +2,12 @@
 
 Two kinds of examples live here:
 
-## Harness demos (`examples/claude-agent-sdk/`, `examples/coding-agent/`, `examples/flue/`, `examples/self-improvement-agent/`)
+## Harness demos (`examples/claude-agent-sdk/`, `examples/coding-agent/`, `examples/self-improvement-agent/`)
 
 Each is a small, self-contained Docker image (`agent.json` + `README.md` +
 `run.sh`) that registers an agent, creates a session, and sends one message
 against a running Open Managed Agents instance. They demonstrate specific
-harness choices (`default`, `claude-agent-sdk`, `flue`) and session-resource
+harness choices (`default`, `claude-agent-sdk`) and session-resource
 patterns (attaching a GitHub repo). Build one with:
 
 ```bash
@@ -23,7 +23,6 @@ matrix job per example:
 ```
 ghcr.io/duyet/oma-example-claude-agent-sdk
 ghcr.io/duyet/oma-example-coding-agent
-ghcr.io/duyet/oma-example-flue
 ghcr.io/duyet/oma-example-self-improvement-agent
 ```
 
