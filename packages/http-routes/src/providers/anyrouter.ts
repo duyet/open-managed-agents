@@ -67,6 +67,33 @@ const MODEL_CARD_MODEL_ID = "anyrouter";
  *  in the catalog — never blocks the connect flow on it). */
 const DEFAULT_TARGET_MODEL = "anthropic/claude-sonnet-4-6";
 
+/** Sibling model cards the one-click "starter agents" action provisions, each
+ *  sharing the connected key but pinned to a distinct AnyRouter target so the
+ *  two starter agents differ in cost/capability. Handles are tenant-unique
+ *  `model_id`s an agent's `{"model": …}` resolves through the same
+ *  `resolveModelCardCredentials` path as the base "anyrouter" card. The model
+ *  ids mirror the two known-good Anthropic defaults used elsewhere in the
+ *  Console (no invented ids — issue #183). */
+const PRESET_CARDS: {
+  modelId: string;
+  model: string;
+  role: "strong" | "fast";
+  label: string;
+}[] = [
+  {
+    modelId: "anyrouter-strong",
+    model: "anthropic/claude-sonnet-4-6",
+    role: "strong",
+    label: "Claude Sonnet 4-6",
+  },
+  {
+    modelId: "anyrouter-fast",
+    model: "anthropic/claude-haiku-4-5",
+    role: "fast",
+    label: "Claude Haiku 4-5",
+  },
+];
+
 interface Vars {
   Variables: { tenant_id: string; user_id?: string };
 }
@@ -398,6 +425,55 @@ export function buildAnyRouterRoutes(deps: AnyRouterRoutesDeps) {
       services.logger?.warn({ err }, "anyrouter.onDisconnected hook failed");
     }
     return c.json({ disconnected: true });
+  });
+
+  // ── Starter-agent presets ───────────────────────────────────────────────
+  //
+  // Provisions the sibling model cards (PRESET_CARDS) a one-click "create
+  // starter agents" action binds to. Runs backend-side because it needs the
+  // connected key, which never leaves the server — each card stores it
+  // through the same encrypted ModelCardService as the base "anyrouter" card.
+  // Idempotent, mirroring upsertModelCard: an existing card rotates only its
+  // api_key (preserving a `model` the user later retargeted); a fresh one is
+  // created at the preset's default target. Returns the resolved card handles
+  // so the Console can build the actual agents via its own formToConfig
+  // machinery — this route deliberately doesn't create agents itself.
+  app.post("/presets", async (c) => {
+    const services = resolveServices(deps.services, c);
+    const tenantId = c.var.tenant_id;
+    if (!tenantId) return c.json({ error: "authentication required" }, 401);
+
+    const hit = await findCredential(services, tenantId);
+    if (!hit) return c.json({ error: "connect AnyRouter first", connect_required: true }, 400);
+
+    // Self-host Node has no model-cards store, so preset handles wouldn't
+    // resolve at agent-run time — surface that instead of minting nothing.
+    if (!services.modelCards) {
+      return c.json(
+        { error: "model cards unavailable on this deployment", model_cards_unavailable: true },
+        501,
+      );
+    }
+
+    const cards: { model_id: string; model: string; role: string; label: string }[] = [];
+    for (const p of PRESET_CARDS) {
+      const existing = await services.modelCards.findByModelId({ tenantId, modelId: p.modelId });
+      if (existing) {
+        await services.modelCards.update({ tenantId, cardId: existing.id, apiKey: hit.token });
+        cards.push({ model_id: p.modelId, model: existing.model, role: p.role, label: p.label });
+      } else {
+        await services.modelCards.create({
+          tenantId,
+          modelId: p.modelId,
+          provider: ANYROUTER_API_COMPAT,
+          model: p.model,
+          apiKey: hit.token,
+          baseUrl: ANYROUTER_API_BASE,
+        });
+        cards.push({ model_id: p.modelId, model: p.model, role: p.role, label: p.label });
+      }
+    }
+    return c.json({ cards });
   });
 
   // ── Model catalog (for a model picker) ──────────────────────────────────
