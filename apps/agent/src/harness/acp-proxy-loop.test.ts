@@ -1,17 +1,22 @@
 // Unit tests for AcpProxyHarness's model/reasoning-effort override plumbing
-// (issue #269: the ACP proxy harness ignored AgentConfig.runtime_binding's
+// (issue #269: the ACP proxy harness ignored the local-runtime binding's
 // `model` / `reasoning_effort` fields). Covers the harness's half of the
-// wire: `binding.model` / `binding.reasoning_effort` must land verbatim on
-// the outgoing `session.start` frame sent to RuntimeRoom (and be omitted
-// entirely when unset, for wire-compat with daemons that predate #269).
-// The daemon-side application of these fields against the spawned ACP
-// child is covered separately in packages/acp-runtime/src/session.test.ts.
+// wire: `ctx.resolvedModel` / `ctx.resolvedReasoningEffort` (already
+// resolved by SessionDO against the session-override formula) must land
+// verbatim on the outgoing `session.start` frame sent to RuntimeRoom (and
+// be omitted entirely when unset, for wire-compat with daemons that predate
+// #269). The daemon-side application of these fields against the spawned
+// ACP child is covered separately in packages/acp-runtime/src/session.test.ts.
+//
+// Post harness-to-environment migration: the runtime binding lives on
+// `environment.config.local` (EnvironmentConfig), not `agent.runtime_binding`
+// (removed from AgentConfig).
 //
 // Runs in the Workers pool so `WebSocketPair` is real — same pattern as
 // bridge-relay.test.ts.
 
 import { describe, it, expect, afterEach } from "vitest";
-import type { AgentConfig, UserMessageEvent } from "@duyet/oma-shared";
+import type { AgentConfig, EnvironmentConfig, UserMessageEvent } from "@duyet/oma-shared";
 import { AcpProxyHarness } from "./acp-proxy-loop";
 import type { HarnessContext, HarnessRuntime } from "./interface";
 
@@ -67,21 +72,36 @@ function fakeRuntime(): HarnessRuntime {
   } as unknown as HarnessRuntime;
 }
 
-function agentWithBinding(runtime_binding: NonNullable<AgentConfig["runtime_binding"]>): AgentConfig {
+function plainAgent(): AgentConfig {
   return {
     name: "test-acp-agent",
     model: "claude-sonnet-4-6",
     system: "",
     tools: [],
-    harness: "acp-proxy",
-    runtime_binding,
   } as unknown as AgentConfig;
 }
 
-async function runHarness(agent: AgentConfig, room: DurableObjectNamespace): Promise<void> {
+function envWithLocal(
+  local: NonNullable<NonNullable<EnvironmentConfig["config"]>["local"]>,
+): EnvironmentConfig {
+  return {
+    id: "env_1",
+    name: "test-local-env",
+    config: { type: "local", kind: "local", local },
+  } as unknown as EnvironmentConfig;
+}
+
+async function runHarness(
+  environment: EnvironmentConfig,
+  room: DurableObjectNamespace,
+  overrides?: { resolvedModel?: string; resolvedReasoningEffort?: string },
+): Promise<void> {
   const harness = new AcpProxyHarness();
   const ctx = {
-    agent,
+    agent: plainAgent(),
+    environment,
+    resolvedModel: overrides?.resolvedModel,
+    resolvedReasoningEffort: overrides?.resolvedReasoningEffort,
     userMessage: fakeUserMessage("hello"),
     session_id: "sess_1",
     tenant_id: "tenant_1",
@@ -107,13 +127,9 @@ describe("AcpProxyHarness — model/reasoning-effort override forwarding (#269)"
     const room = fakeRuntimeRoom(scriptedDaemon((frame) => { captured = frame; }));
 
     await runHarness(
-      agentWithBinding({
-        runtime_id: "rt_1",
-        acp_agent_id: "claude-acp",
-        model: "claude-sonnet-4-6",
-        reasoning_effort: "high",
-      }),
+      envWithLocal({ runtime_id: "rt_1", acp_agent_id: "claude-acp" }),
       room,
+      { resolvedModel: "claude-sonnet-4-6", resolvedReasoningEffort: "high" },
     );
 
     expect(captured).toMatchObject({
@@ -129,7 +145,7 @@ describe("AcpProxyHarness — model/reasoning-effort override forwarding (#269)"
     const room = fakeRuntimeRoom(scriptedDaemon((frame) => { captured = frame; }));
 
     await runHarness(
-      agentWithBinding({ runtime_id: "rt_1", acp_agent_id: "claude-acp" }),
+      envWithLocal({ runtime_id: "rt_1", acp_agent_id: "claude-acp" }),
       room,
     );
 
@@ -143,8 +159,9 @@ describe("AcpProxyHarness — model/reasoning-effort override forwarding (#269)"
     const room = fakeRuntimeRoom(scriptedDaemon((frame) => { captured = frame; }));
 
     await runHarness(
-      agentWithBinding({ runtime_id: "rt_1", acp_agent_id: "claude-acp", model: "claude-haiku-4-5" }),
+      envWithLocal({ runtime_id: "rt_1", acp_agent_id: "claude-acp" }),
       room,
+      { resolvedModel: "claude-haiku-4-5" },
     );
 
     expect(captured).toMatchObject({ model: "claude-haiku-4-5" });
@@ -165,7 +182,7 @@ describe("AcpProxyHarness — local-agent-binding forwarding (working_dir/branch
     const room = fakeRuntimeRoom(scriptedDaemon((frame) => { captured = frame; }));
 
     await runHarness(
-      agentWithBinding({
+      envWithLocal({
         runtime_id: "rt_1",
         acp_agent_id: "claude-acp",
         working_dir: "/Users/dev/projects/my-repo",
@@ -188,7 +205,7 @@ describe("AcpProxyHarness — local-agent-binding forwarding (working_dir/branch
     const room = fakeRuntimeRoom(scriptedDaemon((frame) => { captured = frame; }));
 
     await runHarness(
-      agentWithBinding({
+      envWithLocal({
         runtime_id: "rt_1",
         acp_agent_id: "claude-acp",
         working_dir: "/Users/dev/projects/my-repo",
@@ -211,7 +228,7 @@ describe("AcpProxyHarness — local-agent-binding forwarding (working_dir/branch
     const room = fakeRuntimeRoom(scriptedDaemon((frame) => { captured = frame; }));
 
     await runHarness(
-      agentWithBinding({ runtime_id: "rt_1", acp_agent_id: "claude-acp" }),
+      envWithLocal({ runtime_id: "rt_1", acp_agent_id: "claude-acp" }),
       room,
     );
 

@@ -11,11 +11,17 @@ function api(path: string, init?: RequestInit) {
   return env.default.fetch(new Request(`http://localhost${path}`, init));
 }
 
-export async function createReadyEnvironment(name = "test-env") {
+// `harness` selects the harness for sessions created against this
+// environment (harness-to-environment migration — harness moved off the
+// agent onto `environment.config.harness`). Defaults to "default".
+export async function createReadyEnvironment(name = "test-env", harness?: string) {
   const envRes = await api("/v1/environments", {
     method: "POST",
     headers: HEADERS,
-    body: JSON.stringify({ name, config: { type: "cloud" } }),
+    body: JSON.stringify({
+      name,
+      config: harness ? { type: "cloud", harness } : { type: "cloud" },
+    }),
   });
   const environment = (await envRes.json()) as any;
 
@@ -34,7 +40,13 @@ export async function createReadyEnvironment(name = "test-env") {
   return environment;
 }
 
-export async function createFullSession(opts?: { agentOverrides?: Record<string, unknown> }) {
+export async function createFullSession(opts?: {
+  agentOverrides?: Record<string, unknown>;
+  /** Harness for the session's environment. Defaults to "test" (registered
+   *  in test-worker.ts) — mirrors the pre-migration default of
+   *  `agentOverrides.harness`. */
+  harness?: string;
+}) {
   const agentRes = await api("/v1/agents", {
     method: "POST",
     headers: HEADERS,
@@ -43,12 +55,11 @@ export async function createFullSession(opts?: { agentOverrides?: Record<string,
       model: "claude-sonnet-4-6",
       system: "You are helpful.",
       tools: [{ type: "agent_toolset_20260401" }],
-      harness: "test",
       ...opts?.agentOverrides,
     }),
   });
   const agent = (await agentRes.json()) as any;
-  const environment = await createReadyEnvironment();
+  const environment = await createReadyEnvironment("test-env", opts?.harness ?? "test");
   const sessRes = await api("/v1/sessions", {
     method: "POST",
     headers: HEADERS,

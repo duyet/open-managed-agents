@@ -159,10 +159,10 @@ describe("public publication routes — guardrails + scoping", () => {
 });
 
 describe("POST /:slug/sessions — environment forwarding (issue #225)", () => {
-  // Fake agent rows: `runtime_binding` set means local-runtime (self-hosted,
-  // no environment_id needed); absent means a cloud agent.
+  // environment_id is unconditionally required on every session now
+  // (harness-to-environment migration) — there's no more "local-runtime
+  // agents don't need one" carve-out based on the agent row.
   const cloudAgent = { id: "agent-1" };
-  const localRuntimeAgent = { id: "agent-1", runtime_binding: { type: "acp" } };
 
   function makeSessionCreateApp(opts: {
     agent: Record<string, unknown> | null;
@@ -223,16 +223,6 @@ describe("POST /:slug/sessions — environment forwarding (issue #225)", () => {
     expect(body.code).toBe("environment_required");
     expect(body.error).toMatch(/environment/i);
     expect(getBody()).toBeNull(); // never forwarded to session-create
-  });
-
-  it("does not require environment_id for a local-runtime agent", async () => {
-    const { app, getBody } = makeSessionCreateApp({
-      agent: localRuntimeAgent,
-      pub: { environment_id: null },
-    });
-    const res = await post(app);
-    expect(res.status).toBe(200);
-    expect(getBody()?.environment_id).toBeUndefined();
   });
 
   it("404s when the published agent no longer exists", async () => {
