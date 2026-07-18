@@ -57,6 +57,12 @@ const LINEAR: Mark = {
   mode: "fill",
   path: "M2.886 4.18A11.982 11.982 0 0 1 11.99 0C18.624 0 24 5.376 24 12.009c0 3.64-1.62 6.903-4.18 9.105L2.887 4.18ZM1.817 5.626l16.556 16.556c-.524.33-1.075.62-1.65.866L.951 7.277c.247-.575.537-1.126.866-1.65ZM.322 9.163l14.515 14.515c-.71.172-1.443.282-2.195.322L0 11.358a12 12 0 0 1 .322-2.195Zm-.17 4.862 9.823 9.824a12.02 12.02 0 0 1-9.824-9.824Z",
 };
+// Firecrawl — no Simple Icons entry; a flame glyph (lucide.dev, ISC) stands
+// in for the MCP server's brand in the vault/MCP credential slots.
+const FIRECRAWL: Mark = {
+  mode: "stroke",
+  path: "M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z",
+};
 
 const E2B: Mark = { mode: "stroke", path: "M9 4H5v16h4M15 4h4v16h-4" };
 // Micro-VM providers (LiteBox, BoxRun) — a cpu/chip glyph (lucide.dev, ISC).
@@ -94,6 +100,7 @@ const MARKS: Record<string, Mark> = {
   slack: SLACK,
   telegram: TELEGRAM,
   linear: LINEAR,
+  firecrawl: FIRECRAWL,
   litebox: CHIP,
   boxrun: CHIP,
   "remote-agent": MACHINE,
@@ -119,6 +126,7 @@ const BRAND_COLORS: Record<string, string> = {
   slack: "#E01E5A",
   telegram: "#26A5E4",
   linear: "#5E6AD2",
+  firecrawl: "#F97316",
 };
 
 /** Official brand color for a mark id, or undefined when the mark should stay

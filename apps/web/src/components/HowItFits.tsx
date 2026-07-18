@@ -170,6 +170,33 @@ export default function HowItFits() {
               },
             ),
         },
+        {
+          key: "cli",
+          title: "CLI",
+          badges: ["oma bridge"],
+          onActivate: () =>
+            open(
+              "CLI",
+              "Binds your own machine to your OMA instance. `oma bridge setup` pairs the laptop over an outbound-only WebSocket, so an agent's tools — bash, files, git — run locally against your real environment while the control plane stays in the cloud.",
+              {
+                flow: [
+                  { label: "oma bridge setup" },
+                  { label: "outbound WebSocket", hero: true },
+                  { label: "tools exec on your machine" },
+                ],
+                points: [
+                  "Pairs a local machine as a `subprocess` sandbox runtime — no inbound ports.",
+                  "The agent runs in the cloud; its tools execute on your box.",
+                  "Also fronts the `acp-proxy` harness for local Claude Code / Codex.",
+                ],
+                links: [
+                  { label: "CLI & SDK", href: `${DOCS}/build/cli-sdk/` },
+                  { label: "Quickstart", href: `${DOCS}/quickstart/` },
+                ],
+                image: { src: "/screenshots/cli-bridge.jpg", alt: "The oma CLI pairing a local machine as a bridge runtime" },
+              },
+            ),
+        },
       ],
     },
     {
@@ -209,7 +236,7 @@ export default function HowItFits() {
         {
           key: "skills",
           title: "Skills",
-          badges: ["xlsx", "pdf", "pptx"],
+          badges: ["xlsx", "pdf", "pptx", "html", "report", "data-analysis"],
           onActivate: () =>
             open(
               "Skills",
@@ -228,6 +255,64 @@ export default function HowItFits() {
                   { label: "Skills & tools guide", href: `${DOCS}/build/skills-and-tools/` },
                 ],
                 image: { src: "/screenshots/skills.jpg", alt: "Skills library in the OMA Console" },
+              },
+            ),
+        },
+        {
+          key: "mcp",
+          title: "MCP servers",
+          note: "External tools the agent can call",
+          providerMarks: ["github", "firecrawl", "linear"],
+          onActivate: () =>
+            open(
+              "MCP servers",
+              "The `mcp` in agent = model + skills + mcp. Connect remote MCP servers — GitHub, Firecrawl, Linear, anything — and the agent gets their tools. Every call is proxied through the control plane, which is the only layer that ever holds the upstream credential.",
+              {
+                flow: [
+                  { label: "agent tool call" },
+                  { label: "mcp-proxy + credential", hero: true },
+                  { label: "remote MCP server" },
+                ],
+                points: [
+                  "Register once at the tenant level, reference by id from any agent.",
+                  "The proxy injects the vault credential — the sandbox never sees it.",
+                  "Works identically across every sandbox provider.",
+                ],
+                resources: [
+                  { id: "github", label: "GitHub", href: `${DOCS}/build/vault-and-mcp/` },
+                  { id: "firecrawl", label: "Firecrawl", href: `${DOCS}/build/vault-and-mcp/` },
+                  { id: "linear", label: "Linear", href: `${DOCS}/build/vault-and-mcp/` },
+                ],
+                links: [
+                  { label: "Vault & MCP guide", href: `${DOCS}/build/vault-and-mcp/` },
+                ],
+              },
+            ),
+        },
+        {
+          key: "subagents",
+          title: "Sub-agents",
+          note: "Delegate to other agents",
+          dashed: true,
+          onActivate: () =>
+            open(
+              "Sub-agents",
+              "An agent can call other agents. List them in callable_agents and the platform generates call_agent_* tools plus a call_agents_parallel tool that fans out to several children concurrently and aggregates their results.",
+              {
+                flow: [
+                  { label: "parent agent" },
+                  { label: "call_agents_parallel", hero: true },
+                  { stack: ["researcher", "writer", "reviewer"] },
+                ],
+                points: [
+                  "Each child runs as its own thread nested in the parent session.",
+                  "By default children share the parent's sandbox — opt one into its own via environment_id.",
+                  "Concurrency capped (default 5, ceiling 10) — set max_parallel_subagents.",
+                ],
+                links: [
+                  { label: "Core concepts", href: `${DOCS}/concepts/` },
+                  { label: "How it works", href: `${DOCS}/how-it-works/` },
+                ],
               },
             ),
         },
@@ -330,6 +415,7 @@ export default function HowItFits() {
             key: "vaults",
             title: "Keys (Vault)",
             badges: ["prod-secrets"],
+            providerMarks: ["github", "firecrawl", "slack", "linear"],
             onActivate: () =>
               open(
                 "Keys (Vault)",
@@ -424,9 +510,36 @@ export default function HowItFits() {
       optional: true,
       cards: [
         {
+          key: "triggers",
+          title: "Triggers",
+          note: "Manual · schedule · webhook",
+          dashed: true,
+          onActivate: () =>
+            open(
+              "Triggers",
+              "How a session fires without someone typing. A deployment bundles an agent version, environment, vaults, and memory stores behind a trigger — run it manually, on a cron schedule, or from a signed webhook. Agent schedules do the cron-only, prompt-only variant.",
+              {
+                flow: [
+                  { stack: ["manual", "schedule", "webhook"] },
+                  { label: "deployment", hero: true },
+                  { label: "fresh session" },
+                ],
+                points: [
+                  "Deployment = pinned agent version + env + vaults + memory + trigger.",
+                  "Cron schedules are DST-correct and never double-fire across replicas.",
+                  "Webhooks are token-secured and can override the initial message.",
+                ],
+                links: [
+                  { label: "Console getting started", href: `${DOCS}/console/getting-started/` },
+                  { label: "Configuration reference", href: `${DOCS}/reference/configuration/` },
+                ],
+              },
+            ),
+        },
+        {
           key: "channels",
           title: "Channels",
-          note: "Telegram, Slack, GitHub",
+          providerMarks: ["telegram", "slack", "github", "linear"],
           dashed: true,
           onActivate: () =>
             open(
