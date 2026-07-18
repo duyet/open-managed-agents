@@ -95,6 +95,7 @@ import { WorkerHttpClient } from "@duyet/oma-integrations-adapters-cf";
 import { dispatchSessionNotifications } from "./notify-dispatch";
 import { meterTurnDebit } from "./turn-metering";
 import { resolveSessionMetadata, walletFromMetadata } from "./resolve-session-metadata";
+import { generateSessionTitle, shouldGenerateSessionTitle } from "./session-title";
 
 interface SessionInitParams {
   agent_id: string;
@@ -4200,6 +4201,35 @@ export class SessionDO extends DurableObject<Env> {
   }
 
   /**
+   * Best-effort session title generation. Summarizes `firstMessageText` via
+   * the aux model when available (falling back to a heuristic — see
+   * session-title.ts), then persists the result to both DO state (fast,
+   * in-memory reads) and the D1 `sessions` row (the source GET /v1/sessions
+   * serializes `title` from — see services.sessions.update). Re-checks
+   * `state.title` before writing so a race between two calls can't clobber
+   * each other; callers only invoke this when state.title was empty.
+   */
+  private async generateAndPersistSessionTitle(
+    firstMessageText: string,
+    auxModel: LanguageModel | undefined,
+  ): Promise<void> {
+    if (this.state.title) return;
+    const title = await generateSessionTitle({ text: firstMessageText, auxModel: auxModel ?? null });
+    if (!title || this.state.title) return;
+    this.setState({ ...this.state, title });
+    try {
+      const services = await getCfServicesForTenant(this.env, this.state.tenant_id);
+      await services.sessions.update({
+        tenantId: this.state.tenant_id,
+        sessionId: this.state.session_id,
+        title,
+      });
+    } catch (err) {
+      console.warn(`[session-title] failed to persist title to D1: ${(err as Error).message}`);
+    }
+  }
+
+  /**
    * Handle tool confirmation: execute the confirmed tool or inject denial,
    * then re-run the harness to continue the conversation.
    */
@@ -5051,6 +5081,22 @@ export class SessionDO extends DurableObject<Env> {
 
     // Build tools from agent config
     const auxResolved = await this.resolveAuxModel(agent);
+
+    // Auto-generate a session title from the first user message (`title`
+    // already exists on the session row — this just populates it).
+    // shouldGenerateSessionTitle guards this to run once per session: it
+    // returns false once state.title is non-empty, and for the
+    // synthetic-empty-message resumes (tool confirmation / custom tool
+    // result continuations use skipAppend: true and carry no real user
+    // text). Detached and best-effort — errors are logged, never surfaced
+    // to the turn or the caller.
+    const firstMessageText = extractTextFromContent(userMessage.content).trim();
+    if (shouldGenerateSessionTitle({ currentTitle: this.state.title, skipAppend, text: firstMessageText })) {
+      void this.generateAndPersistSessionTitle(firstMessageText, auxResolved?.model).catch((err) => {
+        console.warn(`[session-title] generation failed: ${(err as Error).message}`);
+      });
+    }
+
     const allTools = await buildTools(this.applyMcpUrlFixups(agent), sandbox, {
       ANTHROPIC_API_KEY: this.env.ANTHROPIC_API_KEY,
       ANTHROPIC_BASE_URL: this.env.ANTHROPIC_BASE_URL,
