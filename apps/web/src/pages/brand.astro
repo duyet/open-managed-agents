@@ -120,6 +120,42 @@ const groups: { title: string; note: string; rows: Swatch[] }[] = [
             dark · mono
           </figcaption>
         </figure>
+        <!-- White, reversed out on the brand iris -->
+        <figure class="rounded-lg border border-[var(--color-border)] overflow-hidden">
+          <div class="flex items-center justify-center py-12" style="background:#4f46e5">
+            <Logo size={72} tone="white" class="block" />
+          </div>
+          <figcaption class="px-4 py-2.5 text-xs font-mono text-[var(--color-fg-subtle)] border-t border-[var(--color-border)]">
+            brand fill · white
+          </figcaption>
+        </figure>
+        <!-- White on near-black -->
+        <figure class="rounded-lg border border-[var(--color-border)] overflow-hidden">
+          <div class="flex items-center justify-center py-12" style="background:#09090b">
+            <Logo size={72} tone="white" class="block" />
+          </div>
+          <figcaption class="px-4 py-2.5 text-xs font-mono text-[var(--color-fg-subtle)] border-t border-[var(--color-border)]">
+            dark · white
+          </figcaption>
+        </figure>
+        <!-- Ink on white -->
+        <figure class="rounded-lg border border-[var(--color-border)] overflow-hidden">
+          <div class="flex items-center justify-center py-12" style="background:#ffffff">
+            <Logo size={72} tone="ink" class="block" />
+          </div>
+          <figcaption class="px-4 py-2.5 text-xs font-mono text-[var(--color-fg-subtle)] border-t border-[var(--color-border)]">
+            light · ink
+          </figcaption>
+        </figure>
+        <!-- Iris auto (theme-aware via the brand token) -->
+        <figure class="rounded-lg border border-[var(--color-border)] overflow-hidden">
+          <div class="flex items-center justify-center py-12 bg-[var(--color-bg-surface)]">
+            <Logo size={72} tone="brand" class="block" />
+          </div>
+          <figcaption class="px-4 py-2.5 text-xs font-mono text-[var(--color-fg-subtle)] border-t border-[var(--color-border)]">
+            auto · brand
+          </figcaption>
+        </figure>
       </div>
 
       <!-- Small / favicon form + lockup -->

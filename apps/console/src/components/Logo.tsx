@@ -19,12 +19,26 @@ const SIZE_PX = {
   lg: 32,
 } as const;
 
+/** Named color presets. The mark is a single `currentColor` glyph, so a
+ *  tone is just the text color it inherits:
+ *   - `brand`   iris, the default (light + dark safe via the theme token)
+ *   - `white`   reversed-out — use on dark or brand-colored surfaces
+ *   - `ink`     near-black — use on light/white surfaces
+ *   - `current` inherit from the parent (pass your own text-* class) */
+const TONE_CLASS = {
+  brand: "text-brand",
+  white: "text-white",
+  ink: "text-[#18181b]",
+  current: "",
+} as const;
+
 interface LogoProps {
   size?: keyof typeof SIZE_PX;
+  tone?: keyof typeof TONE_CLASS;
   className?: string;
 }
 
-export function Logo({ size = "sm", className = "" }: LogoProps) {
+export function Logo({ size = "sm", tone = "brand", className = "" }: LogoProps) {
   const px = SIZE_PX[size];
   return (
     <svg
@@ -34,7 +48,7 @@ export function Logo({ size = "sm", className = "" }: LogoProps) {
       fill="none"
       role="img"
       aria-label="oma"
-      className={`shrink-0 text-brand ${className}`.trim()}
+      className={`shrink-0 ${TONE_CLASS[tone]} ${className}`.trim()}
       xmlns="http://www.w3.org/2000/svg"
     >
       <rect
