@@ -140,6 +140,28 @@ const ANTHROPIC_SKILLS = [
   { id: "docx", label: "Word (docx)" },
 ];
 
+// Model override for local ACP agents. Mirrors the two built-in Anthropic
+// defaults AgentBuilder.tsx offers before any model cards exist (issue
+// #183: no invented model ids) — a local ACP child has no OMA model-card
+// concept of its own, so this list intentionally stays to the same two
+// known-good ids rather than growing a second source of truth.
+const ACP_MODEL_OPTIONS = [
+  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4-6" },
+  { value: "claude-haiku-4-5", label: "Claude Haiku 4-5" },
+];
+
+// Reasoning-effort override for local ACP agents. No canonical "reasoning"
+// field exists elsewhere in OMA today — this mirrors the OpenAI/Codex
+// reasoning_effort convention (codex-acp is the ACP agent most likely to
+// honor it). Harness/daemon don't consume this yet — see
+// https://github.com/duyet/oma/issues/269.
+const ACP_REASONING_OPTIONS = [
+  { value: "minimal", label: "Minimal" },
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+];
+
 // AMA spec built-in tool names — must match
 // `BetaManagedAgentsAgentToolConfig.name` enum in the SDK. Source of
 // truth lives in the agent_toolset_20260401 toolset; emitting unknown
@@ -225,6 +247,8 @@ export function formToConfig(form: FormState) {
         ...(form.localSkillBlocklist.length > 0
           ? { local_skill_blocklist: form.localSkillBlocklist }
           : {}),
+        ...(form.acpModel ? { model: form.acpModel } : {}),
+        ...(form.acpReasoningEffort ? { reasoning_effort: form.acpReasoningEffort } : {}),
       },
     };
   } else if (form.harness !== "default") {
@@ -241,7 +265,16 @@ export function formToConfig(form: FormState) {
  */
 export function configToForm(parsed: Record<string, unknown>): FormState {
   const oma = parsed._oma as
-    | { harness?: string; runtime_binding?: { runtime_id?: string; acp_agent_id?: string; local_skill_blocklist?: string[] } }
+    | {
+        harness?: string;
+        runtime_binding?: {
+          runtime_id?: string;
+          acp_agent_id?: string;
+          local_skill_blocklist?: string[];
+          model?: string;
+          reasoning_effort?: string;
+        };
+      }
     | undefined;
   const rb = oma?.runtime_binding;
   const toolset = Array.isArray(parsed.tools)
@@ -292,6 +325,8 @@ export function configToForm(parsed: Record<string, unknown>): FormState {
     localSkillBlocklist: Array.isArray(rb?.local_skill_blocklist)
       ? rb.local_skill_blocklist
       : [],
+    acpModel: rb?.model ?? "",
+    acpReasoningEffort: rb?.reasoning_effort ?? "",
     toolDefaultEnabled: dc.enabled ?? true,
     toolDefaultPermission:
       dc.permission_policy?.type === "always_ask" ? "always_ask" : "always_allow",
@@ -321,6 +356,14 @@ export const INITIAL_FORM = {
   /** Local skill ids to HIDE from this agent's ACP child. Empty = all
    *  detected local skills are visible (the daemon's default). */
   localSkillBlocklist: [] as string[],
+  /** Optional model override forwarded in runtime_binding.model. Empty =
+   *  inherit whatever the daemon-fetched bundle / ACP child's own config
+   *  resolves. NOTE: not yet consumed end-to-end by the harness/daemon —
+   *  see https://github.com/duyet/oma/issues/269. */
+  acpModel: "",
+  /** Optional reasoning-effort override forwarded in
+   *  runtime_binding.reasoning_effort. Same "not yet consumed" caveat. */
+  acpReasoningEffort: "",
   // Built-in tool policy. `agent_toolset_20260401` toolset's
   // `default_config` controls fallback enabled/permission for any
   // tool without a specific override. `toolOverrides` is a per-tool
@@ -502,6 +545,8 @@ export function AgentFormDialog({
             ...(form.localSkillBlocklist.length > 0
               ? { local_skill_blocklist: form.localSkillBlocklist }
               : {}),
+            ...(form.acpModel ? { model: form.acpModel } : {}),
+            ...(form.acpReasoningEffort ? { reasoning_effort: form.acpReasoningEffort } : {}),
           },
         };
       } else if (form.harness !== "default") {
@@ -1249,7 +1294,60 @@ function AcpAgentPicker({
       </Select>
       <p className="text-xs text-fg-subtle mt-1">
         Each turn spawns this ACP child on the runtime. Model + skills come from the
-        daemon-fetched bundle.
+        daemon-fetched bundle unless overridden below.
+      </p>
+
+      {/* Optional per-agent overrides forwarded in runtime_binding. The
+          daemon fetches its own bundle (model + skills) per session.start
+          today, so these are captured on the agent config for the harness
+          to honor once it's wired end-to-end — see the linked issue. */}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-xs text-fg-subtle block mb-1">Model override</label>
+          <Select
+            value={form.acpModel || "__default__"}
+            onValueChange={(v) =>
+              setForm({ ...form, acpModel: v === "__default__" ? "" : v })
+            }
+          >
+            <SelectOption value="__default__">Use daemon default</SelectOption>
+            {ACP_MODEL_OPTIONS.map((o) => (
+              <SelectOption key={o.value} value={o.value}>
+                {o.label}
+              </SelectOption>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <label className="text-xs text-fg-subtle block mb-1">Reasoning effort</label>
+          <Select
+            value={form.acpReasoningEffort || "__default__"}
+            onValueChange={(v) =>
+              setForm({ ...form, acpReasoningEffort: v === "__default__" ? "" : v })
+            }
+          >
+            <SelectOption value="__default__">Default</SelectOption>
+            {ACP_REASONING_OPTIONS.map((o) => (
+              <SelectOption key={o.value} value={o.value}>
+                {o.label}
+              </SelectOption>
+            ))}
+          </Select>
+        </div>
+      </div>
+      <p className="text-[10px] text-fg-subtle mt-1">
+        Optional overrides sent as <span className="font-mono">runtime_binding.model</span> /{" "}
+        <span className="font-mono">runtime_binding.reasoning_effort</span>. Not yet consumed
+        by the harness or daemon (tracked in{" "}
+        <a
+          href="https://github.com/duyet/oma/issues/269"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-fg-muted"
+        >
+          #269
+        </a>
+        ) — left as default, the ACP child uses its own local config.
       </p>
 
       {/* Local-skill blocklist — multi-select fed by what the daemon
