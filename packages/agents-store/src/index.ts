@@ -23,4 +23,9 @@ export {
   SqlAgentRepo,
 } from "./adapters";
 
-export { DEFAULT_AGENT_INPUT, seedDefaultAgent } from "./default-agent";
+export {
+  DEFAULT_AGENT_INPUT,
+  SENIOR_ENGINEER_AGENT_INPUT,
+  INITIAL_AGENT_INPUTS,
+  seedDefaultAgent,
+} from "./default-agent";
