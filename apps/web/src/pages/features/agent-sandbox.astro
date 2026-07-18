@@ -1,5 +1,6 @@
 ---
 import Base from "../../layouts/Base.astro";
+import SandboxProviderGrid from "../../components/SandboxProviderGrid";
 import { breadcrumbSchema, faqPageSchema } from "../../lib/seo";
 
 const faqItems = [
@@ -27,59 +28,6 @@ const faqItems = [
     question: "How do I pick a sandbox provider for an environment?",
     answer:
       "Set config.sandbox_provider on the environment (defaults to Cloudflare Containers if omitted). Every agent that references that environment runs its tools in that sandbox — no code changes to the agent itself.",
-  },
-];
-
-const providers = [
-  {
-    name: "Cloudflare Containers",
-    cf: "Default on Cloudflare",
-    blurb: "Zero setup — the default sandbox on the Cloudflare deployment, no extra secrets required.",
-  },
-  {
-    name: "Docker Compose",
-    cf: "Self-host Node only",
-    blurb: "Containers on any Docker host for the self-hosted docker compose runtime.",
-  },
-  {
-    name: "Kubernetes",
-    cf: "Self-host Node only",
-    blurb: "Pod-per-sandbox on your cluster via the direct in-cluster KubernetesSandboxExecutor.",
-  },
-  {
-    name: "k8s-remote",
-    cf: "Works on Cloudflare",
-    blurb: "In-cluster k8s-sandbox-gateway over plain HTTP — needs K8S_SANDBOX_GATEWAY_URL. No memory-store mounts.",
-  },
-  {
-    name: "NVIDIA OpenShell",
-    cf: "Works on Cloudflare",
-    blurb: "Policy-enforced sandboxes with default-deny egress and Landlock FS, reached via a k8s-bridge OpenShell backend.",
-  },
-  {
-    name: "BoxRun",
-    cf: "Works on Cloudflare",
-    blurb: "A remote boxlite control plane over plain fetch — needs BOXRUN_URL, no driver SDK required.",
-  },
-  {
-    name: "Subprocess (bridge)",
-    cf: "Works via bridge relay",
-    blurb: "Runs on your own machine via `oma bridge daemon` — the fastest inner loop, relayed over a WebSocket.",
-  },
-  {
-    name: "E2B",
-    cf: "Self-host Node only (for now)",
-    blurb: "Firecracker micro-VMs as a service, bring your API key — driver SDK not yet bundled for Cloudflare.",
-  },
-  {
-    name: "Daytona",
-    cf: "Self-host Node only (for now)",
-    blurb: "Managed cloud dev environments, bring your account — same Cloudflare bundling gap as E2B.",
-  },
-  {
-    name: "LiteBox",
-    cf: "Self-host Node only",
-    blurb: "A native micro-VM binding — needs local filesystem access a Worker can't have.",
   },
 ];
 
@@ -124,13 +72,10 @@ const schemas = [
             Run your agents in any sandbox
           </h1>
           <p class="text-lg text-[var(--color-fg-muted)] leading-relaxed">
-            Every tool call — shell, file edits, web fetches — executes inside
-            a sandbox, never on the platform host. Open Managed Agents puts
-            one <code class="font-mono text-sm">SandboxExecutor</code> interface
-            in front of a dozen adapters: Cloudflare Containers, Docker,
-            Kubernetes, NVIDIA OpenShell, E2B, Daytona, BoxRun, LiteBox, or
-            your own machine over the bridge relay. Pick a provider per
-            environment; the agent's code never changes.
+            Every tool call executes inside a sandbox, never on the platform
+            host. One <code class="font-mono text-sm">SandboxExecutor</code>
+            interface, ten adapters — pick a provider per environment; the
+            agent's code never changes.
           </p>
           <div class="mt-8 flex flex-wrap gap-3">
             <a
@@ -195,21 +140,26 @@ const schemas = [
 
   <section class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal>
     <div class="max-w-5xl mx-auto px-4 py-16">
-      <h2 class="font-display text-3xl font-bold mb-4">Sandbox providers</h2>
-      <p class="text-[var(--color-fg-muted)] leading-relaxed mb-8 max-w-3xl">
-        Cloudflare deployment support varies by provider — some talk to a
-        remote control plane over plain HTTP and work today, others need
-        Node builtins or a driver SDK and are self-host-only for now.
-      </p>
-      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {providers.map((p) => (
-          <article class="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-            <h3 class="font-display text-sm font-semibold tracking-tight mb-1">{p.name}</h3>
-            <p class="text-xs font-mono uppercase tracking-wide text-[var(--color-brand)] mb-2">{p.cf}</p>
-            <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed">{p.blurb}</p>
-          </article>
-        ))}
-      </div>
+      <h2 class="font-display text-3xl font-bold mb-8">Sandbox providers</h2>
+      <SandboxProviderGrid client:load />
+    </div>
+  </section>
+
+  <section class="max-w-5xl mx-auto px-4 py-16" data-reveal>
+    <h2 class="font-display text-3xl font-bold mb-8">See it in the Console</h2>
+    <div class="grid md:grid-cols-2 gap-4">
+      <figure class="rounded-lg border border-[var(--color-border)] overflow-hidden">
+        <img src="/screenshots/sandbox-runtime.jpg" alt="Sandbox Runtimes page — every backend behind one interface" loading="lazy" class="w-full" />
+        <figcaption class="px-4 py-2.5 text-xs text-[var(--color-fg-muted)] border-t border-[var(--color-border)]">Every backend on one Sandbox Runtimes page — health, capacity, capabilities.</figcaption>
+      </figure>
+      <figure class="rounded-lg border border-[var(--color-border)] overflow-hidden">
+        <img src="/screenshots/sandbox-add-provider.jpg" alt="Adding a sandbox runtime in the OMA Console" loading="lazy" class="w-full" />
+        <figcaption class="px-4 py-2.5 text-xs text-[var(--color-fg-muted)] border-t border-[var(--color-border)]">Add a runtime — your own machine joins over an outbound-only WebSocket.</figcaption>
+      </figure>
+      <figure class="rounded-lg border border-[var(--color-border)] overflow-hidden md:col-span-2">
+        <img src="/screenshots/sandbox-dialog.png" alt="The Sandbox concept — supported providers next to the live runtimes page" loading="lazy" class="w-full" />
+        <figcaption class="px-4 py-2.5 text-xs text-[var(--color-fg-muted)] border-t border-[var(--color-border)]">One session → one sandbox: bash, files, and browsers run inside; the provider is set by the environment.</figcaption>
+      </figure>
     </div>
   </section>
 

@@ -48,13 +48,13 @@ const schemas = [
   schemas={schemas}
 >
   <section class="border-b border-[var(--color-border)]">
-    <div class="max-w-5xl mx-auto px-4 py-16 md:py-24">
+    <div class="max-w-5xl mx-auto px-4 py-20 md:py-32">
       <p class="text-sm font-mono uppercase tracking-wider text-[var(--color-fg-subtle)] mb-4">
         Local Machine
       </p>
       <div class="grid lg:grid-cols-[1.15fr_0.85fr] gap-10 items-start">
         <div>
-          <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight mb-6">
+          <h1 class="font-display text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight mb-6 leading-[1.02]">
             Wire your own machine into the platform
           </h1>
           <p class="text-lg text-[var(--color-fg-muted)] leading-relaxed">
@@ -80,13 +80,25 @@ const schemas = [
             </a>
           </div>
         </div>
-        <div class="border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-surface)] p-5">
-          <img
-            src="/screenshots/sandbox-runtime.jpg"
-            alt="Console Sandbox Runtime page showing a paired local machine"
-            class="w-full rounded-md border border-[var(--color-border)]"
-            loading="lazy"
-          />
+        <div class="flex flex-col gap-4">
+          <div class="border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-surface)] p-4">
+            <img
+              src="/screenshots/cli-bridge.jpg"
+              alt="The oma CLI running on a local Mac — pairing the bridge daemon"
+              class="w-full rounded-md border border-[var(--color-border)]"
+              loading="lazy"
+            />
+            <p class="mt-2 text-xs text-[var(--color-fg-muted)] font-mono">$ npx @getoma/cli bridge setup — on your Mac</p>
+          </div>
+          <div class="border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-surface)] p-4">
+            <img
+              src="/screenshots/sandbox-runtime.jpg"
+              alt="Console Sandbox Runtime page showing the paired local machine as a runtime"
+              class="w-full rounded-md border border-[var(--color-border)]"
+              loading="lazy"
+            />
+            <p class="mt-2 text-xs text-[var(--color-fg-muted)] font-mono">…and the same machine live on the Sandbox Runtimes page</p>
+          </div>
         </div>
       </div>
     </div>

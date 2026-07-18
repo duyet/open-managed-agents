@@ -131,6 +131,7 @@ export default function HowItFits() {
                   { label: "x-api-key", hero: true },
                   { label: "your OMA instance" },
                 ],
+                image: { src: "/screenshots/cli-bridge-status.jpg", alt: "The oma CLI authenticated against an OMA instance — bridge status output" },
                 points: [
                   "One key authenticates the CLI, SDKs, and raw REST calls.",
                   "Scoped to your tenant — rotate or revoke per key.",
@@ -201,6 +202,7 @@ export default function HowItFits() {
                   { label: "How it works", href: `${DOCS}/how-it-works/` },
                   { label: "Migrating from Claude Managed Agents", href: "/blog/migrate-from-claude-managed-agents/" },
                 ],
+                image: { src: "/screenshots/new-agent-from-template.jpg", alt: "Creating a new agent from a template in the OMA Console" },
               },
             ),
         },
