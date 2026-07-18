@@ -1343,8 +1343,14 @@ internal packages don't need a changeset.
 1. `release.yml` automatically opens a "Version Packages" PR that bumps
    versions and updates `CHANGELOG.md` based on the accumulated changesets
 2. Review the bump + changelog, merge that PR
-3. `release.yml` runs again — version-pr job is auto, **publish job needs
-   one production-environment approval** (the only manual gate)
+3. `release.yml` runs again — version-pr job is auto; the publish job
+   declares `environment: production`, which is a **real** approval gate
+   only once "Required reviewers" is configured on that environment in
+   repo Settings → Environments → production (a one-time manual step, not
+   something the workflow YAML can do by itself). **As of now that
+   reviewer step has not been done** — merging the Version Packages PR
+   publishes to npm immediately, with no approval prompt. See
+   [#267](https://github.com/duyet/oma/issues/267).
 4. Packages publish to npm via OIDC trusted publisher (no NPM_TOKEN); tag
    is auto-derived from the version (`-beta.N` → beta tag, plain → latest)
 
