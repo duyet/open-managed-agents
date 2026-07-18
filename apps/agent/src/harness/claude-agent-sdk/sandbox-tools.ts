@@ -9,10 +9,9 @@
  * `tools: []` + `mcpServers` wiring in `../claude-agent-sdk-loop.ts` for why
  * the built-ins are disabled entirely rather than run alongside these).
  *
- * Mirrors `../flue/sandbox-bridge.ts` — same idea (adapt SandboxExecutor to
- * an external framework's own tool-call contract), different target: Flue's
- * `SandboxApi` there, the Claude Agent SDK's in-process MCP tool contract
- * (`createSdkMcpServer` + `tool(...)`) here.
+ * Adapts SandboxExecutor to an external framework's own tool-call contract —
+ * here the Claude Agent SDK's in-process MCP tool contract (`createSdkMcpServer`
+ * + `tool(...)`). Shares the pure exec-string helpers in `../exec-result.ts`.
  *
  * Scope: bash / read (text) / write / edit / glob / grep — the sandbox-
  * facing subset every harness needs. `web_fetch` / `web_search` / schedule
@@ -25,7 +24,7 @@ import { tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
 import type { McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { SandboxExecutor } from "@duyet/oma-sandbox";
-import { shellQuote, parseExecResult } from "../flue/sandbox-bridge";
+import { shellQuote, parseExecResult } from "../exec-result";
 
 const MAX_RESULT_CHARS = 50_000;
 const DEFAULT_BASH_TIMEOUT_MS = 120_000; // 2 minutes

@@ -3,7 +3,7 @@ import { selectHarnessName } from "./harness-select";
 
 describe("selectHarnessName", () => {
   it("uses the agent's metadata.harness when set", () => {
-    expect(selectHarnessName("flue", "claude-agent-sdk")).toBe("flue");
+    expect(selectHarnessName("claude-agent-sdk", "default")).toBe("claude-agent-sdk");
   });
 
   it("falls back to DEFAULT_HARNESS when metadata.harness is unset", () => {

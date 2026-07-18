@@ -61,7 +61,6 @@ import {
   formatLeakedSecretError,
 } from "@duyet/oma-shared";
 import { DefaultHarness } from "@duyet/oma-agent/harness/default-loop";
-import { FlueHarness } from "@duyet/oma-agent/harness/flue-loop";
 import { ClaudeAgentSdkHarness } from "@duyet/oma-agent/harness/claude-agent-sdk-loop";
 import { buildTools } from "@duyet/oma-agent/harness/tools";
 import { resolveModel } from "@duyet/oma-agent/harness/provider";
@@ -816,7 +815,7 @@ if (["k8s", "kubernetes"].includes((process.env.SANDBOX_PROVIDER ?? "").toLowerC
 // when nothing is connected.
 //
 // `agent` is optional and only consulted for the CLAUDE_CODE_OAUTH_TOKEN
-// carve-out below — every other harness (Default, Flue) still hard-requires
+// carve-out below — every other harness (Default) still hard-requires
 // ANTHROPIC_API_KEY, since only ClaudeAgentSdkHarness's CLI subprocess can
 // authenticate with the OAuth token instead.
 function resolveProviderCreds(
@@ -926,12 +925,12 @@ const sessionRegistry = new SessionRegistry({
     });
   },
   buildHarness: () => {
-    // Route per-turn by the agent marker so OMA can manage Flue / Claude
-    // Agent SDK agents as a harness (metadata.harness === "flue" |
-    // "claude-agent-sdk" or _oma.harness). HarnessContext carries the
-    // agent, so selection happens at run() time with no registry/interface
-    // change. Node only invokes run() (compaction etc. are the harness's
-    // own concern), so a {run} wrapper is sufficient.
+    // Route per-turn by the agent marker so OMA can manage a Claude Agent SDK
+    // agent as a harness (metadata.harness === "claude-agent-sdk" or
+    // _oma.harness). HarnessContext carries the agent, so selection happens at
+    // run() time with no registry/interface change. Node only invokes run()
+    // (compaction etc. are the harness's own concern), so a {run} wrapper is
+    // sufficient.
     //
     // ClaudeAgentSdkHarness is wired here — and ONLY here, not in
     // apps/agent/src/index.ts's CF-worker harness registry — because
@@ -941,14 +940,12 @@ const sessionRegistry = new SessionRegistry({
     // module-level jsdoc on claude-agent-sdk-loop.ts for the full
     // rationale.
     const def = new DefaultHarness();
-    const flue = new FlueHarness();
     const claudeAgentSdk = new ClaudeAgentSdkHarness();
     return {
       run: (ctx: unknown) => {
         const c = ctx as HarnessContext;
         const meta = (c.agent as { metadata?: Record<string, unknown> })?.metadata;
         const harnessName = selectHarnessName(meta?.harness, process.env.DEFAULT_HARNESS);
-        if (harnessName === "flue") return flue.run(c);
         if (harnessName === "claude-agent-sdk") return claudeAgentSdk.run(c);
         return def.run(c);
       },
