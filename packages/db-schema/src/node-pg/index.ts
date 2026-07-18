@@ -28,3 +28,5 @@ export * from "./cf-integrations-slack";
 // Consumer realm + publication pricing — Node-only (CF ships these as
 // hand-written SQL migrations 0020-0022; see ./consumers). Issue #226.
 export * from "./consumers";
+// Tenant teammate invites — Node-only (CF ships 0031_tenant_invites.sql). Issue #175.
+export * from "./invites";

@@ -56,6 +56,19 @@ export type { DreamRoutesDeps } from "./dreams";
 
 export { buildTenantRoutes, buildMeRoutes } from "./tenants";
 export type { TenantRoutesDeps, MeRoutesDeps } from "./tenants";
+export {
+  buildTenantMemberRoutes,
+  buildInviteAcceptRoutes,
+  INVITE_TTL_MS,
+} from "./tenants";
+export type {
+  InviteRoutesDeps,
+  InviteRecord,
+  InviteWithToken,
+  MemberRecord,
+  InviteEmail,
+  InviteRole,
+} from "./tenants";
 
 export { buildDeviceRoutes } from "./device";
 export type { DeviceRoutesDeps, DeviceToken } from "./device";

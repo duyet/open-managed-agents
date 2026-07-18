@@ -214,3 +214,17 @@ export function buildMeRoutes(deps: MeRoutesDeps) {
 
   return app;
 }
+
+export {
+  buildTenantMemberRoutes,
+  buildInviteAcceptRoutes,
+  INVITE_TTL_MS,
+} from "./invites";
+export type {
+  InviteRoutesDeps,
+  InviteRecord,
+  InviteWithToken,
+  MemberRecord,
+  InviteEmail,
+  InviteRole,
+} from "./invites";

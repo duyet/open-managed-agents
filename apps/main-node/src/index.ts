@@ -91,6 +91,9 @@ import {
   buildMemoryRoutes,
   buildDreamRoutes,
   buildTenantRoutes,
+  buildTenantMemberRoutes,
+  buildInviteAcceptRoutes,
+  type InviteRoutesDeps,
   buildMeRoutes,
   buildDeviceRoutes,
   buildApiKeyRoutes,
@@ -1331,6 +1334,158 @@ v1.route("/me", buildMeRoutes({
   mintApiKey: (input) => mintApiKeyOnStorage(apiKeyStorage, input),
 }));
 v1.route("/tenants", buildTenantRoutes({ services }));
+
+// Tenant teammate invites (issue #175). Invites + membership live in the main
+// `sql`; the better-auth `user` table (emails) lives in `authUserSql` (a
+// separate sqlite file, or the same PG db). Membership timestamps are ms,
+// matching this runtime's other membership writes.
+const nodeInviteDeps: InviteRoutesDeps = {
+  authDisabled,
+  getRole: async (userId, tenantId) => {
+    const r = await sql
+      .prepare("SELECT role FROM membership WHERE user_id = ? AND tenant_id = ? LIMIT 1")
+      .bind(userId, tenantId)
+      .first<{ role: string }>();
+    return r?.role ?? null;
+  },
+  getUserEmail: async (userId) => {
+    if (!authUserSql) return null;
+    const r = await authUserSql
+      .prepare('SELECT email FROM "user" WHERE id = ? LIMIT 1')
+      .bind(userId)
+      .first<{ email: string }>();
+    return r?.email ?? null;
+  },
+  listMembers: async (tenantId) => {
+    const rows = await sql
+      .prepare(
+        `SELECT user_id, role, created_at FROM membership
+          WHERE tenant_id = ? ORDER BY created_at ASC, user_id ASC`,
+      )
+      .bind(tenantId)
+      .all<{ user_id: string; role: string; created_at: number }>();
+    const members = rows.results ?? [];
+    // Emails live in a different connection — resolve them per-member (member
+    // lists are tiny). Missing email (auth disabled) degrades to null.
+    return Promise.all(
+      members.map(async (m) => {
+        let email: string | null = null;
+        let name: string | null = null;
+        if (authUserSql) {
+          const u = await authUserSql
+            .prepare('SELECT email, name FROM "user" WHERE id = ? LIMIT 1')
+            .bind(m.user_id)
+            .first<{ email: string; name: string | null }>();
+          email = u?.email ?? null;
+          name = u?.name ?? null;
+        }
+        return { user_id: m.user_id, email, name, role: m.role, created_at: m.created_at };
+      }),
+    );
+  },
+  createInvite: async (rec) => {
+    await sql
+      .prepare(
+        `INSERT INTO tenant_invites
+           (id, tenant_id, email, role, status, token, invited_by, created_at, expires_at)
+         VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?)`,
+      )
+      .bind(rec.id, rec.tenant_id, rec.email, rec.role, rec.token, rec.invited_by, rec.created_at, rec.expires_at)
+      .run();
+  },
+  listInvites: async (tenantId, opts) => {
+    const rows = opts.after
+      ? await sql
+          .prepare(
+            `SELECT * FROM tenant_invites
+              WHERE tenant_id = ? AND status = 'pending'
+                AND (created_at < ? OR (created_at = ? AND id < ?))
+              ORDER BY created_at DESC, id DESC LIMIT ?`,
+          )
+          .bind(tenantId, opts.after.createdAt, opts.after.createdAt, opts.after.id, opts.limit + 1)
+          .all()
+      : await sql
+          .prepare(
+            `SELECT * FROM tenant_invites
+              WHERE tenant_id = ? AND status = 'pending'
+              ORDER BY created_at DESC, id DESC LIMIT ?`,
+          )
+          .bind(tenantId, opts.limit + 1)
+          .all();
+    const items = (rows.results ?? []) as unknown as import("@duyet/oma-http-routes").InviteRecord[];
+    const hasMore = items.length > opts.limit;
+    return { items: items.slice(0, opts.limit), hasMore };
+  },
+  findPendingByEmail: async (tenantId, email) => {
+    const r = await sql
+      .prepare(
+        `SELECT * FROM tenant_invites
+          WHERE tenant_id = ? AND email = ? AND status = 'pending' AND expires_at > ?
+          LIMIT 1`,
+      )
+      .bind(tenantId, email, Date.now())
+      .first();
+    return (r as unknown as import("@duyet/oma-http-routes").InviteRecord) ?? null;
+  },
+  revokeInvite: async (tenantId, id) => {
+    const before = await sql
+      .prepare("SELECT 1 AS one FROM tenant_invites WHERE id = ? AND tenant_id = ? AND status = 'pending'")
+      .bind(id, tenantId)
+      .first<{ one: number }>();
+    if (!before) return false;
+    await sql
+      .prepare("UPDATE tenant_invites SET status = 'revoked' WHERE id = ? AND tenant_id = ?")
+      .bind(id, tenantId)
+      .run();
+    return true;
+  },
+  getByToken: async (token) => {
+    const r = await sql
+      .prepare(
+        `SELECT i.*, t.name AS tenant_name
+           FROM tenant_invites i LEFT JOIN "tenant" t ON t.id = i.tenant_id
+          WHERE i.token = ? LIMIT 1`,
+      )
+      .bind(token)
+      .first();
+    return (r as unknown as import("@duyet/oma-http-routes").InviteWithToken) ?? null;
+  },
+  markAccepted: async (id, userId, at) => {
+    await sql
+      .prepare("UPDATE tenant_invites SET status = 'accepted', accepted_by = ?, accepted_at = ? WHERE id = ?")
+      .bind(userId, at, id)
+      .run();
+  },
+  addMembership: async (userId, tenantId, role) => {
+    await sql
+      .prepare(
+        `INSERT INTO membership (user_id, tenant_id, role, created_at)
+           VALUES (?, ?, ?, ?)
+         ON CONFLICT (user_id, tenant_id) DO UPDATE SET role = excluded.role`,
+      )
+      .bind(userId, tenantId, role, Date.now())
+      .run();
+  },
+  sendEmail: async (_c, msg) => {
+    if (!sender) {
+      logger.info({ to: msg.to }, "[invites] email not sent (no SMTP sender configured)");
+      return;
+    }
+    const ws = msg.tenantName || "a workspace";
+    await sender.send({
+      to: msg.to,
+      subject: `You've been invited to join ${ws} on OMA`,
+      html:
+        `<p>You've been invited to join <strong>${ws}</strong> as <strong>${msg.role}</strong>.</p>` +
+        `<p><a href="${msg.acceptUrl}">Accept the invitation</a></p>` +
+        `<p>Or paste this link into your browser:<br>${msg.acceptUrl}</p>`,
+      text: `You've been invited to join ${ws} as ${msg.role}.\n\nAccept: ${msg.acceptUrl}\n`,
+    });
+  },
+  publicBaseUrl: () => process.env.PUBLIC_BASE_URL,
+};
+v1.route("/tenant", buildTenantMemberRoutes(nodeInviteDeps));
+v1.route("/invites", buildInviteAcceptRoutes(nodeInviteDeps));
 v1.route("/device", buildDeviceRoutes({
   services,
   mintApiKey: (input) => mintApiKeyOnStorage(apiKeyStorage, input),
@@ -1938,6 +2093,8 @@ app.route("/v1/oma/me", buildMeRoutes({
   mintApiKey: (input) => mintApiKeyOnStorage(apiKeyStorage, input),
 }));
 app.route("/v1/oma/tenants", buildTenantRoutes({ services }));
+app.route("/v1/oma/tenant", buildTenantMemberRoutes(nodeInviteDeps));
+app.route("/v1/oma/invites", buildInviteAcceptRoutes(nodeInviteDeps));
 app.route("/v1/oma/device", buildDeviceRoutes({
   services,
   mintApiKey: (input) => mintApiKeyOnStorage(apiKeyStorage, input),
