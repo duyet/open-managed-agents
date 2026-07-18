@@ -28,6 +28,9 @@ const fullUsage = {
     { kind: "sandbox_active_seconds", total: 4 * 3600 + 32 * 60 },
     { kind: "model_input_tokens", total: 105000 },
     { kind: "model_output_tokens", total: 7500 },
+    { kind: "model_cache_read_tokens", total: 45000 },
+    { kind: "model_cache_creation_tokens", total: 12000 },
+    { kind: "model_reasoning_tokens", total: 3000 },
   ],
   by_instance_type: [{ instance_type: "standard-1", total_seconds: 3600 }],
   daily: [
@@ -85,18 +88,27 @@ describe("<Usage />", () => {
     renderPage();
 
     expect(await screen.findByText("All time")).toBeInTheDocument();
-    // Each of these renders twice by design — once in the all-time stat
-    // tile row, once in the "By kind" table row for the same usage_events
-    // kind (both derive from the same underlying by_kind entry).
+    // Sandbox time renders once in the all-time tile row and once in the
+    // "By kind" table for the same usage_events kind.
     expect(screen.getAllByText("4h 32m")).toHaveLength(2); // sandbox time
-    expect(screen.getAllByText("105K")).toHaveLength(2); // tokens in
-    expect(screen.getAllByText("7.5K")).toHaveLength(2); // tokens out
+    // Input/output tokens now render three times each: the all-time tile,
+    // the "Model tokens" breakdown tile, and the "By kind" table row.
+    expect(screen.getAllByText("105K")).toHaveLength(3); // tokens in
+    expect(screen.getAllByText("7.5K")).toHaveLength(3); // tokens out
+
+    // Model tokens breakdown — cache read/write, reasoning, and hit ratio.
+    expect(screen.getByText("Model tokens")).toBeInTheDocument();
+    expect(screen.getAllByText("45K")).toHaveLength(2); // cache read (tile + by kind)
+    expect(screen.getAllByText("12K")).toHaveLength(2); // cache write
+    expect(screen.getAllByText("3K")).toHaveLength(2); // reasoning
+    expect(screen.getByText("30%")).toBeInTheDocument(); // 45K / (45K + 105K)
 
     expect(screen.getByText("Daily activity")).toBeInTheDocument();
     expect(screen.getByText("By kind")).toBeInTheDocument();
     expect(screen.getByText("Sandbox active time")).toBeInTheDocument();
     expect(screen.getByText("Model input tokens")).toBeInTheDocument();
     expect(screen.getByText("Model output tokens")).toBeInTheDocument();
+    expect(screen.getByText("Model cache read tokens")).toBeInTheDocument();
     expect(screen.getByText("By sandbox instance type")).toBeInTheDocument();
     expect(screen.getByText("standard-1")).toBeInTheDocument();
 

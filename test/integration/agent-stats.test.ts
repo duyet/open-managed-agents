@@ -100,6 +100,9 @@ describe("GET /v1/agents/:id/stats", () => {
     // Token + sandbox usage rows — the other agent's rows must not leak in.
     await seedUsage(agent.id, "sess_stats_1", "model_input_tokens", 120_000);
     await seedUsage(agent.id, "sess_stats_1", "model_output_tokens", 4_000);
+    await seedUsage(agent.id, "sess_stats_1", "model_cache_read_tokens", 60_000);
+    await seedUsage(agent.id, "sess_stats_1", "model_cache_creation_tokens", 10_000);
+    await seedUsage(agent.id, "sess_stats_1", "model_reasoning_tokens", 2_500);
     await seedUsage(agent.id, "sess_stats_2", "model_input_tokens", 80_000);
     await seedUsage(agent.id, "sess_stats_2", "sandbox_active_seconds", 3600);
     await seedUsage(other.id, "sess_stats_3", "model_input_tokens", 999_999);
@@ -110,6 +113,11 @@ describe("GET /v1/agents/:id/stats", () => {
     expect(body.sessions).toBe(2);
     expect(body.input_tokens).toBe(200_000);
     expect(body.output_tokens).toBe(4_000);
+    expect(body.cache_read_tokens).toBe(60_000);
+    expect(body.cache_creation_tokens).toBe(10_000);
+    expect(body.reasoning_tokens).toBe(2_500);
+    // cache_read / (cache_read + input) = 60_000 / 260_000
+    expect(body.cache_hit_ratio).toBeCloseTo(60_000 / 260_000, 6);
     expect(body.sandbox_seconds).toBe(3600);
     // 0.2 Mtok in × $3 + 0.004 Mtok out × $15 = 0.6 + 0.06
     expect(body.est_model_cost_usd).toBeCloseTo(0.66, 5);

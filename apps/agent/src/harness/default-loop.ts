@@ -643,6 +643,7 @@ export class DefaultHarness implements HarnessInterface {
             output_tokens: step.usage.outputTokens ?? 0,
             cache_read_input_tokens: step.usage.inputTokenDetails?.cacheReadTokens ?? 0,
             cache_creation_input_tokens: step.usage.inputTokenDetails?.cacheWriteTokens ?? 0,
+            reasoning_tokens: step.usage.reasoningTokens ?? 0,
           } : undefined,
           finish_reason: step.finishReason,
           final_text_length: stepText.length,

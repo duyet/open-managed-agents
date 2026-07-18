@@ -326,8 +326,18 @@ Sessions communicate through a typed event log. Events fall into four categories
 | Event | Description |
 |---|---|
 | `span.model_request_start` | Model API call started |
-| `span.model_request_end` | Model API call completed (includes token usage) |
+| `span.model_request_end` | Model API call completed (per-call `model_usage` breakdown — input, output, cache_read, cache_creation, reasoning) |
 | `span.outcome_evaluation_start` | Outcome evaluation began |
+
+**Token usage tracking.** Every model call — the primary loop, sub-agent
+threads, and aux-model calls (e.g. `web_fetch` summarization) — credits its
+full token breakdown into the per-tenant `usage_events` table as distinct
+kinds: `model_input_tokens`, `model_output_tokens`, `model_cache_read_tokens`,
+`model_cache_creation_tokens`, `model_reasoning_tokens`. `GET /v1/usage`
+(tenant, `?group_by=agent`) and `GET /v1/agents/:id/stats` (per-agent, incl.
+`cache_hit_ratio`) aggregate these without replaying the DO event log; the
+Console **Usage** and per-agent **Observability** pages render the 4-way split
+plus cache hit ratio.
 
 ### Streaming
 

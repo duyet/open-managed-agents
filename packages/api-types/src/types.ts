@@ -899,6 +899,9 @@ export interface SpanModelRequestEndEvent extends EventBase {
     output_tokens: number;
     cache_read_input_tokens?: number;
     cache_creation_input_tokens?: number;
+    /** Reasoning/thinking tokens billed by the provider (Anthropic extended
+     *  thinking, OpenAI reasoning models), when reported. Omitted otherwise. */
+    reasoning_tokens?: number;
   };
   /** Why the model stopped: "stop" | "length" | "content-filter" | "tool-calls" | "error" | "aborted" | "other".
    *  Surfaces silent terminations (e.g. provider returns finish_reason="stop"
