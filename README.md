@@ -26,6 +26,23 @@ Use Open Managed Agents when you want:
 
 Compare: [Open Tag](https://oma.duyet.net/open-tag/) · [Open-source Claude Tag](https://oma.duyet.net/claude-tag-open-source/) · [Self-hosted Claude Tag](https://oma.duyet.net/self-hosted-claude-tag/)
 
+<p align="center">
+  <img src="docs/assets/screenshots/console-session.jpg" alt="OMA Console — a coding agent session, streaming tool calls and output in real time" width="800" />
+</p>
+
+<details>
+<summary>More Console screenshots</summary>
+<br>
+
+| | |
+|---|---|
+| ![Sandbox Runtimes — every backend behind one interface](docs/assets/screenshots/console-sandbox-runtimes.jpg) | ![GitHub integrations page](docs/assets/screenshots/console-github-integration.jpg) |
+| Sandbox Runtimes — every backend behind one interface | GitHub integrations — issues assigned to an agent spawn a briefed session |
+| ![Skills library](docs/assets/screenshots/console-skills.jpg) | |
+| Skills library | |
+
+</details>
+
 ---
 
 ## Two ways to run OMA
