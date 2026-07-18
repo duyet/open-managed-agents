@@ -40,6 +40,10 @@ interface AgentStats {
   sandbox_seconds: number;
   est_model_cost_usd: number;
   est_sandbox_cost_usd: number;
+  cache_read_tokens?: number;
+  cache_creation_tokens?: number;
+  reasoning_tokens?: number;
+  cache_hit_ratio?: number;
 }
 
 type Range = "7d" | "30d" | "90d";
@@ -91,6 +95,13 @@ export function AgentObservabilityTab() {
             <StatCard label="Est. model cost" value={formatUsd(stats.est_model_cost_usd)} />
             <StatCard label="Sandbox time" value={formatSandboxTime(stats.sandbox_seconds)} />
             <StatCard label="Est. sandbox cost" value={formatUsd(stats.est_sandbox_cost_usd)} />
+            <StatCard label="Cache read" value={formatCompact(stats.cache_read_tokens ?? 0)} />
+            <StatCard label="Cache write" value={formatCompact(stats.cache_creation_tokens ?? 0)} />
+            <StatCard label="Reasoning" value={formatCompact(stats.reasoning_tokens ?? 0)} />
+            <StatCard
+              label="Cache hit ratio"
+              value={`${((stats.cache_hit_ratio ?? 0) * 100).toFixed(0)}%`}
+            />
           </div>
         </div>
       )}

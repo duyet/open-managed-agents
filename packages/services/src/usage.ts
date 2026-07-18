@@ -29,7 +29,21 @@ export type UsageKind =
   | "sandbox_active_seconds"
   | "browser_active_seconds"
   | "model_input_tokens"
-  | "model_output_tokens";
+  | "model_output_tokens"
+  | "model_cache_read_tokens"
+  | "model_cache_creation_tokens"
+  | "model_reasoning_tokens";
+
+/** usage_events kinds whose `value` column holds a raw token count (not
+ *  seconds) — the larger per-emit ceiling applies to these, and the
+ *  analytics routes read them as token totals. */
+export const TOKEN_USAGE_KINDS: readonly UsageKind[] = [
+  "model_input_tokens",
+  "model_output_tokens",
+  "model_cache_read_tokens",
+  "model_cache_creation_tokens",
+  "model_reasoning_tokens",
+];
 
 /** Hard ceiling on a single emit. 24h × 3600 = 86400. */
 export const MAX_VALUE_PER_EMIT_SEC = 24 * 3600;
@@ -95,7 +109,7 @@ export function clampUsageValue(raw: number, max = MAX_VALUE_PER_EMIT_SEC): numb
 
 /** Per-kind emit ceiling — token kinds get the larger token cap. */
 export function maxValueForKind(kind: UsageKind): number {
-  return kind === "model_input_tokens" || kind === "model_output_tokens"
+  return (TOKEN_USAGE_KINDS as readonly string[]).includes(kind)
     ? MAX_TOKENS_PER_EMIT
     : MAX_VALUE_PER_EMIT_SEC;
 }

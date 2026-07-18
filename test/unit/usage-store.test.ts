@@ -13,7 +13,10 @@ import {
   SqlUsageStore,
   createCfUsageStore,
   clampUsageValue,
+  maxValueForKind,
   MAX_VALUE_PER_EMIT_SEC,
+  MAX_TOKENS_PER_EMIT,
+  TOKEN_USAGE_KINDS,
 } from "@duyet/oma-services";
 import { CfD1SqlClient } from "@duyet/oma-sql-client/adapters/cf-d1";
 
@@ -229,5 +232,28 @@ describe("createCfUsageStore + clampUsageValue helpers", () => {
     expect(clampUsageValue(-1)).toBe(0);
     expect(clampUsageValue(Number.POSITIVE_INFINITY)).toBe(0);
     expect(clampUsageValue(Number.NaN)).toBe(0);
+  });
+
+  it("maxValueForKind gives every model_* token kind the larger token cap", () => {
+    for (const kind of TOKEN_USAGE_KINDS) {
+      expect(maxValueForKind(kind)).toBe(MAX_TOKENS_PER_EMIT);
+    }
+    expect(maxValueForKind("sandbox_active_seconds")).toBe(MAX_VALUE_PER_EMIT_SEC);
+  });
+
+  it("records the cache/reasoning token kinds above the seconds ceiling", async () => {
+    const store = new SqlUsageStore(new CfD1SqlClient(db()));
+    await store.recordUsage({
+      tenantId: TENANT_A,
+      sessionId: "sess_cache",
+      agentId: "agent_x",
+      kind: "model_cache_read_tokens",
+      // Well above MAX_VALUE_PER_EMIT_SEC (86_400) — must survive uncapped.
+      value: 500_000,
+    });
+    const rows = await store.listUnbilled(TENANT_A, 0, 500);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].kind).toBe("model_cache_read_tokens");
+    expect(rows[0].value).toBe(500_000);
   });
 });

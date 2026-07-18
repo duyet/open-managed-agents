@@ -117,6 +117,7 @@ export {
   maxValueForKind,
   MAX_VALUE_PER_EMIT_SEC,
   MAX_TOKENS_PER_EMIT,
+  TOKEN_USAGE_KINDS,
 } from "./usage";
 export type { UsageStore, UsageKind, UsageEventInput, UsageEventRow } from "./usage";
 

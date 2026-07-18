@@ -83,6 +83,9 @@ const KIND_META: Record<string, { label: string; unit: "seconds" | "tokens" }> =
   session_alive_seconds: { label: "Session alive time", unit: "seconds" },
   model_input_tokens: { label: "Model input tokens", unit: "tokens" },
   model_output_tokens: { label: "Model output tokens", unit: "tokens" },
+  model_cache_read_tokens: { label: "Model cache read tokens", unit: "tokens" },
+  model_cache_creation_tokens: { label: "Model cache write tokens", unit: "tokens" },
+  model_reasoning_tokens: { label: "Model reasoning tokens", unit: "tokens" },
 };
 
 const SERVICE_LABELS: Record<string, string> = {
@@ -150,6 +153,11 @@ export function Usage() {
 
   const inputTokens = usage ? kindValue(usage.by_kind, "model_input_tokens") : 0;
   const outputTokens = usage ? kindValue(usage.by_kind, "model_output_tokens") : 0;
+  const cacheReadTokens = usage ? kindValue(usage.by_kind, "model_cache_read_tokens") : 0;
+  const cacheWriteTokens = usage ? kindValue(usage.by_kind, "model_cache_creation_tokens") : 0;
+  const reasoningTokens = usage ? kindValue(usage.by_kind, "model_reasoning_tokens") : 0;
+  const cacheHitRatio =
+    cacheReadTokens + inputTokens > 0 ? cacheReadTokens / (cacheReadTokens + inputTokens) : 0;
 
   const dailySlice = useMemo(() => usage?.daily.slice(-days) ?? [], [usage, days]);
 
@@ -210,6 +218,23 @@ export function Usage() {
               />
               <StatCard label="Tokens in" value={formatCompact(inputTokens)} />
               <StatCard label="Tokens out" value={formatCompact(outputTokens)} />
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-xs uppercase tracking-wider text-fg-subtle font-medium mb-2">
+              Model tokens
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 max-w-5xl">
+              <StatCard label="Input" value={formatCompact(inputTokens)} />
+              <StatCard label="Output" value={formatCompact(outputTokens)} />
+              <StatCard label="Cache read" value={formatCompact(cacheReadTokens)} />
+              <StatCard label="Cache write" value={formatCompact(cacheWriteTokens)} />
+              <StatCard label="Reasoning" value={formatCompact(reasoningTokens)} />
+              <StatCard
+                label="Cache hit ratio"
+                value={`${(cacheHitRatio * 100).toFixed(0)}%`}
+              />
             </div>
           </div>
 

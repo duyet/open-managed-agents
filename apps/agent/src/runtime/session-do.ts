@@ -3913,32 +3913,60 @@ export class SessionDO extends DurableObject<Env> {
   }
 
   /**
-   * Inspect an outbound event for a `span.model_request_end` carrying
-   * `model_usage` and credit cache tokens to the given thread. Input /
-   * output token totals already arrive via reportUsage at the end of the
-   * turn (default-loop step 10), so this only handles the cache-bucket
-   * deltas reportUsage doesn't carry. Idempotent across primary +
-   * sub-agent broadcast paths because each model_request_end event is
-   * emitted exactly once per LLM step.
+   * Inspect an outbound event and credit whatever token buckets it carries
+   * that the reportUsage path doesn't already cover:
+   *
+   *  - `span.model_request_end`: input/output already arrive via reportUsage
+   *    (default-loop step 10), so only the cache-read / cache-creation /
+   *    reasoning buckets are credited here — to `thread_usage` AND durably
+   *    to `usage_events`.
+   *  - `aux.model_call`: platform-internal LLM calls (e.g. web_fetch
+   *    summarization) run outside the harness loop and have no reportUsage,
+   *    so their full input/output (+ cache_read) is credited here.
+   *
+   * Idempotent across primary + sub-agent broadcast paths because each
+   * span/aux event is emitted exactly once.
    */
-  private maybeCreditCacheTokens(threadId: string, event: SessionEvent): void {
-    if (event.type !== "span.model_request_end") return;
-    const usage = (event as unknown as {
-      model_usage?: {
-        cache_creation_input_tokens?: number;
-        cache_read_input_tokens?: number;
-      };
-    }).model_usage;
-    if (!usage) return;
-    const cc = usage.cache_creation_input_tokens || 0;
-    const cr = usage.cache_read_input_tokens || 0;
-    if (cc === 0 && cr === 0) return;
-    this.creditUsageToThread(threadId, {
-      input_tokens: 0,
-      output_tokens: 0,
-      cache_creation_input_tokens: cc,
-      cache_read_input_tokens: cr,
-    });
+  private maybeCreditModelUsage(threadId: string, event: SessionEvent): void {
+    if (event.type === "span.model_request_end") {
+      const usage = (event as unknown as {
+        model_usage?: {
+          cache_creation_input_tokens?: number;
+          cache_read_input_tokens?: number;
+          reasoning_tokens?: number;
+        };
+      }).model_usage;
+      if (!usage) return;
+      const cc = usage.cache_creation_input_tokens || 0;
+      const cr = usage.cache_read_input_tokens || 0;
+      const reason = usage.reasoning_tokens || 0;
+      if (cc === 0 && cr === 0 && reason === 0) return;
+      this.creditUsageToThread(threadId, {
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_creation_input_tokens: cc,
+        cache_read_input_tokens: cr,
+      });
+      this._emitTokenUsageEvents(0, 0, cr, cc, reason);
+      return;
+    }
+    if (event.type === "aux.model_call") {
+      const tokens = (event as unknown as {
+        tokens?: { input?: number; output?: number; cache_read?: number };
+      }).tokens;
+      if (!tokens) return;
+      const inp = tokens.input || 0;
+      const out = tokens.output || 0;
+      const cr = tokens.cache_read || 0;
+      if (inp === 0 && out === 0 && cr === 0) return;
+      this.creditUsageToThread(threadId, {
+        input_tokens: inp,
+        output_tokens: out,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: cr,
+      });
+      this._emitTokenUsageEvents(inp, out, cr, 0, 0);
+    }
   }
 
   /**
@@ -3985,53 +4013,66 @@ export class SessionDO extends DurableObject<Env> {
   }
 
   /**
-   * Durably record token spend into the per-tenant `usage_events` table
-   * (kinds model_input_tokens / model_output_tokens) so per-agent
-   * aggregation (GET /v1/agents/:id/stats) doesn't have to replay every
-   * session's DO event log. Fire-and-forget from the reportUsage
-   * closures — a D1 hiccup must never fail the turn, same policy as
+   * Durably record token spend into the per-tenant `usage_events` table so
+   * per-agent aggregation (GET /v1/agents/:id/stats, GET /v1/usage) doesn't
+   * have to replay every session's DO event log. Records the full
+   * breakdown as distinct kinds: model_input_tokens / model_output_tokens /
+   * model_cache_read_tokens / model_cache_creation_tokens /
+   * model_reasoning_tokens. Fire-and-forget from the usage-credit paths — a
+   * D1 hiccup must never fail the turn, same policy as
    * _recordSessionAliveOnTerminate.
+   *
+   * Input/output arrive via reportUsage (per turn); the cache + reasoning
+   * buckets arrive separately from `maybeCreditModelUsage` inspecting
+   * span.model_request_end / aux.model_call, so each bucket is emitted
+   * exactly once and the two paths never double-count.
    */
-  private _emitTokenUsageEvents(inputTokens: number, outputTokens: number): void {
+  private _emitTokenUsageEvents(
+    inputTokens: number,
+    outputTokens: number,
+    cacheReadTokens = 0,
+    cacheCreationTokens = 0,
+    reasoningTokens = 0,
+  ): void {
     const tenantId = this.state.tenant_id;
     const sessionId = this.state.session_id;
     if (!tenantId || !sessionId) return;
-    if ((inputTokens || 0) <= 0 && (outputTokens || 0) <= 0) return;
+    const inp = inputTokens || 0;
+    const out = outputTokens || 0;
+    const cr = cacheReadTokens || 0;
+    const cc = cacheCreationTokens || 0;
+    const reason = reasoningTokens || 0;
+    if (inp <= 0 && out <= 0 && cr <= 0 && cc <= 0 && reason <= 0) return;
     const agentId = this.state.agent_id || null;
     void (async () => {
       try {
         const { getCfServicesForTenant } = await import("@duyet/oma-services");
         const services = await getCfServicesForTenant(this.env, tenantId);
-        if (inputTokens > 0) {
-          await services.usage.recordUsage({
+        const emit = (kind: import("@duyet/oma-services").UsageKind, value: number) =>
+          value > 0
+            ? services.usage.recordUsage({ tenantId, sessionId, agentId, kind, value })
+            : Promise.resolve();
+        await Promise.all([
+          emit("model_input_tokens", inp),
+          emit("model_output_tokens", out),
+          emit("model_cache_read_tokens", cr),
+          emit("model_cache_creation_tokens", cc),
+          emit("model_reasoning_tokens", reason),
+        ]);
+        // Second sink for the SAME per-turn input/output delta: increment the
+        // sessions row's cumulative input_tokens/output_tokens. Powers the
+        // Console's "Tokens in / out" list column and the range-scoped session
+        // analytics endpoints (single-scan percentiles/time-series) without a
+        // per-page usage_events GROUP BY. Cache/reasoning buckets are
+        // usage_events-only (no sessions-row columns for them today).
+        if (inp > 0 || out > 0) {
+          await services.sessions.addTokenUsage({
             tenantId,
             sessionId,
-            agentId,
-            kind: "model_input_tokens",
-            value: inputTokens,
+            inputTokens: inp,
+            outputTokens: out,
           });
         }
-        if (outputTokens > 0) {
-          await services.usage.recordUsage({
-            tenantId,
-            sessionId,
-            agentId,
-            kind: "model_output_tokens",
-            value: outputTokens,
-          });
-        }
-        // Second sink for the SAME per-turn delta: increment the sessions
-        // row's cumulative input_tokens/output_tokens. Powers the Console's
-        // "Tokens in / out" list column and the range-scoped session
-        // analytics endpoints (single-scan percentiles/time-series) without
-        // a per-page usage_events GROUP BY. One emission site, two sinks —
-        // the sessions row and usage_events never diverge.
-        await services.sessions.addTokenUsage({
-          tenantId,
-          sessionId,
-          inputTokens,
-          outputTokens,
-        });
       } catch (err) {
         console.error(
           `[session_do] token usage emit failed: ${(err as Error).message ?? err}`,
@@ -4056,6 +4097,13 @@ export class SessionDO extends DurableObject<Env> {
     }
     this.broadcastEvent(event);
     this.fanOutToHooks(event);
+    // aux.model_call runs outside the harness loop (no reportUsage / no
+    // runtime.broadcast tap), so its tokens are credited here. Attributed
+    // to the primary thread for the per-thread breakdown; usage_events
+    // attribution is session/agent-scoped and thread-independent.
+    if (event.type === "aux.model_call") {
+      this.maybeCreditModelUsage("sthr_primary", event);
+    }
   }
 
   /** Fire-and-forget POST every event to each registered hook. Provider-
@@ -4842,7 +4890,7 @@ export class SessionDO extends DurableObject<Env> {
       parentHistory.append(taggedEvent);
       this.broadcastEvent(taggedEvent);
       this.fanOutToHooks(taggedEvent);
-      this.maybeCreditCacheTokens(threadId, taggedEvent);
+      this.maybeCreditModelUsage(threadId, taggedEvent);
     };
 
     // Build sub-agent context: own history, shared sandbox, parent event log
@@ -5349,7 +5397,7 @@ export class SessionDO extends DurableObject<Env> {
       history.append(event);
       this.broadcastEvent(event);
       this.fanOutToHooks(event);
-      this.maybeCreditCacheTokens(turnThreadId, event);
+      this.maybeCreditModelUsage(turnThreadId, event);
     };
 
     // --- Harness receives a fully-prepared context ---

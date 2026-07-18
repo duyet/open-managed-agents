@@ -4,11 +4,15 @@
 // Aggregates from control-plane tables only (no DO event-log replay):
 //   - sessions:      COUNT(*) over the sessions table (all-time, incl.
 //                    archived — "how much has this agent been used").
-//   - tokens:        SUM(value) over usage_events kinds
-//                    model_input_tokens / model_output_tokens, populated
-//                    by SessionDO's reportUsage hook per completed turn.
-//                    Sessions that ran before those kinds existed simply
-//                    don't contribute — counts accrue going forward.
+//   - tokens:        SUM(value) over usage_events kinds model_input_tokens /
+//                    model_output_tokens / model_cache_read_tokens /
+//                    model_cache_creation_tokens / model_reasoning_tokens,
+//                    populated by SessionDO's usage-credit hooks per
+//                    completed turn (input/output via reportUsage; cache +
+//                    reasoning via span/aux inspection). Sessions that ran
+//                    before a kind existed simply don't contribute — counts
+//                    accrue going forward. cache_hit_ratio = cache_read /
+//                    (cache_read + input).
 //   - sandbox:       SUM(value) over kind = sandbox_active_seconds.
 //
 // Cost estimates are intentionally rough and the assumed rates are echoed
@@ -36,6 +40,15 @@ export interface AgentStatsResponse {
   sessions: number;
   input_tokens: number;
   output_tokens: number;
+  /** Full model-token breakdown. cache_read/creation and reasoning accrue
+   *  from their own usage_events kinds; sessions predating those kinds
+   *  simply contribute 0. */
+  cache_read_tokens: number;
+  cache_creation_tokens: number;
+  reasoning_tokens: number;
+  /** cache_read / (cache_read + input), 0 when the denominator is 0 —
+   *  how much of the input context was served from prompt cache. */
+  cache_hit_ratio: number;
   sandbox_seconds: number;
   est_model_cost_usd: number;
   est_sandbox_cost_usd: number;
@@ -68,7 +81,9 @@ app.get("/:agentId/stats", async (c) => {
         `SELECT kind, COALESCE(SUM(value), 0) AS total
            FROM usage_events
           WHERE tenant_id = ? AND agent_id = ?
-            AND kind IN ('model_input_tokens', 'model_output_tokens')
+            AND kind IN ('model_input_tokens', 'model_output_tokens',
+                         'model_cache_read_tokens', 'model_cache_creation_tokens',
+                         'model_reasoning_tokens')
           GROUP BY kind`,
       )
       .bind(tenantId, agentId)
@@ -86,17 +101,29 @@ app.get("/:agentId/stats", async (c) => {
 
   let inputTokens = 0;
   let outputTokens = 0;
+  let cacheReadTokens = 0;
+  let cacheCreationTokens = 0;
+  let reasoningTokens = 0;
   for (const r of tokenRows.results ?? []) {
     if (r.kind === "model_input_tokens") inputTokens = r.total;
     else if (r.kind === "model_output_tokens") outputTokens = r.total;
+    else if (r.kind === "model_cache_read_tokens") cacheReadTokens = r.total;
+    else if (r.kind === "model_cache_creation_tokens") cacheCreationTokens = r.total;
+    else if (r.kind === "model_reasoning_tokens") reasoningTokens = r.total;
   }
   const sandboxSeconds = sandboxRow?.total ?? 0;
+  const cacheDenom = cacheReadTokens + inputTokens;
+  const cacheHitRatio = cacheDenom > 0 ? cacheReadTokens / cacheDenom : 0;
 
   const body: AgentStatsResponse = {
     agent_id: agentId,
     sessions: sessionRow?.count ?? 0,
     input_tokens: inputTokens,
     output_tokens: outputTokens,
+    cache_read_tokens: cacheReadTokens,
+    cache_creation_tokens: cacheCreationTokens,
+    reasoning_tokens: reasoningTokens,
+    cache_hit_ratio: cacheHitRatio,
     sandbox_seconds: sandboxSeconds,
     est_model_cost_usd:
       (inputTokens / 1_000_000) * MODEL_USD_PER_MTOK_IN +

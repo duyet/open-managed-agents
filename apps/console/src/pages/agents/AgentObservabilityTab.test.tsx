@@ -32,6 +32,10 @@ const stats = {
   sandbox_seconds: 3600,
   est_model_cost_usd: 1.23,
   est_sandbox_cost_usd: 0.4,
+  cache_read_tokens: 45000,
+  cache_creation_tokens: 12000,
+  reasoning_tokens: 3000,
+  cache_hit_ratio: 0.3,
 };
 
 function renderTab() {
@@ -89,6 +93,11 @@ describe("<AgentObservabilityTab />", () => {
 
     // All-time row + range-scoped stat cards.
     expect(await screen.findByText("All time")).toBeInTheDocument();
+    // All-time cache/reasoning breakdown from /stats.
+    expect(screen.getByText("Cache read")).toBeInTheDocument();
+    expect(screen.getByText("45K")).toBeInTheDocument();
+    expect(screen.getByText("Cache hit ratio")).toBeInTheDocument();
+    expect(screen.getByText("30%")).toBeInTheDocument();
     expect(await screen.findByText("Session activity")).toBeInTheDocument();
     expect(screen.getByText("Error rate")).toBeInTheDocument();
     expect(screen.getByText("25.0%")).toBeInTheDocument();
