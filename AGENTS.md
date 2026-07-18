@@ -1001,10 +1001,36 @@ Once connected, the panel also offers:
 Backend routes live under `/v1/providers/anyrouter/*`
 (`packages/http-routes/src/providers/anyrouter.ts`): `connect` / `callback`
 / `status` / `disconnect` / `models` / `credits` / `presets`. The pure OAuth
-protocol logic is in `packages/anyrouter`. **Cloudflare only** for the
-model-card bind + presets — self-host Node has no D1 model-cards store, so
-those endpoints no-op (`presets` returns `model_cards_unavailable`) and the
-process-global env-var provider is hot-swapped on connect instead.
+protocol logic is in `packages/anyrouter`. The **AnyRouter connect** flow's
+model-card bind + presets remain **Cloudflare only** — those endpoints no-op
+on self-host Node (`presets` returns `model_cards_unavailable`) and the
+process-global env-var provider is hot-swapped on connect instead. (The
+generic `/v1/model_cards` CRUD, however, IS available on self-host Node as of
+issue #171 — see [Self-host parity](#self-host-node-parity) below.)
+
+---
+
+## Self-host Node parity
+
+The self-host Node runtime (`apps/main-node`) shares one route implementation
+with the Cloudflare Worker (`apps/main`) for the bulk of the control-plane API:
+every route group lives in `packages/http-routes` and is mounted by both
+runtimes via a `RouteServices` deps bundle. Groups ported to run identically on
+both include agents, sessions, environments, vaults, memory stores, dreams,
+evals, MCP servers, publications + the public `/p/*` consumer surface, agent +
+deployment schedule ticks, and — as of issue #171 — **skills**
+(`/v1/skills`, KV metadata + blob-store file bytes), **model cards**
+(`/v1/model_cards`, SQLite/Postgres-backed), **stats** (`/v1/stats`), and
+**usage** (`/v1/usage`). Node stores skill metadata in its SQL-backed KV
+(`@duyet/oma-kv-store/adapters/sql`) and skill/file bytes in its files blob
+store (local FS or S3); model cards, usage events, and stats read the same
+SQLite/Postgres control-plane DB. `/v1/usage` daily-bucket and per-agent
+aggregation is computed dialect-agnostically (JS-side bucketing) so it runs on
+both SQLite and Postgres.
+
+Still Cloudflare-only today: the AnyRouter connect model-card bind (above),
+deployment CRUD routes, and a handful of CF-native surfaces (files/R2, runtime
+rooms, Stripe payments webhook).
 
 ---
 

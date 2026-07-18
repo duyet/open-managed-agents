@@ -556,6 +556,9 @@ importers:
       '@duyet/oma-queue':
         specifier: workspace:*
         version: link:../../packages/queue
+      '@duyet/oma-quotas':
+        specifier: workspace:*
+        version: link:../../packages/quotas
       '@duyet/oma-sandbox':
         specifier: workspace:*
         version: link:../../packages/sandbox
@@ -688,6 +691,9 @@ importers:
       '@duyet/oma-memory-store':
         specifier: workspace:*
         version: link:../../packages/memory-store
+      '@duyet/oma-model-cards-store':
+        specifier: workspace:*
+        version: link:../../packages/model-cards-store
       '@duyet/oma-observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -1253,6 +1259,9 @@ importers:
       '@duyet/oma-vaults-store':
         specifier: workspace:*
         version: link:../vaults-store
+      fflate:
+        specifier: ^0.8.2
+        version: 0.8.2
       hono:
         specifier: ^4.7.0
         version: 4.12.12

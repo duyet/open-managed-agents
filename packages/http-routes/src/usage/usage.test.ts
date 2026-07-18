@@ -1,15 +1,20 @@
-// /v1/usage route tests (issue #231).
+// @ts-nocheck
+// GET /v1/usage route tests (issue #231, ported for #171's CF/Node route
+// parity move — was apps/main/src/routes/usage.test.ts, now exercises
+// `buildUsageRoutes` from packages/http-routes/src/usage against the real
+// D1 MAIN_DB binding via `@duyet/oma-sql-client`'s CfD1SqlClient, same as
+// production CF wiring (apps/main/src/lib/cf-route-services.ts).
 //
-// Covers the four gaps fixed here:
+// Covers:
 //   1. by_kind entries use `total`, not `total_seconds` (the old name lied
 //      about the unit for the model_*_tokens kinds).
 //   2. `?days=` range support (1-90, default 30, 0 = all-time) — verifies
 //      totals AND the daily series respect the window, invalid values 400,
 //      out-of-range values clamp.
 //   3. `?group_by=agent` per-agent breakdown, including the unattributed
-//      (agent_id IS NULL) bucket and agent name resolution.
-//   4. Tenant isolation — unchanged, but re-verified against the new
-//      period-scoped queries.
+//      (agent_id IS NULL) bucket and agent name resolution — now via
+//      services.agents.get() (portable rewrite of the old json_extract SQL).
+//   4. Tenant isolation.
 //
 // Uses the real MAIN_DB binding; usage_events/agents tables are created up
 // front (migrations aren't auto-applied in this pool, mirroring
@@ -18,7 +23,10 @@
 import { env } from "cloudflare:workers";
 import { beforeAll, beforeEach, describe, it, expect } from "vitest";
 import { Hono } from "hono";
-import usageRoutes from "./usage";
+import { buildUsageRoutes } from "./index";
+import { CfD1SqlClient } from "@duyet/oma-sql-client/adapters/cf-d1";
+import { createCfAgentService } from "@duyet/oma-agents-store";
+import type { RouteServices } from "../types";
 
 const db = () => (env as unknown as { MAIN_DB: D1Database }).MAIN_DB;
 
@@ -98,21 +106,21 @@ async function reset() {
   }
 }
 
-// Tenant-scoped app: a tiny middleware stands in for tenantDbMiddleware +
-// authMiddleware, seeding c.var.tenant_id / tenantDb directly — the single
-// D1 shard in this test env is MAIN_DB regardless of tenant.
 function tenantApp(tenantId = "tenant-a") {
-  const app = new Hono();
+  const services: RouteServices = {
+    sql: new CfD1SqlClient(db()),
+    agents: createCfAgentService({ db: db() }),
+  } as unknown as RouteServices;
+  const app = new Hono<{ Variables: { tenant_id: string } }>();
   app.use("/v1/usage/*", async (c, next) => {
-    c.set("tenant_id" as never, tenantId as never);
-    c.set("tenantDb" as never, db() as never);
+    c.set("tenant_id", tenantId);
     await next();
   });
-  app.route("/v1/usage", usageRoutes);
+  app.route("/v1/usage", buildUsageRoutes({ services }));
   return app;
 }
 
-const call = (app: Hono, path: string) => app.request(path, undefined, env as unknown as Record<string, unknown>);
+const call = (app: Hono, path: string) => app.request(path);
 
 interface UsageByKindRow {
   kind: string;

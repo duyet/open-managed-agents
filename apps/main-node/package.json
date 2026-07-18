@@ -42,6 +42,7 @@
     "@duyet/oma-linear": "workspace:*",
     "@duyet/oma-markdown": "workspace:*",
     "@duyet/oma-memory-store": "workspace:*",
+    "@duyet/oma-model-cards-store": "workspace:*",
     "@duyet/oma-observability": "workspace:*",
     "@duyet/oma-cap-adapter": "workspace:*",
     "@duyet/oma-queue": "workspace:*",

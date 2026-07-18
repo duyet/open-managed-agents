@@ -46,6 +46,7 @@ function buildRouteServices(services: Services, sql: CfD1SqlClient): RouteServic
     // own wiring directly and doesn't read this field.
     environments: services.environments,
     kv: services.kv,
+    filesBlob: services.filesBlob,
     newEventLog: () => ({
       appendAsync: async () => {},
       getEventsAsync: async () => [],
