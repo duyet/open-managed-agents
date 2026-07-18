@@ -3,7 +3,7 @@ import { experimental_createMCPClient } from "@ai-sdk/mcp";
 import { z } from "zod";
 import { anthropic } from "@ai-sdk/anthropic";
 import type { LanguageModel } from "ai";
-import type { AgentConfig, ToolsetConfig, CustomToolConfig, SessionEvent } from "@duyet/oma-shared";
+import type { AgentConfig, ToolsetConfig, CustomToolConfig, SessionEvent, WorkerLoader } from "@duyet/oma-shared";
 import type { ToMarkdownProvider } from "@duyet/oma-markdown";
 import type { SandboxExecutor, ProcessHandle } from "./interface";
 import { nanoid } from "nanoid";
@@ -32,8 +32,12 @@ export const DEFAULT_TOOLS = ["bash", "read", "write", "edit", "glob", "grep", "
  *    Available web_fetch + web_search satisfy 95% of read-only research;
  *    the LLM otherwise tends to reach for browser even for simple lookups
  *    because the description sounds more "agentic". Make it opt-in so the
- *    default tool list nudges toward the cheaper path. */
-export const OPT_IN_TOOLS = ["browser"];
+ *    default tool list nudges toward the cheaper path.
+ *  - `run_dynamic_worker`: ephemeral JS/Python eval in a Cloudflare Dynamic
+ *    Worker ("Code Mode"). Opt-in because it only works on the Cloudflare
+ *    deployment (needs the `LOADER` Worker Loader binding) and biases the
+ *    model toward writing code. Absent binding ⇒ tool omitted entirely. */
+export const OPT_IN_TOOLS = ["browser", "run_dynamic_worker"];
 
 /** Backwards-compat union — used as the recognised-tool-name set for
  *  validation. New callers should prefer DEFAULT_TOOLS or OPT_IN_TOOLS. */
@@ -54,6 +58,37 @@ const MCP_SETUP_TIMEOUT_MS = 15_000;
 // fan-out regardless of what the agent config or the model requests.
 const DEFAULT_MAX_PARALLEL_SUBAGENTS = 5;
 const MAX_PARALLEL_SUBAGENTS_HARD_CAP = 10;
+
+// run_dynamic_worker (Code Mode) defaults. compatibilityDate is pinned so the
+// ephemeral worker's runtime semantics are deterministic. cpuMs is the
+// per-run CPU cap (Dynamic Workers `limits.cpuMs`) — the worker throws
+// immediately on breach; kept well under the parent worker's 300s ceiling.
+const DYNAMIC_WORKER_COMPAT_DATE = "2026-04-13";
+const DEFAULT_DYNAMIC_WORKER_CPU_MS = 30_000;
+const MAX_DYNAMIC_WORKER_CPU_MS = 60_000;
+
+/**
+ * Wrap a bare JS snippet into a fetch-handler module when it isn't already a
+ * full ES module. A bare snippet runs inside an async function with `input`
+ * (the JSON body) in scope and may `return` a value; the return value is
+ * surfaced as `{ result }`. A snippet that already `export default`s is passed
+ * through untouched, so power users get full control of the request/response.
+ */
+function wrapDynamicWorkerJs(code: string): string {
+  if (/export\s+default/.test(code)) return code;
+  return (
+    "export default {\n" +
+    "  async fetch(request) {\n" +
+    "    const { input } = await request.json().catch(() => ({ input: null }));\n" +
+    "    const __run = async (input) => {\n" +
+    code +
+    "\n    };\n" +
+    "    const result = await __run(input);\n" +
+    "    return Response.json({ result: result ?? null });\n" +
+    "  }\n" +
+    "};\n"
+  );
+}
 
 // System prompt for the auxiliary model when summarizing web pages fetched
 // by web_fetch. Designed for the OMA agent loop: the summary lands directly
@@ -459,6 +494,12 @@ export async function buildTools(
     /** Optional billing hook fired once on browser_close — CF sets this
      *  to attribute browser_active_seconds to the tenant/session. */
     browserBillingHook?: BrowserBillingHook | null;
+    /** Cloudflare Worker Loader binding (Dynamic Workers). Present only on the
+     *  CF agent worker when `worker_loaders` is declared in wrangler.jsonc.
+     *  When present AND the agent opts into `run_dynamic_worker`, the tool is
+     *  registered; absent ⇒ tool omitted (Node self-host, or CF without the
+     *  binding). Powers the "Code Mode" ephemeral-eval primitive. */
+    workerLoader?: WorkerLoader;
     /** Pre-resolved auxiliary model — when present, web_fetch summarizes
      *  large pages and offloads raw markdown to /workspace/.web/.
      *  Falsy (default) = no aux work; web_fetch returns raw markdown. */
@@ -507,6 +548,97 @@ export async function buildTools(
     // boolean in as an options flag (see ./ssrf.ts, issue #216).
     const allowPrivate = env?.WEB_FETCH_ALLOW_PRIVATE === "1" || env?.WEB_FETCH_ALLOW_PRIVATE === "true";
     Object.assign(tools, buildBrowserTools(env.browser, env.browserBillingHook ?? null, { allowPrivate }));
+  }
+
+  // run_dynamic_worker ("Code Mode") — execute an ephemeral JS/Python snippet
+  // in a fresh Cloudflare Dynamic Worker (V8 isolate) and return the result.
+  // Opt-in (OPT_IN_TOOLS) AND gated on the Worker Loader binding: absent
+  // binding ⇒ omitted, so on Node self-host or CF-without-binding the model
+  // never sees it (same discipline as browser). Distinct from the session
+  // sandbox — no filesystem, no bash; a pure compute/eval primitive that lets
+  // the agent process data programmatically instead of round-tripping through
+  // the LLM (Cloudflare's cited "up to 80% inference-token savings").
+  if (env?.workerLoader && enabled.has("run_dynamic_worker")) {
+    const loader = env.workerLoader;
+    tools.run_dynamic_worker = tool({
+      description:
+        "Execute code in a fresh, ephemeral, isolated V8 sandbox (Cloudflare " +
+        "Dynamic Worker) and get the result back. Use this to compute, " +
+        "transform, or crunch data programmatically instead of doing it in " +
+        "your head — parsing/reshaping JSON, math, string processing, running " +
+        "untrusted snippets. This is NOT the session sandbox: there is no " +
+        "filesystem, no shell, no package installs, and nothing persists " +
+        "between calls. Provide either a bare JS snippet that `return`s a value " +
+        "(the JSON you pass as `input` is in scope as `input`), or a full ES " +
+        "module with `export default { fetch(request) }`. Network is blocked " +
+        "unless allow_network is true.",
+      inputSchema: z.object({
+        code: z
+          .string()
+          .min(1)
+          .describe(
+            "Source to run. A bare JS snippet may reference `input` and " +
+              "`return` a value; or provide a full ES module exporting " +
+              "`default { fetch(request) }`.",
+          ),
+        language: z
+          .enum(["js", "python"])
+          .optional()
+          .describe('Runtime — "js" (default) or "python" (best-effort, python_workers).'),
+        input: z
+          .unknown()
+          .optional()
+          .describe("JSON value passed to the code (as `input`, and as the request body)."),
+        allow_network: z
+          .boolean()
+          .optional()
+          .describe("Allow outbound network from the sandbox (default false = fully isolated)."),
+        timeout_ms: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe(`Per-run CPU limit in ms (default ${DEFAULT_DYNAMIC_WORKER_CPU_MS}, max ${MAX_DYNAMIC_WORKER_CPU_MS}).`),
+      }),
+      execute: safe(async ({ code, language, input, allow_network, timeout_ms }) => {
+        const isPython = language === "python";
+        const cpuMs = Math.min(timeout_ms || DEFAULT_DYNAMIC_WORKER_CPU_MS, MAX_DYNAMIC_WORKER_CPU_MS);
+        const mainModule = isPython ? "main.py" : "main.js";
+        const source = isPython ? code : wrapDynamicWorkerJs(code);
+        const worker = loader.get(`oma-dw-${nanoid(12)}`, () => ({
+          compatibilityDate: DYNAMIC_WORKER_COMPAT_DATE,
+          compatibilityFlags: isPython ? ["python_workers"] : undefined,
+          mainModule,
+          modules: { [mainModule]: source },
+          // false ⇒ globalOutbound: null blocks ALL egress (fully sandboxed).
+          // true ⇒ inherit the parent worker's default egress. NOTE: routing
+          // through the vault outbound-proxy gateway for credential injection
+          // + host-allowlist is a follow-up (see issue #139 §3) — for now an
+          // allow_network worker gets un-injected egress.
+          globalOutbound: allow_network ? undefined : null,
+          limits: { cpuMs },
+        }));
+        const entrypoint = worker.getEntrypoint();
+        const res = await entrypoint.fetch(
+          new Request("https://oma-dynamic-worker.invalid/", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ input: input ?? null }),
+          }),
+        );
+        const text = await res.text();
+        let result: unknown = text;
+        try {
+          result = JSON.parse(text);
+        } catch {
+          // non-JSON body — keep raw text as the result
+        }
+        if (!res.ok) {
+          return JSON.stringify({ ok: false, error: `dynamic worker returned HTTP ${res.status}`, result }, null, 2);
+        }
+        return truncateResult(JSON.stringify({ ok: true, result }, null, 2));
+      }),
+    });
   }
 
   if (enabled.has("bash")) {

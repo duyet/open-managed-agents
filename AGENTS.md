@@ -164,6 +164,29 @@ The `agent_toolset_20260401` provides 8 tools designed for general-purpose agent
 | **web_fetch** | URL → markdown | Fetches a URL, converts HTML/PDF/DOCX/etc. to markdown via Workers AI `env.AI.toMarkdown()`. When `agent.aux_model` is set, large pages (>5KB) are summarized by the aux model and the full markdown is offloaded to `/workspace/.web/<sha>.md` (readable via the `read` tool with offset/limit). Falls back to raw curl with an explicit warning if extraction fails. |
 | **web_search** | Web search | Defaults to DuckDuckGo (free, no key). Optional backends via tool `type`: `web_search_20250305` (Anthropic server-side, Claude models only), `web_search_tavily` (requires `TAVILY_API_KEY`). |
 
+### Opt-in Tools
+
+These tools are **not** enabled by default even when the toolset is on — the
+agent must add an explicit `{ "name": "<tool>", "enabled": true }` to
+`configs`. They're gated because they bias the model toward a heavier or
+runtime-specific path:
+
+| Tool | Description | Availability |
+|---|---|---|
+| **browser** | Full browser session (navigate / click / screenshot / fill). `web_fetch` + `web_search` cover most read-only research more cheaply. | CF (Browser Rendering) or Node self-host (playwright-core / CDP). |
+| **run_dynamic_worker** | "Code Mode" — execute an ephemeral JS (or best-effort Python) snippet in a fresh Cloudflare **Dynamic Worker** (V8 isolate) and get the result back. A pure compute/eval primitive, distinct from the session sandbox: **no filesystem, no shell, no package installs, nothing persists between calls**. Lets the agent crunch/transform data programmatically instead of round-tripping through the LLM (Cloudflare's cited "up to 80% inference-token savings"). Network is blocked by default (`allow_network: false` ⇒ egress fully sandboxed); `allow_network: true` inherits the worker's default egress (vault credential-injection gateway for the eval sandbox is a follow-up). | **Cloudflare only** — needs the `LOADER` Worker Loader binding (`worker_loaders` in `wrangler.jsonc`). Absent binding (Node self-host, or CF without the entitlement) ⇒ tool omitted from `buildTools()`, so the model never sees it. |
+
+```json
+{
+  "type": "agent_toolset_20260401",
+  "configs": [{ "name": "run_dynamic_worker", "enabled": true }]
+}
+```
+
+> **Note:** This is Phase 1 of [issue #139](https://github.com/duyet/oma/issues/139).
+> The companion `dynamic-workers` **sandbox provider** (a specialized JS-eval
+> executor selectable per-environment) is a documented follow-up.
+
 ### Tool Configuration
 
 Enable or disable individual tools:

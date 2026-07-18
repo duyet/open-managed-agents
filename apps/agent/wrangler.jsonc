@@ -76,6 +76,15 @@
   // Workers AI for generating embeddings
   "ai": { "binding": "AI" },
 
+  // Cloudflare Dynamic Workers (Worker Loader binding) — powers the opt-in
+  // `run_dynamic_worker` "Code Mode" tool: spin up an ephemeral V8 isolate to
+  // execute untrusted JS/Python and return the result. Requires the account
+  // entitlement (open beta). Absent binding ⇒ tool omitted, so removing this
+  // line degrades cleanly rather than crashing.
+  "worker_loaders": [
+    { "binding": "LOADER" }
+  ],
+
   // Resolved bucket names per env — sandbox.ts FUSE mode mounts via the
   // S3 API which takes the actual bucket name (not the binding name).
   // CLOUDFLARE_ACCOUNT_ID is required by sandbox SDK createBackup() to
@@ -158,6 +167,9 @@
         { "binding": "MAIN_MCP", "service": "oma-managed-agents", "entrypoint": "McpProxyRpc" }
       ],
       "ai": { "binding": "AI" },
+      "worker_loaders": [
+        { "binding": "LOADER" }
+      ],
       "vars": {
         "MEMORY_BUCKET_NAME": "oma-managed-agents-memory",
         "WORKSPACE_BUCKET_NAME": "oma-managed-agents-workspace",
@@ -212,6 +224,9 @@
         { "binding": "AUTH_DB_03", "database_name": "oma-auth-shard-03-staging", "database_id": "8ce8f17d-7527-4a5a-b097-ce73251be55a" }
       ],
       "ai": { "binding": "AI" },
+      "worker_loaders": [
+        { "binding": "LOADER" }
+      ],
       "vars": {
         "MEMORY_BUCKET_NAME": "oma-managed-agents-memory-staging",
         "WORKSPACE_BUCKET_NAME": "oma-managed-agents-workspace",
