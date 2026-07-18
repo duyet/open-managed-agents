@@ -105,3 +105,44 @@ describe("<AgentsList /> row actions", () => {
     expect(archiveCalled).toBe(false);
   });
 });
+
+describe("<AgentsList /> table columns", () => {
+  it("renders version, runtime, and resource-count columns from the agent record", async () => {
+    mountHandlers();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText("My Agent")).toBeInTheDocument());
+
+    // Version column: `agent.version`.
+    expect(screen.getByText("v1")).toBeInTheDocument();
+    // Runtime column: no `runtime_binding` on the mock agent → "Cloud".
+    expect(screen.getByText("Cloud")).toBeInTheDocument();
+    // Resources column: one tool, no skills/mcp_servers → only the tools
+    // badge renders, with a title summarizing the count.
+    expect(screen.getByTitle("1 tool")).toBeInTheDocument();
+  });
+
+  it("shows a Local badge and no Cloud text when the agent has a runtime_binding", async () => {
+    server.use(
+      http.get("/v1/agents", () =>
+        HttpResponse.json({
+          data: [
+            {
+              ...agent,
+              runtime_binding: { runtime_id: "rt_1", acp_agent_id: "acp_1" },
+            },
+          ],
+        }),
+      ),
+      http.get("/v1/skills", () => HttpResponse.json({ data: [] })),
+      http.get("/v1/model_cards", () => HttpResponse.json({ data: [] })),
+      http.get("/v1/runtimes", () => HttpResponse.json({ runtimes: [] })),
+    );
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText("My Agent")).toBeInTheDocument());
+
+    expect(screen.getByText("Local")).toBeInTheDocument();
+    expect(screen.queryByText("Cloud")).not.toBeInTheDocument();
+  });
+});

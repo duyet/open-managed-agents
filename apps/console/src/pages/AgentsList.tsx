@@ -3,12 +3,16 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import {
   ArchiveIcon,
+  BookOpenIcon,
   CopyIcon,
   MessageSquareIcon,
+  MonitorIcon,
   PencilIcon,
+  PlugZapIcon,
   RocketIcon,
   ListIcon,
   TrashIcon,
+  WrenchIcon,
 } from "lucide-react";
 
 import { useApi } from "../lib/api";
@@ -16,8 +20,10 @@ import { useInfiniteApiQuery } from "../lib/useApiQuery";
 import { DataTable, type ColumnDef } from "../components/DataTable";
 import { FilterBar } from "../components/FilterBar";
 import { RowActionsMenu } from "../components/RowActionsMenu";
+import { Badge } from "../components/Badge";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/hooks/useConfirm";
+import { formatRelative } from "../lib/format";
 import type { ModelCard } from "@duyet/oma-api-types";
 import type { AgentRecord as Agent } from "../types/agent";
 import { AgentFormDialog } from "./agents/AgentFormDialog";
@@ -207,6 +213,64 @@ export function AgentsList() {
         ),
       },
       {
+        id: "version",
+        accessorFn: (a) => a.version,
+        header: "Version",
+        cell: ({ row }) => <span className="text-fg-muted">v{row.original.version}</span>,
+      },
+      {
+        id: "runtime",
+        accessorFn: (a) => (a.runtime_binding ? "local" : "cloud"),
+        header: "Runtime",
+        cell: ({ row }) => {
+          const rb = row.original.runtime_binding;
+          return rb ? (
+            <Badge
+              icon={<MonitorIcon className="size-3" />}
+              label="Local"
+              title={`Local runtime ${rb.runtime_id} · ACP agent ${rb.acp_agent_id}`}
+            />
+          ) : (
+            <span className="text-fg-subtle">Cloud</span>
+          );
+        },
+      },
+      {
+        id: "resources",
+        accessorFn: (a) =>
+          (a.tools?.length ?? 0) + (a.skills?.length ?? 0) + (a.mcp_servers?.length ?? 0),
+        header: "Resources",
+        cell: ({ row }) => {
+          const a = row.original;
+          const toolsCount = a.tools?.length ?? 0;
+          const skillsCount = a.skills?.length ?? 0;
+          const mcpCount = a.mcp_servers?.length ?? 0;
+          return (
+            <div className="flex items-center gap-2.5">
+              <Badge
+                icon={<WrenchIcon className="size-3" />}
+                label={toolsCount}
+                title={`${toolsCount} tool${toolsCount === 1 ? "" : "s"}`}
+              />
+              {skillsCount > 0 && (
+                <Badge
+                  icon={<BookOpenIcon className="size-3" />}
+                  label={skillsCount}
+                  title={`${skillsCount} skill${skillsCount === 1 ? "" : "s"}`}
+                />
+              )}
+              {mcpCount > 0 && (
+                <Badge
+                  icon={<PlugZapIcon className="size-3" />}
+                  label={mcpCount}
+                  title={`${mcpCount} MCP server${mcpCount === 1 ? "" : "s"}`}
+                />
+              )}
+            </div>
+          );
+        },
+      },
+      {
         id: "status",
         accessorFn: (a) => (a.archived_at ? "archived" : "active"),
         header: "Status",
@@ -231,6 +295,19 @@ export function AgentsList() {
             {new Date(row.original.created_at).toLocaleDateString()}
           </span>
         ),
+      },
+      {
+        id: "updated",
+        accessorFn: (a) => a.updated_at || a.created_at,
+        header: "Updated",
+        cell: ({ row }) => {
+          const ts = row.original.updated_at || row.original.created_at;
+          return (
+            <span className="text-fg-muted" title={new Date(ts).toLocaleString()}>
+              {formatRelative(Date.now() - new Date(ts).getTime())}
+            </span>
+          );
+        },
       },
       {
         id: "actions",
