@@ -1,0 +1,156 @@
+---
+import Base from "../layouts/Base.astro";
+import { breadcrumbSchema } from "../lib/seo";
+
+const schemas = [
+  breadcrumbSchema([
+    { name: "Home", path: "/" },
+    { name: "Stats", path: "/stats/" },
+  ]),
+];
+---
+
+<Base
+  title="Stats — Open Managed Agents"
+  description="Live platform stats for Open Managed Agents: agents, sessions, tasks, and CLI usage."
+  canonical="/stats/"
+  schemas={schemas}
+>
+  <section class="max-w-5xl mx-auto px-4 py-16 md:py-24">
+    <p class="text-sm font-mono uppercase tracking-wider text-[var(--color-fg-subtle)] mb-4">
+      Stats
+    </p>
+    <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight mb-3">
+      Platform stats
+    </h1>
+    <p class="text-lg text-[var(--color-fg-muted)] leading-relaxed mb-4 max-w-2xl">
+      Live numbers pulled straight from the OMA API — no sampling, no dashboard login.
+    </p>
+    <p id="stats-updated" class="text-sm font-mono text-[var(--color-fg-subtle)] mb-10">
+      Loading…
+    </p>
+
+    <div id="stats-error" class="hidden border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-surface)] p-6 text-sm text-[var(--color-fg-muted)] mb-10">
+      Stats unavailable right now — please check back later.
+    </div>
+
+    <div id="stats-content" class="hidden">
+      <!-- Counter tiles -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-14">
+        <div class="border border-[var(--color-border)] rounded-lg p-5 bg-[var(--color-bg)]">
+          <div class="font-mono text-3xl font-bold tabular-nums" data-stat="agents-total">—</div>
+          <div class="text-xs uppercase tracking-wider text-[var(--color-fg-subtle)] mt-1">Agents</div>
+          <div class="text-xs text-[var(--color-fg-muted)] mt-1">
+            <span data-stat="agents-active">—</span> active
+          </div>
+        </div>
+        <div class="border border-[var(--color-border)] rounded-lg p-5 bg-[var(--color-bg)]">
+          <div class="font-mono text-3xl font-bold tabular-nums" data-stat="sessions-total">—</div>
+          <div class="text-xs uppercase tracking-wider text-[var(--color-fg-subtle)] mt-1">Sessions</div>
+          <div class="text-xs text-[var(--color-fg-muted)] mt-1">
+            <span data-stat="sessions-running">—</span> running
+          </div>
+        </div>
+        <div class="border border-[var(--color-border)] rounded-lg p-5 bg-[var(--color-bg)]">
+          <div class="font-mono text-3xl font-bold tabular-nums" data-stat="tasks-total">—</div>
+          <div class="text-xs uppercase tracking-wider text-[var(--color-fg-subtle)] mt-1">Tasks</div>
+        </div>
+        <div class="border border-[var(--color-border)] rounded-lg p-5 bg-[var(--color-bg)]">
+          <div class="font-mono text-3xl font-bold tabular-nums" data-stat="cli-total">—</div>
+          <div class="text-xs uppercase tracking-wider text-[var(--color-fg-subtle)] mt-1">CLI commands</div>
+        </div>
+      </div>
+
+      <!-- CLI commands by name -->
+      <div class="mb-14">
+        <h2 class="font-display text-2xl font-bold mb-5">CLI commands by name</h2>
+        <div id="stats-by-command" class="space-y-2"></div>
+      </div>
+
+      <!-- Platform breakdown -->
+      <div>
+        <h2 class="font-display text-2xl font-bold mb-5">Platform breakdown</h2>
+        <div id="stats-by-platform" class="space-y-2"></div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const API_BASE = "https://app.oma.duyet.net";
+
+    function relativeTime(ms: number): string {
+      const diffSec = Math.round((Date.now() - ms) / 1000);
+      if (diffSec < 5) return "just now";
+      if (diffSec < 60) return `${diffSec}s ago`;
+      const diffMin = Math.round(diffSec / 60);
+      if (diffMin < 60) return `${diffMin}m ago`;
+      const diffHr = Math.round(diffMin / 60);
+      if (diffHr < 24) return `${diffHr}h ago`;
+      const diffDay = Math.round(diffHr / 24);
+      return `${diffDay}d ago`;
+    }
+
+    function setStat(name: string, value: number | string) {
+      const el = document.querySelector(`[data-stat="${name}"]`);
+      if (el) el.textContent = typeof value === "number" ? value.toLocaleString() : value;
+    }
+
+    function renderBars(containerId: string, rows: Array<{ name?: string; platform?: string; count: number }>, key: "name" | "platform") {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      if (!rows.length) {
+        container.innerHTML = `<p class="text-sm text-[var(--color-fg-muted)]">No data yet.</p>`;
+        return;
+      }
+      const max = Math.max(...rows.map((r) => r.count), 1);
+      container.innerHTML = rows
+        .map((row) => {
+          const label = String(row[key] ?? "unknown");
+          const pct = Math.max((row.count / max) * 100, 2);
+          return `
+            <div class="flex items-center gap-3 text-sm">
+              <div class="w-40 shrink-0 font-mono truncate text-[var(--color-fg-muted)]" title="${label}">${label}</div>
+              <div class="flex-1 h-5 bg-[var(--color-bg-surface)] rounded-sm overflow-hidden border border-[var(--color-border)]">
+                <div class="h-full bg-[var(--color-brand)] rounded-sm" style="width: ${pct}%"></div>
+              </div>
+              <div class="w-14 shrink-0 text-right font-mono tabular-nums text-[var(--color-fg-subtle)]">${row.count.toLocaleString()}</div>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    async function loadStats() {
+      try {
+        const res = await fetch(`${API_BASE}/v1/telemetry/stats`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        setStat("agents-total", data.agents?.total ?? 0);
+        setStat("agents-active", data.agents?.active ?? 0);
+        setStat("sessions-total", data.sessions?.total ?? 0);
+        setStat("sessions-running", data.sessions?.running ?? 0);
+        setStat("tasks-total", data.tasks?.total ?? 0);
+        setStat("cli-total", data.cli?.total_commands ?? 0);
+
+        renderBars("stats-by-command", data.cli?.by_command ?? [], "name");
+        renderBars("stats-by-platform", data.cli?.by_platform ?? [], "platform");
+
+        const updatedEl = document.getElementById("stats-updated");
+        if (updatedEl) {
+          updatedEl.textContent = data.generated_at ? `Updated ${relativeTime(data.generated_at)}` : "";
+        }
+
+        document.getElementById("stats-content")?.classList.remove("hidden");
+        document.getElementById("stats-error")?.classList.add("hidden");
+      } catch {
+        document.getElementById("stats-content")?.classList.add("hidden");
+        document.getElementById("stats-error")?.classList.remove("hidden");
+        const updatedEl = document.getElementById("stats-updated");
+        if (updatedEl) updatedEl.textContent = "";
+      }
+    }
+
+    loadStats();
+  </script>
+</Base>
