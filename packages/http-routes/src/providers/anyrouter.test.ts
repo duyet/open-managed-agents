@@ -307,6 +307,64 @@ describe("buildAnyRouterRoutes — model card bind (#136)", () => {
     });
   });
 
+  describe("POST /presets — starter-agent model cards", () => {
+    it("provisions the sibling cards sharing the connected key", async () => {
+      const { app, modelCards } = makeApp({ withModelCards: true });
+      await connectAndCallback(app, "code-1");
+
+      const res = await app.request("/v1/providers/anyrouter/presets", { method: "POST" });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        cards: { model_id: string; model: string; role: string; label: string }[];
+      };
+      expect(body.cards.map((c) => c.model_id).sort()).toEqual(["anyrouter-fast", "anyrouter-strong"]);
+
+      const strong = await modelCards.findByModelId({ tenantId: TENANT, modelId: "anyrouter-strong" });
+      const fast = await modelCards.findByModelId({ tenantId: TENANT, modelId: "anyrouter-fast" });
+      expect(strong!.model).toBe("anthropic/claude-sonnet-4-6");
+      expect(fast!.model).toBe("anthropic/claude-haiku-4-5");
+      expect(strong!.provider).toBe("oai");
+      expect(strong!.base_url).toBe(ANYROUTER_API_BASE);
+      // Each sibling stores the same connected key, encrypted independently.
+      expect(await modelCards.getApiKey({ tenantId: TENANT, cardId: strong!.id })).toBe("sk-ar-v1-code-1");
+      expect(await modelCards.getApiKey({ tenantId: TENANT, cardId: fast!.id })).toBe("sk-ar-v1-code-1");
+    });
+
+    it("is idempotent — rerun rotates the key without duplicating cards or clobbering a retargeted model", async () => {
+      const { app, modelCards } = makeApp({ withModelCards: true });
+      await connectAndCallback(app, "code-1");
+      await app.request("/v1/providers/anyrouter/presets", { method: "POST" });
+      const strongV1 = await modelCards.findByModelId({ tenantId: TENANT, modelId: "anyrouter-strong" });
+      // User retargets the strong card, then reconnects with a new key.
+      await modelCards.update({ tenantId: TENANT, cardId: strongV1!.id, model: "openai/gpt-6-thinking" });
+      await connectAndCallback(app, "code-2");
+
+      const res = await app.request("/v1/providers/anyrouter/presets", { method: "POST" });
+      expect(res.status).toBe(200);
+      const strongV2 = await modelCards.findByModelId({ tenantId: TENANT, modelId: "anyrouter-strong" });
+      expect(strongV2!.id).toBe(strongV1!.id); // same row, no duplicate
+      expect(strongV2!.model).toBe("openai/gpt-6-thinking"); // retarget survived
+      expect(await modelCards.getApiKey({ tenantId: TENANT, cardId: strongV2!.id })).toBe("sk-ar-v1-code-2");
+    });
+
+    it("returns connect_required before connecting", async () => {
+      const { app } = makeApp({ withModelCards: true });
+      const res = await app.request("/v1/providers/anyrouter/presets", { method: "POST" });
+      expect(res.status).toBe(400);
+      expect((await res.json()) as Record<string, unknown>).toMatchObject({ connect_required: true });
+    });
+
+    it("returns 501 model_cards_unavailable on a deployment without a model-cards store", async () => {
+      const { app } = makeApp({ withModelCards: false });
+      await connectAndCallback(app, "code-1");
+      const res = await app.request("/v1/providers/anyrouter/presets", { method: "POST" });
+      expect(res.status).toBe(501);
+      expect((await res.json()) as Record<string, unknown>).toMatchObject({
+        model_cards_unavailable: true,
+      });
+    });
+  });
+
   describe("GET /credits", () => {
     it("passes the balance fields through on a happy path", async () => {
       const { app } = makeApp({ withModelCards: true });
