@@ -25,6 +25,16 @@ import {
   type LinearDispatchSweeper,
 } from "@duyet/oma-scheduler/jobs/linear-dispatch";
 import {
+  scheduledAgentRunsTick,
+  type ScheduledRunLauncher,
+} from "@duyet/oma-scheduler/jobs/scheduled-agent-runs";
+import { SqlClientScheduledRunsStore } from "@duyet/oma-scheduler/jobs/scheduled-agent-runs-store";
+import {
+  scheduledDeploymentRunsTick,
+  type ScheduledDeploymentRunLauncher,
+} from "@duyet/oma-scheduler/jobs/scheduled-deployment-runs";
+import { SqlClientScheduledDeploymentRunsStore } from "@duyet/oma-scheduler/jobs/scheduled-deployment-runs-store";
+import {
   tickEvalRuns,
   type EvalRunnerContext,
   type EvalRunnerServices,
@@ -47,11 +57,23 @@ export interface NodeSchedulerDeps {
    *  in-process LinearProvider is available. Skip when null — most
    *  self-host deployments don't run the Linear gateway side yet. */
   linearSweeper?: (() => Promise<LinearDispatchSweeper | null>) | null;
-  /** Control-plane SqlClient, used by the anonymous install phone-home job to
-   *  aggregate local counts. Pass null to skip registering that job. */
+  /** Control-plane SqlClient. Shared by the anonymous install phone-home job
+   *  (aggregates local counts) and the scheduled-agent-runs tick (issue #262 —
+   *  agent_schedules lives in this single Node control-plane DB). Pass null to
+   *  skip both. */
   controlPlaneSql?: SqlClient | null;
   /** OMA version string reported by the install phone-home job. */
   omaVersion?: string;
+  /** Launcher over the Node session-create path — mirrors the CF launcher in
+   *  apps/main/src/lib/cf-scheduler-jobs.ts. Only registered alongside
+   *  {@link controlPlaneSql}. */
+  scheduledRunLauncher?: ScheduledRunLauncher | null;
+  /** Deployment-run launcher — fires schedule-triggered deployments over the
+   *  Node session-create path. Only registered alongside
+   *  {@link controlPlaneSql}. Deployment CRUD is CF-only today, so on Node
+   *  this fires nothing until deployment rows exist, but the tick + CAS are
+   *  wired identically to CF. */
+  scheduledDeploymentRunLauncher?: ScheduledDeploymentRunLauncher | null;
   /** Override defaults via env so an operator can quiet noisy crons
    *  during a maintenance window without a code change. */
   env?: NodeJS.ProcessEnv;
@@ -154,6 +176,49 @@ export function buildNodeScheduler(deps: NodeSchedulerDeps) {
         }
       },
     });
+  }
+
+  // Scheduled agent runs (issue #262) — fires user-defined agent schedules on
+  // the self-host Node runtime, reusing the same shared tick + store + CAS the
+  // CF deployment uses (apps/main/src/lib/cf-scheduler-jobs.ts). Registered
+  // only when both a control-plane DB and a launcher are wired. The tick's own
+  // async resolver-and-swallow contract means a single slow tick can't overlap
+  // into itself; the store's compare-and-set on next_run_at guards double-fire
+  // across replicas.
+  if (deps.controlPlaneSql && deps.scheduledRunLauncher) {
+    const store = new SqlClientScheduledRunsStore(deps.controlPlaneSql);
+    const launcher = deps.scheduledRunLauncher;
+    scheduler.register({
+      name: "scheduled-agent-runs",
+      cron: cron("SCHEDULED_AGENT_RUNS_CRON", "* * * * *"),
+      handler: withHealthchecks(
+        hcEnv,
+        "scheduled-agent-runs",
+        scheduledAgentRunsTick({
+          resolveStore: async () => store,
+          resolveLauncher: async () => launcher,
+        }),
+      ),
+    });
+
+    // Scheduled deployment runs — same shared tick + CAS store the CF entry
+    // uses, its own cron so it never interferes with agent-runs.
+    if (deps.scheduledDeploymentRunLauncher) {
+      const depStore = new SqlClientScheduledDeploymentRunsStore(deps.controlPlaneSql);
+      const depLauncher = deps.scheduledDeploymentRunLauncher;
+      scheduler.register({
+        name: "scheduled-deployment-runs",
+        cron: cron("SCHEDULED_DEPLOYMENT_RUNS_CRON", "* * * * *"),
+        handler: withHealthchecks(
+          hcEnv,
+          "scheduled-deployment-runs",
+          scheduledDeploymentRunsTick({
+            resolveStore: async () => depStore,
+            resolveLauncher: async () => depLauncher,
+          }),
+        ),
+      });
+    }
   }
 
   return scheduler;

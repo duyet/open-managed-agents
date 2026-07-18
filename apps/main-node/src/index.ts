@@ -80,6 +80,7 @@ import {
 } from "@duyet/oma-sandbox";
 import {
   buildAgentRoutes,
+  buildScheduleRoutes,
   buildVaultRoutes,
   buildMcpServerRoutes,
   buildOmaMcpRoutes,
@@ -159,6 +160,8 @@ import {
 import type { BrowserHarness } from "@duyet/oma-browser-harness";
 import { startMemoryBlobWatcher } from "./lib/memory-blob-watcher.js";
 import { buildNodeScheduler } from "./lib/node-scheduler-jobs.js";
+import type { ScheduledRunLauncher } from "@duyet/oma-scheduler/jobs/scheduled-agent-runs";
+import type { ScheduledDeploymentRunLauncher } from "@duyet/oma-scheduler/jobs/scheduled-deployment-runs";
 import { startNodeMemoryQueue } from "./lib/node-memory-queue.js";
 import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, relative } from "node:path";
@@ -1239,6 +1242,10 @@ const telemetryGates = buildMemoryGates();
 
 // Mount route bundles. Same paths CF uses; behavior preserved.
 v1.route("/agents", buildAgentRoutes({ services }));
+// Agent schedules CRUD (issue #262) — shared http-routes builder, mounted on
+// the same /agents prefix (CF mounts it the same way). Node's control-plane
+// DB is the single `sql` client — agent_schedules lives there.
+v1.route("/agents", buildScheduleRoutes({ db: sql }));
 // Published-agent management API (issue #72) — tenant-authed CRUD backing
 // the public /p/:slug chat surface. Runtime-neutral (only needs `services`),
 // mirroring apps/main's mounts at the same paths (issue #226).
@@ -2186,10 +2193,109 @@ serve({ fetch: app.fetch, port, hostname: host }, (info) => {
   );
 });
 
+// Scheduled-agent-runs launcher (issue #262) — mirrors the CF launcher in
+// apps/main/src/lib/cf-scheduler-jobs.ts, but over the Node session-create +
+// harness-drive path. `countActive` enforces the schedule's max_sessions cap;
+// `launch` creates a session and kicks the harness turn via the same
+// NodeSessionRouter the public POST /v1/sessions/:id/events route uses.
+const scheduledRunLauncher: ScheduledRunLauncher = {
+  async countActive(schedule) {
+    return sessionsService.countActiveByScheduleId({
+      tenantId: schedule.tenantId,
+      scheduleId: schedule.id,
+    });
+  },
+  async launch(schedule) {
+    const agentRow = await agentsService.get({
+      tenantId: schedule.tenantId,
+      agentId: schedule.agentId,
+    });
+    if (!agentRow) throw new Error(`agent ${schedule.agentId} not found`);
+    const { tenant_id: _atid, ...agentSnapshot } = agentRow;
+    const agentIsLocalRuntime = !!agentRow.runtime_binding;
+    // Node has no per-tenant cloud environments — treat every agent as a
+    // local runtime, falling back to the synthetic env id the session route
+    // uses when the schedule's environment_id doesn't resolve to one.
+    const envId = schedule.environmentId || "env-local-runtime";
+    const envSnap = agentIsLocalRuntime
+      ? undefined
+      : ({
+          id: envId,
+          runtime: "local",
+          sandbox_template: null,
+        } as unknown as import("@duyet/oma-shared").EnvironmentConfig);
+    const { session } = await sessionsService.create({
+      tenantId: schedule.tenantId,
+      agentId: schedule.agentId,
+      environmentId: envId,
+      title: "",
+      agentSnapshot: agentSnapshot as never,
+      environmentSnapshot: envSnap,
+      metadata: { scheduled_run: { schedule_id: schedule.id } },
+    });
+    await sessionRouter.appendEvent(session.id, {
+      type: "user.message",
+      content: [{ type: "text", text: schedule.prompt }],
+    } as never);
+    return { sessionId: session.id };
+  },
+};
+
+// Scheduled-deployment-runs launcher (issue #262) — mirrors the CF
+// launchDeploymentSession, carrying the deployment's vaults + memory stores
+// into each fired session. Node has no deployment CRUD routes yet, so no rows
+// exist to fire; the launcher is wired for parity + forward-compat. Agent
+// version pinning isn't resolved on Node (no per-version snapshot store) — it
+// runs the latest agent version, the same fallback the session route uses.
+const scheduledDeploymentRunLauncher: ScheduledDeploymentRunLauncher = {
+  async launch(deployment) {
+    if (!deployment.environmentId) {
+      throw new Error("deployment has no environment_id");
+    }
+    const agentRow = await agentsService.get({
+      tenantId: deployment.tenantId,
+      agentId: deployment.agentId,
+    });
+    if (!agentRow) throw new Error(`agent ${deployment.agentId} not found`);
+    const { tenant_id: _dtid, ...agentSnapshot } = agentRow;
+    const agentIsLocalRuntime = !!agentRow.runtime_binding;
+    const envId = deployment.environmentId || "env-local-runtime";
+    const envSnap = agentIsLocalRuntime
+      ? undefined
+      : ({
+          id: envId,
+          runtime: "local",
+          sandbox_template: null,
+        } as unknown as import("@duyet/oma-shared").EnvironmentConfig);
+    const resources = deployment.memoryStoreIds.map((id) => ({
+      type: "memory_store",
+      memory_store_id: id,
+      access: "read_write",
+    }));
+    const { session } = await sessionsService.create({
+      tenantId: deployment.tenantId,
+      agentId: deployment.agentId,
+      environmentId: envId,
+      title: "",
+      vaultIds: deployment.vaultIds,
+      agentSnapshot: agentSnapshot as never,
+      environmentSnapshot: envSnap,
+      metadata: { deployment_run: { deployment_id: deployment.id } },
+      resources: resources as never,
+    });
+    await sessionRouter.appendEvent(session.id, {
+      type: "user.message",
+      content: [{ type: "text", text: deployment.initialMessage }],
+    } as never);
+    return { sessionId: session.id };
+  },
+};
+
 // Cron — eval-tick + memory retention sweep + (when integrations schema is
-// applied) webhook-events retention. Linear dispatch is left un-wired here
-// because main-node doesn't construct a LinearProvider; pass `linearSweeper`
-// when an in-process gateway lands.
+// applied) webhook-events retention + scheduled-agent-runs (issue #262) +
+// telemetry phone-home. Linear dispatch is left un-wired here because
+// main-node doesn't construct a LinearProvider; pass `linearSweeper` when an
+// in-process gateway lands.
 // Best-effort read of our own package.json version for install telemetry.
 function nodeOmaVersion(): string | undefined {
   try {
@@ -2213,6 +2319,8 @@ const scheduler = buildNodeScheduler({
   integrationsSql: platformRootSecret ? sql : null,
   controlPlaneSql: sql,
   omaVersion: nodeOmaVersion(),
+  scheduledRunLauncher,
+  scheduledDeploymentRunLauncher,
 });
 await scheduler.start();
 logger.info({ op: "main-node.scheduler.started" }, "scheduler started");

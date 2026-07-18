@@ -50,6 +50,13 @@
       "when": 1784937600000,
       "tag": "0009_telemetry_installs",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785024000000,
+      "tag": "0006_schedules",
+      "breakpoints": true
     }
   ]
 }
