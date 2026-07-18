@@ -95,6 +95,12 @@ downloads. Attach one to an agent with `{ "skill_id": "<id>", "type": "custom" }
 | `examples/skills/api-design/` | `api-design` | REST conventions — resource modeling, status codes, one error envelope, cursor pagination, backward-compatible change |
 | `examples/skills/dockerfile/` | `dockerfile` | Cache-friendly layer order, multi-stage builds, non-root runtime, no baked-in secrets; ships an annotated `Dockerfile.example` |
 | `examples/skills/brand-design/` | `brand-design` | Design tokens for color/type/spacing, WCAG-AA contrast, a modular type scale; ships a portable `tokens.json` |
+| `examples/skills/debugging/` | `debugging` | Reproduce → isolate → hypothesize → fix at the root → regression test; bisection and single-hypothesis discipline |
+| `examples/skills/test-writing/` | `test-writing` | Tests that verify intent not implementation, edge-case checklist, the testing pyramid, determinism rules |
+| `examples/skills/security-review/` | `security-review` | OWASP-style checklist — injection classes, authN/authZ, secrets exposure, dependency risk; exploit-scenario reporting |
+| `examples/skills/technical-writing/` | `technical-writing` | README/ADR anatomy, lead-with-the-answer structure, runnable examples over prose |
+| `examples/skills/data-analysis/` | `data-analysis` | Profile-before-clean workflow, sample-size and bias sanity checks, honest uncertainty reporting |
+| `examples/skills/refactoring/` | `refactoring` | Behavior-preserving moves backed by tests, small reversible steps, rule-of-three on duplication |
 
 ```bash
 # Seed the built-in skills into a running instance

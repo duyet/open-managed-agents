@@ -4,9 +4,11 @@
 # By default this seeds the repo's built-in skill set (examples/skills/*) so a
 # fresh deployment exposes data-viz, generate-html, query-sql, github,
 # git-commit, spreadsheet-xlsx, code-review, web-research, api-design,
-# dockerfile, and brand-design without any extra downloads. Each skill folder
-# is uploaded as a custom skill (KV metadata + R2 file bytes); binary files are
-# base64-encoded so bytes survive intact through R2.
+# dockerfile, brand-design, debugging, test-writing, security-review,
+# technical-writing, data-analysis, and refactoring without any extra
+# downloads. Each skill folder is uploaded as a custom skill (KV metadata + R2
+# file bytes); binary files are base64-encoded so bytes survive intact
+# through R2.
 #
 # Usage:
 #   BASE=https://your-api.workers.dev KEY=your-api-key ./scripts/seed-skills.sh
