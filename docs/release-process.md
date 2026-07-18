@@ -57,6 +57,16 @@ That's it. Once the PR is merged, the release bot does the rest.
    trusted publisher (no NPM_TOKEN). dist-tag is auto-derived from the
    version: `0.x.y` → `latest`, `0.x.y-beta.N` → `beta`.
 
+   The publish job declares `environment: production` in `release.yml`,
+   which only becomes a real human-approval gate once "Required reviewers"
+   is configured on that environment in repo Settings → Environments →
+   production — that's a one-time manual step, not something the workflow
+   file can enforce by itself. **That step has not been done as of this
+   writing**, so today merging the Version Packages PR publishes to npm
+   immediately with no approval prompt. Treat the merge itself as the
+   irreversible action until a maintainer configures reviewers. See
+   [#267](https://github.com/duyet/oma/issues/267).
+
 5. **GitHub Release** is created automatically with the changelog body.
 
 ## Bump types

@@ -1,7 +1,7 @@
 name: Release
 
 # Changesets-driven release flow, split into two jobs so only the publish
-# half requires the production environment approval:
+# half can require a production environment approval:
 #
 #   1. version-pr (no environment, runs every push):
 #      - Pending .changeset/*.md files → open / update "Version Packages" PR.
@@ -14,10 +14,20 @@ name: Release
 #      - Tag is auto-derived from the version: `0.x.y` → latest,
 #        `0.x.y-beta.N` → beta. No NPM_TOKEN; uses OIDC trusted publisher.
 #
-# Net effect: opening a Version Packages PR is friction-free (no approval),
-# only actually pushing bits to npm needs you to acknowledge the
-# production deploy. This is the right friction split — the PR is a
-# review opportunity, the npm publish is the irreversible action.
+# IMPORTANT: `environment: production` on its own gates nothing — GitHub
+# only blocks the job on human approval if the `production` environment has
+# "Required reviewers" configured in repo Settings → Environments →
+# production. That is a one-time manual step outside this YAML; nobody has
+# done it yet (see https://github.com/duyet/oma/issues/267), so today
+# merging the Version Packages PR publishes to npm immediately, with no
+# approval prompt. Once reviewers are configured, this key becomes the real
+# gate and the friction split below holds.
+#
+# Net effect (once reviewers are configured): opening a Version Packages PR
+# is friction-free (no approval), only actually pushing bits to npm needs
+# you to acknowledge the production deploy. This is the right friction
+# split — the PR is a review opportunity, the npm publish is the
+# irreversible action.
 #
 # Trusted publisher config on npmjs.com must list this workflow filename
 # (`release.yml`) for each public package — see docs/release-process.md.
@@ -89,7 +99,9 @@ jobs:
     # changeset, hasChangesets='true' and we skip publishing.
     if: needs.version-pr.outputs.hasChangesets == 'false'
     runs-on: ubuntu-latest
-    environment: production  # ← the one approval gate, only for the publish
+    environment: production  # ← gate is only real once "Required reviewers"
+                              #   is set on this environment in repo settings
+                              #   (see note above / issue #267)
     permissions:
       contents: write   # to push the git tag (@getoma/cli@x.y.z) after publish
       id-token: write   # required for npm OIDC publish
