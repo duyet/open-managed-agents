@@ -49,7 +49,7 @@ import { createSqliteCredentialService } from "@duyet/oma-credentials-store";
 import { createSqliteSessionService } from "@duyet/oma-sessions-store";
 import { createSqliteFileService } from "@duyet/oma-files-store";
 import { createSqliteEvalRunService } from "@duyet/oma-evals-store";
-import { createSqliteEnvironmentService } from "@duyet/oma-environments-store";
+import { createSqliteEnvironmentService, toEnvironmentConfig } from "@duyet/oma-environments-store";
 import { createSqlitePublicationService } from "@duyet/oma-publications-store";
 import { createSqliteModelCardService } from "@duyet/oma-model-cards-store";
 import { toFileRecord } from "@duyet/oma-files-store";
@@ -1304,16 +1304,12 @@ v1.route("/sessions", buildSessionRoutes({
   router: sessionRouter,
   outputs: nodeOutputsAdapter(outputsRoot),
   lifecycle: nodeSessionLifecycle({ files: filesService, filesBlob }),
-  // Node has no per-tenant cloud environments yet — every agent is treated
-  // as a local runtime. The package's loadEnvironment hook returns a
-  // synthetic snapshot so session create doesn't 404 on missing env_id.
-  localRuntimeEnvId: "env-local-runtime",
-  loadEnvironment: async ({ environmentId }) => {
-    return {
-      id: environmentId,
-      runtime: "local",
-      sandbox_template: null,
-    } as unknown as import("@duyet/oma-shared").EnvironmentConfig;
+  // environment_id is always required now (harness-to-environment
+  // migration) — resolve the real environment row so a bogus/missing id
+  // 404s instead of session-create silently synthesizing a placeholder.
+  loadEnvironment: async ({ tenantId, environmentId }) => {
+    const row = await environmentsService.get({ tenantId, environmentId });
+    return row ? toEnvironmentConfig(row) : null;
   },
 }));
 v1.route("/vaults", buildVaultRoutes({ services }));
@@ -1990,13 +1986,11 @@ function buildPublicSessionsApp() {
     router: sessionRouter,
     outputs: nodeOutputsAdapter(outputsRoot),
     lifecycle: nodeSessionLifecycle({ files: filesService, filesBlob }),
-    localRuntimeEnvId: "env-local-runtime",
-    loadEnvironment: async ({ environmentId }) => {
-      return {
-        id: environmentId,
-        runtime: "local",
-        sandbox_template: null,
-      } as unknown as import("@duyet/oma-shared").EnvironmentConfig;
+    // environment_id is always required now — resolve the real environment
+    // row (mirrors the authenticated /v1/sessions mount above).
+    loadEnvironment: async ({ tenantId, environmentId }) => {
+      const row = await environmentsService.get({ tenantId, environmentId });
+      return row ? toEnvironmentConfig(row) : null;
     },
   });
   const wrapped = new Hono<{
@@ -2425,28 +2419,25 @@ const scheduledRunLauncher: ScheduledRunLauncher = {
     });
   },
   async launch(schedule) {
+    if (!schedule.environmentId) {
+      throw new Error("schedule has no environment_id");
+    }
     const agentRow = await agentsService.get({
       tenantId: schedule.tenantId,
       agentId: schedule.agentId,
     });
     if (!agentRow) throw new Error(`agent ${schedule.agentId} not found`);
     const { tenant_id: _atid, ...agentSnapshot } = agentRow;
-    const agentIsLocalRuntime = !!agentRow.runtime_binding;
-    // Node has no per-tenant cloud environments — treat every agent as a
-    // local runtime, falling back to the synthetic env id the session route
-    // uses when the schedule's environment_id doesn't resolve to one.
-    const envId = schedule.environmentId || "env-local-runtime";
-    const envSnap = agentIsLocalRuntime
-      ? undefined
-      : ({
-          id: envId,
-          runtime: "local",
-          sandbox_template: null,
-        } as unknown as import("@duyet/oma-shared").EnvironmentConfig);
+    const envRow = await environmentsService.get({
+      tenantId: schedule.tenantId,
+      environmentId: schedule.environmentId,
+    });
+    if (!envRow) throw new Error(`environment ${schedule.environmentId} not found`);
+    const envSnap = toEnvironmentConfig(envRow);
     const { session } = await sessionsService.create({
       tenantId: schedule.tenantId,
       agentId: schedule.agentId,
-      environmentId: envId,
+      environmentId: schedule.environmentId,
       title: "",
       agentSnapshot: agentSnapshot as never,
       environmentSnapshot: envSnap,
@@ -2477,15 +2468,12 @@ const scheduledDeploymentRunLauncher: ScheduledDeploymentRunLauncher = {
     });
     if (!agentRow) throw new Error(`agent ${deployment.agentId} not found`);
     const { tenant_id: _dtid, ...agentSnapshot } = agentRow;
-    const agentIsLocalRuntime = !!agentRow.runtime_binding;
-    const envId = deployment.environmentId || "env-local-runtime";
-    const envSnap = agentIsLocalRuntime
-      ? undefined
-      : ({
-          id: envId,
-          runtime: "local",
-          sandbox_template: null,
-        } as unknown as import("@duyet/oma-shared").EnvironmentConfig);
+    const envRow = await environmentsService.get({
+      tenantId: deployment.tenantId,
+      environmentId: deployment.environmentId,
+    });
+    if (!envRow) throw new Error(`environment ${deployment.environmentId} not found`);
+    const envSnap = toEnvironmentConfig(envRow);
     const resources = deployment.memoryStoreIds.map((id) => ({
       type: "memory_store",
       memory_store_id: id,
@@ -2494,7 +2482,7 @@ const scheduledDeploymentRunLauncher: ScheduledDeploymentRunLauncher = {
     const { session } = await sessionsService.create({
       tenantId: deployment.tenantId,
       agentId: deployment.agentId,
-      environmentId: envId,
+      environmentId: deployment.environmentId,
       title: "",
       vaultIds: deployment.vaultIds,
       agentSnapshot: agentSnapshot as never,

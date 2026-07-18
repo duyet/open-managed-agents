@@ -61,9 +61,9 @@ export class AcpProxyHarness implements HarnessInterface {
 
   async run(ctx: HarnessContext): Promise<void> {
     const runtime = ctx.runtime;
-    const binding = ctx.agent.runtime_binding;
+    const binding = ctx.environment?.config?.local;
     if (!binding) {
-      this.#emitError(runtime, "AcpProxyHarness requires agent.runtime_binding to be set");
+      this.#emitError(runtime, 'AcpProxyHarness requires environment.config.local to be set (config.kind: "local")');
       return;
     }
 
@@ -106,19 +106,21 @@ export class AcpProxyHarness implements HarnessInterface {
 
       // Idempotent session.start — daemon spawns ACP child on first call,
       // short-circuits to session.ready on subsequent calls for the same sid.
-      // model / reasoning_effort are optional per-agent overrides (issue
-      // #269) — the daemon applies them best-effort via ACP's experimental
-      // session/set_model + session/set_config_option methods once the
-      // child is live; omitted here when unset so older daemons see the
-      // exact same frame shape as before.
+      // model / reasoning_effort are optional overrides (issue #269),
+      // already resolved by SessionDO against the session-override formula
+      // (session.model/.reasoning_effort ?? environment.config.local.model/
+      // .reasoning_effort) — the daemon applies them best-effort via ACP's
+      // experimental session/set_model + session/set_config_option methods
+      // once the child is live; omitted here when unset so older daemons see
+      // the exact same frame shape as before.
       // working_dir / branch / worktree are the local-agent-binding fields —
       // same omit-when-unset treatment so the default (all unset) frame is
       // byte-identical to today.
       ws.send(JSON.stringify({
         type: "session.start",
         agent_id: binding.acp_agent_id,
-        ...(binding.model ? { model: binding.model } : {}),
-        ...(binding.reasoning_effort ? { reasoning_effort: binding.reasoning_effort } : {}),
+        ...(ctx.resolvedModel ? { model: ctx.resolvedModel } : {}),
+        ...(ctx.resolvedReasoningEffort ? { reasoning_effort: ctx.resolvedReasoningEffort } : {}),
         ...(binding.working_dir ? { working_dir: binding.working_dir } : {}),
         ...(binding.branch ? { branch: binding.branch } : {}),
         ...(binding.worktree ? { worktree: binding.worktree } : {}),

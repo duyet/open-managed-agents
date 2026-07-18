@@ -10,7 +10,7 @@
 // or the SESSION_DO local DO binding (combined-worker test mode). This
 // adapter encapsulates the fan-out so routes never see env bindings.
 
-import { LOCAL_RUNTIME_ENV_ID, buildTrajectory } from "@duyet/oma-shared";
+import { buildTrajectory } from "@duyet/oma-shared";
 import type {
   Env,
   EnvironmentConfig,
@@ -63,6 +63,8 @@ export class CfSessionRouter implements SessionRouter {
         vault_credentials: params.vaultCredentials ?? [],
         init_events: params.initEvents ?? [],
         metadata: params.metadata,
+        model_override: params.model,
+        reasoning_effort_override: params.reasoningEffort,
       }),
     });
   }

@@ -39,7 +39,6 @@ import {
   createCfTenantShardDirectoryService,
 } from "@duyet/oma-tenant-dbs-store";
 import {
-  LOCAL_RUNTIME_ENV_ID,
   buildLabeledCrypto,
   FEDERATION_CRYPTO_LABEL,
   resolveFederationInstance,
@@ -731,9 +730,10 @@ function buildSessionsApp(services: Services, env: Env, tenantDb: D1Database, ct
   return buildSessionRoutes({
     services: () => cfRouteServicesFromCtxForTenant(services, tenantDb),
     router,
-    localRuntimeEnvId: LOCAL_RUNTIME_ENV_ID,
+    // environment_id is always required now (harness-to-environment
+    // migration) — no more synthetic LOCAL_RUNTIME_ENV_ID sentinel; a
+    // missing/bogus environment_id 404s via the normal lookup below.
     loadEnvironment: async ({ tenantId, environmentId }) => {
-      if (environmentId === LOCAL_RUNTIME_ENV_ID) return null;
       const row = await services.environments.get({ tenantId, environmentId });
       return row ? toEnvironmentConfig(row) : null;
     },
