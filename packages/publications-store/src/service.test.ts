@@ -92,6 +92,16 @@ describe("PublicationService (in-memory)", () => {
     expect(updated.slug).toBe("duyetbot");
   });
 
+  it("create collides globally on slug → PublicationSlugConflictError (issue #268)", async () => {
+    await svc.create({ tenantId: TENANT_A, input: baseInput({ slug: "duyetbot" }) });
+    await expect(
+      svc.create({
+        tenantId: TENANT_B,
+        input: baseInput({ slug: "duyetbot", agentId: "agent-2" }),
+      }),
+    ).rejects.toBeInstanceOf(PublicationSlugConflictError);
+  });
+
   it("slug update collides globally → PublicationSlugConflictError", async () => {
     await svc.create({ tenantId: TENANT_A, input: baseInput({ slug: "first" }) });
     const second = await svc.create({

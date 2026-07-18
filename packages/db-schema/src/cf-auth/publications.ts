@@ -12,7 +12,7 @@
 //
 // Source: spec in GitHub issue #72.
 
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const agent_publication = sqliteTable(
   "agent_publication",
@@ -39,7 +39,9 @@ export const agent_publication = sqliteTable(
   },
   (t) => [
     index("idx_agent_publication_tenant").on(t.tenant_id),
-    index("idx_agent_publication_slug").on(t.slug),
+    // Global unique — /p/:slug has no tenant in the URL, so slugs must be
+    // unique across tenants, matching the node-pg schema (issue #268).
+    uniqueIndex("idx_agent_publication_slug_unique").on(t.slug),
     index("idx_agent_publication_agent").on(t.tenant_id, t.agent_id),
     index("idx_agent_publication_tenant_created_id").on(t.tenant_id, t.created_at, t.id),
   ],

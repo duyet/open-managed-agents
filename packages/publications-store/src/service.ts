@@ -73,24 +73,29 @@ export class PublicationService {
     if (!slug) throw new Error("slug is required");
     const id = this.ids.publicationId();
     const nowMs = this.clock.nowMs();
-    return await this.repo.insert({
-      id,
-      tenantId: opts.tenantId,
-      agentId: opts.input.agentId,
-      agentVersion: opts.input.agentVersion,
-      slug,
-      title: opts.input.title,
-      description: opts.input.description ?? null,
-      avatarUrl: opts.input.avatarUrl ?? null,
-      visibility: opts.input.visibility ?? "public",
-      status: opts.input.status ?? "draft",
-      greeting: opts.input.greeting ?? null,
-      suggestedPrompts: opts.input.suggestedPrompts ?? [],
-      pricingRef: opts.input.pricingRef ?? null,
-      rateLimitRef: opts.input.rateLimitRef ?? null,
-      environmentId: opts.input.environmentId ?? null,
-      createdAt: nowMs,
-    });
+    try {
+      return await this.repo.insert({
+        id,
+        tenantId: opts.tenantId,
+        agentId: opts.input.agentId,
+        agentVersion: opts.input.agentVersion,
+        slug,
+        title: opts.input.title,
+        description: opts.input.description ?? null,
+        avatarUrl: opts.input.avatarUrl ?? null,
+        visibility: opts.input.visibility ?? "public",
+        status: opts.input.status ?? "draft",
+        greeting: opts.input.greeting ?? null,
+        suggestedPrompts: opts.input.suggestedPrompts ?? [],
+        pricingRef: opts.input.pricingRef ?? null,
+        rateLimitRef: opts.input.rateLimitRef ?? null,
+        environmentId: opts.input.environmentId ?? null,
+        createdAt: nowMs,
+      });
+    } catch (err) {
+      if (isSlugConflict(err)) throw new PublicationSlugConflictError();
+      throw err;
+    }
   }
 
   async update(opts: {
