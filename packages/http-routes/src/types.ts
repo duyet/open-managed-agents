@@ -19,6 +19,7 @@ import type { EnvironmentService } from "@duyet/oma-environments-store";
 import type { ModelCardService } from "@duyet/oma-model-cards-store";
 import type { SqlClient } from "@duyet/oma-sql-client";
 import type { KvStore } from "@duyet/oma-kv-store";
+import type { BlobStore } from "@duyet/oma-blob-store";
 import type {
   Logger,
   MetricsRecorder,
@@ -115,6 +116,13 @@ export interface RouteServices {
   // apps/main-node/src/lib/anyrouter-provider.ts); routes that upsert a
   // card from a connected provider must no-op when this is undefined. ──
   modelCards?: ModelCardService;
+  // ── Files blob store — appended (skills/model_cards/stats/usage node
+  // parity, #171). File-bytes backend for skill version files (R2 on CF,
+  // local-FS/S3 on self-host Node). Optional + nullable: some legacy route
+  // fixtures don't wire it, and a deployment may genuinely have no blob
+  // backend configured — routes that need it (skills) 500 with an explicit
+  // "FILES_BUCKET binding not configured" message rather than throwing. ──
+  filesBlob?: BlobStore | null;
 }
 
 /** Per-request services accessor. CF passes a callback that resolves

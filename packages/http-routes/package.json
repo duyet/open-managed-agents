@@ -33,6 +33,7 @@
     "@duyet/oma-telegram": "workspace:*",
     "@duyet/oma-vault-forward": "workspace:*",
     "@duyet/oma-vaults-store": "workspace:*",
+    "fflate": "^0.8.2",
     "hono": "^4.7.0",
     "nanoid": "^5.1.0",
     "zod": "4.3.6"

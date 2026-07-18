@@ -20,9 +20,14 @@ import {
   buildAnalyticsRoutes,
   buildTelemetryRoutes,
   buildScheduleRoutes,
+  buildModelCardRoutes,
+  buildStatsRoutes,
+  buildUsageRoutes,
+  buildSkillRoutes,
   mintApiKeyOnStorage,
   type RouteServices,
 } from "@duyet/oma-http-routes";
+import { DefaultQuotaService } from "@duyet/oma-quotas";
 import {
   buildPublicPublicationRoutes,
   publicSessionCaps,
@@ -52,8 +57,6 @@ import capCliOauthRoutes from "./routes/cap-cli-oauth";
 import memoryRoutes from "./routes/memory";
 import dreamsRoutes from "./routes/dreams";
 import filesRoutes from "./routes/files";
-import skillsRoutes from "./routes/skills";
-import modelCardsRoutes from "./routes/model-cards";
 import modelsRoutes from "./routes/models";
 import clawhubRoutes from "./routes/clawhub";
 import evalsRoutes from "./routes/evals";
@@ -61,9 +64,7 @@ import costReportRoutes from "./routes/cost-report";
 import internalRoutes from "./routes/internal";
 import integrationsRoutes from "./routes/integrations";
 import { runtimesRoutes, runtimeDaemonRoutes, authenticateRuntimeToken } from "./routes/runtimes";
-import statsRoutes from "./routes/stats";
 import agentStatsRoutes from "./routes/agent-stats";
-import usageRoutes from "./routes/usage";
 import providersRoutes from "./routes/providers";
 import sandboxProvidersRoutes from "./routes/sandbox-providers";
 import webhookRoutes from "./routes/webhooks";
@@ -384,6 +385,51 @@ const mcpServersRoutes = new Hono<{ Bindings: Env; Variables: { tenant_id: strin
 const analyticsRoutes = new Hono<{ Bindings: Env; Variables: { tenant_id: string } }>().all("*", (c) => {
   const ctx = c as unknown as AppCtx;
   const app = buildAnalyticsRoutes({ services: () => cfRouteServicesFromCtx(ctx) });
+  return invokePackage(c, app);
+});
+
+const modelCardsRoutes = new Hono<{ Bindings: Env; Variables: { tenant_id: string } }>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  const app = buildModelCardRoutes({ services: () => cfRouteServicesFromCtx(ctx) });
+  return invokePackage(c, app);
+});
+
+const statsRoutes = new Hono<{ Bindings: Env; Variables: { tenant_id: string } }>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  const app = buildStatsRoutes({ services: () => cfRouteServicesFromCtx(ctx) });
+  return invokePackage(c, app);
+});
+
+const usageRoutes = new Hono<{ Bindings: Env; Variables: { tenant_id: string } }>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  const app = buildUsageRoutes({ services: () => cfRouteServicesFromCtx(ctx) });
+  return invokePackage(c, app);
+});
+
+// Skill upload abuse gates — same RL_UPLOAD_TENANT binding + UPLOAD_MAX_BYTES
+// env var the legacy apps/main/src/quotas.ts used, now behind the portable
+// QuotaService interface so packages/http-routes/src/skills stays runtime-
+// agnostic. Soft-passes (uploadGate consume → {ok:true}) when the binding
+// is unconfigured, matching the historical CF behavior.
+const skillsRoutes = new Hono<{ Bindings: Env; Variables: { tenant_id: string } }>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  const env = ctx.env;
+  const quota = new DefaultQuotaService({
+    kv: cfRouteServicesFromCtx(ctx).kv,
+    uploadGate: {
+      consume: async (key: string) => {
+        if (!env.RL_UPLOAD_TENANT) return { ok: true };
+        try {
+          const r = await env.RL_UPLOAD_TENANT.limit({ key });
+          return { ok: r.success };
+        } catch {
+          return { ok: true };
+        }
+      },
+    },
+    uploadMaxBytes: Number(env.UPLOAD_MAX_BYTES ?? 25 * 1024 * 1024),
+  });
+  const app = buildSkillRoutes({ services: () => cfRouteServicesFromCtx(ctx), quota });
   return invokePackage(c, app);
 });
 

@@ -64,6 +64,13 @@
       "when": 1785024000000,
       "tag": "0008_tenant_invites",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785110400000,
+      "tag": "0010_usage_events_instance_type",
+      "breakpoints": true
     }
   ]
 }

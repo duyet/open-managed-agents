@@ -158,3 +158,23 @@ export { buildScheduleRoutes } from "./schedules";
 export type { ScheduleRoutesDeps, ScheduleDbArg } from "./schedules";
 
 export { checkInternalSecret } from "./internal-auth";
+
+export { buildModelCardRoutes } from "./model-cards";
+export type { ModelCardRoutesDeps } from "./model-cards";
+
+export { buildStatsRoutes } from "./stats";
+export type { StatsRoutesDeps } from "./stats";
+
+export { buildUsageRoutes } from "./usage";
+export type {
+  UsageRoutesDeps,
+  UsageByKind,
+  UsageByInstanceType,
+  DailyBucket,
+  UsageByAgent,
+  UsagePeriod,
+  UsageSummary,
+} from "./usage";
+
+export { buildSkillRoutes } from "./skills";
+export type { SkillRoutesDeps } from "./skills";

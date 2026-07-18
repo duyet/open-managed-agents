@@ -51,6 +51,7 @@ import { createSqliteFileService } from "@duyet/oma-files-store";
 import { createSqliteEvalRunService } from "@duyet/oma-evals-store";
 import { createSqliteEnvironmentService } from "@duyet/oma-environments-store";
 import { createSqlitePublicationService } from "@duyet/oma-publications-store";
+import { createSqliteModelCardService } from "@duyet/oma-model-cards-store";
 import { toFileRecord } from "@duyet/oma-files-store";
 import { SqlEventLog } from "@duyet/oma-event-log/sql";
 import type { SessionEvent } from "@duyet/oma-shared";
@@ -102,6 +103,10 @@ import {
   buildIntegrationsGatewayRoutes,
   buildAnyRouterRoutes,
   buildTelegramWebhookRoute,
+  buildModelCardRoutes,
+  buildStatsRoutes,
+  buildUsageRoutes,
+  buildSkillRoutes,
   type RouteServices,
   type ApiKeyStorage,
   type ApiKeyMeta,
@@ -448,6 +453,15 @@ const filesService = createSqliteFileService({ db: drizzleDb });
 const evalsService = createSqliteEvalRunService({ db: drizzleDb });
 const environmentsService = createSqliteEnvironmentService({ db: drizzleDb });
 const publicationsService = createSqlitePublicationService({ db: drizzleDb });
+// At-rest encryption for model_cards.api_key_cipher — same AES-GCM
+// construction as the CF deployment's mintCrypto(env, "model.cards.keys")
+// (packages/services/src/index.ts), just against PLATFORM_ROOT_SECRET
+// directly instead of through that helper (Node has no per-store `env`
+// object to mint from).
+const modelCardsService = createSqliteModelCardService(
+  { db: drizzleDb },
+  { crypto: new WebCryptoAesGcm(platformRootSecret, "model.cards.keys") },
+);
 
 let memoryBlobs: import("@duyet/oma-memory-store").BlobStore;
 let memoryBlobDescription: string;
@@ -964,6 +978,8 @@ const services: RouteServices = {
   dreams: dreamsService,
   environments: environmentsService,
   publications: publicationsService,
+  modelCards: modelCardsService,
+  filesBlob,
   kv,
   newEventLog,
   hub: {
@@ -1519,6 +1535,17 @@ v1.route("/evals", buildEvalRoutes({
 // this route fixes). Backed by the SQLite environments service assembled
 // above and wired into the `services` bundle.
 v1.route("/environments", buildEnvironmentRoutes({ services }));
+
+// Model cards, dashboard stats, usage analytics, and the skill catalog
+// (issue #171 — CF/Node route parity). Same shared builders CF mounts;
+// `quota` is omitted for skills (undefined) — self-host Node has no
+// per-tenant CF Rate Limiting binding to back an upload-frequency gate, so
+// uploads soft-pass per @duyet/oma-quotas' "absent primitive = no reject"
+// contract.
+v1.route("/model_cards", buildModelCardRoutes({ services }));
+v1.route("/stats", buildStatsRoutes({ services }));
+v1.route("/usage", buildUsageRoutes({ services }));
+v1.route("/skills", buildSkillRoutes({ services }));
 
 v1.get("/hosting_types", async (c) => {
   const providers = sandboxRegistry.list();
@@ -2120,6 +2147,9 @@ app.route("/v1/oma/evals", buildEvalRoutes({
   evals: evalsService,
   agents: agentsService,
 }));
+// model_cards is in CF's /v1/oma list (apps/main/src/index.ts) — mirror it
+// here too.
+app.route("/v1/oma/model_cards", buildModelCardRoutes({ services }));
 
 // /v1/oma/integrations mirror — same factory used twice. New OMA-only
 // endpoints (if any) get added in the package, not here.

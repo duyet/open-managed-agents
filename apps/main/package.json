@@ -29,6 +29,7 @@
     "@duyet/oma-payments": "workspace:*",
     "@duyet/oma-publications-store": "workspace:*",
     "@duyet/oma-outbound-snapshots-store": "workspace:*",
+    "@duyet/oma-quotas": "workspace:*",
     "@duyet/oma-queue": "workspace:*",
     "@duyet/oma-scheduler": "workspace:*",
     "@duyet/oma-services": "workspace:*",
