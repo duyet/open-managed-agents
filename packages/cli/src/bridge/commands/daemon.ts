@@ -21,6 +21,25 @@ import { detectAll, loadRegistry } from "@duyet/oma-acp-runtime/registry";
 import { SessionManager } from "../lib/session-manager.js";
 import { BridgeSandboxManager } from "../lib/bridge-sandbox.js";
 import { detectLocalSkills } from "../lib/local-skills.js";
+import { attachAgentVersions } from "../lib/agent-versions.js";
+
+/**
+ * Build the agent roster reported in the `hello` manifest: which ACP agents
+ * are on $PATH (detectAll), each annotated with a best-effort self-reported
+ * `--version` (fail-soft → omitted when unknown). Probes run in parallel with
+ * a short timeout so a hung binary can't stall the heartbeat.
+ */
+async function buildAgentRoster(): Promise<
+  Array<{ id: string; binary: string; version?: string }>
+> {
+  const detected = await detectAll();
+  return attachAgentVersions(
+    detected.map((a) => ({ id: a.id, binary: a.spec.command, wraps: a.wraps })),
+  ).then((rows) =>
+    // Drop the internal `wraps` field — the platform only needs id/binary/version.
+    rows.map(({ id, binary, version }) => (version ? { id, binary, version } : { id, binary })),
+  );
+}
 import { printBanner, log, c } from "../lib/style.js";
 import { PKG_VERSION } from "../lib/version.js";
 import { nextBackoff } from "../lib/reconnect.js";
@@ -185,7 +204,7 @@ export async function runDaemon(): Promise<void> {
           log.warn("credentials file disappeared mid-SIGHUP; tenant keys unchanged");
         }
         await loadRegistry({ cachePath, forceRefresh: true });
-        const agents = (await detectAll()).map((a) => ({ id: a.id, binary: a.spec.command }));
+        const agents = await buildAgentRoster();
         const localSkillsDetailed = await detectLocalSkills();
         const localSkills: Record<string, Array<{ id: string; name?: string; description?: string; source: string; source_label?: string }>> = {};
         for (const [agentId, skills] of Object.entries(localSkillsDetailed)) {
@@ -258,10 +277,7 @@ export async function runDaemon(): Promise<void> {
       state.connected = true;
       flushState();
 
-      const agents = (await detectAll()).map((a) => ({
-        id: a.id,
-        binary: a.spec.command,
-      }));
+      const agents = await buildAgentRoster();
       // Scan local skill dirs (~/.claude/skills/, ~/.claude/plugins/*/skills/)
       // so the platform can show users what's available + let them blocklist
       // specific skills per-agent. Strips the absolute `path` field — the
