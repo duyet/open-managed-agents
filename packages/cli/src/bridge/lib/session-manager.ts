@@ -6,11 +6,16 @@
  * Wire protocol (over the daemon ↔ control-plane WS, see daemon.ts):
  *
  *   Server → Daemon
- *     session.start    { session_id, agent_id, cwd?, resume?, model?, reasoning_effort? }
+ *     session.start    { session_id, agent_id, cwd?, resume?, model?, reasoning_effort?,
+ *                         working_dir?, branch?, worktree? }
  *                        model/reasoning_effort (issue #269) are optional per-agent
  *                        overrides from AgentConfig.runtime_binding, applied best-effort
  *                        against the spawned ACP child once it's live — see
  *                        AcpSessionImpl#applyOverrides in @duyet/oma-acp-runtime.
+ *                        working_dir/branch/worktree (local-agent-binding) select a real
+ *                        project directory (optionally on a branch, or a dedicated git
+ *                        worktree) instead of the synthetic per-session cwd — see
+ *                        resolveSpawnCwd in ./spawn-cwd.ts.
  *     session.prompt   { session_id, turn_id, text }
  *     session.cancel   { session_id, turn_id }
  *     session.dispose  { session_id }
@@ -37,12 +42,15 @@
  */
 
 import { spawn as childSpawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { AcpRuntimeImpl } from "@duyet/oma-acp-runtime";
 import { NodeSpawner } from "@duyet/oma-acp-runtime/node-spawner";
 import { resolveKnownAgent } from "@duyet/oma-acp-runtime/registry";
 import type { AcpSession, OverrideOutcome } from "@duyet/oma-acp-runtime";
-import { ensureSessionCwd, removeSessionCwd, writeBundle } from "./session-cwd.js";
+import { removeSessionCwd, writeBundle } from "./session-cwd.js";
 import { setupClaudeConfigDir } from "./claude-config-dir.js";
+import { resolveSpawnCwd } from "./spawn-cwd.js";
 
 export interface SessionStartParams {
   session_id: string;
@@ -66,6 +74,20 @@ export interface SessionStartParams {
    */
   model?: string;
   reasoning_effort?: string;
+  /**
+   * Local-agent-binding (advanced, optional). Absolute path to a project on
+   * the paired machine to use as the ACP child's cwd instead of the
+   * synthetic per-session directory. Unset = unchanged default behavior.
+   * See `resolveSpawnCwd` in ./spawn-cwd.ts for exact semantics.
+   */
+  working_dir?: string;
+  /** Git branch to check out in `working_dir` before spawning. Mutually
+   *  exclusive with `worktree` — `worktree` wins if both are set. */
+  branch?: string;
+  /** Create a git worktree from `worktree.branch` off `working_dir` and use
+   *  it as cwd, instead of checking out `branch` in place. Takes
+   *  precedence over `branch`. */
+  worktree?: { branch: string };
 }
 
 export interface SessionPromptParams {
@@ -312,7 +334,28 @@ export class SessionManager {
       return;
     }
 
-    const sessionCwd = await ensureSessionCwd(p.session_id);
+    // Local-agent-binding (advanced, optional): when `working_dir` is set,
+    // resolve a real project directory (optionally on a branch, or a
+    // dedicated git worktree) instead of the synthetic per-session cwd.
+    // Unset (default) → byte-identical to today's ensureSessionCwd path.
+    let sessionCwd: string;
+    try {
+      sessionCwd = await resolveSpawnCwd({
+        sessionId: p.session_id,
+        workingDir: p.working_dir,
+        branch: p.branch,
+        worktree: p.worktree,
+        runGit: runGitCommand,
+      });
+    } catch (e) {
+      this.#send({
+        type: "session.error",
+        session_id: p.session_id,
+        tenant_id: tenantId,
+        message: `failed to resolve working directory: ${e instanceof Error ? e.message : String(e)}`,
+      });
+      return;
+    }
 
     // Fetch spawn-cwd bundle (AGENTS.md + .claude/skills/...) from main and
     // materialize before starting the ACP child. Bundle errors are non-fatal
@@ -326,7 +369,14 @@ export class SessionManager {
       // inline) regardless of which alias the AgentConfig row stores.
       const bundle = await this.#fetchBundle(p.session_id, agent.id);
       if (bundle) {
-        await writeBundle(sessionCwd, bundle.files);
+        // On a real user working_dir (not the synthetic session cwd), never
+        // clobber a pre-existing AGENTS.md the user already has at the repo
+        // root — the daemon-generated one is skipped, skill files still land.
+        let bundleFiles = bundle.files;
+        if (p.working_dir && existsSync(join(sessionCwd, "AGENTS.md"))) {
+          bundleFiles = bundleFiles.filter((f) => f.path !== "AGENTS.md");
+        }
+        await writeBundle(sessionCwd, bundleFiles);
         blocklist = bundle.local_skill_blocklist ?? [];
         bundleMcpServers = bundle.mcp_servers ?? [];
         bundleEnv = bundle.env ?? [];
@@ -384,6 +434,8 @@ export class SessionManager {
         (bundleEnv.length ? ` env=${bundleEnv.length}` : "") +
         (p.model ? ` model=${p.model}` : "") +
         (p.reasoning_effort ? ` reasoning_effort=${p.reasoning_effort}` : "") +
+        (p.working_dir ? ` working_dir=${p.working_dir}` : "") +
+        (p.worktree?.branch ? ` worktree=${p.worktree.branch}` : p.branch ? ` branch=${p.branch}` : "") +
         // Intentionally NOT logging env names or values — these come from
         // user-supplied session resources and may be sensitive even if not
         // formally encrypted. Only the count is observable.
@@ -639,6 +691,24 @@ export class SessionManager {
  * the child's process.env (the parent already has them set, and a normal
  * delete would fall back to inheritance).
  */
+/**
+ * Run a git command with args passed as an array (never through a shell
+ * string) in `cwd`, for the local-agent-binding branch/worktree resolution
+ * in spawn-cwd.ts. Rejects with the captured stderr on a nonzero exit.
+ */
+function runGitCommand(args: string[], cwd: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = childSpawn("git", args, { cwd, stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
+    proc.stderr?.on("data", (d) => { stderr += d.toString(); });
+    proc.once("error", (err) => reject(err));
+    proc.once("exit", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`git ${args.join(" ")} failed (exit ${code}): ${stderr.trim()}`));
+    });
+  });
+}
+
 function scrubAcpSpawnEnv(
   base: Record<string, string | undefined>,
 ): Record<string, string | undefined> {
