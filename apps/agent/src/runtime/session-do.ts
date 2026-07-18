@@ -4841,8 +4841,13 @@ export class SessionDO extends DurableObject<Env> {
     let dedicatedChildSandbox = false;
     // Environment governing THIS sub-agent turn's harness resolution:
     // the dedicated child environment when one was minted, else the
-    // parent session's own environment (shared-sandbox case).
-    let subAgentEnv: EnvironmentConfig | null | undefined = this.state.environment_snapshot;
+    // parent session's own environment (shared-sandbox case). getEnvConfig
+    // prefers the /init-time snapshot but falls back to a real D1 read when
+    // it's absent — same fallback processUserMessage's harness resolution
+    // relies on.
+    let subAgentEnv: EnvironmentConfig | null | undefined = this.state.environment_id
+      ? await this.getEnvConfig(this.state.environment_id)
+      : null;
     if (sandboxBinding.kind === "dedicated") {
       try {
         const childEnv = await this.getEnvConfig(sandboxBinding.environmentId);
@@ -5197,15 +5202,18 @@ export class SessionDO extends DurableObject<Env> {
     // doesn't yell — the per-method await re-throws to the caller.
     void this.warmUpSandbox().catch(() => { /* surfaces via tool exec */ });
 
-    // Fetch environment config for networking restrictions
+    // Fetch environment config — used for networking restrictions AND
+    // (harness-to-environment migration) harness / model / reasoning_effort
+    // resolution below. getEnvConfig prefers the /init-time snapshot but
+    // falls back to a real D1 read when it's absent (e.g. a caller that
+    // inits the DO directly without a snapshot, or a cross-worker KV
+    // binding mismatch) — the same fallback getAgentConfig already gives
+    // `agent` above, so a session whose /init omitted the snapshot still
+    // resolves the correct harness instead of silently defaulting.
     const envId = this.state.environment_id;
-    let environmentConfig: { networking?: { type: string; allowed_hosts?: string[] } } | undefined;
-    if (envId) {
-      const envCfg = await this.getEnvConfig(envId);
-      if (envCfg) {
-        environmentConfig = envCfg.config;
-      }
-    }
+    const resolvedEnvConfig = envId ? await this.getEnvConfig(envId) : null;
+    const environmentConfig: { networking?: { type: string; allowed_hosts?: string[] } } | undefined =
+      resolvedEnvConfig?.config;
 
     // Fetch memory store attachments from session resources
     const sessionId = this.state.session_id;
@@ -5239,7 +5247,7 @@ export class SessionDO extends DurableObject<Env> {
     // Resolve harness via registry — SessionDO never imports a concrete harness.
     // Harness-to-environment migration: harness is now selected from the
     // session's environment, not the agent. See resolveHarnessNameForEnvironment.
-    const harnessName = resolveHarnessNameForEnvironment(this.state.environment_snapshot);
+    const harnessName = resolveHarnessNameForEnvironment(resolvedEnvConfig);
     let harness: HarnessInterface;
     try {
       harness = resolveHarness(harnessName);
@@ -5337,7 +5345,7 @@ export class SessionDO extends DurableObject<Env> {
     // (AcpProxyHarness, forwarded on ctx below) — cloud harnesses ignore it.
     const isLocalEnv = harnessName === "acp-proxy";
     const agentModelId = typeof agent.model === "string" ? agent.model : agent.model?.id;
-    const envLocalConfig = this.state.environment_snapshot?.config?.local;
+    const envLocalConfig = resolvedEnvConfig?.config?.local;
     const defaultModelId = isLocalEnv ? envLocalConfig?.model : agentModelId;
     const resolvedModelId = this.state.model_override ?? defaultModelId;
     const resolvedReasoningEffort =
@@ -5551,7 +5559,7 @@ export class SessionDO extends DurableObject<Env> {
       // the session-override formula above. AcpProxyHarness reads
       // `environment.config.local` (runtime_id, acp_agent_id, working_dir,
       // branch, worktree) instead of the removed `agent.runtime_binding`.
-      environment: this.state.environment_snapshot,
+      environment: resolvedEnvConfig ?? undefined,
       resolvedModel: resolvedModelId,
       resolvedReasoningEffort,
       // file_id → bytes resolver for ImageBlock/DocumentBlock content blocks

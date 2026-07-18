@@ -180,6 +180,12 @@ async function createTaskSession(
     session_id: sessionId,
     tenant_id: t,
     vault_ids: [],
+    // Without these, SessionDO's state.agent_snapshot/environment_snapshot
+    // stay unset and harness resolution (resolveHarnessNameForEnvironment)
+    // silently falls back to "default" — every eval run ignores whatever
+    // harness the environment actually configures.
+    agent_snapshot: agentSnapshot,
+    environment_snapshot: environmentSnapshot,
   }));
 
   return sessionId;
