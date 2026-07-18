@@ -57,11 +57,17 @@ function formatAgent(agent: AgentConfig) {
   }
 
   const callable = agent.callable_agents ?? [];
+  // The `multiagent` coordinator shape only represents LOCAL sub-agents;
+  // federation (`type: "remote_agent"`) entries are surfaced via the stored
+  // callable_agents passthrough, not this legacy field.
+  const localCallable = callable.filter(
+    (c): c is Extract<typeof c, { type: "agent" }> => c.type === "agent",
+  );
   const multiagent =
-    callable.length > 0
+    localCallable.length > 0
       ? {
           type: "coordinator" as const,
-          agents: callable.map((c) => ({
+          agents: localCallable.map((c) => ({
             type: "agent" as const,
             id: c.id,
             version: c.version ?? 1,

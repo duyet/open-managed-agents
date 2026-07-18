@@ -31,6 +31,12 @@ const KEY_BYTES = 32; // AES-256
  *  PLATFORM_ROOT_SECRET. */
 export const CREDENTIALS_CRYPTO_LABEL = "credentials.auth";
 
+/** Derivation label for the cross-instance federation registry's stored
+ *  remote API keys (issue #132). Distinct from CREDENTIALS_CRYPTO_LABEL so a
+ *  federation ciphertext can never be decrypted with the credentials key and
+ *  vice-versa. */
+export const FEDERATION_CRYPTO_LABEL = "federation.api_key";
+
 export interface CredentialBlobCrypto {
   encrypt(plaintext: string): Promise<string>;
   decrypt(stored: string): Promise<string>;
@@ -49,15 +55,29 @@ export function isLegacyPlaintextAuth(stored: string): boolean {
  * of legacy plaintext rows.
  */
 export function buildCredentialCrypto(platformRootSecret: string): CredentialBlobCrypto {
+  return buildLabeledCrypto(platformRootSecret, CREDENTIALS_CRYPTO_LABEL);
+}
+
+/**
+ * Generic AES-256-GCM at-rest crypto keyed off PLATFORM_ROOT_SECRET under an
+ * arbitrary `label` — the primitive `buildCredentialCrypto` specializes. Use
+ * a distinct label per subsystem so keys never collide (e.g.
+ * FEDERATION_CRYPTO_LABEL). Wire format + legacy-plaintext tolerance are
+ * identical to `buildCredentialCrypto`.
+ */
+export function buildLabeledCrypto(
+  platformRootSecret: string,
+  label: string,
+): CredentialBlobCrypto {
   if (!platformRootSecret) {
-    throw new Error("buildCredentialCrypto: platformRootSecret must be non-empty");
+    throw new Error("buildLabeledCrypto: platformRootSecret must be non-empty");
   }
   let keyPromise: Promise<CryptoKey> | null = null;
   const getKey = (): Promise<CryptoKey> => {
     if (!keyPromise) {
       keyPromise = (async () => {
         const seed = new TextEncoder().encode(
-          `${platformRootSecret}|${CREDENTIALS_CRYPTO_LABEL}`,
+          `${platformRootSecret}|${label}`,
         );
         const digest = await crypto.subtle.digest("SHA-256", seed);
         return crypto.subtle.importKey(

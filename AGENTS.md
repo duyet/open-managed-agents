@@ -806,6 +806,110 @@ child doesn't lose the others' results:
 
 ---
 
+## Cross-Instance Federation
+
+Federation lets an agent on **one** OMA instance delegate a task to an agent
+running on **another** OMA instance (issue #132). It reuses the existing
+`callable_agents` delegation seam and the MCP-registry storage pattern, so it
+adds no new sandbox surface and mounts identically on Cloudflare and self-host
+Node.
+
+### 1. Register a remote instance
+
+Register the remote OMA once at the tenant level (`fed_*` ids). The remote API
+key is a real secret we hold to authenticate outbound, so — unlike the MCP
+registry, which stores only a vault `credential_id` — it is **encrypted at
+rest** (AES-256-GCM under a dedicated `federation.api_key` key derived from
+`PLATFORM_ROOT_SECRET`) and **never echoed back**; reads surface `has_api_key`
+instead.
+
+```bash
+curl -s $BASE/v1/federation/instances \
+  -H "x-api-key: $KEY" -H "content-type: application/json" \
+  -d '{
+    "name": "eu-cluster",
+    "base_url": "https://oma.eu.example.com",
+    "api_key": "omak_remote_tenant_key"
+  }'
+# → 201 { "id": "fed_xxx", "name": "eu-cluster", "base_url": "...",
+#         "has_api_key": true, ... }
+```
+
+Routes (all tenant-scoped):
+
+```http
+POST   /v1/federation/instances                 # Register (201)
+GET    /v1/federation/instances                 # List — (created_at, id) DESC
+GET    /v1/federation/instances/:id             # Get (api key never returned)
+GET    /v1/federation/instances/:id/agents      # Connectivity probe + remote agent discovery
+PATCH  /v1/federation/instances/:id             # Update (api_key: null clears it)
+DELETE /v1/federation/instances/:id             # Delete
+```
+
+`GET /…/:id/agents` performs a server-side `GET /v1/agents` against the remote
+using the stored key so an operator can pick a `remote_agent_id` (200 with the
+remote roster, or 502 `remote_unreachable`).
+
+### 2. Reference a remote agent from a roster
+
+Add a `type: "remote_agent"` entry to `callable_agents`, pointing at a
+registered instance and a remote agent id:
+
+```json
+{
+  "callable_agents": [
+    { "type": "agent", "id": "agent_local_researcher" },
+    {
+      "type": "remote_agent",
+      "instance_id": "fed_xxx",
+      "remote_agent_id": "agent_remote_specialist",
+      "remote_environment_id": "env_on_remote"
+    }
+  ]
+}
+```
+
+This generates a `call_remote_agent_<instance>_<agent>` tool. When invoked, the
+platform:
+
+1. Resolves the instance (base URL + decrypted API key). On Cloudflare the
+   agent DO has no KV / secret access, so it asks the main worker via the
+   `env.MAIN_MCP.resolveFederationTarget` RPC; on self-host Node the harness
+   resolves it directly off KV + crypto.
+2. Opens a fresh session on the remote instance (`POST /v1/sessions`, optional
+   `remote_environment_id`), posts the message, and **polls the remote event
+   log until it reaches `session.status_idle`**.
+3. Returns the remote agent's concatenated `agent.message` text to the caller
+   (a `session.error` on the remote, or a timeout, surfaces as a
+   `Remote agent error: …` tool result).
+
+The delegation client is `delegateToRemoteAgent`
+(`packages/shared/src/federation.ts`); the tool wiring is in
+`apps/agent/src/harness/tools.ts`; the CF executor is
+`SessionDO#runRemoteAgent` (`apps/agent/src/runtime/session-do.ts`).
+
+### Security model
+
+- The remote API key never enters a sandbox and is never returned by the API.
+- Federation is **instance-to-instance**: the calling instance authenticates
+  to the remote with a normal tenant API key stored on the calling side. The
+  remote treats the incoming session like any other API-key session — it runs
+  in the remote's own sandbox, under the remote tenant's own tools/limits.
+- Losing `PLATFORM_ROOT_SECRET` makes stored keys unreadable; resolution then
+  fails loud at the remote (401) rather than using stale bytes.
+
+### Deferred (follow-ups on #132)
+
+The delivered slice is a one-shot request/response delegate. Not yet built:
+event-log **streaming/mirroring** of the remote turn into the caller's log
+(only the final text returns today), remote **identity mapping** beyond the
+shared tenant key, a Console UI for the registry + `remote_agent` roster
+entries (API-only for now), federated **parallel fan-out** (remote entries are
+excluded from `call_agents_parallel`), and inbound-federation trust controls
+distinct from the tenant API key.
+
+---
+
 ## Custom Harness
 
 The default harness (`DefaultHarness`) handles most use cases, but you can replace it entirely:

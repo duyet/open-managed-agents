@@ -22,4 +22,5 @@ export * from "./sql-like";
 export * from "./healthchecks";
 export * from "./known-insecure-secrets";
 export * from "./credential-crypto";
+export * from "./federation";
 export * from "./ssrf";

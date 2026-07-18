@@ -23,6 +23,7 @@ import {
   ModelError,
   TransientInfraError,
   fileR2Key,
+  delegateToRemoteAgent as remoteAgentDelegate,
 } from "@duyet/oma-shared";
 import {
   CfDoStreamRepo,
@@ -4602,6 +4603,38 @@ export class SessionDO extends DurableObject<Env> {
   }
 
   /**
+   * Cross-instance federation delegate (issue #132). Resolves the remote
+   * instance (base URL + API key) via the main worker's
+   * `resolveFederationTarget` RPC — the agent DO has no KV/secret access of
+   * its own — then drives a session on the remote OMA instance to idle and
+   * returns its text response. Throws on any resolution/transport error so
+   * the tool wrapper surfaces it as a `Remote agent error: …`.
+   */
+  private async runRemoteAgent(
+    instanceId: string,
+    remoteAgentId: string,
+    message: string,
+    remoteEnvironmentId?: string,
+  ): Promise<string> {
+    const mcp = this.env.MAIN_MCP;
+    if (!mcp?.resolveFederationTarget) {
+      throw new Error("federation not available (MAIN_MCP.resolveFederationTarget unwired)");
+    }
+    const target = await mcp.resolveFederationTarget({
+      tenantId: this.state.tenant_id,
+      instanceId,
+    });
+    if (!target) {
+      throw new Error(`federation instance ${instanceId} not found for this tenant`);
+    }
+    const { text } = await remoteAgentDelegate(
+      { base_url: target.base_url, api_key: target.api_key },
+      { remoteAgentId, message, remoteEnvironmentId },
+    );
+    return text;
+  }
+
+  /**
    * Run a sub-agent within the same session. Creates an isolated thread
    * with its own message history but shares the same sandbox. Events are
    * tagged with thread_id and written to the parent event log.
@@ -4761,7 +4794,10 @@ export class SessionDO extends DurableObject<Env> {
     // dedicated SandboxExecutor for just this call, torn down (best-effort)
     // once the sub-agent turn finishes. `callerAgent` is null for the
     // reserved "general" sub-agent, which has no roster to consult.
-    const rosterEntry = callerAgent?.callable_agents?.find((ca) => ca.id === agentId);
+    const rosterEntry = callerAgent?.callable_agents?.find(
+      (ca): ca is Extract<typeof ca, { type: "agent" }> =>
+        ca.type === "agent" && ca.id === agentId,
+    );
     const sandboxBinding = resolveSubAgentSandboxBinding(
       rosterEntry?.environment_id,
       this.state.environment_id,
@@ -5192,6 +5228,12 @@ export class SessionDO extends DurableObject<Env> {
         );
         return { text, threadId: childThreadId };
       },
+      delegateToRemoteAgent: (
+        instanceId: string,
+        remoteAgentId: string,
+        message: string,
+        remoteEnvironmentId?: string,
+      ) => this.runRemoteAgent(instanceId, remoteAgentId, message, remoteEnvironmentId),
       watchBackgroundTask: (taskId: string, pid: string, outputFile: string, proc: ProcessHandle | null) => {
         this.watchBackgroundTask(taskId, pid, outputFile, proc, sandbox);
       },
