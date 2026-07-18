@@ -18,6 +18,7 @@ import { PKG_VERSION } from "../lib/version.js";
 import { probeRuntimeToken } from "../lib/probe.js";
 import { readDaemonState, isPidAlive, formatAge } from "../lib/daemon-state.js";
 import { fetchRuntimeSessions, renderSessionsTable } from "../lib/sessions-probe.js";
+import { readCounters } from "../../counters.js";
 
 export async function runStatus(): Promise<void> {
   const profile = currentProfile();
@@ -72,6 +73,14 @@ export async function runStatus(): Promise<void> {
     const up = `up ${formatAge(Date.now() - dstate.startedAt).replace(/ ago$/, "")}`;
     row("daemon", `${conn}  ${c.dim(`pid ${dstate.pid} · ${hb} · ${up}`)}`);
   }
+
+  // Local activity counters (best-effort, observability-only). "today"
+  // fields roll over at local midnight; totals are lifetime.
+  const counters = readCounters();
+  row(
+    "activity",
+    `${c.dim("relayed")} ${counters.relayedToday} today ${c.dim(`(${counters.relayedTotal} total)`)}  ${c.dim("· commands")} ${counters.commandsToday} today ${c.dim(`(${counters.commandsTotal} total)`)}`,
+  );
 
   process.stderr.write("\n");
   log.step("probing server");

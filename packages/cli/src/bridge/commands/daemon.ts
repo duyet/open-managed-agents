@@ -25,6 +25,7 @@ import { printBanner, log, c } from "../lib/style.js";
 import { PKG_VERSION } from "../lib/version.js";
 import { nextBackoff } from "../lib/reconnect.js";
 import { writeDaemonState, type DaemonState } from "../lib/daemon-state.js";
+import { bumpRelay } from "../../counters.js";
 import WebSocket from "ws";
 
 // CF Workers WS connections to *.workers.dev (lane URLs) idle out fast —
@@ -325,6 +326,7 @@ export async function runDaemon(): Promise<void> {
             return;
           case "session.start":
             process.stderr.write(`  session.start sid=${(msg.session_id as string)?.slice(0, 8)} agent=${msg.agent_id}\n`);
+            bumpRelay();
             void sessions.start(msg as never);
             return;
           case "session.prompt":
