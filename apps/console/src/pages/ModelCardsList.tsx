@@ -302,8 +302,24 @@ const PROVIDERS = [
   { value: "ant", label: "Anthropic", desc: "Claude models" },
   { value: "ant-compatible", label: "Anthropic-compatible", desc: "Proxies speaking Anthropic API" },
   { value: "oai", label: "OpenAI", desc: "GPT models" },
-  { value: "oai-compatible", label: "OpenAI-compatible", desc: "DeepSeek, Groq, Together, Ollama, etc." },
+  { value: "oai-compatible", label: "OpenAI-compatible", desc: "xAI Grok, DeepSeek, Groq, Together, Ollama, etc." },
 ] as const;
+
+// One-click endpoint presets for well-known OpenAI-compatible providers.
+// Each fills provider + base_url + a sensible default wire model, so
+// "use Grok" is a click + API key instead of hunting for the base URL.
+// The user can still edit every field afterwards — this only pre-fills.
+const COMPAT_PRESETS: Array<{
+  id: string;
+  label: string;
+  base_url: string;
+  model: string;
+}> = [
+  { id: "xai", label: "xAI Grok", base_url: "https://api.x.ai/v1", model: "grok-4" },
+  { id: "deepseek", label: "DeepSeek", base_url: "https://api.deepseek.com/v1", model: "deepseek-chat" },
+  { id: "groq", label: "Groq", base_url: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-versatile" },
+  { id: "together", label: "Together", base_url: "https://api.together.xyz/v1", model: "meta-llama/Llama-3.3-70B-Instruct-Turbo" },
+];
 
 type ProviderValue = (typeof PROVIDERS)[number]["value"];
 
@@ -720,6 +736,41 @@ export function ModelCardsList() {
                   <div className="text-xs text-fg-subtle mt-0.5">{p.desc}</div>
                 </button>
               ))}
+            </div>
+            {/* Known OpenAI-compatible endpoints — a preset fills format +
+                base URL + default wire model in one click; the fields stay
+                editable. Model ID is only filled when still empty so a
+                user-chosen handle is never clobbered. */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              <span className="text-xs text-fg-subtle">Quick start:</span>
+              {COMPAT_PRESETS.map((p) => {
+                const active = form.provider === "oai-compatible" && form.base_url === p.base_url;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => {
+                      setForm({
+                        ...form,
+                        provider: "oai-compatible",
+                        base_url: p.base_url,
+                        model: p.model,
+                        model_id: form.model_id || p.model,
+                      });
+                      setAvailableModels([]);
+                    }}
+                    className={`px-2 py-0.5 rounded-full border text-xs transition-colors duration-[var(--dur-quick)] ease-[var(--ease-soft)] ${
+                      active
+                        ? "border-brand bg-brand-subtle text-fg"
+                        : "border-border text-fg-muted hover:border-fg-subtle"
+                    }`}
+                    title={`${p.base_url} · ${p.model}`}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div>
