@@ -27,7 +27,7 @@ const schemas = [
       Live numbers pulled straight from the OMA API — no sampling, no dashboard login.
     </p>
     <p id="stats-updated" class="text-sm font-mono text-[var(--color-fg-subtle)] mb-10">
-      Loading…
+      <span class="stats-skeleton">Loading…</span>
     </p>
 
     <div id="stats-error" class="hidden border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-surface)] p-6 text-sm text-[var(--color-fg-muted)] mb-10">
@@ -35,29 +35,39 @@ const schemas = [
     </div>
 
     <div id="stats-content" class="hidden">
-      <!-- Counter tiles -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-14">
-        <div class="border border-[var(--color-border)] rounded-lg p-5 bg-[var(--color-bg)]">
-          <div class="font-mono text-3xl font-bold tabular-nums" data-stat="agents-total">—</div>
-          <div class="text-xs uppercase tracking-wider text-[var(--color-fg-subtle)] mt-1">Agents</div>
-          <div class="text-xs text-[var(--color-fg-muted)] mt-1">
-            <span data-stat="agents-active">—</span> active
+      <!-- Counter tiles inside the same dithered brand frame as the hero diagram -->
+      <div class="relative overflow-hidden rounded-2xl p-4 md:p-6 mb-14">
+        <div
+          class="pointer-events-none absolute inset-0"
+          aria-hidden="true"
+          style="background: url('/hero-tint.jpg') center / cover no-repeat;"
+        ></div>
+        <div class="relative grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          <div class="stat-tile">
+            <div class="font-mono text-3xl md:text-4xl font-bold tabular-nums" data-stat="agents-total">—</div>
+            <div class="stat-label">Agents</div>
+            <div class="stat-sub"><span data-stat="agents-active">—</span> active</div>
           </div>
-        </div>
-        <div class="border border-[var(--color-border)] rounded-lg p-5 bg-[var(--color-bg)]">
-          <div class="font-mono text-3xl font-bold tabular-nums" data-stat="sessions-total">—</div>
-          <div class="text-xs uppercase tracking-wider text-[var(--color-fg-subtle)] mt-1">Sessions</div>
-          <div class="text-xs text-[var(--color-fg-muted)] mt-1">
-            <span data-stat="sessions-running">—</span> running
+          <div class="stat-tile">
+            <div class="font-mono text-3xl md:text-4xl font-bold tabular-nums" data-stat="sessions-total">—</div>
+            <div class="stat-label">Sessions</div>
+            <div class="stat-sub">
+              <span class="stats-pulse" aria-hidden="true"></span>
+              <span data-stat="sessions-running">—</span> running
+            </div>
           </div>
-        </div>
-        <div class="border border-[var(--color-border)] rounded-lg p-5 bg-[var(--color-bg)]">
-          <div class="font-mono text-3xl font-bold tabular-nums" data-stat="tasks-total">—</div>
-          <div class="text-xs uppercase tracking-wider text-[var(--color-fg-subtle)] mt-1">Tasks</div>
-        </div>
-        <div class="border border-[var(--color-border)] rounded-lg p-5 bg-[var(--color-bg)]">
-          <div class="font-mono text-3xl font-bold tabular-nums" data-stat="cli-total">—</div>
-          <div class="text-xs uppercase tracking-wider text-[var(--color-fg-subtle)] mt-1">CLI commands</div>
+          <div class="stat-tile">
+            <div class="font-mono text-3xl md:text-4xl font-bold tabular-nums" data-stat="tasks-total">—</div>
+            <div class="stat-label">Scheduled work</div>
+            <div class="stat-sub">
+              <span data-stat="tasks-deployments">—</span> deployments · <span data-stat="tasks-schedules">—</span> schedules
+            </div>
+          </div>
+          <div class="stat-tile">
+            <div class="font-mono text-3xl md:text-4xl font-bold tabular-nums" data-stat="cli-total">—</div>
+            <div class="stat-label">CLI commands</div>
+            <div class="stat-sub">anonymous, opt-out</div>
+          </div>
         </div>
       </div>
 
@@ -74,6 +84,60 @@ const schemas = [
       </div>
     </div>
   </section>
+
+  <style>
+    .stat-tile {
+      border: 1px solid var(--color-border);
+      border-radius: 0.75rem;
+      padding: 1.1rem 1.25rem;
+      background: var(--color-bg);
+      transition: border-color 0.15s ease;
+    }
+    .stat-tile:hover {
+      border-color: var(--color-border-strong);
+    }
+    .stat-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--color-fg-subtle);
+      margin-top: 0.35rem;
+    }
+    .stat-sub {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.75rem;
+      color: var(--color-fg-muted);
+      margin-top: 0.3rem;
+    }
+    .stats-pulse {
+      width: 0.45rem;
+      height: 0.45rem;
+      border-radius: 999px;
+      background: var(--color-brand);
+      animation: stats-pulse 2s ease-in-out infinite;
+    }
+    @keyframes stats-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+    .stats-skeleton {
+      animation: stats-pulse 1.4s ease-in-out infinite;
+    }
+    /* Bars grow in on first paint. */
+    :global(.stats-bar) {
+      transform-origin: left;
+      animation: stats-bar-grow 0.6s ease-out both;
+    }
+    @keyframes stats-bar-grow {
+      from { transform: scaleX(0); }
+      to { transform: scaleX(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .stats-pulse, .stats-skeleton, :global(.stats-bar) { animation: none; }
+    }
+  </style>
 
   <script>
     const API_BASE = "https://app.oma.duyet.net";
@@ -104,14 +168,14 @@ const schemas = [
       }
       const max = Math.max(...rows.map((r) => r.count), 1);
       container.innerHTML = rows
-        .map((row) => {
+        .map((row, i) => {
           const label = String(row[key] ?? "unknown");
           const pct = Math.max((row.count / max) * 100, 2);
           return `
             <div class="flex items-center gap-3 text-sm">
               <div class="w-40 shrink-0 font-mono truncate text-[var(--color-fg-muted)]" title="${label}">${label}</div>
               <div class="flex-1 h-5 bg-[var(--color-bg-surface)] rounded-sm overflow-hidden border border-[var(--color-border)]">
-                <div class="h-full bg-[var(--color-brand)] rounded-sm" style="width: ${pct}%"></div>
+                <div class="stats-bar h-full rounded-sm" style="width: ${pct}%; animation-delay: ${i * 45}ms; background: color-mix(in srgb, var(--color-brand) ${i === 0 ? 100 : 65}%, var(--color-bg-surface))"></div>
               </div>
               <div class="w-14 shrink-0 text-right font-mono tabular-nums text-[var(--color-fg-subtle)]">${row.count.toLocaleString()}</div>
             </div>
@@ -131,6 +195,8 @@ const schemas = [
         setStat("sessions-total", data.sessions?.total ?? 0);
         setStat("sessions-running", data.sessions?.running ?? 0);
         setStat("tasks-total", data.tasks?.total ?? 0);
+        setStat("tasks-deployments", data.tasks?.deployments ?? 0);
+        setStat("tasks-schedules", data.tasks?.schedules ?? 0);
         setStat("cli-total", data.cli?.total_commands ?? 0);
 
         renderBars("stats-by-command", data.cli?.by_command ?? [], "name");
@@ -138,7 +204,7 @@ const schemas = [
 
         const updatedEl = document.getElementById("stats-updated");
         if (updatedEl) {
-          updatedEl.textContent = data.generated_at ? `Updated ${relativeTime(data.generated_at)}` : "";
+          updatedEl.textContent = data.generated_at ? `Updated ${relativeTime(data.generated_at)} · refreshes every 60s` : "";
         }
 
         document.getElementById("stats-content")?.classList.remove("hidden");
@@ -152,5 +218,6 @@ const schemas = [
     }
 
     loadStats();
+    setInterval(loadStats, 60_000);
   </script>
 </Base>
