@@ -329,7 +329,8 @@ export async function ensureTenant(
     .bind(userId, tenantId, now)
     .run();
 
-  // Seed a default "General" agent so the new workspace isn't empty. Only
+  // Seed the initial agents ("General" + "Senior Engineer") so the new
+  // workspace isn't empty. Only
   // reached once — this whole branch is skipped by the `if (existing) return`
   // above on every subsequent call for this user/tenant. Failures are
   // swallowed (logged only): this function's return value is also used by

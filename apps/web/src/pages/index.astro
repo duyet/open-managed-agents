@@ -196,6 +196,9 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
   schemas={schemas}
 >
   <!-- Hero -->
+  {/* 69px = the fixed header's height (nav py + border in Base.astro) —
+      the hero bleeds under the transparent header by exactly that much.
+      If the header's height changes, this pair must change with it. */}
   <section class="relative overflow-hidden border-b border-[var(--color-border)] -mt-[69px] pt-[69px]">
     <!-- Ground: the dithered hero image as the visual floor, full-width and
          faded toward the bottom so the h1/CTAs stay legible. A solid bg

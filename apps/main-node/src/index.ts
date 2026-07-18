@@ -309,6 +309,14 @@ let authShutdown: (() => Promise<void>) | null = null;
 // without better-auth's user table to resolve into).
 let authUserSql: SqlClient | null = null;
 
+// Shared onTenantCreated hook for every auth entry point (postgres,
+// sqlite, trusted-proxy). Must stay a lazy closure: `agentsService` is
+// declared further down and only exists by the time a tenant is actually
+// created at request time.
+const seedNewTenant = async (tenantId: string) => {
+  await seedDefaultAgent(agentsService, tenantId);
+};
+
 if (!authDisabled) {
   if (usePostgres) {
     const { Pool } = (await import("pg")) as typeof import("pg");
@@ -327,9 +335,7 @@ if (!authDisabled) {
       requireEmailVerify: process.env.AUTH_REQUIRE_EMAIL_VERIFY === "1",
       cookieDomain: process.env.AUTH_COOKIE_DOMAIN,
       ensureTenant: (u) =>
-        ensureTenantSqlite(sql, u.id, u.name, u.email, async (tenantId) => {
-          await seedDefaultAgent(agentsService, tenantId);
-        }),
+        ensureTenantSqlite(sql, u.id, u.name, u.email, seedNewTenant),
     });
     authShutdown = async () => {
       await pgPool.end();
@@ -364,9 +370,7 @@ if (!authDisabled) {
       requireEmailVerify: process.env.AUTH_REQUIRE_EMAIL_VERIFY === "1",
       cookieDomain: process.env.AUTH_COOKIE_DOMAIN,
       ensureTenant: (u) =>
-        ensureTenantSqlite(sql, u.id, u.name, u.email, async (tenantId) => {
-          await seedDefaultAgent(agentsService, tenantId);
-        }),
+        ensureTenantSqlite(sql, u.id, u.name, u.email, seedNewTenant),
     });
     authShutdown = async () => {
       authDb.close();
@@ -1199,9 +1203,7 @@ const authMw = buildAuthMw({
     return row !== null;
   },
   ensureTenantForUser: (s) =>
-    ensureTenantSqlite(sql, s.userId, s.name, s.email, async (tenantId) => {
-      await seedDefaultAgent(agentsService, tenantId);
-    }),
+    ensureTenantSqlite(sql, s.userId, s.name, s.email, seedNewTenant),
   ...(trustedProxyConfig && authUserSql
     ? {
         trustedProxy: {
