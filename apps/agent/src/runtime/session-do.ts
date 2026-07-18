@@ -86,6 +86,7 @@ import { SqliteHistory, InMemoryHistory } from "./history";
 import { createSandbox, CloudflareSandbox, SandboxProviderUnavailableError } from "./sandbox";
 import { resolveSubAgentSandboxBinding } from "./sub-agent-sandbox";
 import { mountResources } from "./resource-mounter";
+import { synthesizeEnvRepoResource } from "./env-repo-resource";
 import { spawnStdioMcpServers, type StdioMcpConfig } from "./mcp-spawner";
 import {
   findLatestBackup as findWorkspaceBackup,
@@ -3375,6 +3376,16 @@ export class SessionDO extends DurableObject<Env> {
         // this and later writes win). Sensitive values are read from the KV
         // secret store — they never live in the environment_snapshot config.
         await this.applyEnvironmentEnvVars(sandbox);
+
+        // Auto-clone: an environment can declare `config.git_repo` to clone
+        // a repo into /workspace on every session it backs, without the
+        // caller attaching an explicit github_repository session resource.
+        // Synthesized in-memory only (never persisted as a session resource
+        // row) — see env-repo-resource.ts for the auth-path caveat this
+        // implies for private repos.
+        const envGitRepo = this.state.environment_snapshot?.config?.git_repo;
+        const synthesizedRepo = synthesizeEnvRepoResource(envGitRepo, resources);
+        if (synthesizedRepo) resources.unshift(synthesizedRepo);
 
         if (resources.length) {
           await mountResources(

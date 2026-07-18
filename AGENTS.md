@@ -406,6 +406,27 @@ Environments define the sandbox where tools execute:
 }
 ```
 
+### Auto-Clone
+
+An environment can declare `config.git_repo` to clone a repo into
+`/workspace` on every session's sandbox start, reusing the same
+`github_repository` resource machinery a session's explicit repo resources
+use (`mountResources` → `mountGitRepo`):
+
+```json
+{
+  "config": {
+    "git_repo": { "url": "https://github.com/acme/widgets", "branch": "main" }
+  }
+}
+```
+
+`mount_path` defaults to `/workspace`; skipped if a session resource already
+targets the same path. Cloning is unauthenticated unless the outbound
+proxy's vault-credential fallback resolves a token for the host — like
+explicit repo resources, `credential_id` isn't yet wired into the clone
+auth path.
+
 ### Sandbox Provider on the Cloudflare Deployment
 
 An environment's `config.sandbox_provider` (or legacy `config.type`) selects

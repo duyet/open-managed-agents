@@ -328,6 +328,17 @@ export interface EnvironmentConfig {
      *  in the KV secret store and never echoed in API responses — see
      *  {@link EnvVarSpec}. */
     env_vars?: EnvVarSpec[];
+    /** Auto-clone a git repo into the sandbox on session start, reusing the
+     *  github_repository resource machinery (mountResources → mountGitRepo).
+     *  Cloning is unauthenticated unless a matching vault credential resolves
+     *  via the outbound proxy's fallback — `credential_id` is carried on the
+     *  synthesized resource but not yet wired into the clone auth path. */
+    git_repo?: {
+      url: string;
+      branch?: string;
+      credential_id?: string;
+      mount_path?: string;
+    };
   };
   metadata?: Record<string, unknown>;
   created_at: string;
