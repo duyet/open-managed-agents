@@ -43,6 +43,13 @@
       "when": 1784592000000,
       "tag": "0005_telemetry_events",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784937600000,
+      "tag": "0009_telemetry_installs",
+      "breakpoints": true
     }
   ]
 }
