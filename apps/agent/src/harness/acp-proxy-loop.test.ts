@@ -151,3 +151,73 @@ describe("AcpProxyHarness — model/reasoning-effort override forwarding (#269)"
     expect(captured).not.toHaveProperty("reasoning_effort");
   });
 });
+
+describe("AcpProxyHarness — local-agent-binding forwarding (working_dir/branch/worktree)", () => {
+  const sockets: WebSocket[] = [];
+  afterEach(() => {
+    for (const s of sockets.splice(0)) {
+      try { s.close(); } catch { /* already closed */ }
+    }
+  });
+
+  it("forwards working_dir and branch on session.start when set", async () => {
+    let captured: Record<string, unknown> | undefined;
+    const room = fakeRuntimeRoom(scriptedDaemon((frame) => { captured = frame; }));
+
+    await runHarness(
+      agentWithBinding({
+        runtime_id: "rt_1",
+        acp_agent_id: "claude-acp",
+        working_dir: "/Users/dev/projects/my-repo",
+        branch: "feature/x",
+      }),
+      room,
+    );
+
+    expect(captured).toMatchObject({
+      type: "session.start",
+      agent_id: "claude-acp",
+      working_dir: "/Users/dev/projects/my-repo",
+      branch: "feature/x",
+    });
+    expect(captured).not.toHaveProperty("worktree");
+  });
+
+  it("forwards working_dir and worktree on session.start when set", async () => {
+    let captured: Record<string, unknown> | undefined;
+    const room = fakeRuntimeRoom(scriptedDaemon((frame) => { captured = frame; }));
+
+    await runHarness(
+      agentWithBinding({
+        runtime_id: "rt_1",
+        acp_agent_id: "claude-acp",
+        working_dir: "/Users/dev/projects/my-repo",
+        worktree: { branch: "feature/y" },
+      }),
+      room,
+    );
+
+    expect(captured).toMatchObject({
+      type: "session.start",
+      agent_id: "claude-acp",
+      working_dir: "/Users/dev/projects/my-repo",
+      worktree: { branch: "feature/y" },
+    });
+    expect(captured).not.toHaveProperty("branch");
+  });
+
+  it("omits working_dir, branch, and worktree entirely when unset", async () => {
+    let captured: Record<string, unknown> | undefined;
+    const room = fakeRuntimeRoom(scriptedDaemon((frame) => { captured = frame; }));
+
+    await runHarness(
+      agentWithBinding({ runtime_id: "rt_1", acp_agent_id: "claude-acp" }),
+      room,
+    );
+
+    expect(captured).toMatchObject({ type: "session.start", agent_id: "claude-acp" });
+    expect(captured).not.toHaveProperty("working_dir");
+    expect(captured).not.toHaveProperty("branch");
+    expect(captured).not.toHaveProperty("worktree");
+  });
+});

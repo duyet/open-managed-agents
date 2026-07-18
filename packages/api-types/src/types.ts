@@ -201,6 +201,26 @@ export interface AgentConfig {
      * without a thought_level option silently keep their default.
      */
     reasoning_effort?: string;
+    /**
+     * Absolute path to a project on the paired machine to use as the ACP
+     * child's cwd, instead of the daemon's synthetic per-session directory.
+     * When unset (default), behavior is unchanged — the daemon spawns into
+     * `~/.oma/bridge/sessions/<session-id>/`.
+     */
+    working_dir?: string;
+    /**
+     * Git branch to check out in `working_dir` before spawning. Requires
+     * `working_dir`. Mutually exclusive with `worktree` — `worktree` wins
+     * if both are set.
+     */
+    branch?: string;
+    /**
+     * Instead of checking out a branch in `working_dir` directly, create a
+     * git worktree from `worktree.branch` (via `git worktree add`) and use
+     * the worktree directory as cwd. Requires `working_dir`. Takes
+     * precedence over `branch` if both are set.
+     */
+    worktree?: { branch: string };
   };
   description?: string;
   metadata?: Record<string, unknown>;

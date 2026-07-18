@@ -111,11 +111,17 @@ export class AcpProxyHarness implements HarnessInterface {
       // session/set_model + session/set_config_option methods once the
       // child is live; omitted here when unset so older daemons see the
       // exact same frame shape as before.
+      // working_dir / branch / worktree are the local-agent-binding fields —
+      // same omit-when-unset treatment so the default (all unset) frame is
+      // byte-identical to today.
       ws.send(JSON.stringify({
         type: "session.start",
         agent_id: binding.acp_agent_id,
         ...(binding.model ? { model: binding.model } : {}),
         ...(binding.reasoning_effort ? { reasoning_effort: binding.reasoning_effort } : {}),
+        ...(binding.working_dir ? { working_dir: binding.working_dir } : {}),
+        ...(binding.branch ? { branch: binding.branch } : {}),
+        ...(binding.worktree ? { worktree: binding.worktree } : {}),
       }));
       await waitForFrame(ws, (m) => m.type === "session.ready" || m.type === "session.error", 60_000)
         .then((m) => {
