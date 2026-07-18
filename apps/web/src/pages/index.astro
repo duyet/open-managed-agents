@@ -214,7 +214,8 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
              leads the hero — the product's mental model before the pitch. -->
         <!-- Dithered-pattern frame around the fit diagram (reference: framed
              dashboard screenshots) — full-strength in light, damped in dark. -->
-        <div class="mb-12 relative overflow-hidden rounded-2xl p-4 md:p-7">
+        <!-- Breaks out wider than the text column on large screens. -->
+        <div class="mb-12 relative overflow-hidden rounded-2xl p-5 md:p-10 lg:-mx-20 xl:-mx-32">
           <div
             class="pointer-events-none absolute inset-0"
             aria-hidden="true"
