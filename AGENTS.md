@@ -1045,6 +1045,51 @@ Attach external resources to a session at runtime:
 
 ---
 
+## Team Members & Invites
+
+A tenant (workspace) is multi-user: `membership` binds a user to a tenant with
+a role (`owner` | `admin` | `member`). To add a teammate, an **owner or admin**
+creates an **invite** — an email + role + opaque token with a 7-day expiry
+(issue #175). The invitee accepts it while signed in with that exact email,
+which writes their `membership` row and joins them to the workspace.
+
+Invites live in the shared control-plane store next to `tenant`/`membership`
+(`tenant_invites`, `inv_*` ids). Delivery is **invite-link-first**: the create
+response always returns the `token` + `accept_url`, and an email is sent
+best-effort when an email sender is configured (the same `SEND_EMAIL` /
+nodemailer seam the consumer magic-links use) — a missing sender never fails
+the request.
+
+```bash
+# Invite a teammate (owner/admin only). role: "admin" | "member" (default member)
+curl -s $BASE/v1/tenant/invites \
+  -H "x-active-tenant: $TENANT" -H "content-type: application/json" \
+  -d '{"email": "teammate@example.com", "role": "member"}'
+# → 201 { "id": "inv_...", "email": "...", "role": "member", "status": "pending",
+#         "token": "...", "accept_url": "https://<host>/invites/<token>", ... }
+```
+
+Routes (management routes require an owner/admin cookie session; accept routes
+require the invitee's cookie session):
+
+```http
+GET    /v1/tenant/members            # List current members (owner/admin)
+GET    /v1/tenant/invites            # List pending invites — (created_at,id) DESC
+POST   /v1/tenant/invites            # Create an invite (201)
+DELETE /v1/tenant/invites/:id        # Revoke a pending invite (204)
+GET    /v1/invites/:token            # Preview an invite (email, workspace, role, expiry)
+POST   /v1/invites/:token/accept     # Accept → joins the invite's tenant
+```
+
+Semantics: a non-manager caller gets `403 forbidden`; a duplicate pending
+invite for the same email is `409 invite_exists`; accept refuses a
+`revoked`/`expired` invite (`410`) or an email that doesn't match the
+signed-in user (`403 email_mismatch`). Console UI lives at **Settings ›
+Members** (invite form, member list, pending-invite revoke). Wired on **both**
+runtimes (Cloudflare + self-host Node).
+
+---
+
 ## Agent Schedules
 
 Schedules let an agent fire sessions on a cron cadence with no human turn —

@@ -64,6 +64,13 @@
       "when": 1785024000000,
       "tag": "0007_schedules",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1785024000000,
+      "tag": "0008_tenant_invites",
+      "breakpoints": true
     }
   ]
 }

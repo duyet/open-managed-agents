@@ -9,6 +9,9 @@ import {
   buildApiKeyRoutes,
   buildMeRoutes,
   buildTenantRoutes,
+  buildTenantMemberRoutes,
+  buildInviteAcceptRoutes,
+  type InviteRoutesDeps,
   buildPublicationRoutes,
   buildAgentPublicationRoutes,
   buildDeviceRoutes,
@@ -42,7 +45,7 @@ import {
   fetchVaultCredentials,
 } from "./lib/cf-session-lifecycle";
 import { validateAgentLimits } from "./lib/limits";
-import { listMemberships, hasMembership } from "./auth-config";
+import { listMemberships, hasMembership, sendEmail } from "./auth-config";
 import environmentsRoutes from "./routes/environments";
 import oauthRoutes from "./routes/oauth";
 import capCliOauthRoutes from "./routes/cap-cli-oauth";
@@ -498,6 +501,160 @@ const tenantsRoutes = new Hono<{
   return invokePackage(c, app);
 });
 
+// ─── Tenant teammate invites (issue #175) ─────────────────────────────────
+// Members + invite management (/v1/tenant) and token-keyed accept
+// (/v1/invites). Invites live in MAIN_DB next to tenant/membership so accept
+// writes a membership row in the same store. Membership timestamps stay
+// unix-seconds to match the legacy createTenantAndMembership rows; invite
+// timestamps are ms (the pagination cursor convention).
+function cfInviteDeps(env: Env): InviteRoutesDeps {
+  const db = env.MAIN_DB;
+  const invEmail = (to: string, tenantName: string | null, role: string, url: string) => {
+    const ws = tenantName || "a workspace";
+    return {
+      subject: `You've been invited to join ${ws} on OMA`,
+      html: `<p>You've been invited to join <strong>${ws}</strong> as <strong>${role}</strong>.</p>` +
+        `<p><a href="${url}">Accept the invitation</a></p>` +
+        `<p>Or paste this link into your browser:<br>${url}</p>`,
+      text: `You've been invited to join ${ws} as ${role}.\n\nAccept: ${url}\n`,
+    };
+  };
+  return {
+    authDisabled: false,
+    getRole: async (userId, tenantId) => {
+      const r = await db
+        .prepare("SELECT role FROM membership WHERE user_id = ? AND tenant_id = ? LIMIT 1")
+        .bind(userId, tenantId)
+        .first<{ role: string }>();
+      return r?.role ?? null;
+    },
+    getUserEmail: async (userId) => {
+      const r = await db
+        .prepare('SELECT email FROM "user" WHERE id = ? LIMIT 1')
+        .bind(userId)
+        .first<{ email: string }>();
+      return r?.email ?? null;
+    },
+    listMembers: async (tenantId) => {
+      const { results } = await db
+        .prepare(
+          `SELECT m.user_id AS user_id, u.email AS email, u.name AS name,
+                  m.role AS role, m.created_at AS created_at
+             FROM membership m LEFT JOIN "user" u ON u.id = m.user_id
+            WHERE m.tenant_id = ?
+            ORDER BY m.created_at ASC, m.user_id ASC`,
+        )
+        .bind(tenantId)
+        .all<{ user_id: string; email: string | null; name: string | null; role: string; created_at: number }>();
+      return results ?? [];
+    },
+    createInvite: async (rec) => {
+      await db
+        .prepare(
+          `INSERT INTO tenant_invites
+             (id, tenant_id, email, role, status, token, invited_by, created_at, expires_at)
+           VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?)`,
+        )
+        .bind(rec.id, rec.tenant_id, rec.email, rec.role, rec.token, rec.invited_by, rec.created_at, rec.expires_at)
+        .run();
+    },
+    listInvites: async (tenantId, opts) => {
+      const rows = opts.after
+        ? await db
+            .prepare(
+              `SELECT * FROM tenant_invites
+                WHERE tenant_id = ? AND status = 'pending'
+                  AND (created_at < ? OR (created_at = ? AND id < ?))
+                ORDER BY created_at DESC, id DESC LIMIT ?`,
+            )
+            .bind(tenantId, opts.after.createdAt, opts.after.createdAt, opts.after.id, opts.limit + 1)
+            .all()
+        : await db
+            .prepare(
+              `SELECT * FROM tenant_invites
+                WHERE tenant_id = ? AND status = 'pending'
+                ORDER BY created_at DESC, id DESC LIMIT ?`,
+            )
+            .bind(tenantId, opts.limit + 1)
+            .all();
+      const items = (rows.results ?? []) as unknown as import("@duyet/oma-http-routes").InviteRecord[];
+      const hasMore = items.length > opts.limit;
+      return { items: items.slice(0, opts.limit), hasMore };
+    },
+    findPendingByEmail: async (tenantId, email) => {
+      const r = await db
+        .prepare(
+          `SELECT * FROM tenant_invites
+            WHERE tenant_id = ? AND email = ? AND status = 'pending' AND expires_at > ?
+            LIMIT 1`,
+        )
+        .bind(tenantId, email, Date.now())
+        .first();
+      return (r as unknown as import("@duyet/oma-http-routes").InviteRecord) ?? null;
+    },
+    revokeInvite: async (tenantId, id) => {
+      const res = await db
+        .prepare(
+          "UPDATE tenant_invites SET status = 'revoked' WHERE id = ? AND tenant_id = ? AND status = 'pending'",
+        )
+        .bind(id, tenantId)
+        .run();
+      return (res.meta.changes ?? 0) > 0;
+    },
+    getByToken: async (token) => {
+      const r = await db
+        .prepare(
+          `SELECT i.*, t.name AS tenant_name
+             FROM tenant_invites i LEFT JOIN tenant t ON t.id = i.tenant_id
+            WHERE i.token = ? LIMIT 1`,
+        )
+        .bind(token)
+        .first();
+      return (r as unknown as import("@duyet/oma-http-routes").InviteWithToken) ?? null;
+    },
+    markAccepted: async (id, userId, at) => {
+      await db
+        .prepare(
+          "UPDATE tenant_invites SET status = 'accepted', accepted_by = ?, accepted_at = ? WHERE id = ?",
+        )
+        .bind(userId, at, id)
+        .run();
+    },
+    addMembership: async (userId, tenantId, role) => {
+      await db
+        .prepare(
+          `INSERT INTO membership (user_id, tenant_id, role, created_at)
+             VALUES (?, ?, ?, ?)
+           ON CONFLICT (user_id, tenant_id) DO UPDATE SET role = excluded.role`,
+        )
+        .bind(userId, tenantId, role, Math.floor(Date.now() / 1000))
+        .run();
+    },
+    sendEmail: async (_c, msg) => {
+      const built = invEmail(msg.to, msg.tenantName, msg.role, msg.acceptUrl);
+      await sendEmail(env, msg.to, built.subject, built.html, built.text);
+    },
+    publicBaseUrl: (c) =>
+      (c.env as unknown as { PUBLIC_BASE_URL?: string }).PUBLIC_BASE_URL || undefined,
+  };
+}
+
+const tenantMemberRoutes = new Hono<{
+  Bindings: Env;
+  Variables: { tenant_id: string; user_id?: string };
+}>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  return invokePackage(c, buildTenantMemberRoutes(cfInviteDeps(ctx.env)));
+});
+
+const inviteAcceptRoutes = new Hono<{
+  Bindings: Env;
+  Variables: { tenant_id: string; user_id?: string };
+}>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  return invokePackage(c, buildInviteAcceptRoutes(cfInviteDeps(ctx.env)));
+});
+
 /**
  * Build the per-request session app. For the authenticated /v1/sessions
  * mount, `services` is the auth-resolved Services container and `tenantId`
@@ -685,6 +842,8 @@ app.route("/v1/clawhub", clawhubRoutes);
 app.route("/v1/api_keys", apiKeysRoutes);
 app.route("/v1/me", meRoutes);
 app.route("/v1/tenants", tenantsRoutes);
+app.route("/v1/tenant", tenantMemberRoutes);
+app.route("/v1/invites", inviteAcceptRoutes);
 app.route("/v1/evals", evalsRoutes);
 app.route("/v1/cost_report", costReportRoutes);
 app.route("/v1/integrations", integrationsRoutes);

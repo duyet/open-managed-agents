@@ -45,6 +45,7 @@ import { MemoryStoresList } from "./pages/MemoryStoresList";
 import { MemoryStoreDetail } from "./pages/MemoryStoreDetail";
 import { ModelCardsList } from "./pages/ModelCardsList";
 import { ApiKeysList } from "./pages/ApiKeysList";
+import { Members } from "./pages/Members";
 import { CliLogin } from "./pages/CliLogin";
 import { CliDevice } from "./pages/CliDevice";
 import { RuntimesList } from "./pages/RuntimesList";
@@ -143,8 +144,9 @@ const PUBLISHING_HUB: HubConfig = {
 
 const SETTINGS_HUB: HubConfig = {
   title: "Settings",
-  description: "Workspace configuration: API keys, sandbox runtimes, and eval runs.",
+  description: "Workspace configuration: members, API keys, sandbox runtimes, and eval runs.",
   tabs: [
+    { label: "Members", path: "/members", description: "People with access to this workspace — invite teammates by email and manage roles." },
     { label: "API Keys", path: "/api-keys", description: "Authenticate the CLI, the SDK, or your own code against this platform's API." },
     { label: "Sandbox Runtimes", path: "/runtimes", description: "Everywhere a sandbox can run — system providers, BYOK providers, and connected machines." },
     { label: "Eval Runs", path: "/evals", description: "Task suites scored against one agent in one environment — pass rates per trial." },
@@ -293,6 +295,7 @@ const protectedRoutes: RouteObject[] = [
   {
     element: <HubLayout {...SETTINGS_HUB} />,
     children: [
+      { path: "members", element: <Members />, handle: { crumb: "Members" } },
       { path: "api-keys", element: <ApiKeysList />, handle: { crumb: "API Keys" } },
       { path: "runtimes", element: <RuntimesList />, handle: { crumb: "Sandbox Runtime" } },
       {

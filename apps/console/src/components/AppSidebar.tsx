@@ -7,6 +7,7 @@ import {
   SquareKanbanIcon,
   CircleCheckBigIcon,
   ChartColumnIcon,
+  UsersIcon,
 } from "lucide-react";
 
 import {
@@ -110,6 +111,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Advanced",
     items: [
+      { to: "/members", label: "Members", icon: UsersIcon },
       { to: "/evals", label: "Eval Runs", icon: CircleCheckBigIcon },
       { to: "/api-keys", label: "API Keys", icon: ApiKeysIcon },
       { to: "/runtimes", label: "Sandbox Runtime", icon: RuntimesIcon },
