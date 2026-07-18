@@ -57,6 +57,13 @@ export const authMiddleware = createMiddleware<{
   ) {
     return next();
   }
+  // CLI telemetry — public, unauthenticated, rate-limited (buildTelemetryRoutes).
+  if (
+    c.req.path === "/v1/telemetry/events" ||
+    c.req.path === "/v1/telemetry/stats"
+  ) {
+    return next();
+  }
 
   // 1. Try API Key authentication (for CLI / SDK)
   const apiKey = c.req.header("x-api-key");
