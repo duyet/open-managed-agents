@@ -156,7 +156,45 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
 
         <!-- Desktop nav -->
         <nav class="hidden md:flex items-center gap-0.5 text-sm" aria-label="Primary">
-          <a href="/open-tag/" class="px-3 py-2 rounded-md text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-surface)] transition-colors">Open Tag</a>
+          <!-- Features dropdown — JS-free: opens on hover and on keyboard
+               focus (group-focus-within), matching the site's no-JS nav
+               philosophy. The pt-2 spacer keeps the hover unbroken between
+               trigger and panel. Open Tag lives here as a child feature. -->
+          <div class="relative group">
+            <a
+              href="/features/agent-sandbox/"
+              aria-haspopup="true"
+              class="inline-flex items-center gap-1 px-3 py-2 rounded-md text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-surface)] transition-colors"
+            >
+              Features
+              <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+              </svg>
+            </a>
+            <div class="absolute left-0 top-full pt-2 hidden group-hover:block group-focus-within:block z-40">
+              <nav
+                class="min-w-[280px] py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-md shadow-lg flex flex-col"
+                aria-label="Features"
+              >
+                <a href="/features/agent-sandbox/" class="block px-4 py-2.5 hover:bg-[var(--color-bg-surface)]">
+                  <span class="block font-medium text-[var(--color-fg)]">Agent Sandbox</span>
+                  <span class="block text-xs text-[var(--color-fg-muted)] mt-0.5">Cloudflare, Docker, K8s, E2B, Daytona &amp; more</span>
+                </a>
+                <a href="/features/local-machine/" class="block px-4 py-2.5 hover:bg-[var(--color-bg-surface)]">
+                  <span class="block font-medium text-[var(--color-fg)]">Local Machine</span>
+                  <span class="block text-xs text-[var(--color-fg-muted)] mt-0.5">Bridge your own hardware — no inbound ports</span>
+                </a>
+                <a href="/open-tag/" class="block px-4 py-2.5 hover:bg-[var(--color-bg-surface)]">
+                  <span class="block font-medium text-[var(--color-fg)]">Open Tag</span>
+                  <span class="block text-xs text-[var(--color-fg-muted)] mt-0.5">Self-hosted Claude-Tag-style Slack agents</span>
+                </a>
+                <a href="/features/coding-agents/" class="block px-4 py-2.5 hover:bg-[var(--color-bg-surface)]">
+                  <span class="block font-medium text-[var(--color-fg)]">Coding Agents</span>
+                  <span class="block text-xs text-[var(--color-fg-muted)] mt-0.5">Long-running sessions, heartbeats, PRs</span>
+                </a>
+              </nav>
+            </div>
+          </div>
           <a href="/blog/" class="px-3 py-2 rounded-md text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-surface)] transition-colors">Blog</a>
           <a href="https://docs.oma.duyet.net" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-surface)] transition-colors">
             <Icon name="book" size={15} /> Docs
@@ -250,7 +288,12 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
               class="absolute right-0 top-full mt-2 min-w-[180px] py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-md shadow-lg flex flex-col text-sm z-40"
               aria-label="Mobile primary"
             >
+              <span class="px-4 pt-2 pb-1 text-[10px] font-mono uppercase tracking-widest text-[var(--color-fg-subtle)]">Features</span>
+              <a href="/features/agent-sandbox/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Agent Sandbox</a>
+              <a href="/features/local-machine/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Local Machine</a>
               <a href="/open-tag/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Open Tag</a>
+              <a href="/features/coding-agents/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Coding Agents</a>
+              <div class="my-1 border-t border-[var(--color-border)]"></div>
               <a href="/blog/" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Blog</a>
               <a href="https://docs.oma.duyet.net" class="block px-4 py-3 hover:bg-[var(--color-bg-surface)]">Docs</a>
               <a
@@ -282,7 +325,10 @@ const allSchemas = [organizationSchema(), websiteSchema(), ...schemas];
           <span>© {new Date().getFullYear()} Open Managed Agents. Apache 2.0 licensed.</span>
         </div>
         <nav class="flex flex-wrap gap-x-3 gap-y-1" aria-label="Footer">
-          <a href="/open-tag/" class="py-2 px-2 -mx-2 rounded hover:bg-[var(--color-bg-surface)]">Open Tag</a>
+          <a href="/features/agent-sandbox/" class="py-2 px-2 -mx-2 rounded hover:bg-[var(--color-bg-surface)]">Agent Sandbox</a>
+          <a href="/features/local-machine/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Local Machine</a>
+          <a href="/features/coding-agents/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Coding Agents</a>
+          <a href="/open-tag/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Open Tag</a>
           <a href="/claude-tag-open-source/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Open Source Tag</a>
           <a href="/self-hosted-claude-tag/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Self-hosted Tag</a>
           <a href="/blog/" class="py-2 px-2 rounded hover:bg-[var(--color-bg-surface)]">Blog</a>

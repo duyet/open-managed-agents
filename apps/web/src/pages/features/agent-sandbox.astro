@@ -1,0 +1,253 @@
+---
+import Base from "../../layouts/Base.astro";
+import { breadcrumbSchema, faqPageSchema } from "../../lib/seo";
+
+const faqItems = [
+  {
+    question: "Which sandbox providers work on the Cloudflare deployment?",
+    answer:
+      "Cloudflare Containers work out of the box. BoxRun, k8s-remote, OpenShell, and subprocess (via the bridge relay) also work on Cloudflare — each talks to a remote control plane over plain fetch, since a Worker can't spawn processes or speak gRPC. Daytona and E2B are outbound-HTTP-only in principle but not yet wired into the Worker bundle. LiteBox, raw Kubernetes, and Docker Compose need Node builtins or a Docker socket, so they only run on the self-hosted Node runtime.",
+  },
+  {
+    question: "Do credentials ever reach the sandbox?",
+    answer:
+      "No. Vault credentials are injected by an outbound proxy that intercepts HTTPS requests leaving the sandbox and attaches the right Authorization header at the network edge. The sandbox process, the harness, and the model never see a plaintext token.",
+  },
+  {
+    question: "Can a sub-agent get its own isolated sandbox?",
+    answer:
+      "By default a delegated sub-agent thread shares the parent session's sandbox and /workspace. A callable_agents entry can set environment_id to a different environment to give that sub-agent a dedicated sandbox for the call, torn down afterward. It starts from an empty workspace and vault credential injection still works, but memory-store mounts and usage metering aren't wired for it yet.",
+  },
+  {
+    question: "What happens to the sandbox when a session is paused?",
+    answer:
+      "Pausing snapshots /workspace and destroys the container — you stop paying for an idle sandbox. Resuming reprovisions the container and restores the latest snapshot. Sending a new message to a paused session resumes it implicitly on first use.",
+  },
+  {
+    question: "How do I pick a sandbox provider for an environment?",
+    answer:
+      "Set config.sandbox_provider on the environment (defaults to Cloudflare Containers if omitted). Every agent that references that environment runs its tools in that sandbox — no code changes to the agent itself.",
+  },
+];
+
+const providers = [
+  {
+    name: "Cloudflare Containers",
+    cf: "Default on Cloudflare",
+    blurb: "Zero setup — the default sandbox on the Cloudflare deployment, no extra secrets required.",
+  },
+  {
+    name: "Docker Compose",
+    cf: "Self-host Node only",
+    blurb: "Containers on any Docker host for the self-hosted docker compose runtime.",
+  },
+  {
+    name: "Kubernetes",
+    cf: "Self-host Node only",
+    blurb: "Pod-per-sandbox on your cluster via the direct in-cluster KubernetesSandboxExecutor.",
+  },
+  {
+    name: "k8s-remote",
+    cf: "Works on Cloudflare",
+    blurb: "In-cluster k8s-sandbox-gateway over plain HTTP — needs K8S_SANDBOX_GATEWAY_URL. No memory-store mounts.",
+  },
+  {
+    name: "NVIDIA OpenShell",
+    cf: "Works on Cloudflare",
+    blurb: "Policy-enforced sandboxes with default-deny egress and Landlock FS, reached via a k8s-bridge OpenShell backend.",
+  },
+  {
+    name: "BoxRun",
+    cf: "Works on Cloudflare",
+    blurb: "A remote boxlite control plane over plain fetch — needs BOXRUN_URL, no driver SDK required.",
+  },
+  {
+    name: "Subprocess (bridge)",
+    cf: "Works via bridge relay",
+    blurb: "Runs on your own machine via `oma bridge daemon` — the fastest inner loop, relayed over a WebSocket.",
+  },
+  {
+    name: "E2B",
+    cf: "Self-host Node only (for now)",
+    blurb: "Firecracker micro-VMs as a service, bring your API key — driver SDK not yet bundled for Cloudflare.",
+  },
+  {
+    name: "Daytona",
+    cf: "Self-host Node only (for now)",
+    blurb: "Managed cloud dev environments, bring your account — same Cloudflare bundling gap as E2B.",
+  },
+  {
+    name: "LiteBox",
+    cf: "Self-host Node only",
+    blurb: "A native micro-VM binding — needs local filesystem access a Worker can't have.",
+  },
+];
+
+const schemas = [
+  breadcrumbSchema([
+    { name: "Home", path: "/" },
+    { name: "Features", path: "/features/" },
+    { name: "Agent Sandbox", path: "/features/agent-sandbox/" },
+  ]),
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "Any Sandbox — Open Managed Agents",
+    url: "https://oma.duyet.net/features/agent-sandbox/",
+    description:
+      "Run agent tool calls in the sandbox you choose — Cloudflare Containers, Docker, Kubernetes, NVIDIA OpenShell, E2B, Daytona, BoxRun, LiteBox, or your own machine — behind one SandboxExecutor interface.",
+    about: [
+      { "@type": "Thing", name: "AI agent sandbox" },
+      { "@type": "Thing", name: "Sandboxed tool execution" },
+      { "@type": "Thing", name: "Open Managed Agents" },
+    ],
+  },
+  faqPageSchema(faqItems),
+];
+---
+
+<Base
+  title="Any Sandbox: Run Agent Tools Where You Choose | Open Managed Agents"
+  description="Open Managed Agents runs agent tool calls in the sandbox you pick — Cloudflare Containers, Docker, Kubernetes, NVIDIA OpenShell, E2B, Daytona, BoxRun, LiteBox, or your own machine — behind one SandboxExecutor interface. Credentials never enter the sandbox."
+  canonical="/features/agent-sandbox/"
+  keywords="ai agent sandbox, sandboxed agent execution, self host ai agent sandbox, kubernetes agent sandbox, cloudflare containers agent, e2b agent sandbox, daytona agent sandbox, agent sandbox provider"
+  schemas={schemas}
+>
+  <section class="border-b border-[var(--color-border)]">
+    <div class="max-w-5xl mx-auto px-4 py-16 md:py-24">
+      <p class="text-sm font-mono uppercase tracking-wider text-[var(--color-fg-subtle)] mb-4">
+        Features / Agent Sandbox
+      </p>
+      <div class="grid lg:grid-cols-[1.15fr_0.85fr] gap-10 items-start">
+        <div>
+          <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight mb-6">
+            Run your agents in any sandbox
+          </h1>
+          <p class="text-lg text-[var(--color-fg-muted)] leading-relaxed">
+            Every tool call — shell, file edits, web fetches — executes inside
+            a sandbox, never on the platform host. Open Managed Agents puts
+            one <code class="font-mono text-sm">SandboxExecutor</code> interface
+            in front of a dozen adapters: Cloudflare Containers, Docker,
+            Kubernetes, NVIDIA OpenShell, E2B, Daytona, BoxRun, LiteBox, or
+            your own machine over the bridge relay. Pick a provider per
+            environment; the agent's code never changes.
+          </p>
+          <div class="mt-8 flex flex-wrap gap-3">
+            <a
+              href="https://docs.oma.duyet.net"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="px-5 py-3 rounded-md bg-[var(--color-fg)] text-[var(--color-bg)] font-medium"
+            >
+              Read the docs
+            </a>
+            <a
+              href="https://github.com/duyet/oma"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="px-5 py-3 rounded-md border border-[var(--color-border)] font-medium"
+            >
+              Star on GitHub
+            </a>
+          </div>
+        </div>
+        <div class="border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-surface)] p-5">
+          <h2 class="font-display text-xl font-semibold mb-4">Why it matters</h2>
+          <ul class="space-y-3 text-sm text-[var(--color-fg-muted)]">
+            <li><strong class="text-[var(--color-fg)]">Your infrastructure:</strong> containers, a Kubernetes cluster, or a machine you already own — never a locked-in vendor sandbox.</li>
+            <li><strong class="text-[var(--color-fg)]">No credential leakage:</strong> vault secrets are injected by an outbound proxy, never handed to the sandbox process.</li>
+            <li><strong class="text-[var(--color-fg)]">Same agent, any provider:</strong> switch sandbox_provider on an environment without touching the agent config.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="max-w-5xl mx-auto px-4 py-16" data-reveal>
+    <h2 class="font-display text-3xl font-bold mb-4">How it works</h2>
+    <div class="grid md:grid-cols-3 gap-6 text-sm">
+      <div>
+        <h3 class="font-semibold text-lg mb-2">1. Pick a provider</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed">
+          An environment's <code class="font-mono text-xs">config.sandbox_provider</code>
+          selects the adapter — packages, networking, and container image are
+          all part of the same environment record.
+        </p>
+      </div>
+      <div>
+        <h3 class="font-semibold text-lg mb-2">2. Credentials stay out</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed">
+          Vault credentials are never mounted or exported into the sandbox.
+          An outbound proxy matches HTTPS requests leaving the sandbox and
+          injects the right Authorization header at the network edge.
+        </p>
+      </div>
+      <div>
+        <h3 class="font-semibold text-lg mb-2">3. Same agent everywhere</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed">
+          Tools, skills, and harness logic are provider-agnostic. Swap
+          Cloudflare Containers for Kubernetes or a bridged laptop and the
+          agent's behavior is unchanged.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal>
+    <div class="max-w-5xl mx-auto px-4 py-16">
+      <h2 class="font-display text-3xl font-bold mb-4">Sandbox providers</h2>
+      <p class="text-[var(--color-fg-muted)] leading-relaxed mb-8 max-w-3xl">
+        Cloudflare deployment support varies by provider — some talk to a
+        remote control plane over plain HTTP and work today, others need
+        Node builtins or a driver SDK and are self-host-only for now.
+      </p>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {providers.map((p) => (
+          <article class="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+            <h3 class="font-display text-sm font-semibold tracking-tight mb-1">{p.name}</h3>
+            <p class="text-xs font-mono uppercase tracking-wide text-[var(--color-brand)] mb-2">{p.cf}</p>
+            <p class="text-xs text-[var(--color-fg-muted)] leading-relaxed">{p.blurb}</p>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="max-w-5xl mx-auto px-4 py-16" data-reveal>
+    <h2 class="font-display text-3xl font-bold mb-4">Configure it in one field</h2>
+    <p class="text-[var(--color-fg-muted)] leading-relaxed mb-6 max-w-3xl">
+      An environment is a reusable record: sandbox provider, package
+      managers, and networking policy in one place.
+    </p>
+    <pre class="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-4 overflow-x-auto text-xs leading-relaxed"><code>{`{
+  "name": "data-science",
+  "config": {
+    "sandbox_provider": "k8s-remote",
+    "packages": {
+      "pip": ["numpy", "pandas", "matplotlib", "scikit-learn"],
+      "apt": ["ffmpeg"]
+    },
+    "networking": {
+      "type": "limited",
+      "allowed_hosts": ["api.github.com", "registry.npmjs.org"],
+      "allow_mcp_servers": true,
+      "allow_package_managers": true
+    }
+  }
+}`}</code></pre>
+  </section>
+
+  <section class="border-t border-[var(--color-border)]" data-reveal>
+    <div class="max-w-5xl mx-auto px-4 py-16">
+      <h2 class="font-display text-3xl font-bold mb-8">FAQ</h2>
+      <div class="grid md:grid-cols-2 gap-8">
+        {faqItems.map((item) => (
+          <article>
+            <h3 class="font-semibold text-lg mb-2">{item.question}</h3>
+            <p class="text-[var(--color-fg-muted)] leading-relaxed">{item.answer}</p>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+</Base>

@@ -1,0 +1,200 @@
+---
+import Base from "../../layouts/Base.astro";
+import { breadcrumbSchema, faqPageSchema } from "../../lib/seo";
+
+const faqItems = [
+  {
+    question: "Is the bridge connection secure?",
+    answer:
+      "The daemon only dials out — nothing listens on your machine, so there is no inbound port to attack. The connection is an authenticated WebSocket scoped to your tenant, and you can revoke it at any time from the Console or with `oma runtime rm`.",
+  },
+  {
+    question: "What happens if my machine goes offline?",
+    answer:
+      "The daemon sends a heartbeat every 25 seconds. If it goes quiet, the platform marks the runtime unavailable and any sandbox op relayed to it fails clearly with a session.error instead of hanging. The daemon itself reconnects automatically with jittered backoff once the machine is back online.",
+  },
+  {
+    question: "Can I run Claude Code locally through it?",
+    answer:
+      "Yes — local ACP agents such as Claude Code run against the paired machine the same way sandbox ops do, streamed back over the same RuntimeRoom connection.",
+  },
+  {
+    question: "Does it need open ports or firewall changes?",
+    answer:
+      "No. The daemon makes an outbound WebSocket connection only, so it works behind NAT and corporate firewalls without port-forwarding or inbound rules.",
+  },
+  {
+    question: "What doesn't work yet on a bridged machine?",
+    answer:
+      "Two gaps today: outbound requests from the sandbox aren't routed through the vault credential proxy (so vault-injected auth headers don't reach local calls), and memory-store mounts aren't wired for bridged sandboxes. Both work normally on Cloudflare or Docker-hosted sandboxes.",
+  },
+];
+
+const schemas = [
+  breadcrumbSchema([
+    { name: "Home", path: "/" },
+    { name: "Features", path: "/features/" },
+    { name: "Local Machine", path: "/features/local-machine/" },
+  ]),
+  faqPageSchema(faqItems),
+];
+---
+
+<Base
+  title="Connect Your Local Machine | Open Managed Agents"
+  description="Pair a laptop, workstation, or homelab box with your OMA deployment with one command. Run sandboxes and local Claude Code agents on your own hardware, outbound-only, no open ports."
+  canonical="/features/local-machine/"
+  keywords="local machine bridge, oma bridge, self-hosted agent runtime, run claude code locally, outbound websocket agent, byo hardware agent sandbox"
+  schemas={schemas}
+>
+  <section class="border-b border-[var(--color-border)]">
+    <div class="max-w-5xl mx-auto px-4 py-16 md:py-24">
+      <p class="text-sm font-mono uppercase tracking-wider text-[var(--color-fg-subtle)] mb-4">
+        Local Machine
+      </p>
+      <div class="grid lg:grid-cols-[1.15fr_0.85fr] gap-10 items-start">
+        <div>
+          <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight mb-6">
+            Wire your own machine into the platform
+          </h1>
+          <p class="text-lg text-[var(--color-fg-muted)] leading-relaxed">
+            The control plane stays on OMA — sessions, event logs, and
+            history live where they always do. But the sandbox and any local
+            ACP agent (Claude Code and friends) can run on hardware you
+            already own, paired with one command and no inbound ports.
+          </p>
+          <div class="mt-8 flex flex-wrap gap-3">
+            <a
+              href="https://github.com/duyet/oma"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="px-5 py-3 rounded-md bg-[var(--color-fg)] text-[var(--color-bg)] font-medium"
+            >
+              Star on GitHub
+            </a>
+            <a
+              href="/docs/"
+              class="px-5 py-3 rounded-md border border-[var(--color-border)] font-medium"
+            >
+              Read the docs
+            </a>
+          </div>
+        </div>
+        <div class="border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-surface)] p-5">
+          <img
+            src="/screenshots/sandbox-runtime.jpg"
+            alt="Console Sandbox Runtime page showing a paired local machine"
+            class="w-full rounded-md border border-[var(--color-border)]"
+            loading="lazy"
+          />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="max-w-5xl mx-auto px-4 py-16" data-reveal>
+    <h2 class="font-display text-3xl font-bold mb-4">How it works</h2>
+    <p class="text-[var(--color-fg-muted)] leading-relaxed mb-8 max-w-3xl">
+      A lightweight bridge daemon pairs your machine with your tenant. From
+      then on, each sandbox operation — exec, read/write files, set env
+      vars, destroy — is relayed to your most-recently-heartbeated daemon
+      over the RuntimeRoom Durable Object WebSocket, executed locally, and
+      streamed back to the session. Because the daemon only dials out, it
+      works identically behind NAT, a home router, or a locked-down
+      corporate firewall.
+    </p>
+    <div class="grid md:grid-cols-3 gap-6 text-sm">
+      <div>
+        <h3 class="font-semibold text-lg mb-2">Outbound-only</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed">
+          The daemon dials out over WebSocket. Nothing listens on your
+          machine, no port-forwarding, works behind NAT.
+        </p>
+      </div>
+      <div>
+        <h3 class="font-semibold text-lg mb-2">Self-healing</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed">
+          25s heartbeats with a liveness watchdog; silent drops reconnect
+          automatically with jittered backoff.
+        </p>
+      </div>
+      <div>
+        <h3 class="font-semibold text-lg mb-2">Scoped & revocable</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed">
+          Paired per tenant with its own token — revoke from the Console or
+          <code class="font-mono text-xs">oma runtime rm</code> at any time.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal>
+    <div class="max-w-5xl mx-auto px-4 py-16">
+      <h2 class="font-display text-3xl font-bold mb-8 text-center">Pair a machine</h2>
+      <div class="max-w-2xl mx-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] overflow-hidden">
+        <div class="flex items-center gap-1.5 px-4 py-2.5 border-b border-[var(--color-border)]">
+          <span class="w-2.5 h-2.5 rounded-full bg-[var(--color-border-strong)]"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-[var(--color-border-strong)]"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-[var(--color-border-strong)]"></span>
+          <span class="ml-2 font-mono text-[11px] text-[var(--color-fg-subtle)]">terminal</span>
+        </div>
+        <pre class="p-4 font-mono text-[12px] leading-relaxed overflow-x-auto"><code><span class="text-[var(--color-fg-subtle)]">$</span> npx @getoma/cli bridge setup
+
+<strong>oma bridge</strong>  <span class="text-[var(--color-fg-subtle)]">v0.1.3</span>
+
+<span class="text-[var(--color-success,#22c55e)]">✓</span> paired <strong>macbook-pro.local</strong> with app.oma.duyet.net
+<span class="text-[var(--color-success,#22c55e)]">✓</span> daemon installed as a background service
+<span class="text-[var(--color-success,#22c55e)]">✓</span> connected — heartbeat 25s, auto-reconnect on
+
+<span class="text-[var(--color-fg-subtle)]">This machine now appears on the Console's
+Sandbox Runtime page. No wrangler secrets, no
+manual server to run.</span></code></pre>
+      </div>
+      <div class="max-w-2xl mx-auto mt-6">
+        <img
+          src="/screenshots/sandbox-add-provider.jpg"
+          alt="Console dialog for adding a sandbox provider"
+          class="w-full rounded-md border border-[var(--color-border)]"
+          loading="lazy"
+        />
+      </div>
+    </div>
+  </section>
+
+  <section class="max-w-5xl mx-auto px-4 py-16" data-reveal>
+    <h2 class="font-display text-3xl font-bold mb-4">What you get, and what's still missing</h2>
+    <div class="grid md:grid-cols-2 gap-8">
+      <div>
+        <h3 class="font-semibold text-lg mb-3">What you get</h3>
+        <ul class="space-y-2.5 text-sm text-[var(--color-fg-muted)] leading-relaxed list-disc pl-5">
+          <li>Sandbox exec, file read/write, and env vars all run locally, streamed back to the session in real time.</li>
+          <li>Local ACP agents, including Claude Code, run against the same paired machine.</li>
+          <li>No cloud sandbox spend for work you can run on hardware you already own.</li>
+          <li>Works behind NAT and corporate firewalls with zero inbound rules.</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="font-semibold text-lg mb-3">Known limitations</h3>
+        <ul class="space-y-2.5 text-sm text-[var(--color-fg-muted)] leading-relaxed list-disc pl-5">
+          <li>No outbound vault-credential proxy on the user's machine yet — outbound HTTP from a bridged sandbox is not auth-injected.</li>
+          <li>Memory-store and session-outputs mounts aren't wired for bridged sandboxes.</li>
+          <li>If no runtime is online, the first sandbox op fails clearly with a session.error rather than queuing silently.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="border-t border-[var(--color-border)]" data-reveal>
+    <div class="max-w-5xl mx-auto px-4 py-16">
+      <h2 class="font-display text-3xl font-bold mb-8">FAQ</h2>
+      <div class="grid md:grid-cols-2 gap-8">
+        {faqItems.map((item) => (
+          <article>
+            <h3 class="font-semibold text-lg mb-2">{item.question}</h3>
+            <p class="text-[var(--color-fg-muted)] leading-relaxed">{item.answer}</p>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+</Base>

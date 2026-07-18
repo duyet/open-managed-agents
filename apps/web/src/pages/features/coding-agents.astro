@@ -1,0 +1,219 @@
+---
+import Base from "../../layouts/Base.astro";
+import { breadcrumbSchema, faqPageSchema } from "../../lib/seo";
+
+const faqItems = [
+  {
+    question: "Can I run Claude Code itself, not just a custom loop?",
+    answer:
+      "Yes. The claude-agent-sdk harness (self-host Node) runs Claude Code inside the session's sandbox, so the agent has the real Claude Code tool loop, opens PRs, and reports back through the same event log as any other harness.",
+  },
+  {
+    question: "What happens if a long-running agent crashes mid-task?",
+    answer:
+      "Every event is written to an append-only, SQLite-backed log before it's broadcast. If the harness crashes, the session catches the error, emits session.error, and returns to idle. The next message spins up a fresh harness instance that reads the full log, rebuilds context, and continues — no lost work.",
+  },
+  {
+    question: "How do I watch progress on a multi-hour run?",
+    answer:
+      "The harness emits agent.status heartbeats — state, a summary, step/total_steps, and blocked_on when it's waiting on something — on a fixed cadence, purely observational and excluded from model context. The Console surfaces these as a live progress feed.",
+  },
+  {
+    question: "How do I keep costs down while an agent works for hours?",
+    answer:
+      "Pause snapshots the sandbox workspace and destroys the container between turns; resume reprovisions and restores it exactly. An idle long-running agent costs nothing while it waits on a schedule, a review, or a webhook.",
+  },
+  {
+    question: "Can it run without a human kicking off every session?",
+    answer:
+      "Yes. Agent schedules fire sessions on a cron cadence, and deployments bundle an agent with an environment, vaults, and a trigger (manual, cron, or webhook) so the same configured run can fire repeatedly.",
+  },
+];
+
+const schemas = [
+  breadcrumbSchema([
+    { name: "Home", path: "/" },
+    { name: "Features", path: "/features/" },
+    { name: "Coding Agents", path: "/features/coding-agents/" },
+  ]),
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "Long-Running Coding Agents",
+    url: "https://oma.duyet.net/features/coding-agents/",
+    description:
+      "Run coding agents for hours unattended: Claude Code or a custom harness, structured progress heartbeats, crash recovery, and GitHub-native scheduling.",
+    about: [
+      { "@type": "Thing", name: "Long-running coding agents" },
+      { "@type": "Thing", name: "Claude Code sandbox agent" },
+      { "@type": "Thing", name: "Open Managed Agents" },
+    ],
+  },
+  faqPageSchema(faqItems),
+];
+---
+
+<Base
+  title="Long-Running Coding Agents | Open Managed Agents"
+  description="Coding agents that run for hours, not minutes. Claude Code or a custom harness in an isolated sandbox, structured progress heartbeats, crash recovery, and cron-scheduled GitHub loops."
+  canonical="/features/coding-agents/"
+  keywords="long running coding agent, claude code sandbox, autonomous coding agent, agent crash recovery, agent status heartbeat, github coding agent, scheduled coding agent"
+  schemas={schemas}
+>
+  <section class="border-b border-[var(--color-border)]">
+    <div class="max-w-5xl mx-auto px-4 py-16 md:py-24">
+      <p class="text-sm font-mono uppercase tracking-wider text-[var(--color-fg-subtle)] mb-4">
+        Features / Coding Agents
+      </p>
+      <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight mb-6 max-w-3xl">
+        Coding agents that run for hours, not minutes
+      </h1>
+      <p class="text-lg text-[var(--color-fg-muted)] leading-relaxed max-w-2xl">
+        Assign an issue, walk away, come back to a PR. Run Claude Code itself
+        via the claude-agent-sdk harness, or the built-in harness with
+        structured progress heartbeats — either way the session survives
+        crashes, reports where it's stuck, and can be scheduled to run again
+        on its own.
+      </p>
+      <div class="mt-8 flex flex-wrap gap-3">
+        <a
+          href="https://github.com/duyet/oma"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="px-5 py-3 rounded-md bg-[var(--color-fg)] text-[var(--color-bg)] font-medium"
+        >
+          Star on GitHub
+        </a>
+        <a
+          href="https://github.com/duyet/oma/blob/main/AGENTS.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="px-5 py-3 rounded-md border border-[var(--color-border)] font-medium"
+        >
+          Read the docs
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="max-w-5xl mx-auto px-4 py-16" data-reveal>
+    <h2 class="font-display text-3xl font-bold mb-4">How it survives hours unattended</h2>
+    <p class="text-[var(--color-fg-muted)] leading-relaxed mb-8 max-w-3xl">
+      A session's state lives in an append-only event log inside a Durable
+      Object, backed by SQLite — not in the harness process's memory. That
+      one design choice is what makes multi-hour runs safe.
+    </p>
+    <div class="grid md:grid-cols-3 gap-6 text-sm">
+      <div>
+        <h3 class="font-semibold text-lg mb-2">Crash recovery by construction</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed">
+          If the harness crashes mid-turn, the session catches the error,
+          emits session.error, and returns to idle. The next message spins
+          up a fresh harness that reads the full event log and continues —
+          no re-prompting, no lost context.
+        </p>
+      </div>
+      <div>
+        <h3 class="font-semibold text-lg mb-2">Structured progress heartbeats</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed">
+          agent.status events carry state, a summary, step/total_steps, and
+          blocked_on — a machine-readable signal, not just free-text
+          messages. Purely observational, excluded from model context, so
+          it never perturbs the prompt cache.
+        </p>
+      </div>
+      <div>
+        <h3 class="font-semibold text-lg mb-2">Two ways to drive the loop</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed">
+          Use the built-in harness for context-engineered tool loops, or the
+          claude-agent-sdk harness to run Claude Code itself inside the
+          sandbox — same event log, same recovery, same heartbeats either
+          way.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal>
+    <div class="max-w-5xl mx-auto px-4 py-16">
+      <h2 class="font-display text-3xl font-bold mb-4">GitHub-native loop</h2>
+      <p class="text-[var(--color-fg-muted)] leading-relaxed mb-8 max-w-3xl">
+        Mount a repository as a session resource, let the agent work in the
+        sandbox, and let it report back without a human relaying status by
+        hand.
+      </p>
+      <div class="grid md:grid-cols-3 gap-6 text-sm">
+        <div>
+          <h3 class="font-semibold text-lg mb-2">Repo as a session resource</h3>
+          <p class="text-[var(--color-fg-muted)] leading-relaxed">
+            Attach a GitHub repository with a checkout ref and a vault
+            credential; the agent clones, branches, and pushes from inside
+            its own sandbox.
+          </p>
+        </div>
+        <div>
+          <h3 class="font-semibold text-lg mb-2">Ships PRs, not just diffs</h3>
+          <p class="text-[var(--color-fg-muted)] leading-relaxed">
+            claude-agent-sdk runs Claude Code end to end: fix the failing
+            test, commit, push a branch, open the pull request.
+          </p>
+        </div>
+        <div>
+          <h3 class="font-semibold text-lg mb-2">Status posted back automatically</h3>
+          <p class="text-[var(--color-fg-muted)] leading-relaxed">
+            A github_comment notify target posts session status to the
+            originating issue or PR when the run goes idle, errors, or
+            terminates — no separate bot to wire up.
+          </p>
+        </div>
+      </div>
+      <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed mt-6">
+        The Console ships ready-made GitHub-workflow agent templates —
+        PR babysitter, repo maintainer, and others — so this loop doesn't
+        start from a blank agent config.
+      </p>
+    </div>
+  </section>
+
+  <section class="max-w-5xl mx-auto px-4 py-16" data-reveal>
+    <h2 class="font-display text-3xl font-bold mb-4">Run it on a schedule</h2>
+    <p class="text-[var(--color-fg-muted)] leading-relaxed mb-8 max-w-3xl">
+      A coding agent that only runs when someone remembers to trigger it
+      isn't really unattended. Two primitives cover recurring work.
+    </p>
+    <div class="grid md:grid-cols-2 gap-6 text-sm">
+      <div class="border border-[var(--color-border)] rounded-lg p-5">
+        <h3 class="font-semibold text-lg mb-2">Agent schedules</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed">
+          A cron expression bound directly to an agent and environment —
+          fires a fresh session with a fixed opening message on a
+          timezone-aware cadence. Good for a single recurring maintenance
+          job.
+        </p>
+      </div>
+      <div class="border border-[var(--color-border)] rounded-lg p-5">
+        <h3 class="font-semibold text-lg mb-2">Deployments</h3>
+        <p class="text-[var(--color-fg-muted)] leading-relaxed">
+          A reusable bundle — agent (optionally pinned to a version),
+          environment, vaults, and memory stores — behind a manual, cron, or
+          webhook trigger. Same config fires from a chat button, a CI job,
+          or a schedule.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="border-t border-[var(--color-border)]" data-reveal>
+    <div class="max-w-5xl mx-auto px-4 py-16">
+      <h2 class="font-display text-3xl font-bold mb-8">FAQ</h2>
+      <div class="grid md:grid-cols-2 gap-8">
+        {faqItems.map((item) => (
+          <article>
+            <h3 class="font-semibold text-lg mb-2">{item.question}</h3>
+            <p class="text-[var(--color-fg-muted)] leading-relaxed">{item.answer}</p>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+</Base>
