@@ -131,13 +131,17 @@ code, pre, kbd, samp,
   scroll-margin-top: 5rem;
 }
 
-/* Sticky-header polish: small shadow once the page leaves the top. JS
-   toggles [data-scrolled] in Base.astro. The base header has a
-   backdrop-blur so content scrolls behind it gracefully. */
+/* Sticky-header polish: transparent at the top so the hero bleeds right
+   up into the nav band, then fades in a blurred background + shadow once
+   the page leaves the top. JS toggles [data-scrolled] in Base.astro. */
 [data-site-header] {
-  transition: box-shadow 200ms ease-out, border-color 200ms ease-out;
+  background-color: transparent;
+  transition: background-color 200ms ease-out, box-shadow 200ms ease-out,
+    border-color 200ms ease-out, backdrop-filter 200ms ease-out;
 }
 [data-site-header][data-scrolled] {
+  background-color: color-mix(in srgb, var(--color-bg) 80%, transparent);
+  backdrop-filter: blur(12px);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
   border-bottom-color: var(--color-border-strong);
 }

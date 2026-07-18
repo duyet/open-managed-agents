@@ -196,7 +196,7 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
   schemas={schemas}
 >
   <!-- Hero -->
-  <section class="relative overflow-hidden border-b border-[var(--color-border)]">
+  <section class="relative overflow-hidden border-b border-[var(--color-border)] -mt-[69px] pt-[69px]">
     <!-- Ground: the dithered hero image as the visual floor, full-width and
          faded toward the bottom so the h1/CTAs stay legible. A solid bg
          underlay keeps dark mode dark (image at moderate opacity, fainter in
@@ -205,7 +205,7 @@ const fleetLogos: { label: string; mode: "fill" | "stroke"; inner: string }[] = 
     <div
       class="pointer-events-none absolute inset-0 opacity-50 dark:opacity-25"
       aria-hidden="true"
-      style="background: url('/hero-tint.jpg') center top / cover no-repeat;
+      style="background: url('/hero-tint.jpg') center top / auto repeat;
         mask-image: linear-gradient(to bottom, #000 0%, #000 42%, transparent 94%);
         -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 42%, transparent 94%);"
     ></div>
