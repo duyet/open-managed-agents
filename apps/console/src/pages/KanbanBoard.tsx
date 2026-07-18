@@ -46,33 +46,21 @@ export function KanbanBoard() {
   const [tab, setTab] = useState<KanbanTab>("sessions");
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="pl-3 pr-4 py-6 space-y-6">
-        <header>
-          <h1 className="font-display text-[32px] leading-tight font-semibold tracking-tight text-fg">
-            Kanban Board
-          </h1>
-          <p className="mt-1.5 text-[15px] text-fg-muted">
-            Track work across your agent sessions and, optionally, a configurable board of GitHub
-            issues you can hand off to agents.
-          </p>
-        </header>
-
-        <div className="flex gap-1 border-b border-border" role="tablist" aria-label="Kanban views">
-          <BoardTab
-            label="Agent Session Board"
-            active={tab === "sessions"}
-            onClick={() => setTab("sessions")}
-          />
-          <BoardTab
-            label="GitHub Issues"
-            active={tab === "github"}
-            onClick={() => setTab("github")}
-          />
-        </div>
-
-        {tab === "sessions" ? <AgentSessionBoard /> : <GitHubIssuesBoard />}
+    <div className="space-y-6">
+      <div className="flex gap-1 border-b border-border" role="tablist" aria-label="Kanban views">
+        <BoardTab
+          label="Agent Session Board"
+          active={tab === "sessions"}
+          onClick={() => setTab("sessions")}
+        />
+        <BoardTab
+          label="GitHub Issues"
+          active={tab === "github"}
+          onClick={() => setTab("github")}
+        />
       </div>
+
+      {tab === "sessions" ? <AgentSessionBoard /> : <GitHubIssuesBoard />}
     </div>
   );
 }

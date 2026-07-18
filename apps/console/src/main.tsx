@@ -97,16 +97,22 @@ import { consolePlugins } from "./plugins/registry";
  * absolute paths so each hub's `<HubLayout>` works regardless of the base
  * path its children mount under (the layout routes below are pathless).
  */
-// Sessions hub — the live list of "what my agents are doing right now".
-// Usage moved out to its own standalone route (it owns a full "Usage & cost"
-// page header of its own, so wrapping it in the hub produced a duplicated
-// header); Kanban is its own board; Eval Runs live under Settings now. So
-// Sessions is the only view left in this strip.
+// Sessions hub — the live list of "what my agents are doing right now",
+// plus the Kanban board view over that same session data. Usage moved out
+// to its own standalone route (it owns a full "Usage & cost" page header
+// of its own, so wrapping it in the hub produced a duplicated header);
+// Eval Runs live under Settings now.
 const SESSIONS_HUB: HubConfig = {
   title: "Sessions",
   description: "Trace, debug, and monitor your agents' sessions.",
   tabs: [
     { label: "Sessions", path: "/sessions" },
+    {
+      label: "Kanban",
+      path: "/kanban",
+      description:
+        "Track work across your agent sessions and, optionally, a configurable board of GitHub issues you can hand off to agents.",
+    },
   ],
 };
 
@@ -197,21 +203,20 @@ const protectedRoutes: RouteObject[] = [
     ],
   },
 
-  // ── Sessions hub ── the live sessions list. Session detail stays
-  // full-page (chat shell) so it lives OUTSIDE the hub.
+  // ── Sessions hub ── the live sessions list + Kanban board, two views of
+  // the same session data sharing one heading/tab strip. Session detail
+  // stays full-page (chat shell) so it lives OUTSIDE the hub.
   {
     element: <HubLayout {...SESSIONS_HUB} />,
     children: [
       { path: "sessions", element: <SessionsList />, handle: { crumb: "Sessions" } },
+      { path: "kanban", element: <KanbanBoard />, handle: { crumb: "Kanban Board" } },
     ],
   },
   // Usage — standalone. It renders its own "Usage & cost" page header, so it
   // isn't wrapped in a tab hub (that produced a duplicated header). Reached
-  // via the sidebar's Workspace group, same as Kanban.
+  // via the sidebar's Workspace group.
   { path: "usage", element: <Usage />, handle: { crumb: "Usage" } },
-  // Kanban — a standalone board, not a view of the sessions list, so it
-  // gets its own destination rather than a seat in the Sessions strip.
-  { path: "kanban", element: <KanbanBoard />, handle: { crumb: "Kanban Board" } },
   // Session detail — full-page, no hub tabs. Pathless parent carries the
   // `Sessions` crumb (linking back to the list) so the breadcrumb reads
   // `Sessions › sess-xxx` as before.
