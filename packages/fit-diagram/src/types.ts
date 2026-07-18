@@ -2,6 +2,10 @@ import type { ReactNode } from "react";
 
 export type FitCardStatus = "ready" | "attention" | "empty";
 
+/** A provider mark in a card's avatar-group. A bare string renders colored
+ *  (active); the object form can mark it inactive for a grayed-out look. */
+export type FitProviderMark = string | { id: string; active?: boolean };
+
 export interface FitCard {
   /** Stable identity within a step — used as the React key. */
   key: string;
@@ -25,8 +29,12 @@ export interface FitCard {
   dashed?: boolean;
   /** The hero card — brand-accented and a size up. */
   hero?: boolean;
-  /** Provider ids rendered as an overlapping avatar-group of ProviderMarks. */
-  providerMarks?: string[];
+  /** Provider ids rendered as an overlapping avatar-group of ProviderMarks.
+   *  A plain string renders colored (the default). An object form lets a
+   *  consumer mark a provider inactive — `active: false` renders the mark
+   *  grayed out, so a live-status surface can show healthy vs. idle at a
+   *  glance. */
+  providerMarks?: FitProviderMark[];
   /** Card click handler — console navigates, the landing page opens a dialog. */
   onActivate?: () => void;
 }

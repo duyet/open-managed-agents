@@ -89,6 +89,12 @@ const SYSTEM_PROVIDER_ENVS = [
   { env: "OPENSHELL_GATEWAY_ENDPOINT", label: "NVIDIA OpenShell gateway", providerId: "openshell" },
 ];
 
+// Command to bring an offline machine back — shown on offline machine cards
+// and their detail dialog. `bridge setup` is idempotent: it re-pairs, reinstalls
+// the service, and starts the daemon, so it's the one reliable "reconnect" verb
+// the CLI exposes today (there is no dedicated `start`/`connect`).
+const RECONNECT_CMD = "npx @getoma/cli bridge setup";
+
 function formatHeartbeat(unixSeconds: number): string {
   const ago = Math.floor(Date.now() / 1000) - unixSeconds;
   if (ago < 60) return `${ago}s ago`;
@@ -389,7 +395,7 @@ function ProviderCard({ p, onSetup, onRemove, onOpenDetail }: { p: HostingType; 
 // A user-connected machine running `oma bridge daemon`, rendered in the
 // same grid as sandbox providers so the page reads as one unified list of
 // "places an agent can run".
-function MachineCard({ r, onRevoke, onOpenDetail }: { r: Runtime; onRevoke: (id: string) => void; onOpenDetail?: (r: Runtime) => void }) {
+function MachineCard({ r, onRevoke, onOpenDetail, copied, onCopy }: { r: Runtime; onRevoke: (id: string) => void; onOpenDetail?: (r: Runtime) => void; copied: string | null; onCopy: (text: string, key: string) => void }) {
   const online = r.status === "online";
   const totalSkills = Object.values(r.local_skills ?? {}).reduce(
     (n, arr) => n + (arr?.length ?? 0),
@@ -489,6 +495,22 @@ function MachineCard({ r, onRevoke, onOpenDetail }: { r: Runtime; onRevoke: (id:
           </details>
         )}
 
+        {/* Offline → the daemon isn't attached; show the one command that brings
+            it back. stopPropagation so copying doesn't open the detail dialog. */}
+        {!online && (
+          <div className="rounded-md border border-border bg-bg-surface/50 p-2" onClick={(e) => e.stopPropagation()}>
+            <div className="text-[10px] uppercase tracking-wider text-fg-subtle mb-1">Reconnect — run on that machine</div>
+            <button
+              onClick={() => onCopy(RECONNECT_CMD, `reconnect-${r.id}`)}
+              aria-label={`Copy reconnect command for ${r.hostname}`}
+              className="group w-full text-left rounded border border-border bg-bg px-2 py-1.5 flex items-center gap-2 hover:border-border-strong transition-colors"
+            >
+              <span className="flex-1 min-w-0 overflow-x-auto font-mono text-[11px] text-fg whitespace-nowrap">{RECONNECT_CMD}</span>
+              <span className="shrink-0 text-fg-subtle group-hover:text-fg"><ClipboardIcon ok={copied === `reconnect-${r.id}`} /></span>
+            </button>
+          </div>
+        )}
+
         <div className="mt-auto flex items-center gap-3 text-[11px] text-fg-subtle">
           <span className="inline-flex items-center gap-1">
             <span className={cn("w-1.5 h-1.5 rounded-full", online ? "bg-success" : "bg-fg-subtle")} />
@@ -519,11 +541,15 @@ function MachineDetailDialog({
   onClose,
   onRevoke,
   onUseInEnvironment,
+  copied,
+  onCopy,
 }: {
   machine: Runtime | null;
   onClose: () => void;
   onRevoke: (id: string) => void;
   onUseInEnvironment: () => void;
+  copied: string | null;
+  onCopy: (text: string, key: string) => void;
 }) {
   if (!machine) return null;
   const r = machine;
@@ -575,6 +601,18 @@ function MachineDetailDialog({
             {r.status}
           </span>
         </DetailRow>
+
+        {!online && (
+          <div className="rounded-md border border-border bg-bg-surface/50 p-3 space-y-2">
+            <div className="text-sm font-medium text-fg">Reconnect this machine</div>
+            <p className="text-xs text-fg-muted leading-relaxed">
+              The daemon isn't attached right now. On{" "}
+              <span className="text-fg">{r.hostname}</span>, run this to re-pair and restart it —
+              it's idempotent, so it's safe to run again:
+            </p>
+            <CopyBlock id={`reconnect-detail-${r.id}`} text={RECONNECT_CMD} copied={copied} onCopy={onCopy} />
+          </div>
+        )}
         {r.version && (
           <DetailRow label="Version">
             <span className="font-mono text-xs">v{r.version}</span>
@@ -1128,6 +1166,8 @@ export function RuntimesList() {
                 r={r}
                 onRevoke={(id) => void remove(id)}
                 onOpenDetail={setDetailMachine}
+                copied={copied}
+                onCopy={copy}
               />
             ))}
           </div>
@@ -1445,6 +1485,8 @@ export function RuntimesList() {
         onClose={() => setDetailMachine(null)}
         onRevoke={(id) => void remove(id)}
         onUseInEnvironment={goToEnvironments}
+        copied={copied}
+        onCopy={copy}
       />
     </div>
   );

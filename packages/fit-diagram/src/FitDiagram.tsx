@@ -17,7 +17,7 @@ import { Fragment, useRef, useState } from "react";
 import { ArrowDownIcon, ArrowRightIcon, CheckIcon, ChevronsLeftIcon, ChevronsRightIcon } from "lucide-react";
 import { cn } from "./cn";
 import { ProviderMark } from "./ProviderMark";
-import type { FitCard, FitFormulaRow, FitRow, FitStep } from "./types";
+import type { FitCard, FitFormulaRow, FitProviderMark, FitRow, FitStep } from "./types";
 
 const BADGE_CAP = 3;
 
@@ -55,21 +55,29 @@ function InstanceBadges({ names }: { names: string[] }) {
   );
 }
 
-function ProviderMarkGroup({ ids }: { ids: string[] }) {
+function ProviderMarkGroup({ marks }: { marks: FitProviderMark[] }) {
+  // Active marks (colored) sort ahead of inactive (gray) ones so the healthy
+  // providers lead the avatar-group and the "+N" overflow drops idle ones first.
+  const norm = marks
+    .map((m) => (typeof m === "string" ? { id: m, active: true } : { id: m.id, active: m.active !== false }))
+    .sort((a, b) => Number(b.active) - Number(a.active));
   return (
     <div className="mt-2 flex items-center -space-x-1.5">
-      {ids.slice(0, 5).map((id) => (
+      {norm.slice(0, 5).map((m) => (
         <span
-          key={id}
-          title={id}
-          className="flex size-6 items-center justify-center rounded-full border border-border bg-bg-surface ring-2 ring-bg"
+          key={m.id}
+          title={m.active ? m.id : `${m.id} (idle)`}
+          className={cn(
+            "flex size-6 items-center justify-center rounded-full border border-border bg-bg-surface ring-2 ring-bg",
+            !m.active && "opacity-45 grayscale",
+          )}
         >
-          <ProviderMark id={id} colored className="size-3.5 text-fg-muted" />
+          <ProviderMark id={m.id} colored={m.active} className="size-3.5 text-fg-muted" />
         </span>
       ))}
-      {ids.length > 5 && (
+      {norm.length > 5 && (
         <span className="flex size-6 items-center justify-center rounded-full border border-border bg-bg-surface ring-2 ring-bg text-[10px] font-medium text-fg-muted">
-          +{ids.length - 5}
+          +{norm.length - 5}
         </span>
       )}
     </div>
@@ -125,7 +133,7 @@ function FitCardView({ card }: { card: FitCard }) {
         <InstanceBadges names={badges} />
       ) : null}
       {card.providerMarks && card.providerMarks.length > 0 && (
-        <ProviderMarkGroup ids={card.providerMarks} />
+        <ProviderMarkGroup marks={card.providerMarks} />
       )}
     </button>
   );

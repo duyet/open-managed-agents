@@ -20,9 +20,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
-import { FitDiagram, ProviderMark, type FitCardStatus, type FitStep } from "@duyet/oma-fit-diagram";
+import { FitDiagram, ProviderMark, type FitCardStatus, type FitProviderMark, type FitStep } from "@duyet/oma-fit-diagram";
 import { Modal } from "./Modal";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useApiQuery } from "../lib/useApiQuery";
 import { IntegrationsApi } from "../integrations/api/client";
 import { friendlyHostingDescription } from "../lib/hostingTypes";
@@ -86,6 +87,14 @@ interface Page<T> {
   data: T[];
   next_cursor?: string;
 }
+/** Subset of /v1/hosting_types — just what the sandbox card needs to color
+ *  a provider mark by live health and describe it in the quick-view. */
+interface HostingType {
+  id: string;
+  label: string;
+  capabilities?: string[];
+  health: { status: "healthy" | "unhealthy" | "not_configured"; latency_ms?: number } | null;
+}
 
 /** Single source of the provider-id fallback chain — keeps labels and
  *  provider marks derived from the same resolution. */
@@ -112,6 +121,8 @@ interface QuickRow {
   primary: string;
   secondary?: string;
   tag?: string;
+  /** Health tone for the provider-mark grid — drives the status dot color. */
+  tone?: "ok" | "warn" | "idle";
 }
 
 interface QuickView {
@@ -120,33 +131,70 @@ interface QuickView {
   href: string;
   linkLabel: string;
   rows: QuickRow[];
-  /** Renders a provider-mark grid instead of the row table. */
-  marks?: string[];
+  /** Renders a provider-mark grid instead of the row table. Object marks may
+   *  be flagged inactive to render grayed-out (idle providers). */
+  marks?: FitProviderMark[];
   emptyText: string;
+  /** Shown in the empty state as a primary action (e.g. "+ Add provider"). */
+  emptyAction?: { label: string; onClick: () => void };
 }
+
+const TONE_DOT: Record<NonNullable<QuickRow["tone"]>, string> = {
+  ok: "bg-success",
+  warn: "bg-destructive",
+  idle: "bg-fg-subtle",
+};
 
 const QUICK_ROW_CAP = 8;
 
 function QuickViewBody({ view }: { view: QuickView }) {
   if (view.marks && view.marks.length > 0) {
     return (
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {view.marks.map((id, i) => (
-          <div
-            key={id}
-            className="flex items-center gap-2 rounded-md border border-border bg-bg-surface/40 px-2.5 py-2"
-          >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-bg">
-              <ProviderMark id={id} colored className="size-4 text-fg-muted" />
-            </span>
-            <span className="truncate text-[13px] text-fg">{view.rows[i]?.primary ?? id}</span>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {view.marks.map((m, i) => {
+          const id = typeof m === "string" ? m : m.id;
+          const active = typeof m === "string" ? true : m.active !== false;
+          const row = view.rows[i];
+          return (
+            <div
+              key={id}
+              className="flex items-center gap-2.5 rounded-md border border-border bg-bg-surface/40 px-2.5 py-2"
+            >
+              <span
+                className={cn(
+                  "flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-bg",
+                  !active && "opacity-45 grayscale",
+                )}
+              >
+                <ProviderMark id={id} colored={active} className="size-4 text-fg-muted" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] text-fg">{row?.primary ?? id}</span>
+                {row?.tag && (
+                  <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-fg-subtle">
+                    <span className={cn("size-1.5 rounded-full", TONE_DOT[row.tone ?? "idle"])} />
+                    {row.tag}
+                    {row.secondary && <span className="font-mono text-fg-subtle">· {row.secondary}</span>}
+                  </span>
+                )}
+              </span>
+            </div>
+          );
+        })}
       </div>
     );
   }
   if (view.rows.length === 0) {
-    return <p className="text-sm text-fg-muted">{view.emptyText}</p>;
+    return (
+      <div className="flex flex-col items-start gap-3">
+        <p className="text-sm text-fg-muted">{view.emptyText}</p>
+        {view.emptyAction && (
+          <Button size="sm" variant="secondary" onClick={view.emptyAction.onClick}>
+            {view.emptyAction.label}
+          </Button>
+        )}
+      </div>
+    );
   }
   const shown = view.rows.slice(0, QUICK_ROW_CAP);
   const rest = view.rows.length - shown.length;
@@ -190,6 +238,11 @@ export function StackedAssembly() {
   const sessionsQ = useApiQuery<Page<SessionEntry>>("/v1/sessions", { limit: "10" });
   const memoryQ = useApiQuery<Page<MemoryStoreEntry>>("/v1/memory_stores", { limit: "10" });
   const filesQ = useApiQuery<Page<FileEntry>>("/v1/files", { limit: "10" });
+  // Live provider health drives the sandbox card's colored-vs-gray marks and
+  // the quick-view status rows. Same 30s cadence as the Runtimes page.
+  const hostingQ = useApiQuery<{ data: HostingType[] }>("/v1/hosting_types", undefined, {
+    refetchInterval: 30_000,
+  });
 
   // Channels: reuse the same live-installation counts the Integrations Hub
   // already computes (issue #92) rather than inventing a new endpoint.
@@ -228,6 +281,20 @@ export function StackedAssembly() {
     envs.length === 0 ? "empty" : envAttention ? "attention" : "ready";
   const providers = [...new Set(envs.map(providerLabel))];
   const providerIds = [...new Set(envs.map(providerId))];
+
+  // Provider id → live health, keyed for O(1) lookup by the sandbox card.
+  const hostingById = new Map((hostingQ.data?.data ?? []).map((h) => [h.id, h]));
+  const providerHealthOf = (id: string): { active: boolean; tone: QuickRow["tone"]; label: string; latency?: string } => {
+    const status = hostingById.get(id)?.health?.status;
+    if (status === "healthy") {
+      const ms = hostingById.get(id)?.health?.latency_ms;
+      return { active: true, tone: "ok", label: "Healthy", latency: ms != null ? `${ms}ms` : undefined };
+    }
+    if (status === "unhealthy") return { active: false, tone: "warn", label: "Unhealthy" };
+    if (status === "not_configured") return { active: false, tone: "idle", label: "Not configured" };
+    return { active: false, tone: "idle", label: "Idle" };
+  };
+  const sandboxMarks: FitProviderMark[] = providerIds.map((id) => ({ id, active: providerHealthOf(id).active }));
 
   const countStatus = (n: number): FitCardStatus => (n > 0 ? "ready" : "empty");
 
@@ -457,16 +524,20 @@ export function StackedAssembly() {
         emptyCta: "+ Where sandboxes run — set by your environment",
         description:
           providers.length > 0 ? "Where tools execute — set by your environment." : undefined,
-        providerMarks: providerIds,
+        providerMarks: sandboxMarks,
         onActivate: () =>
           setQuick({
             title: "Sandbox providers",
-            desc: "Where tools execute — the isolated container or micro-VM each session runs inside, set by its environment.",
+            desc: "Where tools execute — the isolated container or micro-VM each session runs inside, set by its environment. Colored = live and healthy; gray = idle or unreachable.",
             href: "/runtimes",
             linkLabel: "Sandbox Runtime",
-            rows: providers.map((p) => ({ primary: p })),
-            marks: providerIds,
+            rows: providerIds.map((id, i) => {
+              const h = providerHealthOf(id);
+              return { primary: providers[i] ?? id, tag: h.label, tone: h.tone, secondary: h.latency };
+            }),
+            marks: sandboxMarks,
             emptyText: "No environments yet, so no sandbox providers in use.",
+            emptyAction: { label: "+ Add a sandbox provider", onClick: () => nav("/runtimes") },
           }),
       },
     ],
