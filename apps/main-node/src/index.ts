@@ -84,6 +84,7 @@ import {
   buildScheduleRoutes,
   buildVaultRoutes,
   buildMcpServerRoutes,
+  buildFederationRoutes,
   buildOmaMcpRoutes,
   buildAnalyticsRoutes,
   buildTelemetryRoutes,
@@ -143,7 +144,13 @@ import {
   buildNodeProvidersForRequest,
 } from "./lib/node-install-bridge.js";
 import { OmaVaultResolver } from "@duyet/oma-cap-adapter";
-import { buildCredentialCrypto } from "@duyet/oma-shared";
+import {
+  buildCredentialCrypto,
+  buildLabeledCrypto,
+  FEDERATION_CRYPTO_LABEL,
+  resolveFederationInstance,
+  delegateToRemoteAgent as remoteAgentDelegate,
+} from "@duyet/oma-shared";
 import { NodeSessionRouter } from "./lib/node-session-router.js";
 import { nodeOutputsAdapter } from "./lib/node-outputs-adapter.js";
 import { nodeSessionLifecycle } from "./lib/node-session-lifecycle.js";
@@ -900,6 +907,22 @@ const sessionRegistry = new SessionRegistry({
       mcpBinding: nodeMcpBinding,
       tenantId: ctx.tenantId,
       sessionId: ctx.sessionId,
+      // Cross-instance federation delegate (issue #132) — resolves a
+      // registered remote instance (base URL + API key) directly off KV +
+      // crypto and drives the remote session to idle. Requires
+      // PLATFORM_ROOT_SECRET to decrypt the stored key.
+      delegateToRemoteAgent: platformRootSecret
+        ? async (instanceId, remoteAgentId, message, remoteEnvironmentId) => {
+            const crypto = buildLabeledCrypto(platformRootSecret, FEDERATION_CRYPTO_LABEL);
+            const target = await resolveFederationInstance(kv, crypto, ctx.tenantId, instanceId);
+            if (!target) throw new Error(`federation instance ${instanceId} not found`);
+            const { text } = await remoteAgentDelegate(
+              { base_url: target.base_url, api_key: target.api_key },
+              { remoteAgentId, message, remoteEnvironmentId },
+            );
+            return text;
+          }
+        : undefined,
     });
   },
   buildHarness: () => {
@@ -1295,6 +1318,15 @@ v1.route("/sessions", buildSessionRoutes({
 }));
 v1.route("/vaults", buildVaultRoutes({ services }));
 v1.route("/mcp_servers", buildMcpServerRoutes({ services }));
+v1.route(
+  "/federation",
+  buildFederationRoutes({
+    services,
+    crypto: platformRootSecret
+      ? buildLabeledCrypto(platformRootSecret, FEDERATION_CRYPTO_LABEL)
+      : undefined,
+  }),
+);
 v1.route("/analytics", buildAnalyticsRoutes({ services }));
 v1.route(
   "/telemetry",

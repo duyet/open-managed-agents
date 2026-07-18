@@ -16,6 +16,7 @@ import {
   buildAgentPublicationRoutes,
   buildDeviceRoutes,
   buildMcpServerRoutes,
+  buildFederationRoutes,
   buildOmaMcpRoutes,
   buildAnalyticsRoutes,
   buildTelemetryRoutes,
@@ -37,7 +38,12 @@ import {
   createCfShardPoolService,
   createCfTenantShardDirectoryService,
 } from "@duyet/oma-tenant-dbs-store";
-import { LOCAL_RUNTIME_ENV_ID } from "@duyet/oma-shared";
+import {
+  LOCAL_RUNTIME_ENV_ID,
+  buildLabeledCrypto,
+  FEDERATION_CRYPTO_LABEL,
+  resolveFederationInstance,
+} from "@duyet/oma-shared";
 import { toEnvironmentConfig } from "@duyet/oma-environments-store";
 import { authMiddleware } from "./auth";
 import { rateLimitMiddleware, authRateLimitMiddleware } from "./rate-limit";
@@ -430,6 +436,18 @@ const skillsRoutes = new Hono<{ Bindings: Env; Variables: { tenant_id: string } 
     uploadMaxBytes: Number(env.UPLOAD_MAX_BYTES ?? 25 * 1024 * 1024),
   });
   const app = buildSkillRoutes({ services: () => cfRouteServicesFromCtx(ctx), quota });
+  return invokePackage(c, app);
+});
+
+// Cross-instance federation registry (issue #132). The remote API key is
+// encrypted at rest under FEDERATION_CRYPTO_LABEL off PLATFORM_ROOT_SECRET.
+const federationRoutes = new Hono<{ Bindings: Env; Variables: { tenant_id: string } }>().all("*", (c) => {
+  const ctx = c as unknown as AppCtx;
+  const secret = (c.env as unknown as { PLATFORM_ROOT_SECRET?: string }).PLATFORM_ROOT_SECRET;
+  const app = buildFederationRoutes({
+    services: () => cfRouteServicesFromCtx(ctx),
+    crypto: secret ? buildLabeledCrypto(secret, FEDERATION_CRYPTO_LABEL) : undefined,
+  });
   return invokePackage(c, app);
 });
 
@@ -881,6 +899,7 @@ app.route("/v1/files", filesRoutes);
 app.route("/v1/skills", skillsRoutes);
 app.route("/v1/model_cards", modelCardsRoutes);
 app.route("/v1/mcp_servers", mcpServersRoutes);
+app.route("/v1/federation", federationRoutes);
 app.route("/v1/analytics", analyticsRoutes);
 app.route("/v1/telemetry", telemetryRoutes);
 app.route("/v1/models", modelsRoutes);
@@ -1387,6 +1406,24 @@ export class McpProxyRpc extends WorkerEntrypoint<Env> {
     );
     if (!cred) return null;
     return { type: "bearer", token: cred.upstreamToken };
+  }
+
+  /**
+   * Resolve a registered remote OMA instance for cross-instance federation
+   * (issue #132). The cloud agent DO has no KV / PLATFORM_ROOT_SECRET access,
+   * so it calls this RPC to get the remote base URL + decrypted API key, then
+   * drives the remote session itself (see SessionDO#runRemoteAgent). Returns
+   * null when the instance isn't registered for the tenant.
+   */
+  async resolveFederationTarget(opts: {
+    tenantId: string;
+    instanceId: string;
+  }): Promise<{ base_url: string; api_key?: string } | null> {
+    const secret = (this.env as unknown as { PLATFORM_ROOT_SECRET?: string }).PLATFORM_ROOT_SECRET;
+    if (!secret) return null;
+    const services = await getCfServicesForTenant(this.env, opts.tenantId);
+    const crypto = buildLabeledCrypto(secret, FEDERATION_CRYPTO_LABEL);
+    return resolveFederationInstance(services.kv, crypto, opts.tenantId, opts.instanceId);
   }
 
   /**

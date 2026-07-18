@@ -469,6 +469,19 @@ export async function buildTools(
      *  event log). Falls back to `delegateToAgent` (no thread id) when
      *  unset — e.g. older test harnesses that only wire the plain form. */
     delegateToAgentDetailed?: (agentId: string, message: string) => Promise<{ text: string; threadId?: string }>;
+    /** Cross-instance federation delegate (issue #132). Delegates to an agent
+     *  on a REMOTE OMA instance registered in the tenant's federation
+     *  registry. The executor resolves the instance (base URL + API key) and
+     *  drives the remote session to idle. Wired by SessionDO (CF, via the
+     *  `env.MAIN_MCP.resolveFederationTarget` RPC) and by the self-host Node
+     *  buildTools callback (directly off KV + crypto). When unset, any
+     *  generated `call_remote_agent_*` tool returns an unavailable message. */
+    delegateToRemoteAgent?: (
+      instanceId: string,
+      remoteAgentId: string,
+      message: string,
+      remoteEnvironmentId?: string,
+    ) => Promise<string>;
     environmentConfig?: { networking?: { type: string; allowed_hosts?: string[] } };
     /** MCP routing context — wired from SessionDO. AI SDK's MCP HTTP
      *  transport gets a custom `fetch` that calls
@@ -1443,9 +1456,19 @@ export async function buildTools(
 
 
 
-  // Multi-agent tools — create a call tool for each callable agent
-  if (agentConfig.callable_agents?.length && env?.ANTHROPIC_API_KEY) {
-    for (const ca of agentConfig.callable_agents) {
+  // Local sub-agents are the `type: "agent"` roster entries; remote
+  // (federation) delegates are `type: "remote_agent"`. Split once so both
+  // the single-call and parallel wiring below only see local entries.
+  const localCallableAgents = (agentConfig.callable_agents ?? []).filter(
+    (ca): ca is Extract<typeof ca, { type: "agent" }> => ca.type === "agent",
+  );
+  const remoteCallableAgents = (agentConfig.callable_agents ?? []).filter(
+    (ca): ca is Extract<typeof ca, { type: "remote_agent" }> => ca.type === "remote_agent",
+  );
+
+  // Multi-agent tools — create a call tool for each callable (local) agent
+  if (localCallableAgents.length && env?.ANTHROPIC_API_KEY) {
+    for (const ca of localCallableAgents) {
       const toolName = `call_agent_${ca.id.replace(/[^a-zA-Z0-9_]/g, '_')}`;
 
       tools[toolName] = tool({
@@ -1467,14 +1490,49 @@ export async function buildTools(
     }
   }
 
+  // Federation tools — a call tool per remote_agent roster entry (issue
+  // #132). Each opens a session on the registered remote OMA instance,
+  // delegates the task, and returns the remote agent's text response.
+  if (remoteCallableAgents.length && env?.ANTHROPIC_API_KEY) {
+    for (const ra of remoteCallableAgents) {
+      const safeInstance = ra.instance_id.replace(/[^a-zA-Z0-9_]/g, "_");
+      const safeAgent = ra.remote_agent_id.replace(/[^a-zA-Z0-9_]/g, "_");
+      const toolName = `call_remote_agent_${safeInstance}_${safeAgent}`;
+      tools[toolName] = tool({
+        description:
+          `Delegate a task to remote agent ${ra.remote_agent_id} on federated OMA ` +
+          `instance ${ra.instance_id}. Runs on the remote instance's own sandbox and ` +
+          `returns its text response.`,
+        inputSchema: z.object({
+          message: z.string().describe("The task to delegate to the remote agent"),
+        }),
+        execute: safe(async ({ message }) => {
+          if (!env?.delegateToRemoteAgent) {
+            return "Federation delegation not available: no remote executor configured";
+          }
+          try {
+            return await env.delegateToRemoteAgent(
+              ra.instance_id,
+              ra.remote_agent_id,
+              message,
+              ra.remote_environment_id,
+            );
+          } catch (e) {
+            return `Remote agent error: ${e instanceof Error ? e.message : String(e)}`;
+          }
+        }),
+      });
+    }
+  }
+
   // call_agents_parallel — fan out to N callable sub-agents concurrently
   // and aggregate their responses. Generated under the same condition as
   // the single-call `call_agent_*` tools above (callable_agents configured
   // + a key to run sub-agent turns with). Partial failures don't fail the
   // whole tool call: each entry in `results` carries its own success/error
   // status, so the model can act on whichever children succeeded.
-  if (agentConfig.callable_agents?.length && env?.ANTHROPIC_API_KEY) {
-    const callableIds = new Set(agentConfig.callable_agents.map((ca) => ca.id));
+  if (localCallableAgents.length && env?.ANTHROPIC_API_KEY) {
+    const callableIds = new Set(localCallableAgents.map((ca) => ca.id));
     // Effective concurrency: agent config can lower the default but never
     // exceed the hard cap, regardless of what the model requests in a
     // single call — this is the resource/quota guard, not a model-facing

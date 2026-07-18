@@ -214,10 +214,13 @@ function snapshotToSessionAgent(
     metadata: _md,
     ...rest
   } = snapshot;
-  const multiagent = (callable_agents ?? []).length > 0
+  const localCallable = (callable_agents ?? []).filter(
+    (c): c is Extract<typeof c, { type: "agent" }> => c.type === "agent",
+  );
+  const multiagent = localCallable.length > 0
     ? {
         type: "coordinator" as const,
-        agents: (callable_agents ?? []).map((c) => ({
+        agents: localCallable.map((c) => ({
           type: "agent" as const,
           id: c.id,
           version: c.version ?? 1,

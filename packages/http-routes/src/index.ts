@@ -122,6 +122,9 @@ export type {
   VerifyMagicLinkResult,
 } from "./public";
 
+export { buildFederationRoutes } from "./federation";
+export type { FederationRoutesDeps } from "./federation";
+
 export { buildIntegrationsRoutes } from "./integrations";
 export type {
   IntegrationsRoutesDeps,

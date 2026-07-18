@@ -335,6 +335,18 @@ export interface Env {
      * us. Vault credentials still only live in main.
      */
     fetch(request: Request): Promise<Response>;
+    /**
+     * Resolve a registered remote OMA instance for cross-instance federation
+     * (issue #132). Returns the remote base URL + decrypted API key so the
+     * agent DO can drive a session on the remote instance, or null when no
+     * such instance is registered for the tenant. The agent DO has no KV /
+     * PLATFORM_ROOT_SECRET access, so this resolution happens main-side —
+     * mirroring the vault-credential lookups above.
+     */
+    resolveFederationTarget?(opts: {
+      tenantId: string;
+      instanceId: string;
+    }): Promise<{ base_url: string; api_key?: string } | null>;
   };
   // Public URL of the integrations gateway (used to build redirect URLs to
   // OAuth callbacks etc. when the gateway is on a different host).

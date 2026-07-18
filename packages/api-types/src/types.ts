@@ -135,20 +135,42 @@ export interface AgentConfig {
     };
   }>;
   skills?: Array<{ skill_id: string; type: string; version?: string }>;
-  callable_agents?: Array<{
-    type: "agent";
-    id: string;
-    version?: number;
-    /**
-     * Environment to run this sub-agent's sandbox in. Unset (the default
-     * for every existing config) or equal to the parent session's own
-     * `environment_id` → the sub-agent shares the parent's sandbox, same
-     * as before this field existed. A different value mints a dedicated
-     * sandbox for this sub-agent's turn, torn down afterward. API-only for
-     * now — no Console UI to set it yet.
-     */
-    environment_id?: string;
-  }>;
+  callable_agents?: Array<
+    | {
+        type: "agent";
+        id: string;
+        version?: number;
+        /**
+         * Environment to run this sub-agent's sandbox in. Unset (the default
+         * for every existing config) or equal to the parent session's own
+         * `environment_id` → the sub-agent shares the parent's sandbox, same
+         * as before this field existed. A different value mints a dedicated
+         * sandbox for this sub-agent's turn, torn down afterward. API-only for
+         * now — no Console UI to set it yet.
+         */
+        environment_id?: string;
+      }
+    | {
+        /**
+         * Cross-instance federation delegate (issue #132). Delegates the task
+         * to an agent living on ANOTHER OMA instance, registered in this
+         * tenant's federation registry (`/v1/federation/instances`). Generates
+         * a `call_remote_agent_*` tool that opens a fresh session on the remote
+         * instance, sends the message, waits for it to reach idle, and returns
+         * the remote agent's text response. The remote runs entirely in its own
+         * sandbox — no local sandbox is provisioned for this delegate.
+         */
+        type: "remote_agent";
+        /** Federation registry instance id (`fed_*`) identifying the remote
+         *  OMA instance (base URL + stored API key). */
+        instance_id: string;
+        /** Agent id on the remote instance to delegate to. */
+        remote_agent_id: string;
+        /** Optional environment id on the REMOTE instance for the spawned
+         *  session. Omit to let the remote pick its default. */
+        remote_environment_id?: string;
+      }
+  >;
   /**
    * Concurrency cap for the `call_agents_parallel` tool (generated when
    * `callable_agents` has 1+ entries). Lowers the platform default (5)
@@ -250,6 +272,29 @@ export interface AgentConfig {
   created_at: string;
   updated_at?: string;
   archived_at?: string;
+}
+
+// --- Federation (issue #132) ---
+
+/**
+ * A registered remote OMA instance this tenant can delegate to. Stored in the
+ * tenant-level federation registry (`/v1/federation/instances`, `fed_*` ids),
+ * KV-backed and runtime-agnostic like the MCP server registry. The remote API
+ * key is encrypted at rest (AES-256-GCM under FEDERATION_CRYPTO_LABEL) and
+ * NEVER echoed back — the API surfaces `has_api_key` instead.
+ */
+export interface FederationInstance {
+  id: string;
+  name: string;
+  /** Base URL of the remote OMA instance (e.g. `https://oma.example.com`).
+   *  The `/v1` prefix is appended by the federation client. */
+  base_url: string;
+  /** Response-only marker: an encrypted API key is stored for this instance.
+   *  The plaintext key is never returned by the API. */
+  has_api_key?: boolean;
+  description?: string;
+  created_at: number;
+  updated_at?: number;
 }
 
 // --- Environment ---
