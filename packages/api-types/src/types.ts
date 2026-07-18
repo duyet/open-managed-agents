@@ -317,7 +317,7 @@ export interface EnvironmentConfig {
      * `"default"` (DefaultHarness). Ignored when `kind === "local"` (the
      * harness there is always `"acp-proxy"`).
      */
-    harness?: "default" | "flue" | "long-running";
+    harness?: "default" | "long-running";
     /**
      * Local ACP runtime binding — required when `kind === "local"`, unused
      * otherwise. Formerly `AgentConfig.runtime_binding` (moved off the
