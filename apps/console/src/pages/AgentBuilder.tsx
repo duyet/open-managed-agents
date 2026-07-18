@@ -47,7 +47,7 @@ export function AgentBuilder() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-2xl mx-auto px-4 py-8">
+      <div className="w-full px-4 py-8">
         <AgentCreateForm
           variant="page"
           onCancel={() => nav("/agents")}

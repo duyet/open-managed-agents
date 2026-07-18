@@ -190,7 +190,7 @@ export function AppShell() {
                 key={pathname}
                 role="main"
                 aria-label="Page content"
-                className="flex-1 min-h-0 overflow-y-auto bg-bg pl-5 pr-6 py-5 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
+                className="flex-1 min-h-0 overflow-y-auto bg-bg pl-5 pr-6 pt-0 pb-5 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
               >
                 <Outlet context={outletContext} />
               </main>

@@ -976,7 +976,9 @@ export function AgentCreateForm({
                     <textarea
                       value={codeValue}
                       onChange={(e) => setCodeValue(e.target.value)}
-                      className={`${inputCls} flex-1 resize-none font-mono text-xs leading-relaxed min-h-[300px]`}
+                      className={`${inputCls} flex-1 resize-none font-mono text-xs leading-relaxed ${
+                        isDialog ? "min-h-[300px]" : "min-h-[calc(100vh-15rem)]"
+                      }`}
                       spellCheck={false}
                     />
                   </div>
