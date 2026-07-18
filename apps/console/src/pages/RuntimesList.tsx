@@ -30,7 +30,7 @@ interface Runtime {
   machine_id: string;
   hostname: string;
   os: string;
-  agents: Array<{ id: string; binary?: string }>;
+  agents: Array<{ id: string; binary?: string; version?: string }>;
   local_skills?: Record<string, LocalSkill[]>;
   version: string;
   status: "online" | "offline";
@@ -599,6 +599,7 @@ function MachineDetailDialog({
                 <li key={a.id} className="font-mono text-xs text-fg">
                   {a.id}
                   {a.binary && <span className="text-fg-subtle ml-1">({a.binary})</span>}
+                  {a.version && <span className="text-fg-subtle ml-1">v{a.version}</span>}
                 </li>
               ))}
             </ul>

@@ -134,7 +134,7 @@ runtimesRoutes.get("/", async (c) => {
       machine_id: r.machine_id,
       hostname: r.hostname,
       os: r.os,
-      agents: safeJsonParse(r.agents_json) as Array<{ id: string; binary?: string }>,
+      agents: safeJsonParse(r.agents_json) as Array<{ id: string; binary?: string; version?: string }>,
       local_skills: safeJsonParse(r.local_skills_json ?? "{}") as Record<string, Array<{ id: string; name?: string; description?: string; source?: string; source_label?: string }>>,
       version: r.version,
       status: r.status,
