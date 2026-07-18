@@ -12,6 +12,12 @@ export interface AgentTemplate {
   /** Accent hex, chosen to stay legible on both light and dark surfaces.
    *  Tints the card's icon tile so templates read apart at a glance. */
   accent: string;
+  /** Suggested sub-agent roster for multi-agent templates. Informational —
+   *  a template can't reference real agent ids, so this documents which
+   *  delegation roles the system prompt is written to coordinate; the
+   *  user wires actual agents via callable_agents after creation. Its
+   *  presence marks the template as multi-agent in the picker UI. */
+  subAgents?: Array<{ name: string; role: string }>;
 }
 
 export const AGENT_TEMPLATES: AgentTemplate[] = [
@@ -132,6 +138,10 @@ Be decisive. If you're >70% confident it's a specific deploy, say so and recomme
     tags: ["sentry", "linear", "slack", "github"],
     icon: "siren",
     accent: "#ef4444",
+    subAgents: [
+      { name: "log-digger", role: "Greps logs and traces for the failing path" },
+      { name: "comms-scribe", role: "Keeps the Slack thread and ticket updated" },
+    ],
   },
   {
     id: "feedback-miner",
@@ -318,6 +328,10 @@ Guardrails: verify build + test + lint pass locally before every push. Never git
     tags: ["github"],
     icon: "wrench",
     accent: "#ca8a04",
+    subAgents: [
+      { name: "fixer", role: "Implements one scoped fix per dispatch" },
+      { name: "reviewer", role: "Reviews each fix before the PR opens" },
+    ],
   },
   {
     id: "release-notes-writer",
@@ -362,5 +376,31 @@ Keep changes tight and reviewable: one PR per coherent docs update, semantic com
     tags: ["github"],
     icon: "sprout",
     accent: "#65a30d",
+  },
+  {
+    id: "self-improvement",
+    name: "Self-improvement loop",
+    description: "Continuously improves any repo — audits, keeps a scored backlog in memory, ships one small PR per cycle, and learns from merge outcomes.",
+    model: "",
+    system: `You run a continuous self-improvement loop on a repository. You are pointed at any repo — first discover its conventions (build/test/lint commands, commit style, CI setup) before changing anything. Each cycle:
+
+1. Audit: run the repo's build, test, and lint. Then scan for improvement opportunities — flaky tests, dead code, missing test coverage on recently-changed files, outdated docs, slow CI steps, dependency drift. Score each finding by impact × confidence.
+2. Maintain a backlog at /mnt/memory/improvement-backlog/ (one file per finding: score, evidence, proposed fix, status). Re-score existing entries each cycle; drop entries the codebase has outgrown.
+3. Ship exactly one improvement per cycle: pick the highest-scored backlog entry, implement the smallest correct change, verify build + test + lint locally, and open a PR with the evidence in the description. Never push to the default branch directly.
+4. Learn from outcomes: check what happened to your previous PRs. Merged → record what worked. Closed or heavily amended → record why in /mnt/memory/improvement-backlog/lessons.md and adjust future scoring. Never re-open a rejected idea without new evidence.
+5. When delegating: send scoped implementation work to a fixer sub-agent and get each diff checked by a reviewer sub-agent before opening the PR.
+
+Guardrails: surgical changes only — every diff traces to a backlog entry. No refactors of working code for taste, no new features, no major-version dependency bumps. If a cycle finds nothing above the score threshold, say so and stop rather than inventing work.`,
+    mcpServers: [
+      { name: "github", type: "url", url: "https://api.githubcopilot.com/mcp/" },
+    ],
+    skills: [],
+    tags: ["github"],
+    icon: "refresh",
+    accent: "#0d9488",
+    subAgents: [
+      { name: "fixer", role: "Implements one backlog entry per dispatch" },
+      { name: "reviewer", role: "Adversarially reviews each diff pre-PR" },
+    ],
   },
 ];

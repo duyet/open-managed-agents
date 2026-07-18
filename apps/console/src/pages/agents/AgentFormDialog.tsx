@@ -19,6 +19,8 @@ import {
   Wrench,
   ScrollText,
   Sprout,
+  RefreshCw,
+  Users,
 } from "lucide-react";
 
 import { useApi } from "../../lib/api";
@@ -58,6 +60,7 @@ const TEMPLATE_ICONS: Record<string, LucideGlyph> = {
   wrench: Wrench,
   scrollText: ScrollText,
   sprout: Sprout,
+  refresh: RefreshCw,
 };
 
 // Brand marks for integration tags. `Icon` renders the actual mark (colored
@@ -767,8 +770,25 @@ export function AgentFormDialog({
                           </div>
                         </div>
                       </div>
-                      {tmpl.tags.length > 0 && (
+                      {(tmpl.tags.length > 0 || tmpl.subAgents) && (
                         <div className="flex flex-wrap gap-1 mt-3">
+                          {/* Multi-agent marker — this template's prompt is
+                              written to coordinate a sub-agent roster; hover
+                              lists the suggested roles. The user wires real
+                              agents via callable_agents after creation. */}
+                          {tmpl.subAgents && (
+                            <span
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                              style={{
+                                color: tmpl.accent,
+                                backgroundColor: `color-mix(in srgb, ${tmpl.accent} 12%, transparent)`,
+                              }}
+                              title={tmpl.subAgents.map((s) => `${s.name} — ${s.role}`).join("\n")}
+                            >
+                              <Users className="size-3" />
+                              {tmpl.subAgents.map((s) => s.name).join(" + ")}
+                            </span>
+                          )}
                           {tmpl.tags.map((tag) => (
                             <TagChip key={tag} tag={tag} />
                           ))}
