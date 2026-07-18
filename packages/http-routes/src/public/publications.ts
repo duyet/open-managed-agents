@@ -29,10 +29,12 @@
 //   - per-IP rate-limit on session create
 //   - ownership scoping: a session created against publication A is not
 //     reachable via publication B's slug (metadata.publication_id check).
-//   - environment required (issue #225): a cloud agent (no runtime_binding)
-//     published with no environment_id set 409s session-create with a clear
-//     message instead of forwarding into the raw "environment_id is required
-//     for cloud agents" 400 session-create would otherwise return.
+//   - environment required (issue #225): a publication with no environment_id
+//     set 409s session-create with a clear message instead of forwarding
+//     into the raw "environment_id is required" 400 session-create would
+//     otherwise return. environment_id is unconditionally required on every
+//     session now (harness-to-environment migration) — there's no more
+//     "local-runtime agents don't need one" carve-out.
 
 import { Hono } from "hono";
 import type { PublicationRow } from "@duyet/oma-publications-store";
@@ -52,14 +54,14 @@ export interface PublicSessionCapsEnv {
 }
 
 /** Minimal slice of the per-tenant services container the public surface
- *  needs: just enough to confirm the published agent exists and read its
- *  runtime binding. Both CF `Services` and Node `RouteServices` satisfy it. */
+ *  needs: just enough to confirm the published agent exists. Both CF
+ *  `Services` and Node `RouteServices` satisfy it. */
 export interface PublicPublicationServices {
   agents: {
     get(args: {
       tenantId: string;
       agentId: string;
-    }): Promise<{ runtime_binding?: unknown } | null>;
+    }): Promise<Record<string, unknown> | null>;
   };
 }
 
@@ -318,13 +320,11 @@ export function buildPublicPublicationRoutes(deps: PublicPublicationRoutesDeps) 
     });
     if (!agent) return c.json({ error: "Published agent not found" }, 404);
 
-    // Cloud agents need an environment_id at session-create (see
-    // packages/http-routes/src/sessions/index.ts) — local-runtime agents
-    // (agent.runtime_binding set) don't. Detect the "will 400 downstream"
-    // case here so a visitor gets a clear, actionable message instead of the
-    // raw session-create error (issue #225).
-    const agentIsLocalRuntime = !!agent.runtime_binding;
-    if (!agentIsLocalRuntime && !pub.environment_id) {
+    // Every session needs an environment_id at session-create now (see
+    // packages/http-routes/src/sessions/index.ts) — detect the "will 400
+    // downstream" case here so a visitor gets a clear, actionable message
+    // instead of the raw session-create error (issue #225).
+    if (!pub.environment_id) {
       return c.json(
         {
           error:

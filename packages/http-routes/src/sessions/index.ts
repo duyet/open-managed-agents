@@ -161,8 +161,6 @@ export interface SessionRoutesDeps {
     tenantId: string;
     environmentId: string;
   }) => Promise<EnvironmentConfig | null>;
-  /** Local-runtime sentinel — cloud sessions require explicit env_id. */
-  localRuntimeEnvId?: string;
   /** Vault credential bundling for /init. Both runtimes read from
    *  services.credentials but we keep it pluggable for future variants. */
   fetchVaultCredentials?: (input: {
@@ -204,8 +202,6 @@ function snapshotToSessionAgent(
   if (!snapshot) return { type: "agent", id: agentId, version: 1 };
   const {
     aux_model: _a,
-    harness: _h,
-    runtime_binding: _rb,
     appendable_prompts: _ap,
     callable_agents,
     archived_at: _ar,
@@ -316,6 +312,15 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
       title?: string;
       vault_ids?: string[];
       metadata?: Record<string, unknown>;
+      /** Per-session override of the agent's default model — see the
+       *  harness resolution formula in AGENTS.md ("Session gains optional
+       *  model + reasoning_effort overrides"). Forwarded as init params,
+       *  never appended to the event log. */
+      model?: string;
+      /** Per-session override of a local-kind environment's default
+       *  reasoning effort. No-op for cloud-kind environments (no harness
+       *  there defines the concept yet). */
+      reasoning_effort?: string;
       resources?: Array<{
         type: "file" | "memory_store" | "github_repository" | "github_repo" | "env" | "env_secret";
         file_id?: string;
@@ -373,32 +378,34 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
     const agentRow = await services.agents.get({ tenantId: t, agentId });
     if (!agentRow) return c.json({ error: "Agent not found" }, 404);
 
-    const agentIsLocalRuntime = !!agentRow.runtime_binding;
-
-    if (deps.lifecycle?.preCreateGate) {
-      const gate = await deps.lifecycle.preCreateGate({
-        tenantId: t,
-        agentId,
-        isLocalRuntime: agentIsLocalRuntime,
-      });
-      if (gate) return c.json(gate.body as object, gate.status as 402);
-    }
-
-    let envId = body.environment_id ?? wrappedEnv;
+    // environment_id is always required — every session runs against an
+    // environment record now (cloud sandbox or local ACP runtime; see
+    // EnvironmentConfig.config.kind in AGENTS.md). The old "local-runtime
+    // agents don't need one" carve-out is gone: local-ness moved off the
+    // agent (removed `AgentConfig.runtime_binding`) onto the environment.
+    const envId = body.environment_id ?? wrappedEnv;
     if (!envId) {
-      if (!agentIsLocalRuntime) {
-        return c.json({ error: "environment_id is required for cloud agents" }, 400);
-      }
-      envId = deps.localRuntimeEnvId ?? "env_local_runtime";
+      return c.json({ error: "environment_id is required" }, 400);
     }
 
     const { tenant_id: _atid, ...agentSnapshot } = agentRow;
     const envSnap = deps.loadEnvironment
       ? await deps.loadEnvironment({ tenantId: t, environmentId: envId })
       : null;
-    if (!agentIsLocalRuntime && !envSnap) {
+    if (!envSnap) {
       return c.json({ error: "Environment not found" }, 404);
     }
+    const isLocalRuntime = envSnap.config?.kind === "local";
+
+    if (deps.lifecycle?.preCreateGate) {
+      const gate = await deps.lifecycle.preCreateGate({
+        tenantId: t,
+        agentId,
+        isLocalRuntime,
+      });
+      if (gate) return c.json(gate.body as object, gate.status as 402);
+    }
+
     const vaultIds = body.vault_ids ?? [];
 
     // GitHub fast-path: pre-mint installation tokens for unbound repo refs.
@@ -504,6 +511,12 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
       // Mirror whatever metadata ended up on the just-created row into DO
       // state (issue #222) — see SessionInitParams.metadata.
       metadata: session.metadata ?? undefined,
+      // Session-level model/reasoning_effort overrides (harness-to-
+      // environment migration). Stored as init params / DO state only —
+      // NEVER appended to the event log (would bust Anthropic's prompt
+      // cache; see interface.ts's cache-prefix contract).
+      model: body.model,
+      reasoningEffort: body.reasoning_effort,
     };
     await router.init(sessionId, initParams).catch((err) => {
       console.warn(`[sessions] router.init failed for ${sessionId}:`, err);
@@ -727,8 +740,11 @@ export function buildSessionRoutes(deps: SessionRoutesDeps) {
     await router.destroy(id).catch(() => undefined);
 
     // Local-runtime daemon dispose.
-    const rid = (sess as unknown as { agent_snapshot?: { runtime_binding?: { runtime_id?: string } } })
-      .agent_snapshot?.runtime_binding?.runtime_id;
+    const rid = (
+      sess as unknown as {
+        environment_snapshot?: { config?: { local?: { runtime_id?: string } } };
+      }
+    ).environment_snapshot?.config?.local?.runtime_id;
     if (rid && deps.lifecycle?.notifyDaemonDispose) {
       await deps.lifecycle
         .notifyDaemonDispose({ runtimeId: rid, sessionId: id })

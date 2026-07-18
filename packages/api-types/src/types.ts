@@ -99,6 +99,9 @@ export type NotificationTarget =
 export interface AgentConfig {
   id: string;
   name: string;
+  /** Default model for sessions created from this agent — always required.
+   *  A session may override it per-launch (`POST /v1/sessions` `model`);
+   *  see SessionMeta / the harness resolution formula in AGENTS.md. */
   model: string | { id: string; speed?: "standard" | "fast" };
   system: string;
   tools: ToolConfig[];
@@ -185,65 +188,6 @@ export interface AgentConfig {
    * returning raw content. Set this to opt into compressed tool results.
    */
   aux_model?: string | { id: string; speed?: "standard" | "fast" };
-  harness?: string;
-  /**
-   * When set, agent runs on a user-registered local ACP runtime instead of
-   * OMA's cloud SessionDO loop. `harness` MUST be "acp-proxy" for this to
-   * take effect; SessionDO routes the AcpProxyHarness which proxies via the
-   * RuntimeRoom DO addressed by `runtime_id` to the daemon, which spawns the
-   * ACP child identified by `acp_agent_id` (matching KNOWN_ACP_AGENTS).
-   */
-  runtime_binding?: {
-    runtime_id: string;
-    acp_agent_id: string;
-    /**
-     * Skill ids the user wants HIDDEN from this agent's ACP child. Default
-     * (omitted / empty) = all locally-detected skills allowed. Each id matches
-     * a skill the daemon reported in the runtime hello manifest's
-     * `local_skills[acp_agent_id]`. Daemon enforces by NOT symlinking the
-     * blocked dir into spawn cwd's CLAUDE_CONFIG_DIR.
-     */
-    local_skill_blocklist?: string[];
-    /**
-     * Model id override for the spawned ACP child (e.g. "claude-sonnet-4-6").
-     * Forwarded to the daemon on `session.start` and applied best-effort via
-     * ACP's experimental `session/set_model` method once the child is live —
-     * only takes effect when the ACP agent advertises the id as selectable.
-     * Agents that don't support model selection at all (e.g. plain
-     * claude-acp today) silently keep their own default. See AGENTS.md
-     * "Custom Harness" / issue #269.
-     */
-    model?: string;
-    /**
-     * Reasoning-effort override. No OMA-canonical value set exists yet —
-     * this mirrors the OpenAI/Codex `minimal | low | medium | high`
-     * convention and is matched (case-insensitively) against whatever
-     * "thought_level" config option the spawned ACP agent itself
-     * advertises via `session/set_config_option`. Best-effort: agents
-     * without a thought_level option silently keep their default.
-     */
-    reasoning_effort?: string;
-    /**
-     * Absolute path to a project on the paired machine to use as the ACP
-     * child's cwd, instead of the daemon's synthetic per-session directory.
-     * When unset (default), behavior is unchanged — the daemon spawns into
-     * `~/.oma/bridge/sessions/<session-id>/`.
-     */
-    working_dir?: string;
-    /**
-     * Git branch to check out in `working_dir` before spawning. Requires
-     * `working_dir`. Mutually exclusive with `worktree` — `worktree` wins
-     * if both are set.
-     */
-    branch?: string;
-    /**
-     * Instead of checking out a branch in `working_dir` directly, create a
-     * git worktree from `worktree.branch` (via `git worktree add`) and use
-     * the worktree directory as cwd. Requires `working_dir`. Takes
-     * precedence over `branch` if both are set.
-     */
-    worktree?: { branch: string };
-  };
   description?: string;
   metadata?: Record<string, unknown>;
   /**
@@ -357,6 +301,84 @@ export interface EnvironmentConfig {
      *  When set, takes priority over the legacy `type` field. Allows
      *  selecting a user-registered provider with custom API keys. */
     sandbox_provider?: string;
+    /**
+     * Harness/execution family — immutable after create, like `type` above.
+     * `"cloud"` (default when unset): tools run in an OMA cloud sandbox
+     * (this `config.type`/`sandbox_provider`), driven by `config.harness`
+     * (default `"default"`). `"local"`: sessions using this environment
+     * delegate their whole agent loop to a user-registered local ACP
+     * runtime instead — the harness is implicitly `"acp-proxy"` (never
+     * user-visible, not independently settable) and `config.harness` is
+     * ignored. `config.local` carries the runtime binding.
+     */
+    kind?: "cloud" | "local";
+    /**
+     * Harness implementation for a `"cloud"`-kind environment. Unset =
+     * `"default"` (DefaultHarness). Ignored when `kind === "local"` (the
+     * harness there is always `"acp-proxy"`).
+     */
+    harness?: "default" | "flue" | "long-running";
+    /**
+     * Local ACP runtime binding — required when `kind === "local"`, unused
+     * otherwise. Formerly `AgentConfig.runtime_binding` (moved off the
+     * agent onto the environment so the same agent persona can run cloud or
+     * local depending on which environment a session picks).
+     */
+    local?: {
+      /** RuntimeRoom id of the paired `oma bridge daemon`. */
+      runtime_id: string;
+      /** ACP agent to spawn on the daemon (matches KNOWN_ACP_AGENTS). */
+      acp_agent_id: string;
+      /**
+       * Skill ids to hide from this environment's ACP child. Default
+       * (omitted / empty) = all locally-detected skills allowed. Each id
+       * matches a skill the daemon reported in the runtime hello
+       * manifest's `local_skills[acp_agent_id]`. Daemon enforces by NOT
+       * symlinking the blocked dir into spawn cwd's CLAUDE_CONFIG_DIR.
+       */
+      local_skill_blocklist?: string[];
+      /**
+       * Default model id for the spawned ACP child (e.g.
+       * "claude-sonnet-4-6"), overridable per session (`POST /v1/sessions`
+       * `model`). Forwarded to the daemon on `session.start` and applied
+       * best-effort via ACP's experimental `session/set_model` method once
+       * the child is live — only takes effect when the ACP agent
+       * advertises the id as selectable. Agents that don't support model
+       * selection at all (e.g. plain claude-acp today) silently keep their
+       * own default. See AGENTS.md "Custom Harness" / issue #269.
+       */
+      model?: string;
+      /**
+       * Default reasoning-effort override, overridable per session (`POST
+       * /v1/sessions` `reasoning_effort`). No OMA-canonical value set
+       * exists yet — this mirrors the OpenAI/Codex `minimal | low | medium
+       * | high` convention and is matched (case-insensitively) against
+       * whatever "thought_level" config option the spawned ACP agent
+       * itself advertises via `session/set_config_option`. Best-effort:
+       * agents without a thought_level option silently keep their default.
+       */
+      reasoning_effort?: string;
+      /**
+       * Absolute path to a project on the paired machine to use as the ACP
+       * child's cwd, instead of the daemon's synthetic per-session
+       * directory. When unset (default), the daemon spawns into
+       * `~/.oma/bridge/sessions/<session-id>/`.
+       */
+      working_dir?: string;
+      /**
+       * Git branch to check out in `working_dir` before spawning. Requires
+       * `working_dir`. Mutually exclusive with `worktree` — `worktree`
+       * wins if both are set.
+       */
+      branch?: string;
+      /**
+       * Instead of checking out a branch in `working_dir` directly, create
+       * a git worktree from `worktree.branch` (via `git worktree add`) and
+       * use the worktree directory as cwd. Requires `working_dir`. Takes
+       * precedence over `branch` if both are set.
+       */
+      worktree?: { branch: string };
+    };
     packages?: {
       pip?: string[];
       npm?: string[];

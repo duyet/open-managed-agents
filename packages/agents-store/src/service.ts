@@ -29,7 +29,6 @@ export interface NewAgentInput {
   model: AgentConfig["model"];
   system?: string;
   tools?: ToolConfig[];
-  harness?: string;
   description?: string;
   mcp_servers?: AgentConfig["mcp_servers"];
   skills?: AgentConfig["skills"];
@@ -37,7 +36,6 @@ export interface NewAgentInput {
   metadata?: Record<string, unknown>;
   aux_model?: AgentConfig["aux_model"];
   appendable_prompts?: string[];
-  runtime_binding?: AgentConfig["runtime_binding"];
   enable_general_subagent?: boolean;
   notify?: AgentConfig["notify"];
   max_parallel_subagents?: number;
@@ -51,7 +49,6 @@ export interface UpdateAgentInput {
   model?: AgentConfig["model"];
   system?: string | null;
   tools?: ToolConfig[];
-  harness?: string;
   description?: string | null;
   mcp_servers?: AgentConfig["mcp_servers"] | null;
   skills?: AgentConfig["skills"] | null;
@@ -60,7 +57,6 @@ export interface UpdateAgentInput {
   metadata?: Record<string, unknown>;
   aux_model?: AgentConfig["aux_model"] | null;
   appendable_prompts?: string[] | null;
-  runtime_binding?: AgentConfig["runtime_binding"] | null;
   enable_general_subagent?: boolean | null;
   notify?: AgentConfig["notify"] | null;
   max_parallel_subagents?: number | null;
@@ -76,7 +72,6 @@ const UPDATABLE_FIELDS = [
   "model",
   "system",
   "tools",
-  "harness",
   "description",
   "mcp_servers",
   "skills",
@@ -84,7 +79,6 @@ const UPDATABLE_FIELDS = [
   "aux_model",
   "metadata",
   "appendable_prompts",
-  "runtime_binding",
   "enable_general_subagent",
   "notify",
   "max_parallel_subagents",
@@ -146,7 +140,6 @@ export class AgentService {
       model: opts.input.model,
       system: opts.input.system ?? "",
       tools: opts.input.tools ?? DEFAULT_TOOLS,
-      harness: opts.input.harness,
       description: opts.input.description,
       mcp_servers: opts.input.mcp_servers,
       skills: opts.input.skills,
@@ -154,7 +147,6 @@ export class AgentService {
       metadata: opts.input.metadata,
       aux_model: opts.input.aux_model,
       appendable_prompts: opts.input.appendable_prompts,
-      runtime_binding: opts.input.runtime_binding,
       enable_general_subagent: opts.input.enable_general_subagent,
       notify: opts.input.notify,
       max_parallel_subagents: opts.input.max_parallel_subagents,
