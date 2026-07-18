@@ -82,6 +82,7 @@ import {
   buildAgentRoutes,
   buildVaultRoutes,
   buildMcpServerRoutes,
+  buildOmaMcpRoutes,
   buildAnalyticsRoutes,
   buildTelemetryRoutes,
   buildEnvironmentRoutes,
@@ -1163,6 +1164,10 @@ const authMw = buildAuthMw({
     // The trailing slash is load-bearing: "/v1/public/" must NOT match the
     // tenant-authed creator route "/v1/publications".
     path.startsWith("/v1/public/") ||
+    // OMA's own MCP server (issue #199) — Bearer-token auth, resolves the
+    // tenant itself via forwarded subrequests. Mounted on `app` (not `v1`)
+    // so this bypass keeps authMw from 401ing the Bearer-only request.
+    path === "/v1/mcp" ||
     path === "/v1/device/code" ||
     path === "/v1/device/token" ||
     path === "/v1/oma/device/code" ||
@@ -1703,6 +1708,17 @@ v1.delete("/files/:id", async (c) => {
     throw err;
   }
 });
+
+// OMA's own MCP server (issue #199) — /v1/mcp. Mounted on `app` ahead of the
+// `/v1` catch-all so its static path wins; Bearer-token auth is handled in
+// the route (bypassed in authMw above). Tool calls re-enter the platform API
+// via an in-process app.fetch dispatch that forwards the tenant key.
+app.route(
+  "/v1/mcp",
+  buildOmaMcpRoutes({
+    dispatch: (req) => app.fetch(req),
+  }),
+);
 
 app.route("/v1", v1);
 

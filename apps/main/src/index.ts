@@ -13,6 +13,7 @@ import {
   buildAgentPublicationRoutes,
   buildDeviceRoutes,
   buildMcpServerRoutes,
+  buildOmaMcpRoutes,
   buildAnalyticsRoutes,
   buildTelemetryRoutes,
   mintApiKeyOnStorage,
@@ -589,6 +590,16 @@ function invokePackage(
     c.executionCtx,
   );
 }
+// OMA's own MCP server (issue #199) — /v1/mcp. Bypasses authMiddleware
+// (Bearer-token auth, see auth.ts); tool calls re-enter the platform API via
+// an in-process app.fetch dispatch that forwards the tenant key.
+app.route(
+  "/v1/mcp",
+  buildOmaMcpRoutes({
+    dispatch: (req, c) => app.fetch(req, c.env, c.executionCtx),
+  }),
+);
+
 // Per-agent usage analytics — registered BEFORE the catch-all agentsRoutes
 // mount so GET /v1/agents/:id/stats matches here deterministically instead
 // of falling into buildAgentRoutes' GET /:id.
