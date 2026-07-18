@@ -264,9 +264,6 @@ input:focus-visible,
   border-radius: 0.5rem;
   padding: 1.25rem 1.5rem;
   background: var(--color-bg);
-  /* Faint accent spine (inset, so no layout shift) keyed to the layer's
-     functional hue; brightens + the whole layer lifts on hover. */
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--layer-accent, transparent) 30%, transparent);
   transition: border-color 160ms ease-out, box-shadow 160ms ease-out, transform 160ms ease-out;
 }
 .arch-accent-orange { --layer-accent: var(--color-accent); }
@@ -275,12 +272,10 @@ input:focus-visible,
 .arch-layer:hover {
   border-color: var(--color-border-strong);
   transform: translateY(-1px);
-  box-shadow: inset 3px 0 0 var(--layer-accent, var(--color-border-strong)),
-    0 2px 10px -6px rgba(24, 24, 27, 0.12);
+  box-shadow: 0 2px 10px -6px rgba(24, 24, 27, 0.12);
 }
 .dark .arch-layer:hover {
-  box-shadow: inset 3px 0 0 var(--layer-accent, var(--color-border-strong)),
-    0 2px 10px -6px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 2px 10px -6px rgba(0, 0, 0, 0.55);
 }
 /* Item cells within a layer pick up the accent border on hover. */
 .arch-layer li {
@@ -332,10 +327,27 @@ input:focus-visible,
   background: var(--color-green-subtle);
   border-color: color-mix(in srgb, var(--color-green) 24%, transparent);
 }
-.lifecycle-track {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.75rem;
+/* Durable lifecycle loop diagram: forward path of step nodes joined by
+   arrows, with a return connector underneath closing the ring. */
+.lifecycle-flow {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.4rem;
+}
+@media (min-width: 768px) {
+  .lifecycle-step {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .lifecycle-step p {
+    white-space: normal;
+  }
+}
+.lifecycle-arrow {
+  flex: none;
+  align-self: center;
+  color: var(--color-border-strong);
 }
 /* Step number lights up in brand on hover (pairs with the data-lift). */
 .lifecycle-num {
@@ -344,30 +356,60 @@ input:focus-visible,
 .lifecycle-step:hover .lifecycle-num {
   text-shadow: 0 0 10px color-mix(in srgb, var(--color-brand) 55%, transparent);
 }
-@media (min-width: 768px) {
-  .lifecycle-track {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 1.25rem;
-    align-items: stretch;
+/* The return path: a dashed U-shape from the last node back to the first,
+   labeled in the middle — the loop, drawn as a loop. */
+.lifecycle-return {
+  position: relative;
+  height: 2.4rem;
+  margin: 0 2.5rem;
+  border: 1.5px dashed color-mix(in srgb, var(--color-brand) 45%, transparent);
+  border-top: none;
+  border-radius: 0 0 1rem 1rem;
+}
+/* Arrowhead where the return path re-enters step 01. */
+.lifecycle-return::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: -4px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 7px solid color-mix(in srgb, var(--color-brand) 65%, transparent);
+}
+.lifecycle-return-label {
+  position: absolute;
+  left: 50%;
+  bottom: -0.65rem;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 10px;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  color: var(--color-brand);
+  background: var(--color-bg);
+  border: 1px solid color-mix(in srgb, var(--color-brand) 30%, transparent);
+}
+@media (max-width: 767px) {
+  .lifecycle-flow {
+    flex-direction: column;
+    align-items: center;
   }
   .lifecycle-step {
-    position: relative;
-    padding-right: 1rem;
+    width: 100%;
+    max-width: 18rem;
   }
-  .lifecycle-step:not(:last-child)::after {
-    content: "";
-    position: absolute;
-    top: 1.75rem;
-    right: 0;
-    width: 1.25rem;
-    height: 2px;
-    background: linear-gradient(
-      90deg,
-      var(--color-accent) 0%,
-      var(--color-blue) 50%,
-      var(--color-green) 100%
-    );
-    opacity: 0.55;
+  .lifecycle-arrow {
+    transform: rotate(90deg);
+  }
+  .lifecycle-return {
+    height: 1.6rem;
+    margin: 0 1rem;
+  }
+  .lifecycle-return-label {
+    white-space: normal;
+    text-align: center;
+    width: max-content;
+    max-width: 90vw;
   }
 }
 .meta-harness-split {

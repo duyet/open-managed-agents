@@ -1390,7 +1390,7 @@ export function BasicTab({
                   </Select>
                 </div>
                 {form.runtimeId && (
-                  <AcpAgentPicker form={form} setForm={setForm} runtimes={runtimes} />
+                  <AcpAgentPicker form={form} setForm={setForm} runtimes={runtimes} inputCls={inputCls} />
                 )}
               </>
             )}
@@ -1405,10 +1405,12 @@ function AcpAgentPicker({
   form,
   setForm,
   runtimes,
+  inputCls,
 }: {
   form: FormState;
   setForm: FormSetter;
   runtimes: AgentFormDialogProps["runtimes"];
+  inputCls: string;
 }) {
   const detectedAgents = runtimes.find((r) => r.id === form.runtimeId)?.agents ?? [];
   // OMA promotes 4 agents as "first class" in the UI (overlay's

@@ -18,7 +18,7 @@ import { FilterChip, CreatedFilterChip } from "../components/FilterChip";
 import { TextInput, SecretInput } from "../components/Input";
 import { toast } from "sonner";
 import type { ModelCard } from "@duyet/oma-api-types";
-import { INITIAL_FORM, formToConfig } from "./agents/AgentFormDialog";
+import { INITIAL_FORM as AGENT_INITIAL_FORM, formToConfig } from "./agents/AgentFormDialog";
 
 // ─── AnyRouter — "Connect to AnyRouter" OAuth (PKCE) button ────────────
 //
@@ -221,7 +221,7 @@ function AnyRouterConnectCard({ onStatus }: { onStatus?: (s: AnyRouterStatus) =>
         const card = byRole[spec.role];
         if (!card) continue;
         const config = formToConfig({
-          ...INITIAL_FORM,
+          ...AGENT_INITIAL_FORM,
           name: spec.name,
           system: spec.system,
           model: card.model_id,

@@ -1,40 +1,46 @@
 ---
 /**
- * Pixel-art agent mascot (v2 — friendlier, more detailed). A cheerful pixel
- * robot: dark outline, a warm terracotta body, light visor + eyes, little
- * antenna. The mascot stays deliberately *warm* — it's a playful secondary
- * mark, kept distinct from the iris (indigo) brand chrome so the page reads as
- * "serious tool, friendly guide". Uses the site's CSS custom properties so it
- * follows light/dark, and shape-rendering: crispEdges (set in .pixel-art global
- * rule) keeps blocks hard-edged at any scale. Eyes blink via .pa-eye keyframes.
+ * Pixel-art agent mascot (v3 — head/body silhouette, glowing core). A cheerful
+ * pixel robot: dark outline, warm terracotta shell, a light visor with dark
+ * blinking eyes, a pulsing antenna tip and chest core, and stubby arms. The
+ * mascot stays deliberately *warm* — a playful secondary mark, kept distinct
+ * from the iris (indigo) brand chrome so the page reads as "serious tool,
+ * friendly guide". Uses the site's CSS custom properties so it follows
+ * light/dark, and shape-rendering: crispEdges (set in the .pixel-art global
+ * rule) keeps blocks hard-edged at any scale. Eyes blink via .pa-eye
+ * keyframes (global.css); the antenna tip + core pulse via the local
+ * .pa-glow keyframes below.
  */
 const PALETTE: Record<string, string> = {
   K: "var(--color-fg)",
   O: "var(--color-accent)",
-  L: "var(--color-bg)",
   B: "var(--color-bg-surface)",
+  E: "var(--color-fg)",
+  G: "var(--color-accent)",
 };
 
-// 18×18 grid. `.` = transparent.
+// 20×20 grid. `.` = transparent. E = eye (blinks), G = glow (pulses).
 const MAP = [
-  "..................",
-  ".......KKKK.......",
-  ".......KLLKK......",
-  "......KLLLLK......",
-  "......KLLLLK......",
-  ".....KKKKKKKK.....",
-  "....KOOOOOOOOK....",
-  "...KOOOOOOOOOOK...",
-  "...KOOLLOOLLOOK...",
-  "...KOOLLOOLLOOK...",
-  "...KOOOKKKKOOOK...",
-  "...KOOOOOOOOOOK...",
-  "...KOOOOOOOOOOK...",
-  "...KOOOOOOOOOOK...",
-  "....KKOOOOOOOKK...",
-  "......KK....KK....",
-  ".....KK......KK...",
-  "..................",
+  "....................",
+  ".........GG.........",
+  ".........KK.........",
+  ".....KKKKKKKKKK.....",
+  ".....KOOOOOOOOK.....",
+  ".....KOBBBBBBOK.....",
+  ".....KOBEBBEBOK.....",
+  ".....KOBBBBBBOK.....",
+  ".....KOOOKKOOOK.....",
+  ".....KKKKKKKKKK.....",
+  "........KOOK........",
+  "....KKKKKKKKKKKK....",
+  "...KOOOOOOOOOOOOK...",
+  ".KKKOOOGGGGOOOOKKK..",
+  ".KOKOOOGGGGOOOOKOK..",
+  ".KKKOOOOOOOOOOOKKK..",
+  "....KOOOOOOOOOOK....",
+  "....KKKKKKKKKKKK....",
+  "......KK....KK......",
+  ".....KK......KK.....",
 ];
 
 const PX = 10;
@@ -46,7 +52,13 @@ for (let y = 0; y < rows; y++) {
   for (let x = 0; x < MAP[y].length; x++) {
     const ch = MAP[y][x];
     if (ch === "." || ch === " ") continue;
-    rects.push({ x: x * PX, y: y * PX, fill: PALETTE[ch], eye: ch === "L" });
+    rects.push({
+      x: x * PX,
+      y: y * PX,
+      fill: PALETTE[ch],
+      eye: ch === "E",
+      glow: ch === "G",
+    });
   }
 }
 
@@ -75,7 +87,27 @@ const { size = 200, class: className = "" } = Astro.props;
       width={PX}
       height={PX}
       fill={r.fill}
-      class={r.eye ? "pa-eye" : undefined}
+      class={r.eye ? "pa-eye" : r.glow ? "pa-glow" : undefined}
     />
   ))}
 </svg>
+
+<style>
+  .pa-glow {
+    animation: pa-glow-pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pa-glow-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pa-glow {
+      animation: none;
+    }
+  }
+</style>
