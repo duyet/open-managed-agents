@@ -121,15 +121,22 @@ describe("Node POST /v1/sessions/:id/files (promoteSandboxFile)", () => {
     expect(aRes.status).toBe(201);
     const agent = (await aRes.json()) as { id: string };
 
-    // 2. Create a session. Body shape mirrors apps/main:
-    //    { agent: <id>, environment?: <id> } — environment defaults to
-    //    `env_local_runtime` when an agent has a runtime_binding (Node has
-    //    no cloud env_id concept yet, so loadEnvironment is unset and the
-    //    request falls through with environment=null).
+    // 2. Create an environment — environment_id is always required on
+    //    session create (harness-to-environment migration).
+    const eRes = await fetch(`${base}/environments`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "test-env" }),
+    });
+    expect(eRes.status).toBe(201);
+    const environment = (await eRes.json()) as { id: string };
+
+    // 3. Create a session. Body shape mirrors apps/main:
+    //    { agent: <id>, environment: <id> }.
     const sRes = await fetch(`${base}/sessions`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ agent: agent.id, environment: "env_local_runtime" }),
+      body: JSON.stringify({ agent: agent.id, environment: environment.id }),
     });
     if (sRes.status !== 201) {
       const body = await sRes.text();
@@ -137,7 +144,7 @@ describe("Node POST /v1/sessions/:id/files (promoteSandboxFile)", () => {
     }
     const session = (await sRes.json()) as { id: string };
 
-    // 3. Write a file inside the sandbox via /exec. LocalSubprocess
+    // 4. Write a file inside the sandbox via /exec. LocalSubprocess
     //    has cwd = workdir, so a bare relative path lands in the workdir
     //    which `readSandboxFile("/workspace/greeting.txt")` then resolves
     //    via the harness's /workspace → workdir mapping.
@@ -151,7 +158,7 @@ describe("Node POST /v1/sessions/:id/files (promoteSandboxFile)", () => {
     });
     expect(writeRes.status).toBe(200);
 
-    // 4. Promote /workspace/greeting.txt to a file_id.
+    // 5. Promote /workspace/greeting.txt to a file_id.
     const promoteRes = await fetch(`${base}/sessions/${session.id}/files`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -170,14 +177,14 @@ describe("Node POST /v1/sessions/:id/files (promoteSandboxFile)", () => {
     expect(fileRecord.type).toBe("file");
     expect(fileRecord.id).toMatch(/^file-/);
 
-    // 5. GET /v1/files/:id returns the same metadata.
+    // 6. GET /v1/files/:id returns the same metadata.
     const getRes = await fetch(`${base}/files/${fileRecord.id}`);
     expect(getRes.status).toBe(200);
     const fetched = (await getRes.json()) as { id: string; filename: string };
     expect(fetched.id).toBe(fileRecord.id);
     expect(fetched.filename).toBe("greeting.txt");
 
-    // 6. GET /v1/files/:id/content returns the bytes.
+    // 7. GET /v1/files/:id/content returns the bytes.
     const contentRes = await fetch(`${base}/files/${fileRecord.id}/content`);
     expect(contentRes.status).toBe(200);
     expect(await contentRes.text()).toBe("hello-from-sandbox");

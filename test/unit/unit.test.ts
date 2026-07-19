@@ -34,7 +34,6 @@ describe.skip("SqliteHistory message conversion", () => {
       body: JSON.stringify({
         name: "History Test",
         model: "claude-sonnet-4-6",
-        harness: harnessName,
       }),
     });
     const agent = (await agentRes.json()) as any;
@@ -42,7 +41,7 @@ describe.skip("SqliteHistory message conversion", () => {
     const envRes = await api("/v1/environments", {
       method: "POST",
       headers: HEADERS,
-      body: JSON.stringify({ name: "e", config: { type: "cloud" } }),
+      body: JSON.stringify({ name: "e", config: { type: "cloud", harness: harnessName } }),
     });
     const environment = (await envRes.json()) as any;
 
@@ -275,7 +274,6 @@ describe("Tool building", () => {
         name: "Tool Test",
         model: "claude-sonnet-4-6",
         tools: toolConfig,
-        harness: harnessName,
       }),
     });
     return ((await agentRes.json()) as any).tools;
@@ -335,13 +333,13 @@ describe.skip("WebSocket broadcast", () => {
     const agentRes = await api("/v1/agents", {
       method: "POST",
       headers: HEADERS,
-      body: JSON.stringify({ name: "BC", model: "claude-sonnet-4-6", harness: "broadcast-test" }),
+      body: JSON.stringify({ name: "BC", model: "claude-sonnet-4-6" }),
     });
     const agent = (await agentRes.json()) as any;
     const envRes = await api("/v1/environments", {
       method: "POST",
       headers: HEADERS,
-      body: JSON.stringify({ name: "e", config: { type: "cloud" } }),
+      body: JSON.stringify({ name: "e", config: { type: "cloud", harness: "broadcast-test" } }),
     });
     const environment = (await envRes.json()) as any;
     const sessRes = await api("/v1/sessions", {
@@ -406,13 +404,13 @@ describe("Edge cases", () => {
     const agentRes = await api("/v1/agents", {
       method: "POST",
       headers: HEADERS,
-      body: JSON.stringify({ name: "Edge", model: "claude-sonnet-4-6", harness: "noop" }),
+      body: JSON.stringify({ name: "Edge", model: "claude-sonnet-4-6" }),
     });
     const agent = (await agentRes.json()) as any;
     const envRes = await api("/v1/environments", {
       method: "POST",
       headers: HEADERS,
-      body: JSON.stringify({ name: "e", config: { type: "cloud" } }),
+      body: JSON.stringify({ name: "e", config: { type: "cloud", harness: "noop" } }),
     });
     const environment = (await envRes.json()) as any;
     const sessRes = await api("/v1/sessions", {
@@ -531,13 +529,13 @@ describe.skip("Harness error handling", () => {
     const agentRes = await api("/v1/agents", {
       method: "POST",
       headers: HEADERS,
-      body: JSON.stringify({ name: "Crash", model: "claude-sonnet-4-6", harness: "crash-harness" }),
+      body: JSON.stringify({ name: "Crash", model: "claude-sonnet-4-6" }),
     });
     const agent = (await agentRes.json()) as any;
     const envRes = await api("/v1/environments", {
       method: "POST",
       headers: HEADERS,
-      body: JSON.stringify({ name: "e", config: { type: "cloud" } }),
+      body: JSON.stringify({ name: "e", config: { type: "cloud", harness: "crash-harness" } }),
     });
     const environment = (await envRes.json()) as any;
     const sessRes = await api("/v1/sessions", {
@@ -594,14 +592,13 @@ describe.skip("Harness error handling", () => {
       body: JSON.stringify({
         name: "Fallback",
         model: "claude-sonnet-4-6",
-        harness: "does_not_exist_xyz",
       }),
     });
     const agent = (await agentRes.json()) as any;
     const envRes = await api("/v1/environments", {
       method: "POST",
       headers: HEADERS,
-      body: JSON.stringify({ name: "e", config: { type: "cloud" } }),
+      body: JSON.stringify({ name: "e", config: { type: "cloud", harness: "does_not_exist_xyz" } }),
     });
     const environment = (await envRes.json()) as any;
     const sessRes = await api("/v1/sessions", {

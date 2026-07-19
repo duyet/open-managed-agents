@@ -18,7 +18,7 @@ on / % done / blocked on what" without parsing prose.
 **Proposed approach**:
 - Add a new harness, e.g. `apps/agent/src/harness/long-running-loop.ts`,
   registered in `apps/agent/src/index.ts` via `registerHarness("long-running", …)`
-  alongside `default`, `acp-proxy`, `flue`.
+  alongside `default`, `acp-proxy`.
 - Implement `HarnessInterface.run` (`apps/agent/src/harness/interface.ts`) with
   an internal step counter/timer that periodically emits a new structured
   event kind (e.g. `agent.status_report` with `{ step, total_steps_estimate,

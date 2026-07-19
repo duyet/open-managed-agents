@@ -32,13 +32,12 @@ async function createFullSession(overrides?: Record<string, unknown>) {
     name: "Stress Agent",
     model: "claude-sonnet-4-6",
     system: "You are helpful.",
-    harness: "noop",
     ...overrides,
   });
   const agent = (await agentRes.json()) as any;
   const envRes = await post("/v1/environments", {
     name: "stress-env",
-    config: { type: "cloud" },
+    config: { type: "cloud", harness: "noop" },
   });
   const environment = (await envRes.json()) as any;
   const sessRes = await post("/v1/sessions", {
@@ -130,12 +129,11 @@ describe("Session DO - direct", () => {
     const agentRes = await post("/v1/agents", {
       name: "DO Direct Agent",
       model: "claude-sonnet-4-6",
-      harness: "noop",
     });
     const agent = (await agentRes.json()) as any;
     const envRes = await post("/v1/environments", {
       name: "do-direct-env",
-      config: { type: "cloud" },
+      config: { type: "cloud", harness: "noop" },
     });
     const environment = (await envRes.json()) as any;
 
@@ -394,7 +392,7 @@ describe("History - complex conversions", () => {
 describe("Stress tests", () => {
   it("handles 20 agents created simultaneously", async () => {
     const promises = Array.from({ length: 20 }, (_, i) =>
-      post("/v1/agents", { name: `Stress-${i}`, model: "claude-sonnet-4-6", harness: "noop" })
+      post("/v1/agents", { name: `Stress-${i}`, model: "claude-sonnet-4-6" })
     );
     const results = await Promise.all(promises);
     expect(results.every((r) => r.status === 201)).toBe(true);
@@ -406,12 +404,11 @@ describe("Stress tests", () => {
     const agentRes = await post("/v1/agents", {
       name: "Multi-Session",
       model: "claude-sonnet-4-6",
-      harness: "noop",
     });
     const agent = (await agentRes.json()) as any;
     const envRes = await post("/v1/environments", {
       name: "multi-env",
-      config: { type: "cloud" },
+      config: { type: "cloud", harness: "noop" },
     });
     const environment = (await envRes.json()) as any;
 
@@ -460,7 +457,6 @@ describe("Stress tests", () => {
     const res = await post("/v1/agents", {
       name: longName,
       model: "claude-sonnet-4-6",
-      harness: "noop",
     });
     expect(res.status).toBe(201);
     const agent = (await res.json()) as any;
@@ -493,7 +489,6 @@ describe("Stress tests", () => {
       name: "EmptyFields",
       model: "claude-sonnet-4-6",
       system: "",
-      harness: "noop",
     });
     expect(res.status).toBe(201);
     const agent = (await res.json()) as any;
@@ -502,7 +497,7 @@ describe("Stress tests", () => {
     // Also verify empty title on session is preserved
     const envRes = await post("/v1/environments", {
       name: "empty-env",
-      config: { type: "cloud" },
+      config: { type: "cloud", harness: "noop" },
     });
     const environment = (await envRes.json()) as any;
     const sessRes = await post("/v1/sessions", {
@@ -520,7 +515,6 @@ describe("Stress tests", () => {
       name: special,
       model: "claude-sonnet-4-6",
       system: special,
-      harness: "noop",
     });
     expect(res.status).toBe(201);
     const agent = (await res.json()) as any;
@@ -530,7 +524,7 @@ describe("Stress tests", () => {
     // Also verify special chars in session title
     const envRes = await post("/v1/environments", {
       name: "special-env",
-      config: { type: "cloud" },
+      config: { type: "cloud", harness: "noop" },
     });
     const environment = (await envRes.json()) as any;
     const sessRes = await post("/v1/sessions", {
@@ -553,7 +547,6 @@ describe("Full lifecycle", () => {
       name: "Lifecycle Agent",
       model: "claude-sonnet-4-6",
       system: "lifecycle test",
-      harness: "noop",
     });
     expect(agentRes.status).toBe(201);
     const agent = (await agentRes.json()) as any;
@@ -561,7 +554,7 @@ describe("Full lifecycle", () => {
     // Create environment
     const envRes = await post("/v1/environments", {
       name: "lifecycle-env",
-      config: { type: "cloud" },
+      config: { type: "cloud", harness: "noop" },
     });
     expect(envRes.status).toBe(201);
     const environment = (await envRes.json()) as any;
@@ -630,12 +623,11 @@ describe("Full lifecycle", () => {
     const agentRes = await post("/v1/agents", {
       name: "Shared Env Agent",
       model: "claude-sonnet-4-6",
-      harness: "noop",
     });
     const agent = (await agentRes.json()) as any;
     const envRes = await post("/v1/environments", {
       name: "shared-env",
-      config: { type: "cloud" },
+      config: { type: "cloud", harness: "noop" },
     });
     const environment = (await envRes.json()) as any;
 
@@ -733,7 +725,7 @@ describe("Error boundaries", () => {
     const res = await api("/v1/agents", {
       method: "POST",
       headers: { "x-api-key": "test-key" },
-      body: JSON.stringify({ name: "NoCT", model: "claude-sonnet-4-6", harness: "noop" }),
+      body: JSON.stringify({ name: "NoCT", model: "claude-sonnet-4-6" }),
     });
     // Hono should still parse the body
     expect(res.status).toBeLessThan(500);
@@ -745,7 +737,6 @@ describe("Error boundaries", () => {
       name: "BigAgent",
       model: "claude-sonnet-4-6",
       system: "z".repeat(2 * 1024 * 1024),
-      harness: "noop",
     });
     const res = await api("/v1/agents", {
       method: "POST",
@@ -768,7 +759,6 @@ describe("Error boundaries", () => {
     const agentRes = await post("/v1/agents", {
       name: "DoubleArchive",
       model: "claude-sonnet-4-6",
-      harness: "noop",
     });
     const agent = (await agentRes.json()) as any;
 
@@ -787,7 +777,6 @@ describe("Error boundaries", () => {
     const agentRes = await post("/v1/agents", {
       name: "DoubleDelete",
       model: "claude-sonnet-4-6",
-      harness: "noop",
     });
     const agent = (await agentRes.json()) as any;
 

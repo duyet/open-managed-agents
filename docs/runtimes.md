@@ -28,7 +28,6 @@ Registered in `apps/agent/src/index.ts` (Cloudflare) and additionally in
 |---|---|---|---|
 | Default | `"default"` (or omitted) | CF + self-host | In-process `generateText`/`streamText` loop over `ai-sdk`. |
 | ACP proxy | `"acp-proxy"` | CF + self-host | Bridges an Agent Client Protocol server. |
-| Flue | `"flue"` | CF + self-host | Meta-harness delegating to Flue's own agent runtime. |
 | Long-running | `"long-running"` | CF + self-host | Default loop + periodic `agent.status` heartbeats. |
 | Claude Agent SDK | `"claude-agent-sdk"` | **self-host only** | Spawns Claude Code's CLI as a native subprocess via `@anthropic-ai/claude-agent-sdk`. Requires `child_process` + a real filesystem — unavailable inside a Cloudflare Workers isolate, so it's wired into `apps/main-node`'s harness router only, never the CF worker registry. |
 

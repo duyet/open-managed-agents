@@ -98,6 +98,44 @@ function validateMetadata(field: string, metadata: unknown): ValidationResult {
   return { ok: true };
 }
 
+// ── kind: "local" constraints ────────────────────────────────────────────
+// A "local" environment routes its sessions to a user-registered ACP
+// runtime instead of an OMA cloud sandbox — `config.local` (runtime_id +
+// acp_agent_id) is required, and the cloud-sandbox-only concepts
+// (packages / networking / git_repo) don't apply and are rejected outright
+// rather than silently ignored.
+
+interface LocalKindInput {
+  config?: {
+    kind?: string;
+    local?: { runtime_id?: string; acp_agent_id?: string } | null;
+    packages?: unknown;
+    networking?: unknown;
+    git_repo?: unknown;
+  } | null;
+}
+
+function validateLocalKind(input: LocalKindInput): ValidationResult {
+  const config = input.config;
+  if (!config || config.kind !== "local") return { ok: true };
+  if (!config.local?.runtime_id || !config.local?.acp_agent_id) {
+    return {
+      ok: false,
+      error: 'config.local.runtime_id and config.local.acp_agent_id are required when config.kind is "local"',
+    };
+  }
+  if (config.packages !== undefined) {
+    return { ok: false, error: 'config.packages is not valid when config.kind is "local"' };
+  }
+  if (config.networking !== undefined) {
+    return { ok: false, error: 'config.networking is not valid when config.kind is "local"' };
+  }
+  if (config.git_repo !== undefined) {
+    return { ok: false, error: 'config.git_repo is not valid when config.kind is "local"' };
+  }
+  return { ok: true };
+}
+
 function validateEnvironmentLimits(input: EnvironmentLimitsInput): ValidationResult {
   if (input.name !== undefined && input.name.length > NAME_MAX) {
     return { ok: false, error: `name length ${input.name.length} exceeds ${NAME_MAX}` };
@@ -166,6 +204,10 @@ export function buildEnvironmentRoutes(deps: EnvironmentRoutesDeps) {
     const envVarsCheck = validateEnvVars(body.config?.env_vars);
     if (!envVarsCheck.ok) {
       return c.json({ error: envVarsCheck.error }, 400);
+    }
+    const localKindCheck = validateLocalKind(body);
+    if (!localKindCheck.ok) {
+      return c.json({ error: localKindCheck.error }, 400);
     }
 
     const config = body.config || { type: "cloud" };
@@ -330,6 +372,10 @@ export function buildEnvironmentRoutes(deps: EnvironmentRoutesDeps) {
     const envVarsCheck = validateEnvVars(body.config?.env_vars);
     if (!envVarsCheck.ok) {
       return c.json({ error: envVarsCheck.error }, 400);
+    }
+    const localKindCheck = validateLocalKind(body);
+    if (!localKindCheck.ok) {
+      return c.json({ error: localKindCheck.error }, 400);
     }
 
     const patch: Parameters<typeof services.environments.update>[0] = {

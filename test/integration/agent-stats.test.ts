@@ -27,7 +27,6 @@ async function createAgent(name = "Stats Agent") {
       model: "claude-sonnet-4-6",
       system: "You are helpful.",
       tools: [{ type: "agent_toolset_20260401" }],
-      harness: "test",
     }),
   });
   expect(res.status).toBe(201);

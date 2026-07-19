@@ -47,6 +47,20 @@ export interface SessionInitParams {
    * synchronously instead of round-tripping to the session row (issue #222).
    */
   metadata?: Record<string, unknown>;
+  /**
+   * Per-session override of the agent's default model. Resolution formula
+   * (see AGENTS.md): `session.model ?? (environment.config.kind === "local"
+   * ? environment.config.local.model : agent.model)`. Stored as DO/runtime
+   * state only — NEVER appended to the event log, since it feeds the
+   * byte-deterministic cached prompt prefix (interface.ts contract).
+   */
+  model?: string;
+  /**
+   * Per-session override of a local-kind environment's default reasoning
+   * effort. No defined meaning for cloud-kind environments today. Same
+   * storage rule as `model` — init params / DO state only.
+   */
+  reasoningEffort?: string;
 }
 
 export interface SessionEventsQuery {

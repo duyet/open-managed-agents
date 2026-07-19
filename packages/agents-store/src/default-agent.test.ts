@@ -11,7 +11,6 @@ describe("seedDefaultAgent", () => {
     expect(row.tenant_id).toBe("tn_new");
     expect(row.name).toBe("General");
     expect(row.model).toBe("claude-sonnet-4-6");
-    expect(row.harness).toBe("default");
     expect(row.tools).toEqual([{ type: "agent_toolset_20260401" }]);
     expect(row.system).toBeTruthy();
     expect(row.description).toBeTruthy();

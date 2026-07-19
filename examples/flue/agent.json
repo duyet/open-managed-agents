@@ -1,8 +1,0 @@
-{
-  "name": "Flue Example",
-  "description": "Runs turns through the Flue harness (FlueHarness), a meta-harness bridging Flue's agent runtime into OMA's sandbox and event log.",
-  "model": "claude-sonnet-4-6",
-  "system": "You are a helpful assistant running under the Flue harness.",
-  "tools": [{ "type": "agent_toolset_20260401" }],
-  "harness": "flue"
-}

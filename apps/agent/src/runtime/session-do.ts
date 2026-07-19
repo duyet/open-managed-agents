@@ -99,6 +99,24 @@ import { meterTurnDebit } from "./turn-metering";
 import { resolveSessionMetadata, walletFromMetadata } from "./resolve-session-metadata";
 import { generateSessionTitle, shouldGenerateSessionTitle } from "./session-title";
 
+/**
+ * Harness-to-environment migration: which HarnessInterface a turn runs
+ * under is now selected from the session's (or sub-agent turn's)
+ * environment, not `agent.harness` (removed from AgentConfig). Formula
+ * (AGENTS.md):
+ *   harness = env.kind === "local" ? "acp-proxy" : (env.config.harness ?? "default")
+ * `kind: "local"` is never independently overridable by `config.harness` —
+ * the ACP proxy loop is implied. A missing environment snapshot (legacy
+ * sessions created before this migration, or test fixtures) defaults to
+ * the unchanged pre-migration behavior: "default".
+ */
+function resolveHarnessNameForEnvironment(
+  env: EnvironmentConfig | null | undefined,
+): string {
+  if (env?.config?.kind === "local") return "acp-proxy";
+  return env?.config?.harness ?? "default";
+}
+
 interface SessionInitParams {
   agent_id: string;
   environment_id: string;
@@ -152,6 +170,16 @@ interface SessionInitParams {
    * + fan-out to event_hooks, in order, before /init returns.
    */
   init_events?: SessionEvent[];
+  /**
+   * Session-level model override (harness-to-environment migration). See
+   * the resolution formula on SessionState.model_override.
+   */
+  model_override?: string;
+  /**
+   * Session-level reasoning-effort override. See the resolution formula on
+   * SessionState.reasoning_effort_override.
+   */
+  reasoning_effort_override?: string;
 }
 
 /**
@@ -263,6 +291,23 @@ interface SessionState {
    */
   agent_snapshot?: AgentConfig;
   environment_snapshot?: EnvironmentConfig;
+  /**
+   * Session-level model override, set at /init from SessionInitParams
+   * .model_override (never appended to the event log — it feeds the
+   * byte-deterministic cached prompt prefix; see the harness resolution
+   * formula in AGENTS.md / interface.ts's cache-prefix contract). Resolution:
+   * `model_override ?? (environment_snapshot.config.kind === "local"
+   * ? environment_snapshot.config.local.model : agent_snapshot.model)`.
+   */
+  model_override?: string;
+  /**
+   * Session-level reasoning-effort override, set at /init from
+   * SessionInitParams.reasoning_effort_override. Resolution:
+   * `reasoning_effort_override ?? (environment_snapshot.config.kind ===
+   * "local" ? environment_snapshot.config.local.reasoning_effort :
+   * undefined)`. Only consulted by AcpProxyHarness today.
+   */
+  reasoning_effort_override?: string;
   vault_credentials?: Array<{ vault_id: string; credentials: CredentialConfig[] }>;
   /** Per-event POST hooks. See SessionInitParams.event_hooks. Currently
    *  unused in production — Linear's auto-mirror was removed in M7 — but
@@ -1639,6 +1684,8 @@ export class SessionDO extends DurableObject<Env> {
         vault_ids: params.vault_ids ?? [],
         agent_snapshot: params.agent_snapshot,
         environment_snapshot: params.environment_snapshot,
+        model_override: params.model_override,
+        reasoning_effort_override: params.reasoning_effort_override,
         vault_credentials: params.vault_credentials,
         // Default to {} rather than leaving it unset: an object (even empty)
         // marks this DO's state as post-#222 — resolveMetadata() then trusts
@@ -4772,18 +4819,6 @@ export class SessionDO extends DurableObject<Env> {
     };
     subHistory.append(userMsg);
 
-    // Resolve harness for the sub-agent
-    let harness: HarnessInterface;
-    try {
-      harness = resolveHarness(subAgent.harness);
-    } catch (err) {
-      logWarn(
-        { op: "session_do.subagent.harness_resolve", session_id: this.state.session_id, agent_id: subAgent.id, requested: subAgent.harness, err },
-        "sub-agent harness unknown; falling back to default",
-      );
-      harness = resolveHarness("default");
-    }
-
     // Cross-sandbox sub-agents: resolve which sandbox this sub-agent turn
     // runs in. Binding rule (resolveSubAgentSandboxBinding): the roster
     // entry for `agentId` on `callerAgent.callable_agents` has no
@@ -4804,16 +4839,39 @@ export class SessionDO extends DurableObject<Env> {
     );
     let subSandbox = sandbox;
     let dedicatedChildSandbox = false;
+    // Environment governing THIS sub-agent turn's harness resolution:
+    // the dedicated child environment when one was minted, else the
+    // parent session's own environment (shared-sandbox case). getEnvConfig
+    // prefers the /init-time snapshot but falls back to a real D1 read when
+    // it's absent — same fallback processUserMessage's harness resolution
+    // relies on.
+    let subAgentEnv: EnvironmentConfig | null | undefined = this.state.environment_id
+      ? await this.getEnvConfig(this.state.environment_id)
+      : null;
     if (sandboxBinding.kind === "dedicated") {
       try {
         const childEnv = await this.getEnvConfig(sandboxBinding.environmentId);
         if (childEnv) {
+          // "local"-kind environments have no sandbox in the traditional
+          // sense — a session using one delegates its whole turn to the
+          // AcpProxyHarness (external ACP runtime), not an OMA sandbox.
+          // Reject outright rather than silently falling back to the
+          // parent's sandbox, the same "fail this call loudly" contract
+          // SandboxProviderUnavailableError already gets below.
+          if (childEnv.config?.kind === "local") {
+            throw new SandboxProviderUnavailableError(
+              `sub-agent "${agentId}" targets environment "${sandboxBinding.environmentId}", which is ` +
+                `kind: "local" — local ACP-runtime environments cannot be used as a dedicated sub-agent ` +
+                `sandbox (callable_agents delegation requires a "cloud"-kind environment).`,
+            );
+          }
           // threadId is already unique per sub-agent call; reuse it so the
           // dedicated container's identity is stable for the lifetime of
           // this single delegate call (no retries reuse it — a fresh
           // runSubAgent call always mints a fresh threadId).
           subSandbox = createSandbox(this.env, `${this.state.session_id}:sub-${threadId}`, childEnv.config);
           dedicatedChildSandbox = true;
+          subAgentEnv = childEnv;
           // Bare createSandbox() skips everything getOrCreateSandbox's lazy-
           // warmup wrapper normally does for the parent. Restore vault
           // credential injection — the whole point of an isolated env is
@@ -4859,6 +4917,22 @@ export class SessionDO extends DurableObject<Env> {
           "failed to create dedicated sub-agent sandbox; falling back to shared sandbox",
         );
       }
+    }
+
+    // Resolve harness for the sub-agent from whichever environment governs
+    // this turn (dedicated child env, guaranteed "cloud"-kind above, or the
+    // parent session's own environment for the shared-sandbox case) — same
+    // formula the primary turn uses. See resolveHarnessNameForEnvironment.
+    const subHarnessName = resolveHarnessNameForEnvironment(subAgentEnv);
+    let harness: HarnessInterface;
+    try {
+      harness = resolveHarness(subHarnessName);
+    } catch (err) {
+      logWarn(
+        { op: "session_do.subagent.harness_resolve", session_id: this.state.session_id, agent_id: subAgent.id, requested: subHarnessName, err },
+        "sub-agent environment harness unknown; falling back to default",
+      );
+      harness = resolveHarness("default");
     }
 
     // Build sub-agent tools and model (platform prepares context for sub-agent too)
@@ -4938,6 +5012,11 @@ export class SessionDO extends DurableObject<Env> {
       tools: subTools,
       model: subModel,
       systemPrompt: subAgent.system || "",
+      // Sub-agent sessions don't participate in the session-level
+      // model/reasoning_effort override (that only applies to the primary
+      // session's own turn) — resolvedModel mirrors subModelId verbatim.
+      environment: subAgentEnv ?? undefined,
+      resolvedModel: subModelId,
       // Sub-agent inherits the parent's tenant — same daemon, same per-tenant
       // ACP child key resolution. AcpProxyHarness reads this to forward
       // x-harness-tenant when opening a RuntimeRoom WS for the sub-agent.
@@ -5123,15 +5202,18 @@ export class SessionDO extends DurableObject<Env> {
     // doesn't yell — the per-method await re-throws to the caller.
     void this.warmUpSandbox().catch(() => { /* surfaces via tool exec */ });
 
-    // Fetch environment config for networking restrictions
+    // Fetch environment config — used for networking restrictions AND
+    // (harness-to-environment migration) harness / model / reasoning_effort
+    // resolution below. getEnvConfig prefers the /init-time snapshot but
+    // falls back to a real D1 read when it's absent (e.g. a caller that
+    // inits the DO directly without a snapshot, or a cross-worker KV
+    // binding mismatch) — the same fallback getAgentConfig already gives
+    // `agent` above, so a session whose /init omitted the snapshot still
+    // resolves the correct harness instead of silently defaulting.
     const envId = this.state.environment_id;
-    let environmentConfig: { networking?: { type: string; allowed_hosts?: string[] } } | undefined;
-    if (envId) {
-      const envCfg = await this.getEnvConfig(envId);
-      if (envCfg) {
-        environmentConfig = envCfg.config;
-      }
-    }
+    const resolvedEnvConfig = envId ? await this.getEnvConfig(envId) : null;
+    const environmentConfig: { networking?: { type: string; allowed_hosts?: string[] } } | undefined =
+      resolvedEnvConfig?.config;
 
     // Fetch memory store attachments from session resources
     const sessionId = this.state.session_id;
@@ -5162,14 +5244,17 @@ export class SessionDO extends DurableObject<Env> {
     }
     const memoryStoreIds = memoryAttachments.map((a) => a.store_id);
 
-    // Resolve harness via registry — SessionDO never imports a concrete harness
+    // Resolve harness via registry — SessionDO never imports a concrete harness.
+    // Harness-to-environment migration: harness is now selected from the
+    // session's environment, not the agent. See resolveHarnessNameForEnvironment.
+    const harnessName = resolveHarnessNameForEnvironment(resolvedEnvConfig);
     let harness: HarnessInterface;
     try {
-      harness = resolveHarness(agent.harness);
+      harness = resolveHarness(harnessName);
     } catch (err) {
       logWarn(
-        { op: "session_do.harness_resolve", session_id: this.state.session_id, agent_id: agent.id, requested: agent.harness, err },
-        "agent harness unknown; falling back to default",
+        { op: "session_do.harness_resolve", session_id: this.state.session_id, agent_id: agent.id, requested: harnessName, err },
+        "environment harness unknown; falling back to default",
       );
       harness = resolveHarness("default");
     }
@@ -5250,10 +5335,23 @@ export class SessionDO extends DurableObject<Env> {
       memoryStoreService = (await getCfServicesForTenant(this.env, this.state.tenant_id)).memory;
     }
 
-    // Resolve model — `agent.model` is a card.model_id handle. The card
+    // Resolve model — `agent.model` (or, for a "local"-kind environment,
+    // `environment.config.local.model`) is a card.model_id handle. The card
     // contains the wire-level LLM string we actually send to the provider.
-    const handle = typeof agent.model === "string" ? agent.model : agent.model?.id;
-    const effectiveHandle = handle || this.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+    // Harness-to-environment migration formula (AGENTS.md):
+    //   model = session.model ?? (env.kind === "local" ? env.config.local.model : agent.model)
+    //   reasoning_effort = session.reasoning_effort ?? (env.kind === "local" ? env.config.local.reasoning_effort : undefined)
+    // `resolvedReasoningEffort` only has a defined consumer today
+    // (AcpProxyHarness, forwarded on ctx below) — cloud harnesses ignore it.
+    const isLocalEnv = harnessName === "acp-proxy";
+    const agentModelId = typeof agent.model === "string" ? agent.model : agent.model?.id;
+    const envLocalConfig = resolvedEnvConfig?.config?.local;
+    const defaultModelId = isLocalEnv ? envLocalConfig?.model : agentModelId;
+    const resolvedModelId = this.state.model_override ?? defaultModelId;
+    const resolvedReasoningEffort =
+      this.state.reasoning_effort_override ??
+      (isLocalEnv ? envLocalConfig?.reasoning_effort : undefined);
+    const effectiveHandle = resolvedModelId || this.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
     const creds = await this.resolveModelCardCredentials(effectiveHandle);
     const model = resolveModel(creds.model, creds.apiKey, creds.baseURL, creds.apiCompat, creds.customHeaders);
 
@@ -5456,6 +5554,14 @@ export class SessionDO extends DurableObject<Env> {
       systemPrompt,
       rawSystemPrompt,
       platformReminders,
+      // Harness-to-environment migration: the session's environment
+      // snapshot, plus the model/reasoning_effort already resolved against
+      // the session-override formula above. AcpProxyHarness reads
+      // `environment.config.local` (runtime_id, acp_agent_id, working_dir,
+      // branch, worktree) instead of the removed `agent.runtime_binding`.
+      environment: resolvedEnvConfig ?? undefined,
+      resolvedModel: resolvedModelId,
+      resolvedReasoningEffort,
       // file_id → bytes resolver for ImageBlock/DocumentBlock content blocks
       // whose `source.type === "file"`. Default-loop's eventsToMessagesAsync
       // dedupes via a per-derive Promise cache, so the same file referenced

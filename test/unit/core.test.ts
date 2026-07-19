@@ -458,18 +458,12 @@ describe("Edge cases - concurrent and complex operations", () => {
     expect(agent.tools[2].name).toBe("rollback");
   });
 
-  // FIXME: harness field appears to round-trip through service.create OK
-  // (agents-store/service.ts:141) but lands as undefined in the formatAgent
-  // _oma envelope on the response. Suspect a dropped field in the
-  // service→repo→toRow chain that only surfaces when no other _oma field
-  // is set. Re-enable once tracked down.
-  it.skip("agent with all supported fields via API", async () => {
+  it("agent with all supported fields via API", async () => {
     const res = await post("/v1/agents", {
       name: "Full Agent",
       model: { id: "claude-sonnet-4-6", speed: "fast" },
       system: "You are comprehensive.",
       tools: [{ type: "agent_toolset_20260401" }],
-      harness: "custom-harness-name",
     });
     expect(res.status).toBe(201);
     const agent = (await res.json()) as any;
@@ -477,10 +471,6 @@ describe("Edge cases - concurrent and complex operations", () => {
     expect(agent.model.id).toBe("claude-sonnet-4-6");
     expect(agent.model.speed).toBe("fast");
     expect(agent.system).toBe("You are comprehensive.");
-    // harness now lives under the `_oma:` envelope (P2-B formatAgent
-    // shape) instead of top-level — Console-served agents are CF/Node
-    // identical via the wrapped envelope.
-    expect(agent._oma?.harness).toBe("custom-harness-name");
     expect(agent.version).toBe(1);
   });
 
@@ -547,13 +537,12 @@ describe("Edge cases - concurrent and complex operations", () => {
     const agentRes = await post("/v1/agents", {
       name: "Unicode Echo",
       model: "claude-sonnet-4-6",
-      harness: "echo-unicode",
     });
     const agent = (await agentRes.json()) as any;
 
     const envRes = await post("/v1/environments", {
       name: "e",
-      config: { type: "cloud" },
+      config: { type: "cloud", harness: "echo-unicode" },
     });
     const environment = (await envRes.json()) as any;
 

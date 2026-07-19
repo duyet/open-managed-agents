@@ -75,11 +75,10 @@ describe("user.define_outcome event", () => {
     const a = await post("/v1/agents", {
       name: "OutcomeAgent",
       model: "claude-sonnet-4-6",
-      harness: "parity-noop",
     });
     const e = await post("/v1/environments", {
       name: "outcome-env",
-      config: { type: "cloud" },
+      config: { type: "cloud", harness: "parity-noop" },
     });
     const s = await post("/v1/sessions", {
       agent: ((await a.json()) as any).id,

@@ -13,11 +13,9 @@ import type { Env } from "@duyet/oma-shared";
 import { registerHarness } from "./harness/registry";
 import { DefaultHarness } from "./harness/default-loop";
 import { AcpProxyHarness } from "./harness/acp-proxy-loop";
-import { FlueHarness } from "./harness/flue-loop";
 import { LongRunningHarness } from "./harness/long-running-loop";
 registerHarness("default", () => new DefaultHarness());
 registerHarness("acp-proxy", () => new AcpProxyHarness());
-registerHarness("flue", () => new FlueHarness());
 registerHarness("long-running", () => new LongRunningHarness());
 
 // --- Export DO classes (required by wrangler) ---

@@ -39,6 +39,15 @@ export class NodeSessionRouter implements SessionRouter {
   async init(_sessionId: string, params: SessionInitParams): Promise<void> {
     // Node has no warmup-on-init step (sandbox is lazy on first event).
     // We still need to persist any init events so trajectory + SSE see them.
+    //
+    // KNOWN LIMITATION: params.model / params.reasoningEffort (session-level
+    // overrides, harness-to-environment migration) are accepted on the wire
+    // but not yet applied here — Node has no per-session DO-equivalent state
+    // store to persist them against, and the AcpProxyHarness they're
+    // primarily for (kind: "local" environments) is Cloudflare-only today
+    // (RUNTIME_ROOM cross-script DO binding). Node's own harness selection
+    // (selectHarnessName, apps/main-node/src/lib/harness-select.ts) is a
+    // separate metadata.harness-driven mechanism unaffected by this change.
     if (!params.initEvents?.length) return;
     const log = this.deps.newEventLog(_sessionId);
     for (const ev of params.initEvents) {

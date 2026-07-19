@@ -37,9 +37,9 @@ function post(path: string, body: unknown) {
 }
 
 async function newSession(): Promise<string> {
-  const a = await post("/v1/agents", { name: "RecoveryTest", model: "claude-sonnet-4-6", harness: "noop" });
+  const a = await post("/v1/agents", { name: "RecoveryTest", model: "claude-sonnet-4-6" });
   const agent = await a.json();
-  const e = await post("/v1/environments", { name: "rec-env", config: { type: "cloud" } });
+  const e = await post("/v1/environments", { name: "rec-env", config: { type: "cloud", harness: "noop" } });
   const environment = await e.json();
   const s = await post("/v1/sessions", { agent: agent.id, environment_id: environment.id });
   const session = await s.json();

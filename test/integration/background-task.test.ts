@@ -18,9 +18,9 @@ describe("Background task schedule polling", () => {
   });
 
   it("recoverEventQueue schedule is set when event is posted", async () => {
-    const a = await post("/v1/agents", { name: "SchedTest", model: "claude-sonnet-4-6", harness: "noop" });
+    const a = await post("/v1/agents", { name: "SchedTest", model: "claude-sonnet-4-6" });
     const agent = await a.json();
-    const e = await post("/v1/environments", { name: "sched-env", config: { type: "cloud" } });
+    const e = await post("/v1/environments", { name: "sched-env", config: { type: "cloud", harness: "noop" } });
     const environment = await e.json();
     const s = await post("/v1/sessions", { agent: agent.id, environment_id: environment.id });
     const session = await s.json();
@@ -44,9 +44,9 @@ describe("Background task schedule polling", () => {
   });
 
   it("schedule(N, callback) writes to cf_agents_schedules table", async () => {
-    const a = await post("/v1/agents", { name: "TableTest", model: "claude-sonnet-4-6", harness: "noop" });
+    const a = await post("/v1/agents", { name: "TableTest", model: "claude-sonnet-4-6" });
     const agent = await a.json();
-    const e = await post("/v1/environments", { name: "table-env", config: { type: "cloud" } });
+    const e = await post("/v1/environments", { name: "table-env", config: { type: "cloud", harness: "noop" } });
     const environment = await e.json();
     const s = await post("/v1/sessions", { agent: agent.id, environment_id: environment.id });
     const session = await s.json();

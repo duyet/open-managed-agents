@@ -48,11 +48,13 @@ async function newAgentAndEnv(opts: { name: string; notify?: unknown[] } ) {
   const a = await post("/v1/agents", {
     name: opts.name,
     model: "claude-sonnet-4-6",
-    harness: "noop-session-metadata",
     ...(opts.notify ? { _oma: { notify: opts.notify } } : {}),
   });
   const agent = await a.json();
-  const e = await post("/v1/environments", { name: `${opts.name}-env`, config: { type: "cloud" } });
+  const e = await post("/v1/environments", {
+    name: `${opts.name}-env`,
+    config: { type: "cloud", harness: "noop-session-metadata" },
+  });
   const environment = await e.json();
   return { agent, environment };
 }

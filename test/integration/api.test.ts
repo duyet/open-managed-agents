@@ -38,7 +38,6 @@ async function createFullSession(opts?: { agentOverrides?: Record<string, unknow
       model: "claude-sonnet-4-6",
       system: "You are helpful.",
       tools: [{ type: "agent_toolset_20260401" }],
-      harness: "test", // Use test harness — no real LLM call
       ...opts?.agentOverrides,
     }),
   });
@@ -46,7 +45,9 @@ async function createFullSession(opts?: { agentOverrides?: Record<string, unknow
   const envRes = await api("/v1/environments", {
     method: "POST",
     headers: HEADERS,
-    body: JSON.stringify({ name: "test-env", config: { type: "cloud" } }),
+    // Use the "test" harness — no real LLM call (harness-to-environment
+    // migration: harness now lives on the environment, not the agent).
+    body: JSON.stringify({ name: "test-env", config: { type: "cloud", harness: "test" } }),
   });
   const environment = (await envRes.json()) as any;
   const sessRes = await api("/v1/sessions", {
@@ -173,16 +174,6 @@ describe("Agent CRUD", () => {
     });
     const agent = (await res.json()) as any;
     expect(agent.tools).toEqual([{ type: "agent_toolset_20260401" }]);
-  });
-
-  it("stores custom harness field", async () => {
-    const res = await api("/v1/agents", {
-      method: "POST",
-      headers: HEADERS,
-      body: JSON.stringify({ name: "Custom", model: "claude-sonnet-4-6", _oma: { harness: "coding" } }),
-    });
-    const agent = (await res.json()) as any;
-    expect(agent._oma.harness).toBe("coding");
   });
 
   it("stores selective tool config", async () => {

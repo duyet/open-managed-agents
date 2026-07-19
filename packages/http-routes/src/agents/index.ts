@@ -47,8 +47,6 @@ function formatAgent(agent: AgentConfig) {
         ? { id: agent.aux_model, speed: "standard" as const }
         : { id: agent.aux_model.id, speed: agent.aux_model.speed || ("standard" as const) };
   }
-  if (agent.harness) oma.harness = agent.harness;
-  if (agent.runtime_binding) oma.runtime_binding = agent.runtime_binding;
   if (agent.appendable_prompts && agent.appendable_prompts.length > 0) {
     oma.appendable_prompts = agent.appendable_prompts;
   }
@@ -77,8 +75,6 @@ function formatAgent(agent: AgentConfig) {
 
   const {
     aux_model: _aux,
-    harness: _harness,
-    runtime_binding: _rb,
     appendable_prompts: _ap,
     notify: _notify,
     callable_agents: _ca,
@@ -215,11 +211,8 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
       callable_agents?: AgentConfig["callable_agents"];
       multiagent?: { type: "coordinator"; agents: unknown[] } | null;
       metadata?: Record<string, unknown>;
-      harness?: string;
       _oma?: {
         aux_model?: string | { id: string; speed?: "standard" | "fast" };
-        harness?: string;
-        runtime_binding?: AgentConfig["runtime_binding"];
         appendable_prompts?: string[];
         notify?: AgentConfig["notify"];
       };
@@ -245,8 +238,6 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
         : raw.mcp_servers,
       callable_agents: ma.list ?? raw.callable_agents,
       aux_model: raw._oma?.aux_model,
-      harness: raw._oma?.harness ?? raw.harness,
-      runtime_binding: raw._oma?.runtime_binding,
       appendable_prompts: raw._oma?.appendable_prompts,
       notify: raw._oma?.notify,
     };
@@ -259,8 +250,8 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
     }
 
     if (!body.name) return c.json({ error: "name is required" }, 400);
-    if (!body.runtime_binding && !body.model) {
-      return c.json({ error: "model is required for cloud agents" }, 400);
+    if (!body.model) {
+      return c.json({ error: "model is required" }, 400);
     }
 
     if (deps.validateAgentLimits) {
@@ -269,8 +260,7 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
     }
 
     const tenantId = c.var.tenant_id;
-    const isLocalRuntime = !!body.runtime_binding;
-    if (!isLocalRuntime && deps.validateModel) {
+    if (deps.validateModel) {
       const r = await deps.validateModel(tenantId, body.model);
       if (!r.valid) return c.json({ error: r.error }, 400);
       if (body.aux_model !== undefined) {
@@ -284,10 +274,9 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
       tenantId,
       input: {
         name: body.name,
-        model: body.model ?? "",
+        model: body.model,
         system: body.system,
         tools: body.tools,
-        harness: body.harness,
         description: body.description,
         mcp_servers: body.mcp_servers,
         skills: body.skills,
@@ -295,7 +284,6 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
         metadata: body.metadata,
         aux_model: body.aux_model,
         appendable_prompts: body.appendable_prompts,
-        runtime_binding: body.runtime_binding,
         enable_general_subagent: (body as { enable_general_subagent?: boolean })
           .enable_general_subagent,
         notify: body.notify,
@@ -439,11 +427,8 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
       multiagent?: { type: "coordinator"; agents: unknown[] } | null;
       metadata?: Record<string, unknown>;
       version?: number;
-      harness?: string;
       _oma?: {
         aux_model?: string | { id: string; speed?: "standard" | "fast" } | null;
-        harness?: string;
-        runtime_binding?: AgentConfig["runtime_binding"] | null;
         appendable_prompts?: string[] | null;
         notify?: AgentConfig["notify"] | null;
       };
@@ -477,8 +462,6 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
         : raw.mcp_servers,
       callable_agents: callableAgents,
       aux_model: raw._oma?.aux_model,
-      harness: raw._oma?.harness ?? raw.harness,
-      runtime_binding: raw._oma?.runtime_binding,
       appendable_prompts: raw._oma?.appendable_prompts,
       notify: raw._oma?.notify,
     };
@@ -488,18 +471,12 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
       if (!limitCheck.ok) return c.json({ error: limitCheck.error }, 400);
     }
 
-    const effectiveBinding =
-      body.runtime_binding === null
-        ? null
-        : (body.runtime_binding ?? existing.runtime_binding);
-    const isLocalRuntime = !!effectiveBinding;
-
-    if (!isLocalRuntime && deps.validateModel && body.model !== undefined) {
+    if (deps.validateModel && body.model !== undefined) {
       const eff = body.model ?? existing.model;
       const r = await deps.validateModel(tenantId, eff);
       if (!r.valid) return c.json({ error: r.error }, 400);
     }
-    if (!isLocalRuntime && deps.validateModel && body.aux_model !== undefined) {
+    if (deps.validateModel && body.aux_model !== undefined) {
       const aux =
         body.aux_model === null ? undefined : (body.aux_model ?? existing.aux_model);
       if (aux !== undefined) {
@@ -518,7 +495,6 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
           model: body.model,
           system: body.system,
           tools: body.tools,
-          harness: body.harness,
           description: body.description,
           mcp_servers: body.mcp_servers,
           skills: body.skills,
@@ -526,7 +502,6 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
           metadata: body.metadata,
           aux_model: body.aux_model,
           appendable_prompts: body.appendable_prompts,
-          runtime_binding: body.runtime_binding,
           enable_general_subagent: (body as { enable_general_subagent?: boolean })
             .enable_general_subagent,
           notify: body.notify,

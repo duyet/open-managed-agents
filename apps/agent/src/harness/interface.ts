@@ -1,5 +1,5 @@
 import type { ModelMessage, LanguageModel } from "ai";
-import type { AgentConfig, SessionEvent, UserMessageEvent } from "@duyet/oma-shared";
+import type { AgentConfig, EnvironmentConfig, SessionEvent, UserMessageEvent } from "@duyet/oma-shared";
 import type { FileResolver } from "../runtime/history";
 
 // SandboxExecutor + ProcessHandle live in @duyet/oma-sandbox so
@@ -248,6 +248,31 @@ export interface HarnessContext {
    * derive layer emits a placeholder block so the turn keeps running.
    */
   fileFetcher?: FileResolver;
+
+  /**
+   * The session's environment snapshot (harness-to-environment migration).
+   * `environment.config.kind === "local"` is what selects this harness in
+   * the first place (SessionDO resolves "acp-proxy" from it); AcpProxyHarness
+   * reads `environment.config.local` (runtime_id, acp_agent_id, working_dir,
+   * branch, worktree, local_skill_blocklist) for its runtime binding —
+   * replaces the removed `agent.runtime_binding`. Other harnesses ignore it.
+   * Optional: sub-agent contexts and pre-migration test fixtures may leave
+   * it undefined.
+   */
+  environment?: EnvironmentConfig;
+  /**
+   * Model id already resolved against the session-override formula
+   * (`session.model ?? (environment.config.kind === "local"
+   * ? environment.config.local.model : agent.model)`). AcpProxyHarness
+   * forwards this on `session.start`; cloud harnesses use `model` (the
+   * already-built LanguageModel) instead and can ignore this field.
+   */
+  resolvedModel?: string;
+  /**
+   * Reasoning-effort override already resolved against the session-override
+   * formula. Only AcpProxyHarness has a defined consumer for this today.
+   */
+  resolvedReasoningEffort?: string;
 
   env: {
     ANTHROPIC_API_KEY: string;

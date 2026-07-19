@@ -25,7 +25,7 @@
  */
 
 import { Hono } from "hono";
-import type { Env, AgentConfig } from "@duyet/oma-shared";
+import type { Env, AgentConfig, EnvironmentConfig } from "@duyet/oma-shared";
 import { skillFileR2Key } from "@duyet/oma-shared";
 import { resolveKnownAgent } from "@duyet/oma-acp-runtime/known-agents";
 import type { Services } from "@duyet/oma-services";
@@ -656,25 +656,29 @@ runtimeDaemonRoutes.get("/sessions/:sid/bundle", async (c) => {
   }
   const agent = (session as { agent_snapshot?: AgentConfig }).agent_snapshot;
   if (!agent) return c.json({ error: "session has no agent snapshot" }, 500);
+  const environment = (session as { environment_snapshot?: EnvironmentConfig })
+    .environment_snapshot;
 
   // Runtime ownership check: a daemon can only fetch bundles for sessions
-  // whose agent is bound to the same runtime that owns this token. Without
-  // this gate, two daemons in the same tenant could read each other's
-  // session bundles by guessing sids — an info-leak that becomes a
+  // whose environment is bound to the same runtime that owns this token.
+  // Without this gate, two daemons in the same tenant could read each
+  // other's session bundles by guessing sids — an info-leak that becomes a
   // material security hole the moment the bundle starts carrying env
   // values + mcp_servers config (next commit). Same 404 shape so the
-  // endpoint stays a non-oracle for cross-runtime sids.
-  const sessionRuntimeId = agent.runtime_binding?.runtime_id;
+  // endpoint stays a non-oracle for cross-runtime sids. Harness-to-
+  // environment migration: the runtime binding lives on the environment's
+  // config.local now, not agent.runtime_binding (removed).
+  const sessionRuntimeId = environment?.config?.local?.runtime_id;
   if (!sessionRuntimeId || sessionRuntimeId !== ok.runtime_id) {
     return c.json({ error: "session not found" }, 404);
   }
 
   const files = await renderSessionBundle(agent, acpAgentId, c.var.services, ok.tenant_id);
-  // Per-agent blocklist of LOCAL skills the user has on their machine
+  // Per-environment blocklist of LOCAL skills the user has on their machine
   // — daemon enforces by NOT symlinking these into the spawn-cwd's
   // CLAUDE_CONFIG_DIR. Always send an array (possibly empty) so the
   // daemon doesn't have to handle three states (undefined / empty / set).
-  const local_skill_blocklist = agent.runtime_binding?.local_skill_blocklist ?? [];
+  const local_skill_blocklist = environment?.config?.local?.local_skill_blocklist ?? [];
 
   // Rewrite agent.mcp_servers (HTTP/SSE only) so they point at OMA's
   // mcp-proxy. The daemon doesn't get the user's upstream tokens — those

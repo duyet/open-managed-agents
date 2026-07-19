@@ -24,7 +24,6 @@ export const DEFAULT_AGENT_INPUT: NewAgentInput = {
   system:
     "You are a helpful, general-purpose assistant. Use your tools — bash, read, write, edit, glob, grep, web_fetch, and web_search — to answer questions, write and run code, and get things done accurately and efficiently.",
   tools: [{ type: DEFAULT_TOOLSET_TYPE }],
-  harness: "default",
 };
 
 /**
