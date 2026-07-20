@@ -452,6 +452,13 @@ export function buildAgentRoutes(deps: AgentRoutesDeps) {
       }
     }
 
+    if (raw._oma?.notify !== undefined) {
+      const parsed = notificationTargetsSchema.safeParse(raw._oma.notify);
+      if (!parsed.success) {
+        return c.json({ error: "invalid notify config", details: parsed.error.issues }, 422);
+      }
+    }
+
     const body = {
       ...raw,
       mcp_servers: Array.isArray(raw.mcp_servers)
