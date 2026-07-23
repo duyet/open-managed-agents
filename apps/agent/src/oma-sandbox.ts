@@ -37,6 +37,13 @@ const BACKUP_CTX_KEY = "oma_backup_ctx";
 // session, agent) tuple AND the start timestamp so onStop can compute
 // elapsed seconds even after a DO restart.
 const BILLING_CTX_KEY = "oma_billing_ctx";
+// Set after a successful snapshotWorkspaceNow call. Cleared in setBackupContext
+// (container lifecycle restart). Prevents overwriting a valid backup (created
+// by onActivityExpired) with an empty one when SessionDO's paused after the
+// container already stopped — createBackup on a stopped container auto-starts
+// a fresh empty one, turning a subsequent restoreWorkspaceBackup into a no-op
+// that silently discards the agent's /workspace state.
+const SNAPSHOT_DONE_KEY = "oma_snapshot_done";
 
 interface BackupContext {
   tenantId: string;
@@ -199,6 +206,11 @@ export class OmaSandbox extends Sandbox {
    */
   async setBackupContext(ctx: BackupContext): Promise<void> {
     await this.ctx.storage.put(BACKUP_CTX_KEY, ctx);
+    // Clear the snapshot-done guard — a new container lifecycle starts now.
+    // Without this, snapshotWorkspaceNow() becomes a permanent no-op across
+    // container restarts, and the next pause-after-reprovision never creates
+    // a backup.
+    await this.ctx.storage.delete(SNAPSHOT_DONE_KEY);
   }
 
   /**
@@ -247,6 +259,12 @@ export class OmaSandbox extends Sandbox {
    */
   async snapshotWorkspaceNow(): Promise<void> {
     try {
+      // Idempotent — if this container lifecycle already snapshotted (via a
+      // prior call, or the onActivityExpired pre-stop hook), re-running would
+      // spin up a fresh empty container (the last one was torn down) and
+      // create an empty backup, overwriting the valid squashfs. The guard
+      // prevents that: a container lifecycle produces exactly one backup.
+      if (await this.ctx.storage.get(SNAPSHOT_DONE_KEY)) return;
       const env = this.env as Env;
       const ctx = (await this.ctx.storage.get(BACKUP_CTX_KEY)) as
         | BackupContext
@@ -277,6 +295,7 @@ export class OmaSandbox extends Sandbox {
         ttlSec: BACKUP_TTL_SEC,
         sessionId: ctx.sessionId,
       });
+      await this.ctx.storage.put(SNAPSHOT_DONE_KEY, true);
       console.log(
         `[oma-sandbox] backup recorded id=${backup.id} session=${ctx.sessionId.slice(0, 12)} elapsed_ms=${elapsedMs}`,
       );

@@ -1847,9 +1847,11 @@ export class SessionDO extends DurableObject<Env> {
       if (this.state.sandbox_paused_at != null) {
         return Response.json({ sandbox_status: "paused" });
       }
-      // Force-create the sandbox wrapper if hibernated, mirroring /destroy —
-      // otherwise a hibernated SessionDO would skip both the backup and the
-      // actual container teardown.
+      // Re-create the sandbox wrapper if hibernated so we can attempt a
+      // snapshot and emit billing before destroy. snapshotWorkspaceNow is
+      // idempotent (guarded by DO-stored flag in OmaSandbox) — if
+      // onActivityExpired already snapshotted during the prior sleepAfter
+      // teardown, this silently returns; otherwise we snapshot now.
       if (!this.sandbox) {
         try { this.getOrCreateSandbox(); } catch {}
       }
