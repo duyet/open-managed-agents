@@ -101,7 +101,9 @@ describe("BrowserVmSandbox", () => {
     const transport = new MockTransport();
     const sandbox = new BrowserVmSandbox({ transport, sessionId: "sess_1", defaultTimeoutMs: 50 });
 
-    await expect(sandbox.exec("sleep 100")).rejects.toThrow(/timed out after 50ms/);
+    // The pending-call timer is the command budget plus 15s slack for the
+    // host's post-exec output collection (mirrors bridge-relay).
+    await expect(sandbox.exec("sleep 100")).rejects.toThrow(/timed out after 15050ms/);
   });
 
   it("readFile() returns result.content", async () => {

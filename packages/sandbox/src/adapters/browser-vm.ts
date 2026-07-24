@@ -93,10 +93,13 @@ export class BrowserVmSandbox implements SandboxExecutor {
 
   async exec(command: string, timeout?: number): Promise<string> {
     const timeoutMs = timeout ?? this.#defaultTimeoutMs;
+    // timeout_seconds is the in-VM command budget; the pending-call timer
+    // gets extra slack for the host's post-exec output collection round
+    // trips (mirrors bridge-relay's `timeoutMs + 15_000`).
     const r = await this.#call(
       "exec",
       { command, timeout_seconds: Math.ceil(timeoutMs / 1000) },
-      timeoutMs,
+      timeoutMs + 15_000,
     );
     const stdout = typeof r.stdout === "string" ? r.stdout : "";
     const stderr = typeof r.stderr === "string" ? r.stderr : "";

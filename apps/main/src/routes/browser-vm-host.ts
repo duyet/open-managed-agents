@@ -253,7 +253,9 @@ const HOST_PAGE_HTML = /* html */ `<!doctype html>
       const s = out.indexOf(m0);
       if (s === -1) throw new Error("readFile framing lost");
       const b64 = out.slice(s + m0.length).replace(/[^A-Za-z0-9+/=]/g, "");
-      return atob(b64);
+      // Symmetric with writeFile's UTF-8-safe encode — bare atob() would
+      // return Latin-1 bytes and mojibake any non-ASCII file/exec output.
+      return decodeURIComponent(escape(atob(b64)));
     }
     async writeFile(path, content) {
       const b64 = btoa(unescape(encodeURIComponent(content)));
