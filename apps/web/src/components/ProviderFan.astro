@@ -1,34 +1,63 @@
 ---
 // "Any model, any sandbox" — OMA's core pitch drawn as a fan schematic in the
-// AnyRouter / Cloudflare "gateway" viz language: LLM providers fan in on the
+// AnyRouter / Cloudflare "gateway" visual language: LLM providers fan in on the
 // left, the control plane sits in the middle, sandbox providers fan out on the
-// right. Edges carry an animated dashed flow + a traveling packet dot. All
-// motion is CSS and reduced-motion gated (the dot rests at the source node).
-const HUB = { x: 315, w: 130, cx: 380, cy: 160 };
+// right. The hub is not a black box — it shows the durable spine the platform
+// owns across every model/sandbox swap: context (window packing), state (the
+// append-only event log), and memory (mounted stores). Edges carry an animated
+// dashed flow + a traveling packet dot; all motion is CSS and reduced-motion
+// gated (the dot rests at the source node).
 
+// Hub geometry — a tall rounded plate centered on the diagram's mid-line so the
+// fan edges enter/exit at a single vertical point.
+const HUB = { x: 300, w: 160, cy: 180 };
+const HUB_RIGHT = HUB.x + HUB.w; // 460
+
+// LLM providers fan in on the left (right edge of a node = x=165).
 const LEFT = [
-  { y: 60, name: "Anthropic", sub: "claude-*" },
-  { y: 160, name: "OpenAI-compatible", sub: "/chat/completions" },
-  { y: 260, name: "AnyRouter", sub: "provider/model" },
+  { y: 88, name: "Anthropic", sub: "claude-*" },
+  { y: 180, name: "OpenAI-compatible", sub: "/chat/completions" },
+  { y: 272, name: "AnyRouter · BYOK", sub: "provider/model" },
 ];
+
+// Sandbox providers fan out on the right (left edge of a node = x=595). The
+// full matrix OMA resolves per-environment — Cloudflare's default plus every
+// relay/bridge path.
 const RIGHT = [
-  { y: 45, name: "Cloudflare", sub: "Containers" },
-  { y: 120, name: "Kubernetes", sub: "pod-per-session" },
-  { y: 200, name: "E2B · Daytona", sub: "micro-VMs" },
-  { y: 275, name: "Your machine", sub: "bridge relay" },
+  { y: 50, name: "Cloudflare", sub: "Containers" },
+  { y: 102, name: "Kubernetes", sub: "pod-per-session" },
+  { y: 154, name: "OpenShell", sub: "gRPC bridge" },
+  { y: 206, name: "Browser VM", sub: "WASM tab" },
+  { y: 258, name: "CLI · subprocess", sub: "your machine" },
+  { y: 310, name: "E2B · Daytona", sub: "micro-VMs" },
+];
+
+// What the control plane owns regardless of model or sandbox — rendered as
+// stacked pills inside the hub.
+const SPINE = [
+  { label: "context", sub: "packing" },
+  { label: "state", sub: "event log" },
+  { label: "memory", sub: "/mnt stores" },
 ];
 
 // Cubic edge from a left node's right edge (x=165) into the hub's left edge.
-const leftEdge = (y: number) => `M165 ${y} C245 ${y} 245 ${HUB.cy} ${HUB.x} ${HUB.cy}`;
-// Cubic edge from the hub's right edge (x=445) out to a right node's left edge.
-const rightEdge = (y: number) => `M${HUB.x + HUB.w} ${HUB.cy} C525 ${HUB.cy} 525 ${y} 595 ${y}`;
+const leftEdge = (y: number) => `M165 ${y} C242 ${y} 242 ${HUB.cy} ${HUB.x} ${HUB.cy}`;
+// Cubic edge from the hub's right edge out to a right node's left edge.
+const rightEdge = (y: number) => `M${HUB_RIGHT} ${HUB.cy} C540 ${HUB.cy} 540 ${y} 595 ${y}`;
 
 const NODE_W = 150;
-const NODE_H = 48;
+const NODE_H = 44;
+
+// Hub pill geometry.
+const PILL_X = HUB.x + 12;
+const PILL_W = HUB.w - 24;
+const PILL_H = 26;
+const PILL_TOP = 144; // first pill's top
+const PILL_GAP = 6;
 ---
 
 <figure class="pf">
-  <svg viewBox="0 0 760 320" role="img" aria-label="Any LLM provider routes through the OMA control plane to any sandbox provider">
+  <svg viewBox="0 0 760 360" role="img" aria-label="Any LLM provider routes through the OMA control plane — which owns context, state, and memory — out to any sandbox provider">
     <!-- Edges: static rail + animated dashed overlay + traveling packet -->
     {LEFT.map((n) => (
       <g>
@@ -54,12 +83,20 @@ const NODE_H = 48;
       </g>
     ))}
 
-    <!-- Hub: the control plane -->
+    <!-- Hub: the control plane + the durable spine it owns -->
     <g class="pf-hub">
-      <rect x={HUB.x} y={HUB.cy - 36} width={HUB.w} height="72" rx="12" />
-      <circle class="pf-hub-mark" cx={HUB.cx} cy={HUB.cy - 12} r="4" />
-      <text class="pf-hub-name" x={HUB.cx} y={HUB.cy + 6} text-anchor="middle">control plane</text>
-      <text class="pf-sub" x={HUB.cx} y={HUB.cy + 22} text-anchor="middle">session · harness</text>
+      <rect x={HUB.x} y="104" width={HUB.w} height="152" rx="14" />
+      <text class="pf-hub-name" x={HUB.x + HUB.w / 2} y="128" text-anchor="middle">control plane</text>
+      {SPINE.map((s, i) => {
+        const top = PILL_TOP + i * (PILL_H + PILL_GAP);
+        return (
+          <g class="pf-pill">
+            <rect x={PILL_X} y={top} width={PILL_W} height={PILL_H} rx="7" />
+            <text class="pf-pill-name" x={PILL_X + 10} y={top + PILL_H / 2 + 3.5}>{s.label}</text>
+            <text class="pf-pill-sub" x={PILL_X + PILL_W - 10} y={top + PILL_H / 2 + 3.5} text-anchor="end">{s.sub}</text>
+          </g>
+        );
+      })}
     </g>
 
     <!-- Right column: sandbox providers -->
@@ -74,7 +111,7 @@ const NODE_H = 48;
   <figcaption>
     <span>any LLM provider</span>
     <span aria-hidden="true">→</span>
-    <span>OMA</span>
+    <span>OMA · context · state · memory</span>
     <span aria-hidden="true">→</span>
     <span>any sandbox platform</span>
   </figcaption>
@@ -160,14 +197,29 @@ const NODE_H = 48;
     stroke: color-mix(in srgb, var(--color-brand) 45%, transparent);
     stroke-width: 1.5;
   }
-  .pf-hub-mark {
-    fill: var(--color-brand);
-  }
   .pf-hub-name {
     fill: var(--color-brand);
     font-family: var(--font-mono);
     font-size: 12.5px;
     font-weight: 700;
+  }
+
+  /* Spine pills inside the hub — what the platform owns across swaps */
+  .pf-pill rect {
+    fill: var(--color-card);
+    stroke: color-mix(in srgb, var(--color-brand) 22%, var(--color-border));
+    stroke-width: 1;
+  }
+  .pf-pill-name {
+    fill: var(--color-fg);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .pf-pill-sub {
+    fill: var(--color-fg-subtle);
+    font-family: var(--font-mono);
+    font-size: 9px;
   }
 
   .pf figcaption {

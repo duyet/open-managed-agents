@@ -61,12 +61,14 @@ if (!base.includes("@fontsource-variable/geist")) {
 
 // --- Source: index.astro sections ---
 const index = readFileSync(join(root, "src/pages/index.astro"), "utf8");
+// The landing was split into deep-dive pages (/how-it-works, /features, …);
+// these are the sections that stayed on the home page.
 const requiredHeadings = [
   "What Open Managed Agents is",
-  "How it is designed",
-  "System architecture layers",
-  "Durable lifecycle loop",
-  "Why Open Managed Agents",
+  "See it run",
+  "What one request touches",
+  "Any model, any sandbox",
+  "Dig deeper",
   "Get started",
 ];
 for (const h of requiredHeadings) {
@@ -75,8 +77,10 @@ for (const h of requiredHeadings) {
 if (!index.includes("Agent") || !index.includes("Session") || !index.includes("Environment") || !index.includes("Vault")) {
   fail("landing must explain Agent / Session / Environment / Vault");
 }
-if (!index.includes("arch-stack") || !index.includes("lifecycle-track") || !index.includes("meta-harness-split")) {
-  fail("landing must include architecture / lifecycle visual structure classes");
+// Schematic vocabulary: the blueprint plate + node/animated-wire diagrams that
+// carry the architecture + reach sections.
+if (!index.includes("blueprint-frame") || !index.includes("arch-node") || !index.includes("ProviderFan")) {
+  fail("landing must include the blueprint schematic + provider-fan visual structure");
 }
 if (!index.includes("github.com/duyet/oma") || !index.includes("app.oma.duyet.net/login") || !index.includes("docs.oma.duyet.net")) {
   fail("primary CTAs (GitHub, hosted, docs) must remain");
@@ -94,12 +98,12 @@ if (existsSync(distIndex)) {
   } else {
     ok("dist/index.html references Geist");
   }
-  if (!html.includes("What Open Managed Agents is") || !html.includes("How it is designed")) {
-    fail("built HTML missing product/design explainer headings");
+  if (!html.includes("What Open Managed Agents is") || !html.includes("Any model, any sandbox")) {
+    fail("built HTML missing product/reach explainer headings");
   } else {
-    ok("built HTML has product + design explainers");
+    ok("built HTML has product + reach explainers");
   }
-  if (!html.includes("arch-stack") || !html.includes("lifecycle-track")) {
+  if (!html.includes("blueprint-frame") || !html.includes("arch-node")) {
     fail("built HTML missing architecture viz structure");
   } else {
     ok("built HTML has architecture viz classes");
@@ -116,8 +120,8 @@ if (url) {
     const body = await res.text();
     if (!res.ok) fail(`fetch #${i} ${url} → HTTP ${res.status}`);
     if (!/Open Managed Agents|oma/i.test(body)) fail(`fetch #${i}: missing product title`);
-    if (!body.includes("How it is designed") && !body.includes("System architecture")) {
-      fail(`fetch #${i}: missing design/architecture heading`);
+    if (!body.includes("Any model, any sandbox") && !body.includes("What one request touches")) {
+      fail(`fetch #${i}: missing architecture/reach heading`);
     }
     if (!/Geist/i.test(body)) fail(`fetch #${i}: missing Geist font ref`);
     if (!process.exitCode) ok(`live fetch #${i} ${url} observables ok`);

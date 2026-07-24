@@ -73,11 +73,13 @@ const explore = [
       <div>
         <!-- Full-width first: the Console's "How it fits together" diagram
              leads the hero — the product's mental model before the pitch. -->
-        <!-- Blueprint frame around the fit diagram: a dotted measurement grid
-             bounded by corner-bracket ticks (AnyRouter / Cloudflare "gateway"
-             schematic language) so the diagram reads as a technical plate. -->
+        <!-- Blueprint frame around the fit diagram: corner-bracket ticks
+             (AnyRouter / Cloudflare "gateway" schematic language) so the diagram
+             reads as a technical plate. The hero plate stays clean — no dotted
+             grid behind the lead diagram; the measurement grid is reserved for
+             the schematic sections lower on the page. -->
         <!-- Breaks out wider than the text column on large screens. -->
-        <div class="mb-12 relative rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] blueprint-grid blueprint-frame p-5 md:p-10 lg:-mx-20 xl:-mx-32">
+        <div class="mb-12 relative rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] blueprint-frame p-5 md:p-10 lg:-mx-20 xl:-mx-32">
           <span class="bp-corner-bl" aria-hidden="true"></span>
           <span class="bp-corner-br" aria-hidden="true"></span>
           <div class="relative">
@@ -277,8 +279,13 @@ const explore = [
       <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed">
         The control plane is the constant. Point it at Anthropic, any
         OpenAI-compatible gateway, or your own model; run tools on Cloudflare
-        Containers, Kubernetes, a micro-VM vendor, or your own machine — the
-        same session, tools, and event log regardless.
+        Containers, Kubernetes, an OpenShell bridge, a WASM VM in a browser tab,
+        your own machine over the CLI, or a micro-VM vendor. In the middle, one
+        durable spine owns <strong class="text-[var(--color-fg)] font-semibold">context</strong>
+        (window packing), <strong class="text-[var(--color-fg)] font-semibold">state</strong>
+        (the append-only event log), and <strong class="text-[var(--color-fg)] font-semibold">memory</strong>
+        (mounted stores) — so the session survives regardless of which model or
+        sandbox you swap in.
       </p>
       <div class="relative w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] blueprint-grid blueprint-frame p-5 shadow-sm md:p-8">
         <span class="bp-corner-bl" aria-hidden="true"></span>
