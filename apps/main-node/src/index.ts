@@ -1599,6 +1599,18 @@ v1.get("/hosting_types", async (c) => {
         });
         continue;
       }
+      // browser-vm relays sandbox ops to a browser tab via the RuntimeRoom
+      // Durable Object — a Cloudflare-only surface. On self-host Node it's
+      // listed (shared SYSTEM_PROVIDERS seed) but not yet wired.
+      if (p.type === "browser-vm") {
+        healthResults.set(p.id, {
+          status: "not_configured",
+          latency_ms: 0,
+          last_checked: new Date().toISOString(),
+          reason: "Browser sandbox tabs are only supported on the Cloudflare deployment for now.",
+        });
+        continue;
+      }
       const h = await sandboxRegistry.checkHealth(p.id).catch(() => null);
       if (h) {
         healthResults.set(p.id, {

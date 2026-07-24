@@ -52,6 +52,13 @@ describe("classifyCfSandboxProvider", () => {
     },
   );
 
+  it.each(["browser-vm", "BROWSER-VM", " browser-vm "])(
+    "classifies browser-vm provider %s as bridge-relayed",
+    (id) => {
+      expect(classifyCfSandboxProvider(id)).toEqual({ kind: "bridge", type: "browser-vm" });
+    },
+  );
+
   it("trims whitespace before classifying", () => {
     expect(classifyCfSandboxProvider("  boxrun  ")).toEqual({ kind: "remote", type: "boxrun" });
   });
@@ -72,6 +79,7 @@ describe("classifyCfSandboxProvider", () => {
       "github-actions": true,
       "remote-agent": true,
       openshell: true,
+      "browser-vm": true,
     });
   });
 
