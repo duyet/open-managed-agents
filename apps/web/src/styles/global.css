@@ -1068,6 +1068,101 @@ input:focus-visible,
   border-right: 1.5px solid;
 }
 
+/* Animated schematic wire — a dashed brand rail with a traveling packet dot,
+   the AnyRouter / Cloudflare "gateway" edge. Joins nodes in the architecture
+   schematic. Motion gated on reduced-motion (static dashed rail otherwise). */
+.bp-wire {
+  position: relative;
+  align-self: center;
+  flex: 1 1 1.75rem;
+  min-width: 1.5rem;
+  height: 2px;
+  background-image: repeating-linear-gradient(
+    to right,
+    color-mix(in srgb, var(--color-brand) 55%, transparent) 0 6px,
+    transparent 6px 12px
+  );
+  background-size: 12px 2px;
+  background-repeat: repeat-x;
+}
+.bp-wire::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  margin-top: -2.5px;
+  border-radius: 999px;
+  background: var(--color-brand);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-brand) 60%, transparent);
+  opacity: 0;
+}
+@keyframes bp-wire-flow {
+  to {
+    background-position-x: 12px;
+  }
+}
+@keyframes bp-wire-packet {
+  0% {
+    left: 0;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bp-wire {
+    animation: bp-wire-flow 0.9s linear infinite;
+  }
+  .bp-wire::after {
+    animation: bp-wire-packet 1.7s linear infinite;
+  }
+}
+
+/* Node in the architecture schematic — fixed-width so the row stays a clean
+   pipeline; the row scrolls horizontally on narrow screens rather than wrap. */
+.arch-node {
+  flex: none;
+  width: 8rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  text-align: center;
+}
+.arch-node-glyph {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--color-brand) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-brand) 6%, var(--color-card));
+  color: var(--color-brand);
+  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.05);
+}
+.arch-node-name {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-fg);
+}
+.arch-node-sub {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: var(--color-fg-subtle);
+}
+
 /* Editorial section index marker — a mono "01" ordinal set before the
    eyebrow label, mirroring AnyRouter's SectionShell index/eyebrow rhythm.
    Brand-tinted, tabular, hairline separator dot handled by the flex gap. */

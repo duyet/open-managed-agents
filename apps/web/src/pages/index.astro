@@ -201,10 +201,70 @@ const explore = [
     </div>
   </section>
 
+  <!-- Anatomy — the durable request path, drawn as a blueprint schematic in
+       the same node/animated-wire vocabulary as the diagrams above. Real OMA
+       architecture: session event log → harness loop → sandbox tools, with the
+       vault proxy sitting off the network layer. -->
+  <section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="architecture">
+    <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+      <span class="section-index">03</span>
+      <Icon name="layers" size={14} class="text-[var(--color-brand)]" /> Anatomy
+    </p>
+    <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
+      What one request touches
+    </h2>
+    <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed">
+      Every message runs the same durable path. The session's append-only event
+      log records it, the harness drives the model loop, tools execute in the
+      sandbox, and the outbound proxy injects vault credentials the sandbox
+      never sees.
+    </p>
+    <div class="relative w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] blueprint-grid blueprint-frame p-5 shadow-sm md:p-8">
+      <span class="bp-corner-bl" aria-hidden="true"></span>
+      <span class="bp-corner-br" aria-hidden="true"></span>
+      <div class="relative flex items-stretch gap-1 overflow-x-auto pb-2">
+        <div class="arch-node">
+          <span class="arch-node-glyph"><Icon name="workflow" size={20} /></span>
+          <span class="arch-node-name">Request</span>
+          <span class="arch-node-sub">user.message (SSE)</span>
+        </div>
+        <div class="bp-wire" aria-hidden="true"></div>
+        <div class="arch-node">
+          <span class="arch-node-glyph"><Icon name="layers" size={20} /></span>
+          <span class="arch-node-name">Session</span>
+          <span class="arch-node-sub">event log · DO-SQLite</span>
+        </div>
+        <div class="bp-wire" aria-hidden="true"></div>
+        <div class="arch-node">
+          <span class="arch-node-glyph"><Icon name="repeat" size={20} /></span>
+          <span class="arch-node-name">Harness</span>
+          <span class="arch-node-sub">model loop · tools</span>
+        </div>
+        <div class="bp-wire" aria-hidden="true"></div>
+        <div class="arch-node">
+          <span class="arch-node-glyph"><Icon name="box" size={20} /></span>
+          <span class="arch-node-name">Sandbox</span>
+          <span class="arch-node-sub">bash · read · write · MCP</span>
+        </div>
+        <div class="bp-wire" aria-hidden="true"></div>
+        <div class="arch-node">
+          <span class="arch-node-glyph"><Icon name="globe" size={20} /></span>
+          <span class="arch-node-name">Vault proxy</span>
+          <span class="arch-node-sub">injects creds · at network layer</span>
+        </div>
+      </div>
+      <!-- Return-path note: the event log is what makes a crash resumable. -->
+      <p class="relative mt-5 flex items-center justify-center gap-2 font-mono text-[0.62rem] uppercase tracking-widest text-[var(--color-fg-subtle)]">
+        <Icon name="repeat" size={12} class="text-[var(--color-brand)]" />
+        replayable event log → crash recovery &amp; resume
+      </p>
+    </div>
+  </section>
+
   <!-- Explore — compact links into the deep-dive pages split off this page. -->
   <section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="explore">
     <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
-      <span class="section-index">03</span>
+      <span class="section-index">04</span>
       <Icon name="grid" size={14} class="text-[var(--color-brand)]" /> Explore
     </p>
     <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
