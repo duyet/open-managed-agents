@@ -20,6 +20,12 @@ import { osTag, currentProfile, paths } from "../lib/platform.js";
 import { detectAll, loadRegistry } from "@duyet/oma-acp-runtime/registry";
 import { SessionManager } from "../lib/session-manager.js";
 import { BridgeSandboxManager } from "../lib/bridge-sandbox.js";
+import { OpenShellBridgeSandboxManager } from "../lib/openshell-sandbox.js";
+import {
+  resolveSandboxBackend,
+  type SandboxBackendFlags,
+  type SandboxRelayManager,
+} from "../lib/sandbox-backend.js";
 import { detectLocalSkills } from "../lib/local-skills.js";
 import { attachAgentVersions } from "../lib/agent-versions.js";
 
@@ -62,7 +68,7 @@ const RECONNECT_BACKOFF_MAX_MS = 60 * 1000;
 const LIVENESS_TIMEOUT_MS = 70 * 1000;
 
 
-export async function runDaemon(): Promise<void> {
+export async function runDaemon(opts: SandboxBackendFlags = {}): Promise<void> {
   const creds = await readCreds();
   if (!creds) {
     process.stderr.write(
@@ -252,11 +258,21 @@ export async function runDaemon(): Promise<void> {
   sessions.setTenantKeys(creds.tenants);
 
   // Relayed sandbox ops for cloud agents with a *local* environment. Like
-  // SessionManager it survives WS drops (per-session workdirs persist); each
+  // SessionManager it survives WS drops (per-session state persists); each
   // attach re-points its sender at the new socket via setSend().
-  const sandboxes = new BridgeSandboxManager(() => {
+  //
+  // Backend: the default local subprocess relay, or — when pointed at an
+  // OpenShell gateway (`--backend openshell` / `OMA_OPENSHELL_URL`) — relay
+  // each op to an isolated OpenShell sandbox over gRPC instead.
+  const backend = resolveSandboxBackend(opts, process.env);
+  log.step(`sandbox backend: ${backend.kind} — ${backend.reason}`);
+  const noop = () => {
     /* placeholder — replaced on first attach via setSend */
-  });
+  };
+  const sandboxes: SandboxRelayManager =
+    backend.kind === "openshell"
+      ? new OpenShellBridgeSandboxManager(noop, backend.openshell!)
+      : new BridgeSandboxManager(noop);
 
   while (!stopping) {
     try {

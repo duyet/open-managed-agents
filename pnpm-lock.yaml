@@ -988,6 +988,9 @@ importers:
       '@duyet/oma-api-types':
         specifier: workspace:*
         version: link:../api-types
+      '@duyet/oma-sandbox':
+        specifier: workspace:*
+        version: link:../sandbox
       '@inquirer/checkbox':
         specifier: ^5.1.4
         version: 5.1.4(@types/node@22.19.17)
