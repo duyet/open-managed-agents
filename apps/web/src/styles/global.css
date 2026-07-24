@@ -67,6 +67,19 @@
   --color-success: #22c55e;
   --color-warning: #d97706;
 
+  /* shadcn/ui semantic aliases + radius scale. The site already uses the
+     shadcn CSS-variable token model (bg/fg/border/brand); these map the
+     shadcn card/muted names onto it and add a single radius scale so cards,
+     badges and framed diagrams share one "New York"-style radius rhythm. */
+  --color-card: var(--color-bg);
+  --color-muted: var(--color-bg-surface);
+  --color-muted-foreground: var(--color-fg-muted);
+  --radius: 0.625rem;
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
   /* Motion tokens the shared fit-diagram (and its card transitions)
      reference — mirrors console's --dur-*/--ease-* values. */
   --dur-quick: 100ms;

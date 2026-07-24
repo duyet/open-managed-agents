@@ -148,7 +148,7 @@ const explore = [
         concepts.map((c) => (
           <article
             data-lift
-            class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 hover:border-[var(--color-border-strong)]"
+            class="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-6 shadow-sm hover:border-[var(--color-border-strong)]"
           >
             <div class="flex items-center justify-between gap-3 mb-3">
               <h3 class="font-display text-xl font-semibold tracking-tight">{c.name}</h3>
@@ -187,7 +187,16 @@ const explore = [
         demo of how to wire it — including the local bridge relay and K8s.
       </p>
       <div class="hero-visual hero-visual-band">
-        <WiredFlows client:load />
+        <!-- Same blueprint plate as the hero diagram: a dotted measurement
+             grid + corner-bracket ticks so both diagrams read as sibling
+             schematics on the same technical canvas. -->
+        <div class="relative w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] blueprint-grid blueprint-frame p-4 shadow-sm md:p-6">
+          <span class="bp-corner-bl" aria-hidden="true"></span>
+          <span class="bp-corner-br" aria-hidden="true"></span>
+          <div class="relative">
+            <WiredFlows client:load />
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -210,7 +219,7 @@ const explore = [
           <a
             href={e.href}
             data-lift
-            class="block rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 no-underline hover:no-underline hover:border-[var(--color-border-strong)]"
+            class="block rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-6 shadow-sm no-underline hover:no-underline hover:border-[var(--color-border-strong)]"
           >
             <div class="flex items-center gap-2.5 mb-2">
               <Icon name={e.icon} size={18} class="text-[var(--color-brand)]" />
