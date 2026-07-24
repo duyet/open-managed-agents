@@ -55,13 +55,14 @@ openshell:
   image: ""
   tls:
     enabled: false
-    # Name of a Secret carrying the CA (and, for mTLS, cert/key) used to
-    # verify/authenticate to the gateway. Required when tls.enabled.
+    # Name of a Secret carrying the CA used to verify the gateway. Required
+    # when tls.enabled.
     caSecret: ""
-    # Optional: a separate Secret for the client cert/key (mTLS). Falls
-    # back to caSecret when unset, so a single Secret can carry all three
-    # keys — the chart always renders the client cert/key paths alongside
-    # the CA path when tls.enabled, using whichever Secret this resolves to.
+    # Secret carrying the client cert/key — setting this is what turns on
+    # mTLS. Leave empty for plain server-auth TLS (CA only); the chart then
+    # emits no client cert/key paths, since a CA-only Secret has nothing to
+    # mount there. May name the same Secret as caSecret if it carries all
+    # three keys (ca.crt + tls.crt + tls.key).
     certSecret: ""
     # Keys inside the secret(s) above.
     caKey: ca.crt

@@ -80,7 +80,8 @@ curl -H "Authorization: Bearer $K8S_BRIDGE_TOKEN" http://localhost:8100/api/v1/h
 | `config.backend` | `k8s` | `k8s` \| `openshell` \| `auto` — which `BridgeBackend` the process runs, see [OpenShell backend](#openshell-backend) below |
 | `openshell.endpoint` | `""` | `host:port` of the OpenShell gateway (required when `config.backend: openshell`) |
 | `openshell.image` | `""` | Sandbox image OpenShell launches; empty = gateway default |
-| `openshell.tls.enabled` / `.caSecret` / `.certSecret` | `false` / `""` / `""` | TLS/mTLS to the gateway, sourced from Secrets you provide — `certSecret` falls back to `caSecret` when unset, so one Secret can hold `ca.crt` + `tls.crt` + `tls.key` |
+| `openshell.tls.enabled` / `.caSecret` | `false` / `""` | Server-auth TLS to the gateway; `caSecret` holds the CA |
+| `openshell.tls.certSecret` | `""` | Secret holding the client cert/key — setting it is what enables **mTLS**. May name the same Secret as `caSecret` if it holds all three keys |
 | `openshell.token.existingSecret` / `.tokenKey` | `""` / `OPENSHELL_TOKEN` | Pre-existing Secret carrying the gateway bearer token |
 | `service.type` / `service.port` | `ClusterIP` / `8100` | Bridge Service |
 | `ingress.enabled` | `false` | Expose the bridge via Ingress |

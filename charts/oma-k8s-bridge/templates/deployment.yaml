@@ -70,23 +70,20 @@ spec:
             - name: openshell-tls-ca
               mountPath: /etc/openshell/tls
               readOnly: true
+            {{- if .Values.openshell.tls.certSecret }}
             - name: openshell-tls-client
               mountPath: /etc/openshell/tls-client
               readOnly: true
+            {{- end }}
           {{- end }}
       {{- if .Values.openshell.tls.enabled }}
-      {{- /*
-      certSecret defaults to caSecret so a single Secret carrying
-      ca.crt + tls.crt + tls.key works for mTLS — see values.yaml and the
-      matching comment in configmap.yaml. Both volumes are always mounted
-      when tls.enabled so that fallback isn't silently dropped.
-      */ -}}
-      {{- $certSecret := .Values.openshell.tls.certSecret | default .Values.openshell.tls.caSecret }}
       volumes:
         - name: openshell-tls-ca
           secret:
             secretName: {{ .Values.openshell.tls.caSecret }}
+        {{- if .Values.openshell.tls.certSecret }}
         - name: openshell-tls-client
           secret:
-            secretName: {{ $certSecret }}
+            secretName: {{ .Values.openshell.tls.certSecret }}
+        {{- end }}
       {{- end }}
