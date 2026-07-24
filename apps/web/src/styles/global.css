@@ -215,6 +215,16 @@ code, pre, kbd, samp,
   text-decoration-color: var(--color-brand-hover);
 }
 
+/* …except in nav chrome. Footer columns and header menus are marked up as
+   <ul><li><a> too, so the `li a` half of the prose selector above was
+   underlining them — body-copy styling leaking into navigation. Those links
+   signal hover with a color transition instead (see the anchor defaults),
+   so opt them back out. Hover color is left alone: the utility classes on
+   those links out-specify this rule. */
+:where(nav, footer) :where(p, li, dd, td, blockquote) a {
+  text-decoration: none;
+}
+
 /* Brand-colored focus ring on every interactive element. The site had no
    focus-visible styling before — keyboard users on a public marketing
    site couldn't see where focus was. */
