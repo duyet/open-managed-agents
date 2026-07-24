@@ -309,7 +309,7 @@ const explore = [
     <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed">
       The details live on their own pages — pick a thread to pull.
     </p>
-    <div class="grid sm:grid-cols-2 gap-5">
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
       {
         explore.map((e) => (
           <a
@@ -331,7 +331,7 @@ const explore = [
 
   <!-- Get started -->
   <section class="border-t border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal id="get-started">
-    <div class="max-w-3xl mx-auto px-4 py-16 md:py-20 text-center">
+    <div class="max-w-3xl mx-auto px-4 pt-16 md:pt-20 text-center">
       <Logo size={64} class="block mx-auto mb-6 text-[var(--color-brand)]" />
       <h2 class="font-display text-3xl font-bold mb-3 tracking-tight">Get started</h2>
       <p class="text-[var(--color-fg-muted)] mb-8 leading-relaxed">

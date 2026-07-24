@@ -217,16 +217,17 @@ code, pre, kbd, samp,
    subject to WCAG 1.4.3, so we get visible brand presence without using
    coral as the readable text color (which would fail 4.5:1 on white). */
 :where(p, li, dd, td, blockquote) a {
-  color: inherit;
-  text-decoration: underline;
-  text-decoration-color: var(--color-brand);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
+  color: var(--color-brand);
+  font-weight: 500;
+  text-decoration: none;
   transition: color 120ms ease-out, text-decoration-color 120ms ease-out;
 }
 :where(p, li, dd, td, blockquote) a:hover {
-  color: var(--color-brand);
+  color: var(--color-brand-hover);
+  text-decoration: underline;
   text-decoration-color: var(--color-brand-hover);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
 }
 
 /* …except in nav chrome. Footer columns and header menus are marked up as
@@ -236,6 +237,8 @@ code, pre, kbd, samp,
    so opt them back out. Hover color is left alone: the utility classes on
    those links out-specify this rule. */
 :where(nav, footer) :where(p, li, dd, td, blockquote) a {
+  color: inherit;
+  font-weight: inherit;
   text-decoration: none;
 }
 
@@ -1073,7 +1076,11 @@ input:focus-visible,
    schematic. Motion gated on reduced-motion (static dashed rail otherwise). */
 .bp-wire {
   position: relative;
-  align-self: center;
+  /* Pin to the glyph row's vertical center (half of the 3rem glyph), not the
+     row's cross-axis center — otherwise a node whose sub-label wraps to two
+     lines grows the row and drags the wire below the glyphs. */
+  align-self: flex-start;
+  margin-top: calc(1.5rem - 1px);
   flex: 1 1 1.75rem;
   min-width: 1.5rem;
   height: 2px;
