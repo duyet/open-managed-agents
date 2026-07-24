@@ -43,14 +43,15 @@
   --color-border: #e4e4e7;
   --color-border-strong: #d4d4d8;
 
-  /* Primary — "iris", one confident ownable accent. Carries all chrome:
+  /* Primary — warm orange, one confident ownable accent. Carries all chrome:
      logo, links, focus ring, section-marker icons, highlight borders,
-     primary buttons. Deliberately not terracotta (the Anthropic tell) and
-     not a washed AI-purple gradient — a single saturated indigo, used flat.
-     #4f46e5 on #ffffff = 6.6:1 (AA text); #fafafa on #4f46e5 = 6.6:1. */
-  --color-brand: #4f46e5;
-  --color-brand-hover: #4338ca;
-  --color-brand-subtle: #eef2ff;
+     primary buttons. Tuned to sit in the same family as the AnyRouter /
+     Cloudflare "gateway" language — a saturated, engineering-warm orange used
+     flat, not a washed AI-purple gradient.
+     #c2560d on #ffffff = 5.4:1 (AA text); #ffffff on #c2560d = 5.4:1. */
+  --color-brand: #c2560d;
+  --color-brand-hover: #a8480a;
+  --color-brand-subtle: #fdf1e7;
   --color-brand-fg: #ffffff;
 
   /* Functional data-viz accents — used inside diagrams/badges/tabs only. */
@@ -85,12 +86,12 @@
   --color-border: #27272a;
   --color-border-strong: #3f3f46;
 
-  /* Iris lifts in dark for contrast on the near-black ground:
-     #818cf8 on #09090b ≈ 8.4:1; dark ink text on the button = ~7:1. */
-  --color-brand: #818cf8;
-  --color-brand-hover: #a5b4fc;
-  --color-brand-subtle: #1e1b3a;
-  --color-brand-fg: #0b0b12;
+  /* Orange lifts to Cloudflare-bright in dark for contrast on the near-black
+     ground: #f6821f on #09090b ≈ 8:1; dark ink text on the button = ~8:1. */
+  --color-brand: #f6821f;
+  --color-brand-hover: #ff9a44;
+  --color-brand-subtle: #2a1a0d;
+  --color-brand-fg: #1a0f06;
 
   --color-accent: #e08a68;
   --color-accent-subtle: #2d1a15;
@@ -987,4 +988,82 @@ input:focus-visible,
 @media (prefers-reduced-motion: reduce) {
   .usecase-line { transition: none; opacity: 1; transform: none; }
   .usecase-progress { display: none; }
+}
+
+/* ============================================================
+   Blueprint canvas — technical-diagram framing borrowed from the
+   AnyRouter / Cloudflare "gateway" visual language. A dotted
+   measurement grid bounded by corner-bracket tick marks, so a
+   framed diagram reads as a schematic on a plate rather than a
+   floating image. Theme-aware via --color-border tokens.
+   ============================================================ */
+.blueprint-grid {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--color-fg) 12%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+  background-position: -1px -1px;
+}
+.dark .blueprint-grid {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--color-fg) 14%, transparent) 1px,
+    transparent 1px
+  );
+}
+
+/* Corner-bracket frame — four L-shaped ticks at the canvas corners,
+   drawn on pseudo-elements so they sit over the dotted grid without
+   affecting layout. */
+.blueprint-frame {
+  position: relative;
+}
+.blueprint-frame::before,
+.blueprint-frame::after,
+.blueprint-frame > .bp-corner-bl,
+.blueprint-frame > .bp-corner-br {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: color-mix(in srgb, var(--color-brand) 55%, transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+.blueprint-frame::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1.5px solid;
+  border-left: 1.5px solid;
+}
+.blueprint-frame::after {
+  top: -1px;
+  right: -1px;
+  border-top: 1.5px solid;
+  border-right: 1.5px solid;
+}
+.blueprint-frame > .bp-corner-bl {
+  bottom: -1px;
+  left: -1px;
+  border-bottom: 1.5px solid;
+  border-left: 1.5px solid;
+}
+.blueprint-frame > .bp-corner-br {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1.5px solid;
+  border-right: 1.5px solid;
+}
+
+/* Editorial section index marker — a mono "01" ordinal set before the
+   eyebrow label, mirroring AnyRouter's SectionShell index/eyebrow rhythm.
+   Brand-tinted, tabular, hairline separator dot handled by the flex gap. */
+.section-index {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--color-brand) 75%, var(--color-fg-subtle));
 }

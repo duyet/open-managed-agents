@@ -72,15 +72,13 @@ const explore = [
       <div>
         <!-- Full-width first: the Console's "How it fits together" diagram
              leads the hero — the product's mental model before the pitch. -->
-        <!-- Dithered-pattern frame around the fit diagram (reference: framed
-             dashboard screenshots) — full-strength in light, damped in dark. -->
+        <!-- Blueprint frame around the fit diagram: a dotted measurement grid
+             bounded by corner-bracket ticks (AnyRouter / Cloudflare "gateway"
+             schematic language) so the diagram reads as a technical plate. -->
         <!-- Breaks out wider than the text column on large screens. -->
-        <div class="mb-12 relative overflow-hidden rounded-2xl p-5 md:p-10 lg:-mx-20 xl:-mx-32">
-          <div
-            class="pointer-events-none absolute inset-0"
-            aria-hidden="true"
-            style="background: url('/hero-tint.jpg') center / cover no-repeat;"
-          ></div>
+        <div class="mb-12 relative rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] blueprint-grid blueprint-frame p-5 md:p-10 lg:-mx-20 xl:-mx-32">
+          <span class="bp-corner-bl" aria-hidden="true"></span>
+          <span class="bp-corner-br" aria-hidden="true"></span>
           <div class="relative">
             <HowItFits />
           </div>
@@ -135,6 +133,7 @@ const explore = [
   <!-- What it is — the four primitives that carry the whole model. -->
   <section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="what-is-oma">
     <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+      <span class="section-index">01</span>
       <Icon name="box" size={14} class="text-[var(--color-brand)]" /> Product
     </p>
     <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
@@ -177,7 +176,8 @@ const explore = [
   <section class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal id="example">
     <div class="max-w-5xl mx-auto px-4 py-16 md:py-20">
       <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
-        <Icon name="workflow" size={14} class="text-[var(--color-brand)]" /> Example
+        <span class="section-index">02</span>
+      <Icon name="workflow" size={14} class="text-[var(--color-brand)]" /> Example
       </p>
       <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
         See it run
@@ -195,6 +195,7 @@ const explore = [
   <!-- Explore — compact links into the deep-dive pages split off this page. -->
   <section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="explore">
     <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+      <span class="section-index">03</span>
       <Icon name="grid" size={14} class="text-[var(--color-brand)]" /> Explore
     </p>
     <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
