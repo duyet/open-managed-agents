@@ -1,0 +1,190 @@
+---
+// "Any model, any sandbox" — OMA's core pitch drawn as a fan schematic in the
+// AnyRouter / Cloudflare "gateway" viz language: LLM providers fan in on the
+// left, the control plane sits in the middle, sandbox providers fan out on the
+// right. Edges carry an animated dashed flow + a traveling packet dot. All
+// motion is CSS and reduced-motion gated (the dot rests at the source node).
+const HUB = { x: 315, w: 130, cx: 380, cy: 160 };
+
+const LEFT = [
+  { y: 60, name: "Anthropic", sub: "claude-*" },
+  { y: 160, name: "OpenAI-compatible", sub: "/chat/completions" },
+  { y: 260, name: "AnyRouter", sub: "provider/model" },
+];
+const RIGHT = [
+  { y: 45, name: "Cloudflare", sub: "Containers" },
+  { y: 120, name: "Kubernetes", sub: "pod-per-session" },
+  { y: 200, name: "E2B · Daytona", sub: "micro-VMs" },
+  { y: 275, name: "Your machine", sub: "bridge relay" },
+];
+
+// Cubic edge from a left node's right edge (x=165) into the hub's left edge.
+const leftEdge = (y: number) => `M165 ${y} C245 ${y} 245 ${HUB.cy} ${HUB.x} ${HUB.cy}`;
+// Cubic edge from the hub's right edge (x=445) out to a right node's left edge.
+const rightEdge = (y: number) => `M${HUB.x + HUB.w} ${HUB.cy} C525 ${HUB.cy} 525 ${y} 595 ${y}`;
+
+const NODE_W = 150;
+const NODE_H = 48;
+---
+
+<figure class="pf">
+  <svg viewBox="0 0 760 320" role="img" aria-label="Any LLM provider routes through the OMA control plane to any sandbox provider">
+    <!-- Edges: static rail + animated dashed overlay + traveling packet -->
+    {LEFT.map((n) => (
+      <g>
+        <path class="pf-rail" d={leftEdge(n.y)} />
+        <path class="pf-flow" d={leftEdge(n.y)} />
+        <circle class="pf-packet" r="2.6" style={`offset-path:path('${leftEdge(n.y)}')`} />
+      </g>
+    ))}
+    {RIGHT.map((n) => (
+      <g>
+        <path class="pf-rail" d={rightEdge(n.y)} />
+        <path class="pf-flow" d={rightEdge(n.y)} />
+        <circle class="pf-packet" r="2.6" style={`offset-path:path('${rightEdge(n.y)}')`} />
+      </g>
+    ))}
+
+    <!-- Left column: LLM providers -->
+    {LEFT.map((n) => (
+      <g class="pf-node">
+        <rect x="15" y={n.y - NODE_H / 2} width={NODE_W} height={NODE_H} rx="9" />
+        <text class="pf-name" x="90" y={n.y - 3} text-anchor="middle">{n.name}</text>
+        <text class="pf-sub" x="90" y={n.y + 12} text-anchor="middle">{n.sub}</text>
+      </g>
+    ))}
+
+    <!-- Hub: the control plane -->
+    <g class="pf-hub">
+      <rect x={HUB.x} y={HUB.cy - 36} width={HUB.w} height="72" rx="12" />
+      <circle class="pf-hub-mark" cx={HUB.cx} cy={HUB.cy - 12} r="4" />
+      <text class="pf-hub-name" x={HUB.cx} y={HUB.cy + 6} text-anchor="middle">control plane</text>
+      <text class="pf-sub" x={HUB.cx} y={HUB.cy + 22} text-anchor="middle">session · harness</text>
+    </g>
+
+    <!-- Right column: sandbox providers -->
+    {RIGHT.map((n) => (
+      <g class="pf-node">
+        <rect x="595" y={n.y - NODE_H / 2} width={NODE_W} height={NODE_H} rx="9" />
+        <text class="pf-name" x="670" y={n.y - 3} text-anchor="middle">{n.name}</text>
+        <text class="pf-sub" x="670" y={n.y + 12} text-anchor="middle">{n.sub}</text>
+      </g>
+    ))}
+  </svg>
+  <figcaption>
+    <span>any LLM provider</span>
+    <span aria-hidden="true">→</span>
+    <span>OMA</span>
+    <span aria-hidden="true">→</span>
+    <span>any sandbox platform</span>
+  </figcaption>
+</figure>
+
+<style>
+  .pf {
+    margin: 0;
+    width: 100%;
+  }
+  .pf svg {
+    width: 100%;
+    height: auto;
+    display: block;
+    overflow: visible;
+  }
+
+  /* Edges */
+  .pf-rail {
+    fill: none;
+    stroke: color-mix(in srgb, var(--color-brand) 30%, var(--color-border));
+    stroke-width: 1.5;
+  }
+  .pf-flow {
+    fill: none;
+    stroke: var(--color-brand);
+    stroke-width: 1.5;
+    stroke-dasharray: 5 6;
+    opacity: 0.8;
+  }
+  .pf-packet {
+    fill: var(--color-brand);
+    offset-distance: 0%;
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-brand) 60%, transparent));
+  }
+  @keyframes pf-dash {
+    to {
+      stroke-dashoffset: -11;
+    }
+  }
+  @keyframes pf-move {
+    from {
+      offset-distance: 0%;
+    }
+    to {
+      offset-distance: 100%;
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .pf-flow {
+      animation: pf-dash 1s linear infinite;
+    }
+    .pf-packet {
+      animation: pf-move 1.9s linear infinite;
+    }
+  }
+
+  /* Nodes */
+  .pf-node rect {
+    fill: var(--color-card);
+    stroke: var(--color-border);
+    stroke-width: 1;
+    transition: stroke 150ms ease;
+  }
+  .pf-node:hover rect {
+    stroke: color-mix(in srgb, var(--color-brand) 45%, var(--color-border));
+  }
+  .pf-name {
+    fill: var(--color-fg);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .pf-sub {
+    fill: var(--color-fg-subtle);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+  }
+
+  /* Hub */
+  .pf-hub rect {
+    fill: color-mix(in srgb, var(--color-brand) 8%, var(--color-card));
+    stroke: color-mix(in srgb, var(--color-brand) 45%, transparent);
+    stroke-width: 1.5;
+  }
+  .pf-hub-mark {
+    fill: var(--color-brand);
+  }
+  .pf-hub-name {
+    fill: var(--color-brand);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    font-weight: 700;
+  }
+
+  .pf figcaption {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-fg-subtle);
+  }
+  .pf figcaption span:nth-child(3) {
+    color: var(--color-brand);
+    font-weight: 600;
+  }
+</style>

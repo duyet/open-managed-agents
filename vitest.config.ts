@@ -140,6 +140,7 @@ export default defineConfig({
       { find: "@duyet/oma-sandbox/adapters/boxrun", replacement: "./packages/sandbox/src/adapters/boxrun.ts" },
       { find: "@duyet/oma-sandbox/adapters/kubernetes", replacement: "./packages/sandbox/src/adapters/kubernetes.ts" },
       { find: "@duyet/oma-sandbox/adapters/k8s-bridge", replacement: "./packages/sandbox/src/adapters/k8s-bridge.ts" },
+      { find: "@duyet/oma-sandbox/adapters/browser-vm", replacement: "./packages/sandbox/src/adapters/browser-vm.ts" },
       { find: "@duyet/oma-sandbox/adapters/kubernetes-remote", replacement: "./packages/sandbox/src/adapters/kubernetes-remote.ts" },
       { find: "@duyet/oma-sandbox/adapters/docker-compose", replacement: "./packages/sandbox/src/adapters/docker-compose.ts" },
       { find: "@duyet/oma-sandbox/adapters/github-actions", replacement: "./packages/sandbox/src/adapters/github-actions.ts" },

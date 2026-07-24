@@ -4,6 +4,7 @@ import { softwareApplicationSchema } from "../lib/seo";
 import Logo from "../components/Logo.astro";
 import HowItFits from "../components/HowItFits.astro";
 import WiredFlows from "../components/WiredFlows.tsx";
+import ProviderFan from "../components/ProviderFan.astro";
 import Icon from "../components/Icon.astro";
 
 // SoftwareApplication is the homepage-only schema — anchors the
@@ -50,7 +51,7 @@ const explore = [
 
 <Base
   title="oma — Open Managed Agents: self-hosted agent platform for any LLM provider and any sandbox"
-  description="oma (Open Managed Agents) is an open-source, self-hostable agent platform — durable sessions, sandboxed execution, MCP tools — that runs on any LLM provider (Anthropic, OpenAI-compatible gateways, or your own model) and any sandbox platform (Cloudflare Containers, Kubernetes, E2B, Daytona, subprocess), on Cloudflare Workers or Docker."
+  description="oma (Open Managed Agents) is an open-source, self-hostable agent platform — durable sessions, sandboxed execution, MCP tools — that runs on any LLM provider (Anthropic, OpenAI-compatible gateways, or your own model) and any sandbox platform (Cloudflare Containers, Kubernetes, E2B, Daytona, subprocess, or a WASM VM in your browser tab), on Cloudflare Workers or Docker."
   canonical="/"
   keywords="open managed agents, oma agent platform, self host ai agent, any llm provider agent platform, byok ai agent, claude agent sdk, mcp server host, ai agent cloudflare workers, self host claude code, claude code skills, claude managed agents alternative, claude tag alternative, open source claude tag"
   schemas={schemas}
@@ -72,15 +73,13 @@ const explore = [
       <div>
         <!-- Full-width first: the Console's "How it fits together" diagram
              leads the hero — the product's mental model before the pitch. -->
-        <!-- Dithered-pattern frame around the fit diagram (reference: framed
-             dashboard screenshots) — full-strength in light, damped in dark. -->
+        <!-- Blueprint frame around the fit diagram: a dotted measurement grid
+             bounded by corner-bracket ticks (AnyRouter / Cloudflare "gateway"
+             schematic language) so the diagram reads as a technical plate. -->
         <!-- Breaks out wider than the text column on large screens. -->
-        <div class="mb-12 relative overflow-hidden rounded-2xl p-5 md:p-10 lg:-mx-20 xl:-mx-32">
-          <div
-            class="pointer-events-none absolute inset-0"
-            aria-hidden="true"
-            style="background: url('/hero-tint.jpg') center / cover no-repeat;"
-          ></div>
+        <div class="mb-12 relative rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] blueprint-grid blueprint-frame p-5 md:p-10 lg:-mx-20 xl:-mx-32">
+          <span class="bp-corner-bl" aria-hidden="true"></span>
+          <span class="bp-corner-br" aria-hidden="true"></span>
           <div class="relative">
             <HowItFits />
           </div>
@@ -135,6 +134,7 @@ const explore = [
   <!-- What it is — the four primitives that carry the whole model. -->
   <section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="what-is-oma">
     <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+      <span class="section-index">01</span>
       <Icon name="box" size={14} class="text-[var(--color-brand)]" /> Product
     </p>
     <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
@@ -149,7 +149,7 @@ const explore = [
         concepts.map((c) => (
           <article
             data-lift
-            class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 hover:border-[var(--color-border-strong)]"
+            class="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-6 shadow-sm hover:border-[var(--color-border-strong)]"
           >
             <div class="flex items-center justify-between gap-3 mb-3">
               <h3 class="font-display text-xl font-semibold tracking-tight">{c.name}</h3>
@@ -177,7 +177,8 @@ const explore = [
   <section class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal id="example">
     <div class="max-w-5xl mx-auto px-4 py-16 md:py-20">
       <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
-        <Icon name="workflow" size={14} class="text-[var(--color-brand)]" /> Example
+        <span class="section-index">02</span>
+      <Icon name="workflow" size={14} class="text-[var(--color-brand)]" /> Example
       </p>
       <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
         See it run
@@ -187,7 +188,104 @@ const explore = [
         demo of how to wire it — including the local bridge relay and K8s.
       </p>
       <div class="hero-visual hero-visual-band">
-        <WiredFlows client:load />
+        <!-- Same blueprint plate as the hero diagram: a dotted measurement
+             grid + corner-bracket ticks so both diagrams read as sibling
+             schematics on the same technical canvas. -->
+        <div class="relative w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] blueprint-grid blueprint-frame p-4 shadow-sm md:p-6">
+          <span class="bp-corner-bl" aria-hidden="true"></span>
+          <span class="bp-corner-br" aria-hidden="true"></span>
+          <div class="relative">
+            <WiredFlows client:load />
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Anatomy — the durable request path, drawn as a blueprint schematic in
+       the same node/animated-wire vocabulary as the diagrams above. Real OMA
+       architecture: session event log → harness loop → sandbox tools, with the
+       vault proxy sitting off the network layer. -->
+  <section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="architecture">
+    <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+      <span class="section-index">03</span>
+      <Icon name="layers" size={14} class="text-[var(--color-brand)]" /> Anatomy
+    </p>
+    <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
+      What one request touches
+    </h2>
+    <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed">
+      Every message runs the same durable path. The session's append-only event
+      log records it, the harness drives the model loop, tools execute in the
+      sandbox, and the outbound proxy injects vault credentials the sandbox
+      never sees.
+    </p>
+    <div class="relative w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] blueprint-grid blueprint-frame p-5 shadow-sm md:p-8">
+      <span class="bp-corner-bl" aria-hidden="true"></span>
+      <span class="bp-corner-br" aria-hidden="true"></span>
+      <div class="relative flex items-stretch gap-1 overflow-x-auto pb-2">
+        <div class="arch-node">
+          <span class="arch-node-glyph"><Icon name="workflow" size={20} /></span>
+          <span class="arch-node-name">Request</span>
+          <span class="arch-node-sub">user.message (SSE)</span>
+        </div>
+        <div class="bp-wire" aria-hidden="true"></div>
+        <div class="arch-node">
+          <span class="arch-node-glyph"><Icon name="layers" size={20} /></span>
+          <span class="arch-node-name">Session</span>
+          <span class="arch-node-sub">event log · DO-SQLite</span>
+        </div>
+        <div class="bp-wire" aria-hidden="true"></div>
+        <div class="arch-node">
+          <span class="arch-node-glyph"><Icon name="repeat" size={20} /></span>
+          <span class="arch-node-name">Harness</span>
+          <span class="arch-node-sub">model loop · tools</span>
+        </div>
+        <div class="bp-wire" aria-hidden="true"></div>
+        <div class="arch-node">
+          <span class="arch-node-glyph"><Icon name="box" size={20} /></span>
+          <span class="arch-node-name">Sandbox</span>
+          <span class="arch-node-sub">bash · read · write · MCP</span>
+        </div>
+        <div class="bp-wire" aria-hidden="true"></div>
+        <div class="arch-node">
+          <span class="arch-node-glyph"><Icon name="globe" size={20} /></span>
+          <span class="arch-node-name">Vault proxy</span>
+          <span class="arch-node-sub">injects creds · at network layer</span>
+        </div>
+      </div>
+      <!-- Return-path note: the event log is what makes a crash resumable. -->
+      <p class="relative mt-5 flex items-center justify-center gap-2 font-mono text-[0.62rem] uppercase tracking-widest text-[var(--color-fg-subtle)]">
+        <Icon name="repeat" size={12} class="text-[var(--color-brand)]" />
+        replayable event log → crash recovery &amp; resume
+      </p>
+    </div>
+  </section>
+
+  <!-- Reach — the core pitch as a fan schematic: any LLM provider in, any
+       sandbox out, one control plane in the middle. Same blueprint plate +
+       animated-edge vocabulary as the diagrams above. -->
+  <section class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal id="reach">
+    <div class="max-w-5xl mx-auto px-4 py-16 md:py-20">
+      <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+        <span class="section-index">04</span>
+        <Icon name="globe" size={14} class="text-[var(--color-brand)]" /> Reach
+      </p>
+      <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
+        Any model, any sandbox
+      </h2>
+      <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed">
+        The control plane is the constant. Point it at Anthropic, any
+        OpenAI-compatible gateway, or your own model; run tools on Cloudflare
+        Containers, Kubernetes, a micro-VM vendor, or your own machine — the
+        same session, tools, and event log regardless.
+      </p>
+      <div class="relative w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] blueprint-grid blueprint-frame p-5 shadow-sm md:p-8">
+        <span class="bp-corner-bl" aria-hidden="true"></span>
+        <span class="bp-corner-br" aria-hidden="true"></span>
+        <div class="relative">
+          <ProviderFan />
+        </div>
       </div>
     </div>
   </section>
@@ -195,6 +293,7 @@ const explore = [
   <!-- Explore — compact links into the deep-dive pages split off this page. -->
   <section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="explore">
     <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+      <span class="section-index">05</span>
       <Icon name="grid" size={14} class="text-[var(--color-brand)]" /> Explore
     </p>
     <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
@@ -209,7 +308,7 @@ const explore = [
           <a
             href={e.href}
             data-lift
-            class="block rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 no-underline hover:no-underline hover:border-[var(--color-border-strong)]"
+            class="block rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-6 shadow-sm no-underline hover:no-underline hover:border-[var(--color-border-strong)]"
           >
             <div class="flex items-center gap-2.5 mb-2">
               <Icon name={e.icon} size={18} class="text-[var(--color-brand)]" />

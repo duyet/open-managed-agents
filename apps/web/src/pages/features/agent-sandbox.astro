@@ -7,7 +7,7 @@ const faqItems = [
   {
     question: "Which sandbox providers work on the Cloudflare deployment?",
     answer:
-      "Cloudflare Containers work out of the box. BoxRun, k8s-remote, OpenShell, and subprocess (via the bridge relay) also work on Cloudflare — each talks to a remote control plane over plain fetch, since a Worker can't spawn processes or speak gRPC. Daytona and E2B are outbound-HTTP-only in principle but not yet wired into the Worker bundle. LiteBox, raw Kubernetes, and Docker Compose need Node builtins or a Docker socket, so they only run on the self-hosted Node runtime.",
+      "Cloudflare Containers work out of the box. BoxRun, k8s-remote, OpenShell, and subprocess (via the bridge relay) also work on Cloudflare — each talks to a remote control plane over plain fetch, since a Worker can't spawn processes or speak gRPC. Browser VM relays sandbox ops to a WASM Linux VM running in your own browser tab — zero server compute, opened with one click from the Console. Daytona and E2B are outbound-HTTP-only in principle but not yet wired into the Worker bundle. LiteBox, raw Kubernetes, and Docker Compose need Node builtins or a Docker socket, so they only run on the self-hosted Node runtime.",
   },
   {
     question: "Do credentials ever reach the sandbox?",

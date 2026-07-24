@@ -90,6 +90,14 @@ const BOX: Mark = {
   path: "M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z",
 };
 
+// Browser-vm — an app-window glyph (lucide.dev, ISC): the sandbox host is a
+// tab in the user's own browser, so it reads as "a window" next to the
+// terminal/server/chip hosts.
+const BROWSER: Mark = {
+  mode: "stroke",
+  path: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2ZM2 9h20M6 6.5h.01M9 6.5h.01",
+};
+
 const MARKS: Record<string, Mark> = {
   cloud: CLOUDFLARE,
   cloudflare: CLOUDFLARE,
@@ -114,6 +122,7 @@ const MARKS: Record<string, Mark> = {
   boxrun: SERVER,
   "remote-agent": MACHINE,
   daytona: DAYTONA,
+  "browser-vm": BROWSER,
 };
 
 /** Official brand colors (simple-icons values), used when `colored` is set.
