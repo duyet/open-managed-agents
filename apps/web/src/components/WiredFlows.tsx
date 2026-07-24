@@ -307,23 +307,38 @@ function Node({ node }: { node: DiagramNode }) {
 }
 
 function Arrow() {
+  // Blueprint-style connector: a static rail + arrowhead, an animated dashed
+  // edge that streams toward the arrowhead, and a packet dot that travels the
+  // length — the AnyRouter / Cloudflare "gateway" flow motion. Reduced-motion
+  // users get the static rail only (see the keyframes gate in the style block).
   return (
     <svg
       className="wf-arrow"
-      width="26"
+      width="30"
       height="10"
-      viewBox="0 0 26 10"
+      viewBox="0 0 30 10"
       aria-hidden="true"
-      style={{ flex: "none", color: "var(--color-border-strong)", alignSelf: "center" }}
+      style={{ flex: "none", alignSelf: "center", overflow: "visible" }}
     >
       <path
-        d="M0 5h21M18 1.5 22.5 5 18 8.5"
+        d="M0 5h25M22 1.5 26.5 5 22 8.5"
         fill="none"
-        stroke="currentColor"
+        stroke="var(--color-border-strong)"
         strokeWidth="1.25"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      <line
+        className="wf-edge"
+        x1="0"
+        y1="5"
+        x2="25"
+        y2="5"
+        stroke="var(--color-brand)"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+      <circle className="wf-packet" cx="0" cy="5" r="2" fill="var(--color-brand)" />
     </svg>
   );
 }
@@ -350,6 +365,19 @@ export default function WiredFlows() {
         @media (max-width: 639px) {
           .wf-flow { flex-direction: column; }
           .wf-arrow { transform: rotate(90deg); margin: 0.1rem 0; }
+        }
+        .wf-edge { stroke-dasharray: 5 4; opacity: 0.85; }
+        .wf-packet { opacity: 0; }
+        @media (prefers-reduced-motion: no-preference) {
+          .wf-edge { animation: wf-dash 1.1s linear infinite; }
+          .wf-packet { animation: wf-packet 1.7s linear infinite; }
+        }
+        @keyframes wf-dash { to { stroke-dashoffset: -9; } }
+        @keyframes wf-packet {
+          0% { transform: translateX(0); opacity: 0; }
+          15% { opacity: 1; }
+          85% { opacity: 1; }
+          100% { transform: translateX(25px); opacity: 0; }
         }
       `}</style>
       <p
