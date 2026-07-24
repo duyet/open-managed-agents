@@ -9,3 +9,22 @@ data:
   SANDBOX_IMAGE: {{ .Values.config.sandboxImage | quote }}
   RUNTIME_CLASS: {{ .Values.config.runtimeClass | quote }}
   SANDBOX_SERVICE_ACCOUNT: {{ .Values.config.serviceAccount | quote }}
+  BRIDGE_BACKEND: {{ .Values.config.backend | quote }}
+  {{- if .Values.config.openshell.endpoint }}
+  OPENSHELL_GATEWAY_ENDPOINT: {{ .Values.config.openshell.endpoint | quote }}
+  {{- end }}
+  {{- if .Values.config.openshell.image }}
+  OPENSHELL_IMAGE: {{ .Values.config.openshell.image | quote }}
+  {{- end }}
+  {{- if .Values.config.openshell.tls.enabled }}
+  OPENSHELL_GATEWAY_TLS: "1"
+  {{- with .Values.config.openshell.tls.caPath }}
+  OPENSHELL_GATEWAY_CA_PATH: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.config.openshell.tls.certPath }}
+  OPENSHELL_GATEWAY_CERT_PATH: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.config.openshell.tls.keyPath }}
+  OPENSHELL_GATEWAY_KEY_PATH: {{ . | quote }}
+  {{- end }}
+  {{- end }}

@@ -20,6 +20,10 @@ secret:
   # Key inside `existingSecret` (or the chart-managed Secret) holding the
   # token value.
   tokenKey: K8S_BRIDGE_TOKEN
+  # Optional bearer token for the OpenShell gateway (OPENSHELL_TOKEN),
+  # injected only for the openshell backend. Prefer `existingSecret` in
+  # production; leave empty when the gateway needs no token.
+  openshellToken: ""
 
 config:
   namespace: sandboxes
@@ -28,6 +32,26 @@ config:
   sandboxImage: ghcr.io/duyet/oma-runtime-base:latest
   runtimeClass: ""
   serviceAccount: ""
+
+  # Sandbox substrate the bridge fronts (apps/k8s-bridge/src/backend.ts):
+  #   "" / "k8s"  → Kubernetes pods (K8sManager) — the default.
+  #   "openshell" → NVIDIA OpenShell sandboxes over gRPC (OpenShellManager);
+  #                 the bridge owns no cluster, so RBAC below is unused.
+  # Leave empty to auto-detect: an openshell.endpoint selects OpenShell.
+  backend: ""
+  openshell:
+    # gRPC endpoint of the OpenShell gateway (`host:port`). Required when
+    # backend is "openshell". Sets OPENSHELL_GATEWAY_ENDPOINT.
+    endpoint: ""
+    # Sandbox container image (OPENSHELL_IMAGE); empty = gateway default.
+    image: ""
+    # TLS to the gateway. When enabled, mount the CA/cert/key and point the
+    # paths below at them (OPENSHELL_GATEWAY_TLS + *_PATH vars).
+    tls:
+      enabled: false
+      caPath: ""
+      certPath: ""
+      keyPath: ""
 
 service:
   type: ClusterIP

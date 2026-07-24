@@ -1,0 +1,112 @@
+# oma bridge daemon — in-cluster Deployment.
+#
+# Runs `oma bridge daemon` as a long-lived reverse-WebSocket agent that
+# connects OUT to the OMA control plane and executes relayed cloud-agent
+# sandbox ops. Two backends (see deploy/cli-bridge-daemon/README.md):
+#
+#   * local  (default)   — subprocess + host filesystem, inside this pod.
+#   * openshell          — relay each op to an OpenShell gateway over gRPC
+#                          (set OMA_BRIDGE_BACKEND=openshell + OMA_OPENSHELL_URL).
+#
+# The daemon makes only OUTBOUND connections (WS to the control plane, gRPC to
+# the OpenShell gateway) and never touches the Kubernetes API — so, unlike the
+# k8s-bridge, it needs NO ServiceAccount/RBAC grants.
+#
+# Credentials come from `oma bridge setup` (run once on any machine, or via the
+# runtime-exchange API) — copy the resulting ~/.oma/bridge/credentials.json into
+# the `oma-bridge-daemon-creds` Secret below.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oma-bridge-daemon
+  labels:
+    app: oma-bridge-daemon
+spec:
+  # Each replica is a distinct machine to the control plane. Keep at 1 unless
+  # you intend multiple independent runtimes (they'd share credentials here).
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oma-bridge-daemon
+  template:
+    metadata:
+      labels:
+        app: oma-bridge-daemon
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: daemon
+          # Default (local relay): the published CLI on a plain Node image.
+          # For the OpenShell backend, build an image that also has
+          # @duyet/oma-sandbox present (see README.md → "OpenShell image").
+          image: node:22-slim
+          command: ["npx", "-y", "@getoma/cli", "bridge", "daemon"]
+          env:
+            # homedir() → $HOME; the creds Secret is mounted under it below.
+            - name: HOME
+              value: /home/oma
+            # Backend selection (apps/cli sandbox-backend.ts). Empty/absent =
+            # local relay. Set to "openshell" + OMA_OPENSHELL_URL to relay to a
+            # gateway instead. Sourced from the ConfigMap so it's easy to flip.
+            - name: OMA_BRIDGE_BACKEND
+              valueFrom:
+                configMapKeyRef:
+                  name: oma-bridge-daemon-config
+                  key: OMA_BRIDGE_BACKEND
+                  optional: true
+            - name: OMA_OPENSHELL_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: oma-bridge-daemon-config
+                  key: OMA_OPENSHELL_URL
+                  optional: true
+            - name: OMA_OPENSHELL_IMAGE
+              valueFrom:
+                configMapKeyRef:
+                  name: oma-bridge-daemon-config
+                  key: OMA_OPENSHELL_IMAGE
+                  optional: true
+            - name: OMA_OPENSHELL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: oma-bridge-daemon-creds
+                  key: OMA_OPENSHELL_TOKEN
+                  optional: true
+          volumeMounts:
+            - name: creds
+              mountPath: /home/oma/.oma/bridge
+              readOnly: true
+            # npx needs a writable home for its cache; keep the rest read-only.
+            - name: npm-cache
+              mountPath: /home/oma/.npm
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+      volumes:
+        - name: creds
+          secret:
+            secretName: oma-bridge-daemon-creds
+            # credentials.json must be mode-0600-readable by uid 1000.
+            defaultMode: 0400
+            items:
+              - key: credentials.json
+                path: credentials.json
+        - name: npm-cache
+          emptyDir: {}
