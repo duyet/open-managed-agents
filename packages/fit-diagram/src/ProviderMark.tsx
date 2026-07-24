@@ -76,6 +76,12 @@ const MACHINE: Mark = {
   path: "M3 5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1ZM8 21h8M12 17v4",
 };
 const TERMINAL: Mark = { mode: "stroke", path: "m4 17 6-6-6-6M12 19h8" };
+// Remote micro-VM control planes (BoxRun) — a rack/server glyph (lucide.dev,
+// ISC), so they read as "off-host" next to LiteBox's local chip.
+const SERVER: Mark = {
+  mode: "stroke",
+  path: "M4 4h16a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1ZM4 15h16a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1ZM6 6.5h.01M6 17.5h.01",
+};
 // Daytona — no Simple Icons entry; the wordmark's rounded-square glyph
 // (lucide.dev, ISC), matching the landing page's fleet band.
 const DAYTONA: Mark = { mode: "stroke", path: "M17.5 19a4.5 4.5 0 1 0-.42-8.98A6 6 0 1 0 6 19h11.5" };
@@ -87,13 +93,16 @@ const BOX: Mark = {
 const MARKS: Record<string, Mark> = {
   cloud: CLOUDFLARE,
   cloudflare: CLOUDFLARE,
+  "dynamic-workers": CLOUDFLARE,
   "docker-compose": DOCKER,
+  docker: DOCKER,
   k8s: KUBERNETES,
   "k8s-bridge": KUBERNETES,
   "k8s-remote": KUBERNETES,
   kubernetes: KUBERNETES,
   e2b: E2B,
   subprocess: TERMINAL,
+  local: TERMINAL,
   openshell: NVIDIA,
   github: GITHUB,
   "github-actions": GITHUB,
@@ -102,7 +111,7 @@ const MARKS: Record<string, Mark> = {
   linear: LINEAR,
   firecrawl: FIRECRAWL,
   litebox: CHIP,
-  boxrun: CHIP,
+  boxrun: SERVER,
   "remote-agent": MACHINE,
   daytona: DAYTONA,
 };

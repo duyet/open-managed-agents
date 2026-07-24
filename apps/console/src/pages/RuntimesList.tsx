@@ -186,7 +186,22 @@ function OsMark({ os, className }: { os: string; className?: string }) {
       </svg>
     );
   }
-  return null;
+  // Unknown platform still gets a mark — a monitor glyph (lucide.dev, ISC) —
+  // so the machine card's icon slot never collapses and the grid stays aligned.
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1ZM8 21h8M12 17v4" />
+    </svg>
+  );
 }
 
 // Shared "how do I actually use this runtime" block for the detail dialogs.
@@ -271,7 +286,18 @@ function ProviderCard({ p, onSetup, onRemove, onOpenDetail }: { p: HostingType; 
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-start gap-2.5">
-            <ProviderMark id={p.id} colored className="mt-0.5 size-5 shrink-0 text-fg-subtle" />
+            {/* Brand color reads as "this is live". Anything not healthy —
+                unhealthy, not configured, no health reported — drops to the
+                monochrome glyph so the grid can be scanned for working
+                runtimes without reading a single word. */}
+            <ProviderMark
+              id={p.id}
+              colored={status === "healthy"}
+              className={cn(
+                "mt-0.5 size-5 shrink-0",
+                status === "healthy" ? "text-fg" : "text-fg-subtle opacity-60",
+              )}
+            />
             <div className="min-w-0">
               <CardTitle className="truncate">{p.label}</CardTitle>
               <div className="text-xs text-fg-subtle font-mono mt-0.5 truncate" title={p.id}>{p.id}</div>
@@ -419,9 +445,22 @@ function MachineCard({ r, onRevoke, onOpenDetail, copied, onCopy }: { r: Runtime
         {/* min-w-0 on this flex row + the left column lets the UUID id truncate
             instead of forcing the card wider. */}
         <div className="flex items-start justify-between gap-2 min-w-0">
-          <div className="min-w-0">
+          {/* Machines get an icon slot too, so they line up with the provider
+              cards in the same grid instead of starting flush left. The OS
+              mark is the identifying logo here (a Mac is a Mac); it goes
+              full-color-ish when online and dims when the daemon is gone. */}
+          <div className="flex min-w-0 items-start gap-2.5">
+            <OsMark
+              os={r.os}
+              className={cn(
+                "mt-0.5 size-5 shrink-0",
+                online ? "text-fg" : "text-fg-subtle opacity-60",
+              )}
+            />
+            <div className="min-w-0">
             <CardTitle className="truncate">{r.hostname}</CardTitle>
             <div className="text-xs text-fg-subtle font-mono mt-0.5 truncate" title={r.id}>{r.id}</div>
+            </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <span

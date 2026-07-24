@@ -19,6 +19,7 @@ import {
   SidebarHeader,
   SidebarMenu,
   SidebarMenuAction,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
@@ -48,12 +49,48 @@ import {
   VaultIcon,
 } from "./icons";
 import { consolePlugins } from "../plugins/registry";
+import { useApiQuery } from "../lib/useApiQuery";
+import { cn } from "@/lib/utils";
+
+/* ── Sidebar counters ──
+ * Two cheap reads back every badge: `/v1/stats` (one covering-index
+ * COUNT(*) per resource — never a "fetch every row and take .length")
+ * and `/v1/runtimes`, which is the only thing carrying liveness rather
+ * than a count. Both are ordinary `useApiQuery` calls, so the pages that
+ * already read them (Dashboard, RuntimesList) share the same cache entry
+ * instead of issuing a second fetch. */
+interface SidebarStats {
+  agents: number;
+  sessions: number;
+  environments: number;
+  vaults: number;
+  skills: number;
+  model_cards: number;
+  api_keys: number;
+}
+
+interface SidebarRuntime {
+  status: "online" | "offline";
+}
+
+/** Which counter feeds an item's badge. Keys are stable ids rather than
+ *  the route path so a route rename doesn't silently drop a badge. */
+type BadgeKey =
+  | "agents"
+  | "sessions"
+  | "environments"
+  | "vaults"
+  | "skills"
+  | "model_cards"
+  | "api_keys"
+  | "runtimes";
 
 interface NavItem {
   to: string;
   label: string;
   icon: ComponentType<{ className?: string }>;
   end?: boolean;
+  badge?: BadgeKey;
   /** Sub-destinations nested under this item, revealed via a chevron toggle
    *  next to the (still directly clickable) parent link. */
   children?: NavItem[];
@@ -82,8 +119,9 @@ const navGroups: NavGroup[] = [
         to: "/agents",
         label: "Agents",
         icon: AgentIcon,
+        badge: "agents",
       },
-      { to: "/sessions", label: "Sessions", icon: SessionsIcon },
+      { to: "/sessions", label: "Sessions", icon: SessionsIcon, badge: "sessions" },
       { to: "/kanban", label: "Kanban Board", icon: SquareKanbanIcon },
       { to: "/usage", label: "Usage", icon: ChartColumnIcon },
     ],
@@ -91,12 +129,12 @@ const navGroups: NavGroup[] = [
   {
     label: "Resources",
     items: [
-      { to: "/environments", label: "Environments", icon: EnvIcon },
-      { to: "/vaults", label: "Credential Vaults", icon: VaultIcon },
+      { to: "/environments", label: "Environments", icon: EnvIcon, badge: "environments" },
+      { to: "/vaults", label: "Credential Vaults", icon: VaultIcon, badge: "vaults" },
       { to: "/memory", label: "Memory Stores", icon: MemoryIcon },
-      { to: "/skills", label: "Skills", icon: SkillsIcon },
+      { to: "/skills", label: "Skills", icon: SkillsIcon, badge: "skills" },
       { to: "/files", label: "Files", icon: FilesIcon },
-      { to: "/model-cards", label: "Model Cards", icon: ModelCardsIcon },
+      { to: "/model-cards", label: "Model Cards", icon: ModelCardsIcon, badge: "model_cards" },
     ],
   },
   {
@@ -112,8 +150,8 @@ const navGroups: NavGroup[] = [
     items: [
       { to: "/members", label: "Members", icon: UsersIcon },
       { to: "/evals", label: "Eval Runs", icon: CircleCheckBigIcon },
-      { to: "/api-keys", label: "API Keys", icon: ApiKeysIcon },
-      { to: "/runtimes", label: "Sandbox Runtime", icon: RuntimesIcon },
+      { to: "/api-keys", label: "API Keys", icon: ApiKeysIcon, badge: "api_keys" },
+      { to: "/runtimes", label: "Sandbox Runtime", icon: RuntimesIcon, badge: "runtimes" },
     ],
   },
 ];
@@ -121,6 +159,46 @@ const navGroups: NavGroup[] = [
 export function AppSidebar() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+
+  // Counts are decoration, never a gate: a failed/absent fetch just leaves
+  // the badges off rather than erroring or toasting in the chrome. Runtimes
+  // poll a little faster because their badge carries liveness, not a count
+  // that only moves when the user creates something.
+  const { data: stats } = useApiQuery<SidebarStats>("/v1/stats", undefined, {
+    staleTime: 60_000,
+  });
+  const { data: runtimesRes } = useApiQuery<{ runtimes: SidebarRuntime[] }>(
+    "/v1/runtimes",
+    undefined,
+    { staleTime: 30_000, refetchInterval: 60_000 },
+  );
+
+  const runtimes = runtimesRes?.runtimes;
+  const runtimesOnline = runtimes?.filter((r) => r.status === "online").length;
+
+  // Renders the badge for an item, or null when the counter hasn't loaded
+  // (or is zero — a "0" badge is visual noise, the empty page says it
+  // better). Runtimes is the one status badge: a dot that goes green only
+  // when at least one machine is actually attached.
+  const renderBadge = (key: BadgeKey) => {
+    if (key === "runtimes") {
+      if (runtimes === undefined || runtimes.length === 0) return null;
+      return (
+        <SidebarMenuBadge className="gap-1 text-fg-subtle">
+          <span
+            className={cn(
+              "size-1.5 rounded-full",
+              runtimesOnline ? "bg-success" : "bg-fg-subtle",
+            )}
+          />
+          {runtimesOnline}/{runtimes.length}
+        </SidebarMenuBadge>
+      );
+    }
+    const count = stats?.[key];
+    if (!count) return null;
+    return <SidebarMenuBadge className="text-fg-subtle">{count}</SidebarMenuBadge>;
+  };
 
   const matchesPrefix = (base: string) =>
     pathname === base || pathname.startsWith(`${base}/`);
@@ -185,7 +263,15 @@ export function AppSidebar() {
     );
 
     if (!hasChildren) {
-      return <SidebarMenuItem key={item.to}>{button}</SidebarMenuItem>;
+      // The badge is absolutely positioned in the item's right slot — the
+      // same slot the chevron would take — so items with children skip it
+      // rather than stacking two things on top of each other.
+      return (
+        <SidebarMenuItem key={item.to}>
+          {button}
+          {item.badge ? renderBadge(item.badge) : null}
+        </SidebarMenuItem>
+      );
     }
 
     const isOpen = openItems[item.to] ?? false;
