@@ -9,3 +9,25 @@ data:
   SANDBOX_IMAGE: {{ .Values.config.sandboxImage | quote }}
   RUNTIME_CLASS: {{ .Values.config.runtimeClass | quote }}
   SANDBOX_SERVICE_ACCOUNT: {{ .Values.config.serviceAccount | quote }}
+  BRIDGE_BACKEND: {{ .Values.config.backend | quote }}
+  {{- /*
+  OPENSHELL_* vars are only emitted when the openshell backend is actually
+  selected (or possible under "auto") AND an endpoint is configured —
+  BridgeBackend's own resolveBridgeBackendKind treats a present-but-empty
+  OPENSHELL_GATEWAY_ENDPOINT as "configured" for auto-detect purposes, so
+  never render the key with an empty value.
+  */ -}}
+  {{- if and (or (eq .Values.config.backend "openshell") (eq .Values.config.backend "auto")) .Values.openshell.endpoint }}
+  OPENSHELL_GATEWAY_ENDPOINT: {{ .Values.openshell.endpoint | quote }}
+  {{- if .Values.openshell.image }}
+  OPENSHELL_IMAGE: {{ .Values.openshell.image | quote }}
+  {{- end }}
+  {{- if .Values.openshell.tls.enabled }}
+  OPENSHELL_GATEWAY_TLS: "1"
+  OPENSHELL_GATEWAY_CA_PATH: /etc/openshell/tls/{{ .Values.openshell.tls.caKey }}
+  {{- if .Values.openshell.tls.certSecret }}
+  OPENSHELL_GATEWAY_CERT_PATH: /etc/openshell/tls-client/{{ .Values.openshell.tls.certKey }}
+  OPENSHELL_GATEWAY_KEY_PATH: /etc/openshell/tls-client/{{ .Values.openshell.tls.keyKey }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
