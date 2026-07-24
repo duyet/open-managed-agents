@@ -81,7 +81,7 @@ spec:
       matching comment in configmap.yaml. Both volumes are always mounted
       when tls.enabled so that fallback isn't silently dropped.
       */ -}}
-      {{- $certSecret := .Values.openshell.tls.certSecret | default .Values.openshell.tls.caSecret -}}
+      {{- $certSecret := .Values.openshell.tls.certSecret | default .Values.openshell.tls.caSecret }}
       volumes:
         - name: openshell-tls-ca
           secret:

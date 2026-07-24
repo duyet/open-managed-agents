@@ -24,16 +24,16 @@ data:
   {{- if .Values.openshell.image }}
   OPENSHELL_IMAGE: {{ .Values.openshell.image | quote }}
   {{- end }}
-  {{- if .Values.openshell.tls.enabled }}
-  OPENSHELL_GATEWAY_TLS: "1"
-  OPENSHELL_GATEWAY_CA_PATH: /etc/openshell/tls/{{ .Values.openshell.tls.caKey }}
   {{- /*
   certSecret defaults to caSecret (see values.yaml) so a single Secret can
   carry ca.crt + tls.crt + tls.key for mTLS. The client cert/key paths are
   therefore always emitted alongside the CA path when tls.enabled — gating
   them on certSecret being explicitly set would silently drop mTLS for
   anyone following the documented single-Secret setup.
-  */ -}}
+  */}}
+  {{- if .Values.openshell.tls.enabled }}
+  OPENSHELL_GATEWAY_TLS: "1"
+  OPENSHELL_GATEWAY_CA_PATH: /etc/openshell/tls/{{ .Values.openshell.tls.caKey }}
   OPENSHELL_GATEWAY_CERT_PATH: /etc/openshell/tls-client/{{ .Values.openshell.tls.certKey }}
   OPENSHELL_GATEWAY_KEY_PATH: /etc/openshell/tls-client/{{ .Values.openshell.tls.keyKey }}
   {{- end }}
