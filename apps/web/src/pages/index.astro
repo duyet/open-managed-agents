@@ -79,9 +79,7 @@ const explore = [
              grid behind the lead diagram; the measurement grid is reserved for
              the schematic sections lower on the page. -->
         <!-- Breaks out wider than the text column on large screens. -->
-        <div class="mb-12 relative rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] blueprint-frame p-5 md:p-10 lg:-mx-20 xl:-mx-32">
-          <span class="bp-corner-bl" aria-hidden="true"></span>
-          <span class="bp-corner-br" aria-hidden="true"></span>
+        <div class="mb-12 relative p-5 md:p-10 lg:-mx-20 xl:-mx-32">
           <div class="relative">
             <HowItFits />
           </div>
@@ -193,9 +191,7 @@ const explore = [
         <!-- Same blueprint plate as the hero diagram: a dotted measurement
              grid + corner-bracket ticks so both diagrams read as sibling
              schematics on the same technical canvas. -->
-        <div class="relative w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] blueprint-grid blueprint-frame p-4 shadow-sm md:p-6">
-          <span class="bp-corner-bl" aria-hidden="true"></span>
-          <span class="bp-corner-br" aria-hidden="true"></span>
+        <div class="relative w-full p-4 md:p-6">
           <div class="relative">
             <WiredFlows client:load />
           </div>
@@ -222,9 +218,7 @@ const explore = [
       sandbox, and the outbound proxy injects vault credentials the sandbox
       never sees.
     </p>
-    <div class="relative w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] blueprint-grid blueprint-frame p-5 shadow-sm md:p-8">
-      <span class="bp-corner-bl" aria-hidden="true"></span>
-      <span class="bp-corner-br" aria-hidden="true"></span>
+    <div class="relative w-full p-5 md:p-8">
       <div class="relative flex items-stretch gap-1 overflow-x-auto pb-2">
         <div class="arch-node">
           <span class="arch-node-glyph"><Icon name="workflow" size={20} /></span>
@@ -287,9 +281,7 @@ const explore = [
         (mounted stores) — so the session survives regardless of which model or
         sandbox you swap in.
       </p>
-      <div class="relative w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] blueprint-grid blueprint-frame p-5 shadow-sm md:p-8">
-        <span class="bp-corner-bl" aria-hidden="true"></span>
-        <span class="bp-corner-br" aria-hidden="true"></span>
+      <div class="relative w-full p-5 md:p-8">
         <div class="relative">
           <ProviderFan />
         </div>
