@@ -12,10 +12,12 @@ data:
   BRIDGE_BACKEND: {{ .Values.config.backend | quote }}
   {{- /*
   OPENSHELL_* vars are only emitted when the openshell backend is actually
-  selected (or possible under "auto") AND an endpoint is configured —
-  BridgeBackend's own resolveBridgeBackendKind treats a present-but-empty
-  OPENSHELL_GATEWAY_ENDPOINT as "configured" for auto-detect purposes, so
-  never render the key with an empty value.
+  selected (or possible under "auto") AND an endpoint is configured. Note
+  that resolveBridgeBackendKind's own check (apps/k8s-bridge/src/backend.ts)
+  is a plain `if (env.OPENSHELL_GATEWAY_ENDPOINT)`, and an empty string is
+  falsy — so an empty key wouldn't actually trip the bridge's auto-detect.
+  The chart still omits it: an env var that renders but does nothing is a
+  confusing, load-bearing-looking no-op in `kubectl get cm -o yaml`.
   */ -}}
   {{- if and (or (eq .Values.config.backend "openshell") (eq .Values.config.backend "auto")) .Values.openshell.endpoint }}
   OPENSHELL_GATEWAY_ENDPOINT: {{ .Values.openshell.endpoint | quote }}
@@ -25,9 +27,14 @@ data:
   {{- if .Values.openshell.tls.enabled }}
   OPENSHELL_GATEWAY_TLS: "1"
   OPENSHELL_GATEWAY_CA_PATH: /etc/openshell/tls/{{ .Values.openshell.tls.caKey }}
-  {{- if .Values.openshell.tls.certSecret }}
+  {{- /*
+  certSecret defaults to caSecret (see values.yaml) so a single Secret can
+  carry ca.crt + tls.crt + tls.key for mTLS. The client cert/key paths are
+  therefore always emitted alongside the CA path when tls.enabled — gating
+  them on certSecret being explicitly set would silently drop mTLS for
+  anyone following the documented single-Secret setup.
+  */ -}}
   OPENSHELL_GATEWAY_CERT_PATH: /etc/openshell/tls-client/{{ .Values.openshell.tls.certKey }}
   OPENSHELL_GATEWAY_KEY_PATH: /etc/openshell/tls-client/{{ .Values.openshell.tls.keyKey }}
-  {{- end }}
   {{- end }}
   {{- end }}
