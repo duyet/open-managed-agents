@@ -2594,7 +2594,10 @@ async function main() {
       }
       case "daemon": {
         const { runDaemon } = await import("./bridge/commands/daemon.js");
-        await runDaemon();
+        await runDaemon({
+          backend: flag(args, "--backend"),
+          openshellUrl: flag(args, "--openshell-url"),
+        });
         return;
       }
       case "start":
@@ -2649,7 +2652,8 @@ async function main() {
           "  oma bridge profiles list             List all installed daemon profiles on this machine\n" +
           "  oma bridge agents refresh [--yes]    Re-scan + offer-install wrappers + reload\n" +
           "  oma bridge uninstall                 Stop service + remove creds\n" +
-          "  oma bridge daemon                    (internal — launched by service mgr / for debug)\n" +
+          "  oma bridge daemon [--backend local|openshell] [--openshell-url host:port]\n" +
+          "                                       (internal — launched by service mgr / for debug)\n" +
           "\n" +
           "  Use --profile <name> (or OMA_PROFILE=<name>) to run multiple\n" +
           "  daemons side-by-side (e.g. prod in launchd + staging foreground).\n",
