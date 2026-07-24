@@ -4,6 +4,7 @@ import { softwareApplicationSchema } from "../lib/seo";
 import Logo from "../components/Logo.astro";
 import HowItFits from "../components/HowItFits.astro";
 import WiredFlows from "../components/WiredFlows.tsx";
+import ProviderFan from "../components/ProviderFan.astro";
 import Icon from "../components/Icon.astro";
 
 // SoftwareApplication is the homepage-only schema — anchors the
@@ -261,10 +262,38 @@ const explore = [
     </div>
   </section>
 
+  <!-- Reach — the core pitch as a fan schematic: any LLM provider in, any
+       sandbox out, one control plane in the middle. Same blueprint plate +
+       animated-edge vocabulary as the diagrams above. -->
+  <section class="border-y border-[var(--color-border)] bg-[var(--color-bg-surface)]" data-reveal id="reach">
+    <div class="max-w-5xl mx-auto px-4 py-16 md:py-20">
+      <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+        <span class="section-index">04</span>
+        <Icon name="globe" size={14} class="text-[var(--color-brand)]" /> Reach
+      </p>
+      <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
+        Any model, any sandbox
+      </h2>
+      <p class="text-center text-[var(--color-fg-muted)] max-w-2xl mx-auto mb-12 leading-relaxed">
+        The control plane is the constant. Point it at Anthropic, any
+        OpenAI-compatible gateway, or your own model; run tools on Cloudflare
+        Containers, Kubernetes, a micro-VM vendor, or your own machine — the
+        same session, tools, and event log regardless.
+      </p>
+      <div class="relative w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] blueprint-grid blueprint-frame p-5 shadow-sm md:p-8">
+        <span class="bp-corner-bl" aria-hidden="true"></span>
+        <span class="bp-corner-br" aria-hidden="true"></span>
+        <div class="relative">
+          <ProviderFan />
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Explore — compact links into the deep-dive pages split off this page. -->
   <section class="max-w-5xl mx-auto px-4 py-16 md:py-20" data-reveal id="explore">
     <p class="flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
-      <span class="section-index">04</span>
+      <span class="section-index">05</span>
       <Icon name="grid" size={14} class="text-[var(--color-brand)]" /> Explore
     </p>
     <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-center tracking-tight">
